@@ -37,10 +37,11 @@ jobs:
           python scripts/06_probability_and_edge.py
           python scripts/07_select_bets.py
 
-      - name: Commit and push updated data and outputs
+      - name: Commit and push updated data, predictions, and outputs
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add output/*.csv data/**/*.parquet || true
-          git commit -m "Update NFL props outputs" || echo "No changes"
+          git add output/*.csv data/**/*.parquet data/**/*.csv || true
+          git add data/ || true
+          git commit -m "Update NFL props data, predictions, and outputs" || echo "No changes"
           git push
