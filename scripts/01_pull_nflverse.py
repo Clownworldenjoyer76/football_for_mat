@@ -14,7 +14,7 @@ def main(year_start: int, year_end: int):
 
     weekly = nfl.import_weekly_data(years)
     pbp    = nfl.import_pbp_data(years)
-    rost   = nfl.import_rosters(years)
+    rost   = nfl.import_seasonal_rosters(years)   # <- FIXED
     sched  = nfl.import_schedules(years)
 
     weekly.to_parquet(DATA_RAW / "weekly.parquet", index=False)
