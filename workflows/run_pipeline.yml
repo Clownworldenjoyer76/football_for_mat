@@ -1,0 +1,46 @@
+name: Run NFL Props Pipeline
+
+on:
+  workflow_dispatch:  # Trigger manually from GitHub web UI
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/New_York
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run NFL Props Pipeline
+        run: |
+          python scripts/01_pull_nflverse.py --start 2019 --end 2024
+          python scripts/02_build_features.py
+          python scripts/03_train_models.py
+          python scripts/04_predict.py
+          python scripts/05_pull_odds_merge.py
+          python scripts/06_probability_and_edge.py
+          python scripts/07_select_bets.py
+
+      - name: Commit and push updated data and outputs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add output/*.csv data/**/*.parquet || true
+          git commit -m "Update NFL props outputs" || echo "No changes"
+          git push
