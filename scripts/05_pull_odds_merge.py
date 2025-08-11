@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+import sys, pathlib
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
 import pandas as pd
 from utils.paths import DATA_ODDS, DATA_PRED, ensure_dirs
 
