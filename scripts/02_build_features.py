@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""
-Build features (pass-through): concatenate chunked weekly files and keep original column names.
-- Reads data/raw/weekly_*.parquet (preferred), falling back to .csv or .csv.gz
-- Writes data/features/weekly_all.parquet (snappy) and weekly_all.csv.gz
-- No renaming of columns
-"""
 import glob
 import os
 from pathlib import Path
@@ -23,15 +17,10 @@ def load_many(patterns):
     dfs = []
     for fp in files:
         ext = os.path.splitext(fp)[1].lower()
-        try:
-            if ext == '.parquet':
-                dfs.append(pd.read_parquet(fp))
-            elif ext == '.gz' or ext == '.csv':
-                dfs.append(pd.read_csv(fp))
-            else:
-                continue
-        except Exception as e:
-            raise RuntimeError(f'Failed to read {fp}: {e}')
+        if ext == '.parquet':
+            dfs.append(pd.read_parquet(fp))
+        elif ext in ['.gz', '.csv']:
+            dfs.append(pd.read_csv(fp))
     return pd.concat(dfs, ignore_index=True, copy=False)
 
 def downcast(df: pd.DataFrame) -> pd.DataFrame:
@@ -47,7 +36,10 @@ def main():
     out_base = OUT_DIR / 'weekly_all'
     df.to_parquet(out_base.with_suffix('.parquet'), index=False, compression='snappy')
     df.to_csv(out_base.with_suffix('.csv.gz'), index=False, compression='gzip')
-    print(f'✓ Wrote {out_base.with_suffix(".parquet").name} & .csv.gz ({len(df):,} rows)')
+    # Manifest: row counts by season/week
+    manifest = df.groupby(['season', 'week']).size().reset_index(name='rows')
+    manifest.to_csv(OUT_DIR / 'manifest.csv', index=False)
+    print(f'✓ Wrote features and manifest ({len(df):,} rows)')
 
 if __name__ == '__main__':
     main()
