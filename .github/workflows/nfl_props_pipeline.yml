@@ -28,30 +28,41 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run NFL Props Pipeline (pull + features only, keep original column names)
+      - name: Run NFL Props Pipeline (pull + features only)
         run: |
           set -e
-          python scripts/01_pull_nflverse.py --start 2019 --end 2024
+          # Use your chosen pull script (chunked recommended)
+          if [ -f scripts/01_pull_nflverse_chunked.py ]; then
+            python scripts/01_pull_nflverse_chunked.py --start 2019 --end 2024 --chunk-years 3
+          else
+            python scripts/01_pull_nflverse.py --start 2019 --end 2024
+          fi
           python scripts/02_build_features.py
 
-      - name: Ensure .gitignore excludes large raw artifacts
+      - name: Update .gitignore
         run: |
-          IGNORE_FILE=.gitignore
-          touch "$IGNORE_FILE"
-          grep -qxF 'data/raw/' "$IGNORE_FILE" || echo 'data/raw/' >> "$IGNORE_FILE"
-          grep -qxF 'data/warehouse/' "$IGNORE_FILE" || echo 'data/warehouse/' >> "$IGNORE_FILE"
-          grep -qxF '*.parquet' "$IGNORE_FILE" || echo '*.parquet' >> "$IGNORE_FILE"
-          grep -qxF '*.csv.gz' "$IGNORE_FILE" || echo '*.csv.gz' >> "$IGNORE_FILE"
-          grep -qxF '*.feather' "$IGNORE_FILE" || echo '*.feather' >> "$IGNORE_FILE"
-          grep -qxF '*.pkl' "$IGNORE_FILE" || echo '*.pkl' >> "$IGNORE_FILE"
+          cat > .gitignore <<'EOF'
+# raw and heavy (do not commit)
+data/raw/
+data/warehouse/
+*.pkl
+*.feather
 
-      - name: Commit and push selected outputs only
+# allow features and outputs
+!data/features/
+!data/features/*.parquet
+!data/features/*.csv.gz
+!output/
+!output/*.csv
+EOF
+
+      - name: Commit and push selected outputs only (force add)
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add .gitignore
-          git add data/features/*.parquet 2>/dev/null || true
-          git add data/features/*.csv.gz 2>/dev/null || true
-          git add output/*.csv 2>/dev/null || true
-          git diff --staged --quiet || git commit -m "Update: weekly features (original column names)"
+          git add -f data/features/*.parquet 2>/dev/null || true
+          git add -f data/features/*.csv.gz 2>/dev/null || true
+          git add -f output/*.csv 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Outputs: weekly features and CSVs (force add allowed)"
           git push
