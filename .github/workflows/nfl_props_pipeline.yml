@@ -1,0 +1,57 @@
+name: Run NFL Props Pipeline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/New_York
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run NFL Props Pipeline (pull + features only, keep original column names)
+        run: |
+          set -e
+          python scripts/01_pull_nflverse.py --start 2019 --end 2024
+          python scripts/02_build_features.py
+
+      - name: Ensure .gitignore excludes large raw artifacts
+        run: |
+          IGNORE_FILE=.gitignore
+          touch "$IGNORE_FILE"
+          grep -qxF 'data/raw/' "$IGNORE_FILE" || echo 'data/raw/' >> "$IGNORE_FILE"
+          grep -qxF 'data/warehouse/' "$IGNORE_FILE" || echo 'data/warehouse/' >> "$IGNORE_FILE"
+          grep -qxF '*.parquet' "$IGNORE_FILE" || echo '*.parquet' >> "$IGNORE_FILE"
+          grep -qxF '*.csv.gz' "$IGNORE_FILE" || echo '*.csv.gz' >> "$IGNORE_FILE"
+          grep -qxF '*.feather' "$IGNORE_FILE" || echo '*.feather' >> "$IGNORE_FILE"
+          grep -qxF '*.pkl' "$IGNORE_FILE" || echo '*.pkl' >> "$IGNORE_FILE"
+
+      - name: Commit and push selected outputs only
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .gitignore
+          git add data/features/*.parquet 2>/dev/null || true
+          git add data/features/*.csv.gz 2>/dev/null || true
+          git add output/*.csv 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Update: weekly features (original column names)"
+          git push
