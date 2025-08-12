@@ -1,5 +1,4 @@
-name: Run NFL Props Pipeline
-
+name: NFL Props Pipeline
 on:
   workflow_dispatch:
 
@@ -9,29 +8,26 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    env:
-      TZ: America/New_York
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Set up Python
+      - name: Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run NFL Props Pipeline (pull + features only)
+      - name: Run (pull + features only)
         run: |
           set -e
-          # Use your chosen pull script (chunked recommended)
           if [ -f scripts/01_pull_nflverse_chunked.py ]; then
             python scripts/01_pull_nflverse_chunked.py --start 2019 --end 2024 --chunk-years 3
           else
@@ -39,30 +35,15 @@ jobs:
           fi
           python scripts/02_build_features.py
 
-      - name: Update .gitignore
+      - name: Commit outputs
+        env:
+          GH_USER_NAME: "github-actions[bot]"
+          GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
         run: |
-          cat > .gitignore <<'EOF'
-# raw and heavy (do not commit)
-data/raw/
-data/warehouse/
-*.pkl
-*.feather
-
-# allow features and outputs
-!data/features/
-!data/features/*.parquet
-!data/features/*.csv.gz
-!output/
-!output/*.csv
-EOF
-
-      - name: Commit and push selected outputs only (force add)
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add .gitignore
-          git add -f data/features/*.parquet 2>/dev/null || true
-          git add -f data/features/*.csv.gz 2>/dev/null || true
-          git add -f output/*.csv 2>/dev/null || true
-          git diff --staged --quiet || git commit -m "Outputs: weekly features and CSVs (force add allowed)"
+          git config user.name "$GH_USER_NAME"
+          git config user.email "$GH_USER_EMAIL"
+          git add data/features/*.parquet || true
+          git add data/features/*.csv.gz || true
+          git add output/*.csv || true
+          git diff --staged --quiet || git commit -m "Update outputs"
           git push
