@@ -1,28 +1,28 @@
+
 #!/usr/bin/env python3
-import sys, pathlib
+import sys, pathlib, numpy as np
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import joblib
 import pandas as pd
-import numpy as np
-import yaml
-from utils.paths import DATA_FEATURES, DATA_PRED, ensure_dirs
+from utils.paths import DATA_FEATURES, DATA_WAREHOUSE, DATA_PRED
 
 def main():
-    ensure_dirs()
-    model = joblib.load(DATA_PRED / "wr_receptions_model.joblib")
-    feats = pd.read_parquet(DATA_FEATURES / "wr_receptions_features.parquet")
+    feats = pd.read_parquet(DATA_FEATURES / 'wr_receptions_features.parquet')
+    X = feats[['targets_l5','routes_run_l5']].fillna(0)
+    model = joblib.load(DATA_WAREHOUSE / 'wr_receptions_lgbm.pkl')
+    mu = model.predict(X)
 
-    feature_cols = [c for c in feats.columns if "_l" in c and c != "y_next"]
-    mu = model.predict(feats[feature_cols])
-    # crude sigma proxy from residuals (guarded by floor)
-    sigma = np.maximum(np.std(feats['y_next'] - mu), 0.75)
-    out = feats[['player_id','player_name','season','week']].copy()
+    y = feats['receptions_next']
+    sigma = float(max(0.75, np.std(y - mu))) if len(y) > 1 else 1.0
+
+    out = feats[['player_id','season','week']].copy()
     out['mu'] = mu
     out['sigma'] = sigma
-    out.to_parquet(DATA_PRED / "wr_receptions_predictions.parquet", index=False)
-    print("✅ Wrote predictions → data/predictions/wr_receptions_predictions.parquet")
+    DATA_PRED.mkdir(parents=True, exist_ok=True)
+    out.to_csv(DATA_PRED / 'wr_receptions_predictions.csv', index=False)
+    print('predictions → data/predictions/wr_receptions_predictions.csv')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
