@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Build features from chunked raw files.
-- Auto-loads & concatenates data/raw/weekly_*.parquet (or csv/csv.gz).
-- Falls back to single weekly.{parquet,csv,csv.gz} if present.
-- Robust team/opponent column detection.
-- Writes data/features/wr_receptions_features.parquet
+Build features (pass-through): concatenate chunked weekly files and keep original column names.
+- Reads data/raw/weekly_*.parquet (preferred), falling back to .csv or .csv.gz
+- Writes data/features/weekly_all.parquet (snappy) and weekly_all.csv.gz
+- No renaming of columns
 """
 import glob
+import os
 from pathlib import Path
 import pandas as pd
 
@@ -14,66 +14,40 @@ DATA_RAW = Path('data/raw')
 OUT_DIR = Path('data/features')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-def load_many(prefix):
-    # try parquet chunks
-    paths = sorted(glob.glob(str(DATA_RAW / f'{prefix}_*.parquet')))
-    if paths:
-        return pd.concat((pd.read_parquet(p) for p in paths), ignore_index=True)
-    # try csv.gz chunks
-    paths = sorted(glob.glob(str(DATA_RAW / f'{prefix}_*.csv.gz')))
-    if paths:
-        return pd.concat((pd.read_csv(p) for p in paths), ignore_index=True)
-    # fallbacks to single files
-    for suf in ('.parquet', '.csv.gz', '.csv'):
-        p = DATA_RAW / f'{prefix}{suf}'
-        if p.exists():
-            if suf == '.parquet':
-                return pd.read_parquet(p)
+def load_many(patterns):
+    files = []
+    for pat in patterns:
+        files.extend(sorted(glob.glob(str(DATA_RAW / pat))))
+    if not files:
+        raise FileNotFoundError('No weekly_* files found in data/raw')
+    dfs = []
+    for fp in files:
+        ext = os.path.splitext(fp)[1].lower()
+        try:
+            if ext == '.parquet':
+                dfs.append(pd.read_parquet(fp))
+            elif ext == '.gz' or ext == '.csv':
+                dfs.append(pd.read_csv(fp))
             else:
-                return pd.read_csv(p)
-    raise FileNotFoundError(f'No files found for {prefix} in {DATA_RAW}')
+                continue
+        except Exception as e:
+            raise RuntimeError(f'Failed to read {fp}: {e}')
+    return pd.concat(dfs, ignore_index=True, copy=False)
 
-def pick_col(df, candidates):
-    for c in candidates:
-        if c in df.columns:
-            return c
-    return None
+def downcast(df: pd.DataFrame) -> pd.DataFrame:
+    for c in df.select_dtypes(include='float').columns:
+        df[c] = pd.to_numeric(df[c], downcast='float')
+    for c in df.select_dtypes(include='integer').columns:
+        df[c] = pd.to_numeric(df[c], downcast='integer')
+    return df
 
 def main():
-    weekly = load_many('weekly')
-    # minimal WR receptions example features like before
-    team_col = pick_col(weekly, ['team','recent_team','posteam'])
-    opp_col  = pick_col(weekly, ['opponent','opponent_team','defteam'])
-    # keep safe existence
-    base_cols = ['player_id','player_name','season','week','position','receptions','targets','routes_run']
-    use_cols = [c for c in base_cols if c in weekly.columns]
-    if team_col: use_cols.append(team_col)
-    if opp_col: use_cols.append(opp_col)
-    df = weekly[use_cols].copy()
-
-    # sort & rolling on WRs
-    df = df[df.get('position','').eq('WR')] if 'position' in df.columns else df
-    df.sort_values(['player_id','season','week'], inplace=True)
-
-    if 'targets' in df.columns:
-        df['targets_l5'] = (
-            df.groupby('player_id')['targets']
-              .rolling(5, min_periods=1).mean()
-              .reset_index(level=0, drop=True)
-        )
-    if 'routes_run' in df.columns:
-        df['routes_run_l5'] = (
-            df.groupby('player_id')['routes_run']
-              .rolling(5, min_periods=1).mean()
-              .reset_index(level=0, drop=True)
-        )
-    if 'receptions' in df.columns:
-        df['y_next'] = df.groupby('player_id')['receptions'].shift(-1)
-        df = df.dropna(subset=['y_next'])
-
-    OUT = OUT_DIR / 'wr_receptions_features.parquet'
-    df.to_parquet(OUT, index=False)
-    print(f'Wrote {OUT} ({len(df):,} rows)')
+    df = load_many(['weekly_*.parquet', 'weekly_*.csv', 'weekly_*.csv.gz'])
+    df = downcast(df)
+    out_base = OUT_DIR / 'weekly_all'
+    df.to_parquet(out_base.with_suffix('.parquet'), index=False, compression='snappy')
+    df.to_csv(out_base.with_suffix('.csv.gz'), index=False, compression='gzip')
+    print(f'✓ Wrote {out_base.with_suffix(".parquet").name} & .csv.gz ({len(df):,} rows)')
 
 if __name__ == '__main__':
     main()
