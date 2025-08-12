@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
-Pull NFL data with nfl_data_py (2019..2024 by default).
+Chunked NFL pulls to avoid huge files.
 - Handles roster API differences (import_rosters vs import_weekly_rosters).
-- Saves BOTH CSV and Parquet for each dataset to data/raw/.
+- Saves BOTH Parquet (snappy) and gzip CSV, partitioned by year ranges.
+Usage:
+  python scripts/01_pull_nflverse_chunked.py --start 2010 --end 2024 --chunk-years 3
+Outputs (examples):
+  data/raw/weekly_2010_2012.parquet, weekly_2010_2012.csv.gz, ...
 """
 import argparse
 from pathlib import Path
 import pandas as pd
 
 def bind_pkg():
-    import nfl_data_py as nfl  # rely on version in environment
+    import nfl_data_py as nfl
     return nfl
 
 def get_rosters_fn(nfl):
@@ -27,41 +31,51 @@ def save_both(df: pd.DataFrame, base: Path):
         df[col] = pd.to_numeric(df[col], downcast="float")
     for col in df.select_dtypes(include="integer").columns:
         df[col] = pd.to_numeric(df[col], downcast="integer")
-    # CSV
-    df.to_csv(base.with_suffix(".csv"), index=False)
-    # Parquet (fastparquet/pyarrow; index not needed)
-    df.to_parquet(base.with_suffix(".parquet"), index=False)
-    print(f"✓ Wrote {base.with_suffix('.csv').name} & {base.with_suffix('.parquet').name} ({len(df):,} rows)")
+    # parquet (compressed)
+    df.to_parquet(base.with_suffix(".parquet"), index=False, compression="snappy")
+    # csv.gz
+    df.to_csv(base.with_suffix(".csv.gz"), index=False, compression="gzip")
+    print(f"✓ {base.name} -> wrote parquet & csv.gz ({len(df):,} rows)")
 
-def run(year_start: int, year_end: int):
+def year_chunks(start: int, end: int, step: int):
+    s = start
+    while s <= end:
+        e = min(end, s + step - 1)
+        yield list(range(s, e + 1)), s, e
+        s = e + 1
+
+def run(start: int, end: int, chunk: int):
     nfl = bind_pkg()
-    years = list(range(year_start, year_end + 1))
-    print(f"Years: {years}")
+    rost_fn = get_rosters_fn(nfl)
     out = Path("data/raw")
-    out.mkdir(parents=True, exist_ok=True)
 
-    print("Pulling weekly ...", flush=True)
-    weekly = nfl.import_weekly_data(years)
-    save_both(weekly, out / "weekly")
+    for years, ys, ye in year_chunks(start, end, chunk):
+        tag = f"{ys}_{ye}"
+        print(f"== Years {tag} ==")
 
-    print("Pulling play-by-play ...", flush=True)
-    pbp = nfl.import_pbp_data(years)
-    save_both(pbp, out / "pbp")
+        print("Weekly ...")
+        weekly = nfl.import_weekly_data(years)
+        save_both(weekly, out / f"weekly_{tag}")
 
-    print("Pulling rosters ...", flush=True)
-    rosters = get_rosters_fn(nfl)(years)
-    save_both(rosters, out / "rosters")
+        print("Play-by-play ...")
+        pbp = nfl.import_pbp_data(years)
+        save_both(pbp, out / f"pbp_{tag}")
 
-    print("Pulling schedules ...", flush=True)
-    schedules = nfl.import_schedules(years)
-    save_both(schedules, out / "schedules")
+        print("Rosters ...")
+        rosters = rost_fn(years)
+        save_both(rosters, out / f"rosters_{tag}")
+
+        print("Schedules ...")
+        schedules = nfl.import_schedules(years)
+        save_both(schedules, out / f"schedules_{tag}")
 
 def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", type=int, default=2019)
     ap.add_argument("--end", type=int, default=2024)
+    ap.add_argument("--chunk-years", type=int, default=3, help="years per chunk")
     return ap.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
-    run(args.start, args.end)
+    run(args.start, args.end, args.chunk_years)
