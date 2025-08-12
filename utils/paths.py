@@ -1,3 +1,4 @@
+
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[1]
@@ -9,6 +10,5 @@ DATA_PRED       = BASE / "data/predictions"
 DATA_ODDS       = BASE / "data/odds"
 OUTPUT_DIR      = BASE / "output"
 
-def ensure_dirs():
-    for p in [DATA_RAW, DATA_WAREHOUSE, DATA_FEATURES, DATA_PRED, DATA_ODDS, OUTPUT_DIR]:
-        p.mkdir(parents=True, exist_ok=True)
+for p in [DATA_RAW, DATA_WAREHOUSE, DATA_FEATURES, DATA_PRED, DATA_ODDS, OUTPUT_DIR]:
+    p.mkdir(parents=True, exist_ok=True)
