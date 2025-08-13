@@ -50,15 +50,24 @@ jobs:
           GH_USER_NAME: "github-actions[bot]"
           GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
         run: |
+          set -e
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
-          git add data/features/*.parquet || true
-          git add data/features/*.csv.gz || true
-          git add data/features/manifest.csv || true
-          git add data/predictions/*.csv || true
-          git add data/props/*.csv || true
-          git add data/edges/*.csv || true
-          git add output/*.json || true
-          git add output/*.csv || true
-          git diff --staged --quiet || git commit -m "Features + predictions + props + edges + metrics"
+
+          # Features
+          git add -f data/features/*.parquet 2>/dev/null || true
+          git add -f data/features/*.csv.gz 2>/dev/null || true
+          git add -f data/features/manifest.csv 2>/dev/null || true
+
+          # Predictions / Props / Edges
+          git add -f data/predictions/*.csv 2>/dev/null || true
+          git add -f data/props/*.csv 2>/dev/null || true
+          git add -f data/edges/*.csv 2>/dev/null || true
+
+          # Best bets + metrics
+          git add -f output/best_bets_*.csv 2>/dev/null || true
+          git add -f output/best_bets_summary.csv 2>/dev/null || true
+          git add -f output/*.json 2>/dev/null || true
+
+          git diff --staged --quiet || git commit -m "Features + predictions + props + edges + best_bets + summary + metrics"
           git push
