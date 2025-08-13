@@ -25,17 +25,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run pipeline
+      - name: Step 01 (Pull NFL data)
         run: |
-          set -e
           if [ -f scripts/01_pull_nflverse_chunked.py ]; then
             python scripts/01_pull_nflverse_chunked.py --start 2019 --end 2024 --chunk-years 3
           else
             python scripts/01_pull_nflverse.py --start 2019 --end 2024
           fi
-          python scripts/02_build_features.py
-          python scripts/03_train_models.py
-          python scripts/04_generate_props.py
+
+      - name: Step 02 (Build features)
+        run: python scripts/02_build_features.py
+
+      - name: Step 03 (Train models)
+        run: python scripts/03_train_models.py
+
+      - name: Step 04 (Generate props)
+        run: python scripts/04_generate_props.py
+
+      - name: Step 05 (Rank edges - no odds)
+        run: python scripts/05_rank_edges_no_odds.py
 
       - name: Commit outputs
         env:
@@ -49,6 +57,8 @@ jobs:
           git add data/features/manifest.csv || true
           git add data/predictions/*.csv || true
           git add data/props/*.csv || true
+          git add data/edges/*.csv || true
           git add output/*.json || true
-          git diff --staged --quiet || git commit -m "Features + predictions + props + metrics"
+          git add output/*.csv || true
+          git diff --staged --quiet || git commit -m "Features + predictions + props + edges + metrics"
           git push
