@@ -59,15 +59,19 @@ jobs:
           git add -f data/features/*.csv.gz 2>/dev/null || true
           git add -f data/features/manifest.csv 2>/dev/null || true
 
-          # Predictions / Props / Edges
+          # Predictions / Props
           git add -f data/predictions/*.csv 2>/dev/null || true
           git add -f data/props/*.csv 2>/dev/null || true
-          git add -f data/edges/*.csv 2>/dev/null || true
 
-          # Best bets + metrics
+          # Edges (compressed full + preview)
+          git add -f data/edges/*.csv.gz 2>/dev/null || true
+          git add -f data/edges/*.preview.csv 2>/dev/null || true
+          git add -f data/edges/*.csv 2>/dev/null || true  # in case older runs exist
+
+          # Best bets + summary + metrics
           git add -f output/best_bets_*.csv 2>/dev/null || true
           git add -f output/best_bets_summary.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Features + predictions + props + edges + best_bets + summary + metrics"
+          git diff --staged --quiet || git commit -m "Features + predictions + props + edges (gz + preview) + best_bets + summary + metrics"
           git push
