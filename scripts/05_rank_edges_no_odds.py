@@ -6,7 +6,7 @@ Computes edge vs 50% baseline:
   edge_under = prob_under - 0.5
 Picks the better side per row and writes:
   data/edges/edges_<market>.csv
-  output/best_bets_<market>.csv  (filtered by min_edge)
+  output/best_bets_<market>.csv  (edge >= MIN_EDGE only)
 """
 from pathlib import Path
 import pandas as pd
@@ -17,7 +17,7 @@ OUT_DIR   = Path("output")
 EDGES_DIR.mkdir(parents=True, exist_ok=True)
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-MIN_EDGE = 0.05   # 5% edge threshold for best_bets
+MIN_EDGE = 0.02   # 2% edge threshold
 TOP_N    = 200    # cap best_bets size
 
 def process_market(fp: Path):
@@ -27,6 +27,10 @@ def process_market(fp: Path):
     if "prob_over" not in df.columns or "prob_under" not in df.columns:
         print(f"skip {market}: missing prob columns")
         return
+
+    # guard rails
+    df["prob_over"]  = df["prob_over"].clip(0.0, 1.0)
+    df["prob_under"] = df["prob_under"].clip(0.0, 1.0)
 
     df["edge_over"]  = df["prob_over"]  - 0.5
     df["edge_under"] = df["prob_under"] - 0.5
@@ -42,11 +46,11 @@ def process_market(fp: Path):
 
     # best bets: threshold + top N by edge
     best = df[df["edge"] >= MIN_EDGE].sort_values("edge", ascending=False).head(TOP_N)
-    best_cols = [c for c in [
+    cols = [c for c in [
         "player_name","team","recent_team","opponent","opponent_team",
         "season","week","prop","line","y_pred","pick","edge","prob_over","prob_under"
     ] if c in df.columns]
-    best = best[best_cols]
+    best = best[cols]
     best_path = OUT_DIR / f"best_bets_{market}.csv"
     best.to_csv(best_path, index=False)
 
