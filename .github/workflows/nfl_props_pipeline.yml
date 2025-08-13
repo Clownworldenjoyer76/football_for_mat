@@ -25,7 +25,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run (pull + features + models)
+      - name: Run pipeline
         run: |
           set -e
           if [ -f scripts/01_pull_nflverse_chunked.py ]; then
@@ -35,6 +35,7 @@ jobs:
           fi
           python scripts/02_build_features.py
           python scripts/03_train_models.py
+          python scripts/04_generate_props.py
 
       - name: Commit outputs
         env:
@@ -47,6 +48,7 @@ jobs:
           git add data/features/*.csv.gz || true
           git add data/features/manifest.csv || true
           git add data/predictions/*.csv || true
+          git add data/props/*.csv || true
           git add output/*.json || true
-          git diff --staged --quiet || git commit -m "Features + predictions + metrics"
+          git diff --staged --quiet || git commit -m "Features + predictions + props + metrics"
           git push
