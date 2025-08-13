@@ -1,31 +1,29 @@
-# Raw and heavy data (do not commit)
+# raw/heavy (ignore)
 data/raw/
 data/warehouse/
+models/
 *.pkl
 *.feather
 
-# Allow features
+# allow features
 !data/features/
 !data/features/*.parquet
 !data/features/*.csv.gz
+!data/features/manifest.csv
 
-# Allow predictions
+# allow predictions
 !data/predictions/
 !data/predictions/*.csv
 
-# Allow props
+# allow props
 !data/props/
 !data/props/*.csv
 
-# Allow edges
+# allow edges
 !data/edges/
 !data/edges/*.csv
 
-# Allow outputs
+# allow outputs
 !output/
 !output/*.csv
 !output/*.json
-!output/best_bets_*.csv
-
-# Ignore saved models
-models/
