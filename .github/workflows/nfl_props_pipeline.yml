@@ -1,6 +1,12 @@
 name: NFL Props Pipeline
+
 on:
   workflow_dispatch:
+    inputs:
+      pull_odds:
+        description: "Pull DraftKings odds? 1=yes, 0=no"
+        required: false
+        default: "0"
 
 permissions:
   contents: write
@@ -15,7 +21,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -45,8 +51,21 @@ jobs:
       - name: Step 05 (Rank edges - no odds)
         run: python scripts/05_rank_edges_no_odds.py
 
+      # Optional odds pull (skipped unless you set pull_odds=1 when dispatching)
       - name: Step 06 (Pull DraftKings odds)
+        if: ${{ github.event.inputs.pull_odds == '1' }}
         run: python scripts/06_pull_odds_dk.py
+
+      # Optional: show what Step 06 produced
+      - name: Debug — list odds artifacts
+        if: ${{ github.event.inputs.pull_odds == '1' }}
+        run: |
+          echo "== ls data/odds =="
+          ls -la data/odds || echo "data/odds missing"
+          echo "== _dk_summary.txt =="
+          [ -f data/odds/_dk_summary.txt ] && sed -n '1,120p' data/odds/_dk_summary.txt || echo "no summary"
+          echo "== _dk_errors.log =="
+          [ -f data/odds/_dk_errors.log ] && sed -n '1,120p' data/odds/_dk_errors.log || echo "no error log"
 
       - name: Commit outputs
         env:
@@ -71,13 +90,16 @@ jobs:
           git add -f data/edges/*.preview.csv 2>/dev/null || true
           git add -f data/edges/*.csv 2>/dev/null || true
 
-          # Odds
+          # Odds (only if present)
           git add -f data/odds/*.csv 2>/dev/null || true
+          git add -f data/odds/_dk_*.gz 2>/dev/null || true
+          git add -f data/odds/_dk_*.txt 2>/dev/null || true
+          git add -f data/odds/_dk_*.log 2>/dev/null || true
 
-          # Best bets + metrics
+          # Outputs
           git add -f output/best_bets_*.csv 2>/dev/null || true
           git add -f output/best_bets_summary.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Features + predictions + props + edges (gz + preview) + odds + best_bets + summary + metrics"
+          git diff --staged --quiet || git commit -m "Pipeline outputs (odds optional)"
           git push
