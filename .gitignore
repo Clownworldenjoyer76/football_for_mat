@@ -1,29 +1,37 @@
-# raw/heavy (ignore)
+# Raw & warehouse data
 data/raw/
 data/warehouse/
+
+# Models & temp
 models/
 *.pkl
 *.feather
 
-# allow features
+# Allow features
 !data/features/
 !data/features/*.parquet
 !data/features/*.csv.gz
 !data/features/manifest.csv
 
-# allow predictions
+# Allow predictions
 !data/predictions/
 !data/predictions/*.csv
 
-# allow props
+# Allow props
 !data/props/
 !data/props/*.csv
 
-# allow edges
+# Allow edges (compressed + preview)
 !data/edges/
 !data/edges/*.csv
+!data/edges/*.csv.gz
+!data/edges/*.preview.csv
 
-# allow outputs
+# Allow odds
+!data/odds/
+!data/odds/*.csv
+
+# Allow outputs
 !output/
 !output/*.csv
 !output/*.json
