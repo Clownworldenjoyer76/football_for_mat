@@ -45,6 +45,9 @@ jobs:
       - name: Step 05 (Rank edges - no odds)
         run: python scripts/05_rank_edges_no_odds.py
 
+      - name: Step 06 (Pull DraftKings odds)
+        run: python scripts/06_pull_odds_dk.py
+
       - name: Commit outputs
         env:
           GH_USER_NAME: "github-actions[bot]"
@@ -63,15 +66,18 @@ jobs:
           git add -f data/predictions/*.csv 2>/dev/null || true
           git add -f data/props/*.csv 2>/dev/null || true
 
-          # Edges (compressed full + preview)
+          # Edges (full compressed + preview)
           git add -f data/edges/*.csv.gz 2>/dev/null || true
           git add -f data/edges/*.preview.csv 2>/dev/null || true
-          git add -f data/edges/*.csv 2>/dev/null || true  # in case older runs exist
+          git add -f data/edges/*.csv 2>/dev/null || true
 
-          # Best bets + summary + metrics
+          # Odds
+          git add -f data/odds/*.csv 2>/dev/null || true
+
+          # Best bets + metrics
           git add -f output/best_bets_*.csv 2>/dev/null || true
           git add -f output/best_bets_summary.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Features + predictions + props + edges (gz + preview) + best_bets + summary + metrics"
+          git diff --staged --quiet || git commit -m "Features + predictions + props + edges (gz + preview) + odds + best_bets + summary + metrics"
           git push
