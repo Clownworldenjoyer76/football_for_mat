@@ -1,37 +1,52 @@
-# Raw & warehouse data
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Data
 data/raw/
 data/warehouse/
+data/features/
+data/predictions/
+data/odds/
+data/end_chain/
+data/cleaned/
+data/_projections/
 
-# Models & temp
-models/
-*.pkl
-*.feather
-
-# Allow features
-!data/features/
-!data/features/*.parquet
-!data/features/*.csv.gz
-!data/features/manifest.csv
-
-# Allow predictions
-!data/predictions/
-!data/predictions/*.csv
-
-# Allow props
+# Keep these
 !data/props/
-!data/props/*.csv
-
-# Allow edges (compressed + preview)
 !data/edges/
-!data/edges/*.csv
-!data/edges/*.csv.gz
-!data/edges/*.preview.csv
+!data/games/
+!data/games/*.csv
 
-# Allow odds
-!data/odds/
-!data/odds/*.csv
-
-# Allow outputs
-!output/
+# Output
+output/
 !output/*.csv
-!output/*.json
+
+# Compressed files
+*.gz
+*.zip
+*.tar
+*.tgz
+
+# Configs
+config/*.yml
