@@ -1,12 +1,12 @@
-name: NFL Props Pipeline
+name: Build NFL Player & Game Projections
 
 on:
   workflow_dispatch:
     inputs:
       pull_odds:
-        description: "Pull odds via The Odds API? 1=yes, 0=no"
-        required: false
-        default: "0"
+        description: "Pull odds data? (1=yes, 0=no)"
+        required: true
+        default: "1"
 
 permissions:
   contents: write
@@ -14,90 +14,65 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
+    env:
+      TZ: America/New_York
+      PULL_ODDS: ${{ github.event.inputs.pull_odds }}
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           persist-credentials: true
+          fetch-depth: 0
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
-      - name: Install
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Step 01 (Pull NFL data)
-        run: |
-          if [ -f scripts/01_pull_nflverse_chunked.py ]; then
-            python scripts/01_pull_nflverse_chunked.py --start 2019 --end 2024 --chunk-years 3
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
           else
-            python scripts/01_pull_nflverse.py --start 2019 --end 2024
+            pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy
           fi
 
-      - name: Step 02 (Build features)
+      - name: Step 01 - Pull NFL data
+        run: python scripts/01_pull_nflverse.py
+
+      - name: Step 02 - Build features
         run: python scripts/02_build_features.py
 
-      - name: Step 03 (Train models)
+      - name: Step 03 - Train models
         run: python scripts/03_train_models.py
 
-      - name: Step 04 (Generate props)
-        run: python scripts/04_generate_props.py
+      - name: Step 04 - Predict player props
+        run: python scripts/04_predict.py
 
-      - name: Step 05 (Rank edges - no odds)
-        run: python scripts/05_rank_edges_no_odds.py
+      - name: Step G1 - Build game features
+        run: python scripts/G1_build_game_features.py
 
-      # ---- OPTIONAL ODDS PULL (The Odds API) ----
-      - name: Step 06 (Pull odds via The Odds API)
-        if: ${{ github.event.inputs.pull_odds == '1' }}
-        env:
-          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-        run: python scripts/06_pull_odds_api.py
+      - name: Step G2 - Predict games
+        run: python scripts/G2_predict_games.py
 
-      - name: Debug — odds artifacts
-        if: ${{ github.event.inputs.pull_odds == '1' }}
+      - name: Step 05 - Pull odds & merge
+        if: env.PULL_ODDS == '1'
+        run: python scripts/05_pull_odds_merge.py
+
+      - name: Step 06 - Probability & edge
+        if: env.PULL_ODDS == '1'
+        run: python scripts/06_probability_and_edge.py
+
+      - name: Step 07 - Select bets
+        if: env.PULL_ODDS == '1'
+        run: python scripts/07_select_bets.py
+
+      - name: Commit updated data
         run: |
-          echo "== ls data/odds =="
-          ls -la data/odds || echo "data/odds missing"
-          echo "== _api_summary.txt =="
-          [ -f data/odds/_api_summary.txt ] && sed -n '1,160p' data/odds/_api_summary.txt || echo "no summary"
-
-      - name: Commit outputs
-        env:
-          GH_USER_NAME: "github-actions[bot]"
-          GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
-        run: |
-          set -e
-          git config user.name "$GH_USER_NAME"
-          git config user.email "$GH_USER_EMAIL"
-
-          # Features
-          git add -f data/features/*.parquet 2>/dev/null || true
-          git add -f data/features/*.csv.gz 2>/dev/null || true
-          git add -f data/features/manifest.csv 2>/dev/null || true
-
-          # Predictions / Props
-          git add -f data/predictions/*.csv 2>/dev/null || true
-          git add -f data/props/*.csv 2>/dev/null || true
-
-          # Edges (compressed + preview)
-          git add -f data/edges/*.csv.gz 2>/dev/null || true
-          git add -f data/edges/*.preview.csv 2>/dev/null || true
-          git add -f data/edges/*.csv 2>/dev/null || true
-
-          # Odds (only if present)
-          git add -f data/odds/*.csv 2>/dev/null || true
-          git add -f data/odds/_api_summary.txt 2>/dev/null || true
-
-          # Outputs / metrics
-          git add -f output/best_bets_*.csv 2>/dev/null || true
-          git add -f output/best_bets_summary.csv 2>/dev/null || true
-          git add -f output/*.json 2>/dev/null || true
-
-          git diff --staged --quiet || git commit -m "Pipeline outputs (odds toggleable)"
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data/ output/
+          git commit -m "Auto-update projections and outputs" || echo "No changes"
           git push
