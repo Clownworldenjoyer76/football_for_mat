@@ -123,6 +123,10 @@ jobs:
             echo "skip: scripts/PG0_prepare_history.py not found"
           fi
 
+      - name: Debug — pregame history summary
+        if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
+        run: |
+          [ -f data/pregame/_history_summary.txt ] && sed -n '1,200p' data/pregame/_history_summary.txt || echo "no _history_summary.txt"
       - name: PG1 (Train pregame models)
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
         run: |
