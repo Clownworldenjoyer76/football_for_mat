@@ -1,78 +1,92 @@
 #!/usr/bin/env python3
-# Build player & opponent rolling features from past games only (no leakage)
 from pathlib import Path
 import pandas as pd
 import numpy as np
 
 OUT = Path("data/pregame"); OUT.mkdir(parents=True, exist_ok=True)
+ROLL_G = 8  # rolling window
 
-YEARS = list(range(2019, 2025))  # adjust as needed
-ROLL_G = 8                       # rolling window
+# Try these in order (first existing file wins)
+CANDIDATES = [
+    ("parquet", "data/raw/weekly.parquet"),
+    ("csv",     "data/raw/weekly.csv"),
+    ("parquet", "data/features/weekly.parquet"),
+    ("parquet", "data/features/weekly_all.parquet"),
+    ("csv",     "data/features/weekly.csv.gz"),
+    ("csv",     "data/features/weekly.csv"),
+]
 
 def load_weekly():
-    fp = Path("data/features/weekly_clean.csv.gz")
-    if fp.exists():
-        return pd.read_csv(fp, low_memory=False)
-    # Fallback to nfl_data_py raw (expects prior step 01 to have saved)
-    # If not, user can replace path to your weekly source
-    fp2 = Path("data/features/weekly.csv.gz")
-    return pd.read_csv(fp2, low_memory=False)
+    for kind, p in CANDIDATES:
+        fp = Path(p)
+        if fp.exists():
+            print(f"[PG0] using {fp}")
+            return pd.read_parquet(fp) if kind == "parquet" else pd.read_csv(fp, low_memory=False)
+    raise SystemExit(f"[PG0] No weekly file found. Tried: {[p for _,p in CANDIDATES]}")
 
-def safe_cols(df, wanted):
-    return [c for c in wanted if c in df.columns]
+def safe(df, cols):
+    return [c for c in cols if c in df.columns]
 
 def main():
     df = load_weekly()
-    # minimal columns (be flexible)
-    base = safe_cols(df, [
-        "season","week","player_id","player_name","position","team","opponent",
-        "home_away","attempts","completions","passing_yards","rushing_yards",
+
+    base_cols = safe(df, [
+        "season","week","player_id","player_name","position",
+        "team","posteam","recent_team","opponent","defteam",
+        "home_away","home_team","away_team","is_home",
+        "attempts","completions","passing_yards","rushing_yards",
         "receptions","receiving_yards","targets","snaps","snap_pct"
     ])
-    df = df[base].copy()
+    df = df[base_cols].copy()
 
-    # normalize types
-    for c in ["season","week"]: 
-        if c in df: df[c] = df[c].astype(int)
+    # Standardize team/opponent
+    if "team" not in df and "posteam" in df: df = df.rename(columns={"posteam":"team"})
+    if "team" not in df and "recent_team" in df: df = df.rename(columns={"recent_team":"team"})
+    if "opponent" not in df and "defteam" in df: df = df.rename(columns={"defteam":"opponent"})
+    if "is_home" not in df:
+        if "home_away" in df:
+            df["is_home"] = (df["home_away"].astype(str).str.upper() != "AWAY").astype(int)
+        else:
+            df["is_home"] = 1
+
+    for c in ["season","week"]:
+        if c in df: df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).astype(int)
     for c in ["passing_yards","rushing_yards","receiving_yards","receptions","attempts","targets","snaps","snap_pct"]:
         if c in df: df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
 
-    # home flag
-    if "home_away" in df.columns:
-        df["is_home"] = (df["home_away"].str.upper().fillna("") != "AWAY").astype(int)
-    else:
-        df["is_home"] = 1
+    # Sort for rolling
+    sort_keys = [k for k in ["player_id","season","week"] if k in df.columns]
+    df = df.sort_values(sort_keys)
 
-    # rolling per-player (last ROLL_G games BEFORE current)
-    df = df.sort_values(["player_id","season","week"])
+    # Rolling per-player (shifted -> no leakage)
+    num_cols = [c for c in ["passing_yards","rushing_yards","receiving_yards","receptions","targets","snaps","snap_pct"] if c in df.columns]
     def roll_player(g):
-        r = g[["passing_yards","rushing_yards","receiving_yards","receptions","targets","snaps","snap_pct"]]
+        r = g[num_cols]
         rolled = r.rolling(ROLL_G, min_periods=1).mean().shift(1)
         rolled.columns = [f"plyr_{c}_ma{ROLL_G}" for c in rolled.columns]
-        return pd.concat([g, rolled], axis=1)
+        return pd.concat([g.reset_index(drop=True), rolled.reset_index(drop=True)], axis=1)
+    if "player_id" not in df.columns:
+        raise SystemExit("[PG0] weekly data missing player_id")
     df = df.groupby("player_id", group_keys=False).apply(roll_player)
 
-    # rolling opponent allowed (team defense, last ROLL_G, shift 1)
-    # build opponent view: what this opponent allowed to the player's position
-    pos_key = df["position"].fillna("UNK")
-    allowed = df.groupby(["opponent","position"]).apply(
-        lambda g: g[["passing_yards","rushing_yards","receiving_yards","receptions"]]
-                  .rolling(ROLL_G, min_periods=1).mean().shift(1)
-    )
-    allowed = allowed.reset_index(level=[0,1]).rename(columns={
-        "opponent":"opp_team","position":"opp_pos"
-    })
-    allowed.columns = [*allowed.columns[:-4], "opp_pass_yds_ma", "opp_rush_yds_ma", "opp_rec_yds_ma", "opp_receptions_ma"]
+    # Opponent allowed (position-aware, shift 1)
+    pos = df["position"].fillna("UNK")
+    base_allowed = [c for c in ["passing_yards","rushing_yards","receiving_yards","receptions"] if c in df.columns]
+    if {"opponent","position"}.issubset(df.columns) and base_allowed:
+        df = df.sort_values(["opponent","position","season","week"])
+        allow = df.groupby(["opponent","position"])[base_allowed] \
+                  .rolling(ROLL_G, min_periods=1).mean().shift(1) \
+                  .reset_index(level=[0,1], drop=False)
+        allow.columns = ["opponent","position"] + [f"opp_{c}_ma" for c in base_allowed]
+        df = pd.concat([df.reset_index(drop=True), allow[[c for c in allow.columns if c.startswith("opp_")]].reset_index(drop=True)], axis=1)
+    else:
+        for nm in ["opp_passing_yards_ma","opp_rushing_yards_ma","opp_receiving_yards_ma","opp_receptions_ma"]:
+            if nm not in df: df[nm] = np.nan
 
-    # merge opponent allowed back (key by opponent & position & same row order)
-    key = df[["opponent","position"]].reset_index(drop=True)
-    allow_vals = allowed[[ "opp_pass_yds_ma","opp_rush_yds_ma","opp_rec_yds_ma","opp_receptions_ma" ]].reset_index(drop=True)
-    df = pd.concat([df.reset_index(drop=True), allow_vals], axis=1)
-
-    # export history features for training/inference
-    out = df
-    out.to_csv(OUT/"history_rolling_ma.csv.gz", index=False)
-    print(f"✓ wrote {OUT/'history_rolling_ma.csv.gz'} ({len(out)} rows)")
+    OUT.mkdir(parents=True, exist_ok=True)
+    out_fp = OUT / "history_rolling_ma.csv.gz"
+    df.to_csv(out_fp, index=False)
+    print(f"[PG0] wrote {out_fp} ({len(df)} rows)")
 
 if __name__ == "__main__":
     main()
