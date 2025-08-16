@@ -68,6 +68,10 @@ jobs:
             echo "ERROR: scripts/02_build_features.py not found" && exit 1
           fi
 
+      - name: Debug — features summary
+        run: |
+         [ -f data/features/_build_features_summary.txt ] && sed -n '1,200p' data/features/_build_features_summary.txt || echo "no summary"
+      
       - name: Step 03 (Train models)
         run: |
           if [ -f scripts/03_train_models.py ]; then
@@ -190,6 +194,10 @@ jobs:
           git add -f models/pregame/*.joblib 2>/dev/null || true
           git add -f output/pregame_summary.txt 2>/dev/null || true
 
+          # Features
+          git add -f data/features/_build_features_summary.txt 2>/dev/null || true
+          git add -f data/features/manifest.csv 2>/dev/null || true
+          
           # Output summaries
           git add -f output/*.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
