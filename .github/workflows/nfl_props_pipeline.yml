@@ -60,26 +60,29 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
-      - name: List raw files (debug)
-        run: ls -lh data/raw/nflverse || true
+      - name: Pull rosters via nflreadr (R)
+        run: |
+          sudo apt-get update && sudo apt-get install -y r-base
+          R -q -e "install.packages('remotes', repos='https://cloud.r-project.org')"
+          R -q -e "remotes::install_cran('nflreadr', repos='https://cloud.r-project.org')"
+          R -q -e "yrs <- 2019:2024;
+                   df <- nflreadr::load_rosters(yrs);
+                   ts <- format(Sys.time(), '%Y%m%d');
+                   dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
+                   fn <- sprintf('data/raw/nflverse/rosters_%s.csv.gz', ts);
+                   write.csv(df, gzfile(fn), row.names=FALSE);
+                   file.copy(fn, 'data/raw/nflverse/rosters_latest.csv.gz', overwrite=TRUE)"
 
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: nflverse-raw-${{ github.run_id }}
-          if-no-files-found: warn
           path: |
-            # new underscore format (fixed script)
             data/raw/nflverse/weekly_*.csv.gz
             data/raw/nflverse/pbp_*.csv.gz
             data/raw/nflverse/rosters_*.csv.gz
             data/raw/nflverse/schedules_*.csv.gz
             data/raw/nflverse/manifest_latest.csv.gz
-            # old dot+underscore format (legacy runs)
-            data/raw/nflverse/weekly.csv_*.gz
-            data/raw/nflverse/pbp.csv_*.gz
-            data/raw/nflverse/rosters.csv_*.gz
-            data/raw/nflverse/schedules.csv_*.gz
 
       - name: Step 02 (Build features)
         run: |
@@ -91,11 +94,7 @@ jobs:
 
       - name: Debug — features summary
         run: |
-          if [ -f data/features/_build_features_summary.txt ]; then
-            sed -n '1,200p' data/features/_build_features_summary.txt
-          else
-            echo "no summary"
-          fi
+          [ -f data/features/_build_features_summary.txt ] && sed -n '1,200p' data/features/_build_features_summary.txt || echo "no summary"
 
       - name: Step 03 (Train models)
         run: |
@@ -151,11 +150,7 @@ jobs:
       - name: Debug — pregame history summary
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
         run: |
-          if [ -f data/pregame/_history_summary.txt ]; then
-            sed -n '1,200p' data/pregame/_history_summary.txt
-          else
-            echo "no _history_summary.txt"
-          fi
+          [ -f data/pregame/_history_summary.txt ] && sed -n '1,200p' data/pregame/_history_summary.txt || echo "no _history_summary.txt"
 
       - name: PG1 (Train pregame models)
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
@@ -190,11 +185,7 @@ jobs:
       - name: Debug — odds summary (if any)
         if: ${{ env.PULL_ODDS == '1' }}
         run: |
-          if [ -f data/odds/_api_summary.txt ]; then
-            sed -n '1,200p' data/odds/_api_summary.txt
-          else
-            echo "no _api_summary.txt"
-          fi
+          [ -f data/odds/_api_summary.txt ] && sed -n '1,200p' data/odds/_api_summary.txt || echo "no _api_summary.txt"
 
       # ===== Commit artifacts =====
       - name: Commit outputs
