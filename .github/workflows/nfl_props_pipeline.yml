@@ -47,7 +47,6 @@ jobs:
             pip install -r requirements.txt
           else
             pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib
-          fi
 
       # ===== Core pipeline =====
       - name: Step 01 (Pull NFL data)
@@ -60,16 +59,26 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
+      - name: List raw files (debug)
+        run: ls -lh data/raw/nflverse || true
+
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: nflverse-raw-${{ github.run_id }}
+          if-no-files-found: warn
           path: |
+            # new underscore format (fixed script)
             data/raw/nflverse/weekly_*.csv.gz
             data/raw/nflverse/pbp_*.csv.gz
             data/raw/nflverse/rosters_*.csv.gz
             data/raw/nflverse/schedules_*.csv.gz
             data/raw/nflverse/manifest_latest.csv.gz
+            # old dot+underscore format (legacy runs)
+            data/raw/nflverse/weekly.csv_*.gz
+            data/raw/nflverse/pbp.csv_*.gz
+            data/raw/nflverse/rosters.csv_*.gz
+            data/raw/nflverse/schedules.csv_*.gz
 
       - name: Step 02 (Build features)
         run: |
@@ -77,7 +86,6 @@ jobs:
             python scripts/02_build_features.py
           else
             echo "ERROR: scripts/02_build_features.py not found" && exit 1
-          fi
 
       - name: Debug — features summary
         run: |
@@ -89,7 +97,6 @@ jobs:
             python scripts/03_train_models.py
           else
             echo "skip: scripts/03_train_models.py not found"
-          fi
 
       - name: Step 04 (Generate props)
         run: |
@@ -97,7 +104,6 @@ jobs:
             python scripts/04_generate_props.py
           else
             echo "ERROR: scripts/04_generate_props.py not found" && exit 1
-          fi
 
       - name: Step 05 (Rank edges - no odds)
         run: |
@@ -105,16 +111,14 @@ jobs:
             python scripts/05_rank_edges_no_odds.py
           else
             echo "skip: scripts/05_rank_edges_no_odds.py not found"
-          fi
 
-      # ===== Game projections (post-game) =====
+      # ===== Game projections =====
       - name: G1 (Build game features)
         run: |
           if [ -f scripts/G1_build_game_features.py ]; then
             python scripts/G1_build_game_features.py
           else
             echo "skip: scripts/G1_build_game_features.py not found"
-          fi
 
       - name: G2 (Predict games)
         run: |
@@ -122,9 +126,8 @@ jobs:
             python scripts/G2_predict_games.py
           else
             echo "skip: scripts/G2_predict_games.py not found"
-          fi
 
-      # ===== Pregame branch (optional) =====
+      # ===== Pregame branch =====
       - name: PG0 (Build pregame rolling history)
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
         run: |
@@ -132,7 +135,6 @@ jobs:
             python scripts/PG0_prepare_history.py
           else
             echo "skip: scripts/PG0_prepare_history.py not found"
-          fi
 
       - name: Debug — pregame history summary
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
@@ -146,7 +148,6 @@ jobs:
             python scripts/PG1_train_models.py
           else
             echo "skip: scripts/PG1_train_models.py not found"
-          fi
 
       - name: PG2 (Predict pregame week)
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
@@ -155,7 +156,6 @@ jobs:
             python scripts/PG2_predict_week.py --season ${{ env.FORECAST_SEASON }} --week ${{ env.FORECAST_WEEK }}
           else
             echo "skip: scripts/PG2_predict_week.py not found"
-          fi
 
       # ===== Odds (optional) =====
       - name: Step 06 (Pull odds via The Odds API)
@@ -167,7 +167,6 @@ jobs:
             python scripts/06_pull_odds_api.py
           else
             echo "skip: scripts/06_pull_odds_api.py not found"
-          fi
 
       - name: Debug — odds summary (if any)
         if: ${{ env.PULL_ODDS == '1' }}
