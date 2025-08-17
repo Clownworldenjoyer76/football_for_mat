@@ -15,7 +15,7 @@ from pathlib import Path
 import os
 import pandas as pd
 
-# *** explicit imports for 0.3.3 ***
+# Explicit imports for nfl_data_py==0.3.3
 from nfl_data_py import (
     import_weekly_data,
     import_pbp_data,
@@ -85,7 +85,6 @@ def pull(start: int | None = None, end: int | None = None) -> None:
         })
         print(f"   {name}: {len(df):,} rows → {snap.name} (+ {base.stem}_latest.csv.gz)", flush=True)
 
-    # tiny manifest (safe to commit if you want)
     manifest = pd.DataFrame(manifest_rows)
     write_csv_gz(manifest, root / "manifest_latest.csv.gz")
     print("✅ Done.")
