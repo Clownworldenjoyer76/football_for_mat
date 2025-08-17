@@ -60,6 +60,16 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
+      - name: Upload raw snapshot (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nflverse-raw-${{ github.run_id }}
+          path: |
+            data/raw/nflverse/weekly_*.csv.gz
+            data/raw/nflverse/pbp_*.csv.gz
+            data/raw/nflverse/rosters_*.csv.gz
+            data/raw/nflverse/schedules_*.csv.gz
+    
       - name: Step 02 (Build features)
         run: |
           if [ -f scripts/02_build_features.py ]; then
