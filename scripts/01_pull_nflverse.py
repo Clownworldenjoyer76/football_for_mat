@@ -1,27 +1,31 @@
 #!/usr/bin/env python3
 """
-Pull weekly, pbp, rosters, schedules from nfl_data_py (0.3.3) and write to data/raw/nflverse.
+Pull weekly, pbp, rosters, schedules from nfl_data_py and write to data/raw/nflverse.
 - Snapshot files: *_YYYYMMDD.csv.gz
 - Stable pointers: *_latest.csv.gz
 CLI:
   --start 2019 --end 2024
-Env overrides (optional):
-  YEARS_START, YEARS_END
 """
 from __future__ import annotations
-import argparse, gzip
+import argparse, gzip, os
 from datetime import datetime
 from pathlib import Path
-import os
 import pandas as pd
 
-# Explicit imports for nfl_data_py==0.3.3
-from nfl_data_py import (
-    import_weekly_data,
-    import_pbp_data,
-    import_rosters,
-    import_schedules,
-)
+import nfl_data_py as nfl  # tolerate minor API differences across versions
+
+
+# ---------- helpers ----------
+def _resolve(fn_names):
+    """
+    Return the first callable on nfl_data_py whose name matches any in fn_names.
+    Raises RuntimeError if none exist.
+    """
+    for name in fn_names:
+        fn = getattr(nfl, name, None)
+        if callable(fn):
+            return fn
+    raise RuntimeError(f"None of these functions exist in nfl_data_py: {fn_names}")
 
 def parse_args():
     ap = argparse.ArgumentParser()
@@ -55,22 +59,30 @@ def add_generated_columns(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
     out["dataset"] = dataset
     return out
 
+
+# ---------- main ----------
 def pull(start: int | None = None, end: int | None = None) -> None:
     yrs = years_range(start, end)
     stamp = datetime.utcnow().strftime("%Y%m%d")
     root = Path("data/raw/nflverse")
     root.mkdir(parents=True, exist_ok=True)
 
+    # Resolve function names (handles minor version diffs)
+    fn_weekly    = _resolve(["import_weekly_data"])
+    fn_pbp       = _resolve(["import_pbp_data"])
+    fn_rosters   = _resolve(["import_roster_data", "import_rosters", "import_roster"])
+    fn_schedules = _resolve(["import_schedules", "import_schedule"])
+
     tasks = [
-        ("weekly",    import_weekly_data,  dict(years=yrs)),
-        ("pbp",       import_pbp_data,     dict(years=yrs)),
-        ("rosters",   import_rosters,      dict(years=yrs)),
-        ("schedules", import_schedules,    dict(years=yrs)),
+        ("weekly",    fn_weekly,    dict(years=yrs)),
+        ("pbp",       fn_pbp,       dict(years=yrs)),
+        ("rosters",   fn_rosters,   dict(years=yrs)),
+        ("schedules", fn_schedules, dict(years=yrs)),
     ]
 
     manifest_rows = []
     for name, fn, kwargs in tasks:
-        print(f"➡️ Pulling {name} for years {yrs[0]}–{yrs[-1]} ...", flush=True)
+        print(f"➡️  Pulling {name} for years {yrs[0]}–{yrs[-1]} ...", flush=True)
         df = fn(**kwargs).drop_duplicates().reset_index(drop=True)
         df = add_generated_columns(df, name)
         base = root / f"{name}.csv.gz"
@@ -83,7 +95,7 @@ def pull(start: int | None = None, end: int | None = None) -> None:
             "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z",
             "years": f"{yrs[0]}-{yrs[-1]}",
         })
-        print(f"   {name}: {len(df):,} rows → {snap.name} (+ {base.stem}_latest.csv.gz)", flush=True)
+        print(f"   {name}: {len(df):,} rows → {snap.name} (+ {base.stem}_latest.csv.gz)")
 
     manifest = pd.DataFrame(manifest_rows)
     write_csv_gz(manifest, root / "manifest_latest.csv.gz")
