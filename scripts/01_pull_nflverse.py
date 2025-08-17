@@ -2,17 +2,10 @@
 """
 Step 01 — Pull core NFL datasets and write snapshots under data/raw/nflverse.
 
-This script is defensive against nfl_data_py version differences:
-- Tries to resolve each loader function at runtime
-- If a loader is not present (e.g., roster import missing in your CI build),
-  it logs a WARNING, writes no rows for that dataset, and continues
-- Produces both date-stamped snapshots and *_latest.csv.gz pointers
-- Emits a tiny manifest_latest.csv.gz summarizing what was written
-
-Usage:
-  python scripts/01_pull_nflverse.py --start 2019 --end 2024
-Env overrides:
-  YEARS_START, YEARS_END
+- Pulls weekly, pbp, rosters, schedules using nfl_data_py
+- Defensive against version differences (tries multiple loader names)
+- Writes both dated snapshots and *_latest.csv.gz files
+- Produces manifest_latest.csv.gz summarizing what was written
 """
 
 from __future__ import annotations
@@ -75,11 +68,17 @@ def write_csv_gz(df: pd.DataFrame, path: Path) -> None:
     tmp.replace(path)
 
 
-def save_snapshot_and_latest(df: pd.DataFrame, base: Path, stamp: str) -> Tuple[Path, Path]:
-    snap = base.with_name(f"{base.stem}_{stamp}{base.suffix}")
+def save_snapshot_and_latest(df: pd.DataFrame, name: str, root: Path, stamp: str) -> Tuple[Path, Path]:
+    """
+    Always use underscore format:
+    weekly_YYYYMMDD.csv.gz and weekly_latest.csv.gz
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    snap = root / f"{name}_{stamp}.csv.gz"
+    latest = root / f"{name}_latest.csv.gz"
     write_csv_gz(df, snap)
-    write_csv_gz(df, base.with_name(f"{base.stem}_latest{base.suffix}"))
-    return snap, base
+    write_csv_gz(df, latest)
+    return snap, latest
 
 
 def add_generated_columns(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
@@ -95,7 +94,7 @@ def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
     stamp = datetime.utcnow().strftime("%Y%m%d")
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
-    # Define tasks with multiple candidate function names (covers different nfl_data_py versions)
+    # Define tasks with multiple candidate function names
     tasks: List[TaskSpec] = [
         TaskSpec("weekly",    ["import_weekly_data"],                   dict(years=yrs), required=True),
         TaskSpec("pbp",       ["import_pbp_data"],                      dict(years=yrs), required=True),
@@ -123,39 +122,36 @@ def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
                 "note": "skipped; loader missing"
             })
             if t.required:
-                # Required dataset missing – fail clearly after manifest is written
                 pass
             continue
 
         print(f"   resolved → {fn.__name__}; pulling years {yrs[0]}–{yrs[-1]} ...", flush=True)
         df = fn(**t.kwargs)
         if not isinstance(df, pd.DataFrame):
-            # best-effort normalize (older APIs sometimes return list/iterables)
             df = pd.DataFrame(df)
 
         df = df.drop_duplicates().reset_index(drop=True)
         df = add_generated_columns(df, t.name)
 
-        base = OUT_ROOT / f"{t.name}.csv.gz"
-        snap, latest = save_snapshot_and_latest(df, base, stamp)
+        snap, latest = save_snapshot_and_latest(df, t.name, OUT_ROOT, stamp)
 
         manifest_rows.append({
             "dataset": t.name,
             "rows": int(len(df)),
             "snapshot": str(snap),
-            "latest": str(latest.with_name(f"{latest.stem}_latest{latest.suffix}")),
+            "latest": str(latest),
             "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z",
             "years": f"{yrs[0]}-{yrs[-1]}",
             "note": ""
         })
 
-        print(f"   {t.name}: {len(df):,} rows → {snap.name} (+ {base.stem}_latest.csv.gz)", flush=True)
+        print(f"   {t.name}: {len(df):,} rows → {snap.name} (+ {latest.name})", flush=True)
 
     # Write manifest (always)
     manifest = pd.DataFrame(manifest_rows)
     write_csv_gz(manifest, OUT_ROOT / "manifest_latest.csv.gz")
 
-    # If any required dataset failed to resolve, raise AFTER manifest so CI has breadcrumbs
+    # Fail if required datasets missing
     missing_required = [t.name for t in tasks if t.required and not any(
         r["dataset"] == t.name and r["rows"] > 0 for r in manifest_rows
     )]
