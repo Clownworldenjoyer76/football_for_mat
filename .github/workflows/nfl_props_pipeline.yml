@@ -49,6 +49,15 @@ jobs:
             pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib
           fi
 
+      - name: Sanity check nfl_data_py
+        run: |
+          python - <<'PY'
+          import nfl_data_py as nfl
+          from nfl_data_py import import_rosters
+          print("nfl_data_py version:", getattr(nfl, "__version__", "unknown"))
+          print("direct import_rosters OK")
+          PY
+
       # ===== Core pipeline =====
       - name: Step 01 (Pull NFL data)
         run: |
@@ -69,7 +78,8 @@ jobs:
             data/raw/nflverse/pbp_*.csv.gz
             data/raw/nflverse/rosters_*.csv.gz
             data/raw/nflverse/schedules_*.csv.gz
-    
+            data/raw/nflverse/manifest_latest.csv.gz
+
       - name: Step 02 (Build features)
         run: |
           if [ -f scripts/02_build_features.py ]; then
@@ -80,7 +90,7 @@ jobs:
 
       - name: Debug — features summary
         run: |
-         [ -f data/features/_build_features_summary.txt ] && sed -n '1,200p' data/features/_build_features_summary.txt || echo "no summary"
+          [ -f data/features/_build_features_summary.txt ] && sed -n '1,200p' data/features/_build_features_summary.txt || echo "no summary"
       
       - name: Step 03 (Train models)
         run: |
@@ -137,6 +147,7 @@ jobs:
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
         run: |
           [ -f data/pregame/_history_summary.txt ] && sed -n '1,200p' data/pregame/_history_summary.txt || echo "no _history_summary.txt"
+
       - name: PG1 (Train pregame models)
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
         run: |
