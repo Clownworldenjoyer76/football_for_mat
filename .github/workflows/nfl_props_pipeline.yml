@@ -49,15 +49,6 @@ jobs:
             pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib
           fi
 
-      - name: Sanity check nfl_data_py
-        run: |
-          python - <<'PY'
-          import nfl_data_py as nfl
-          from nfl_data_py import import_rosters
-          print("nfl_data_py version:", getattr(nfl, "__version__", "unknown"))
-          print("direct import_rosters OK")
-          PY
-
       # ===== Core pipeline =====
       - name: Step 01 (Pull NFL data)
         run: |
@@ -91,7 +82,7 @@ jobs:
       - name: Debug — features summary
         run: |
           [ -f data/features/_build_features_summary.txt ] && sed -n '1,200p' data/features/_build_features_summary.txt || echo "no summary"
-      
+
       - name: Step 03 (Train models)
         run: |
           if [ -f scripts/03_train_models.py ]; then
@@ -116,7 +107,7 @@ jobs:
             echo "skip: scripts/05_rank_edges_no_odds.py not found"
           fi
 
-      # ===== Game projections (post-game from your player props) =====
+      # ===== Game projections (post-game) =====
       - name: G1 (Build game features)
         run: |
           if [ -f scripts/G1_build_game_features.py ]; then
@@ -133,7 +124,7 @@ jobs:
             echo "skip: scripts/G2_predict_games.py not found"
           fi
 
-      # ===== Pregame branch (lag-only models, optional) =====
+      # ===== Pregame branch (optional) =====
       - name: PG0 (Build pregame rolling history)
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
         run: |
@@ -166,7 +157,7 @@ jobs:
             echo "skip: scripts/PG2_predict_week.py not found"
           fi
 
-      # ===== Odds (optional via The Odds API) =====
+      # ===== Odds (optional) =====
       - name: Step 06 (Pull odds via The Odds API)
         if: ${{ env.PULL_ODDS == '1' }}
         env:
