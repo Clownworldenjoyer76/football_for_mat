@@ -47,7 +47,8 @@ jobs:
             pip install -r requirements.txt
           else
             pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib
-
+          fi
+          
       # ===== Core pipeline =====
       - name: Step 01 (Pull NFL data)
         run: |
@@ -219,3 +220,4 @@ jobs:
 
           git diff --staged --quiet || git commit -m "Pipeline outputs (props, edges, games, pregame optional, odds optional)"
           git push
+         
