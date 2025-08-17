@@ -1,28 +1,43 @@
 #!/usr/bin/env python3
 """
-Pull weekly, pbp, rosters, schedules from nfl_data_py and write to data/raw/nflverse.
+Pull weekly, pbp, rosters, schedules from nfl_data_py (0.3.3) and write to data/raw/nflverse.
 - Snapshot files: *_YYYYMMDD.csv.gz
 - Stable pointers: *_latest.csv.gz
-Env overrides:
-  YEARS_START (default 2016)
-  YEARS_END   (default = current year)
+CLI:
+  --start 2019 --end 2024
+Env overrides (optional):
+  YEARS_START, YEARS_END
 """
 from __future__ import annotations
-import os, sys, io, gzip, shutil
+import argparse, gzip
 from datetime import datetime
 from pathlib import Path
+import os
 import pandas as pd
 
-def years_range() -> list[int]:
-    start = int(os.environ.get("YEARS_START", 2016))
-    end = int(os.environ.get("YEARS_END", datetime.now().year))
-    if end < start:
-        end = start
-    return list(range(start, end + 1))
+# *** explicit imports for 0.3.3 ***
+from nfl_data_py import (
+    import_weekly_data,
+    import_pbp_data,
+    import_rosters,
+    import_schedules,
+)
+
+def parse_args():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--start", type=int, default=None)
+    ap.add_argument("--end", type=int, default=None)
+    return ap.parse_args()
+
+def years_range(start: int | None, end: int | None) -> list[int]:
+    s = start or int(os.environ.get("YEARS_START", 2016))
+    e = end or int(os.environ.get("YEARS_END", datetime.utcnow().year))
+    if e < s:
+        e = s
+    return list(range(s, e + 1))
 
 def write_csv_gz(df: pd.DataFrame, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    # atomic write
     tmp = path.with_suffix(path.suffix + ".tmp")
     with gzip.open(tmp, "wt", encoding="utf-8") as f:
         df.to_csv(f, index=False)
@@ -40,46 +55,41 @@ def add_generated_columns(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
     out["dataset"] = dataset
     return out
 
-def pull():
-    import nfl_data_py as nfl  # imported here so the script imports cleanly even if not installed elsewhere
-
-    yrs = years_range()
-    today = datetime.utcnow().strftime("%Y%m%d")
+def pull(start: int | None = None, end: int | None = None) -> None:
+    yrs = years_range(start, end)
+    stamp = datetime.utcnow().strftime("%Y%m%d")
     root = Path("data/raw/nflverse")
     root.mkdir(parents=True, exist_ok=True)
 
     tasks = [
-        ("weekly",     nfl.import_weekly_data,   dict(years=yrs)),
-        ("pbp",        nfl.import_pbp_data,      dict(years=yrs)),
-        ("rosters",    nfl.import_rosters,       dict(years=yrs)),
-        ("schedules",  nfl.import_schedules,     dict(years=yrs)),
+        ("weekly",    import_weekly_data,  dict(years=yrs)),
+        ("pbp",       import_pbp_data,     dict(years=yrs)),
+        ("rosters",   import_rosters,      dict(years=yrs)),
+        ("schedules", import_schedules,    dict(years=yrs)),
     ]
 
-    written = []
+    manifest_rows = []
     for name, fn, kwargs in tasks:
-        print(f"➡️  Pulling {name} for years {yrs[0]}–{yrs[-1]} ...", flush=True)
-        df = fn(**kwargs)
-        # Light hygiene: drop exact dup rows, keep deterministic column order
-        df = df.drop_duplicates().reset_index(drop=True)
+        print(f"➡️ Pulling {name} for years {yrs[0]}–{yrs[-1]} ...", flush=True)
+        df = fn(**kwargs).drop_duplicates().reset_index(drop=True)
         df = add_generated_columns(df, name)
         base = root / f"{name}.csv.gz"
-        snap, latest = save_snapshot_and_latest(df, base, today)
-        written.append((name, snap, latest, len(df)))
+        snap, latest = save_snapshot_and_latest(df, base, stamp)
+        manifest_rows.append({
+            "dataset": name,
+            "rows": len(df),
+            "snapshot": str(snap),
+            "latest": str(latest.with_name(f"{latest.stem}_latest{latest.suffix}")),
+            "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z",
+            "years": f"{yrs[0]}-{yrs[-1]}",
+        })
+        print(f"   {name}: {len(df):,} rows → {snap.name} (+ {base.stem}_latest.csv.gz)", flush=True)
 
-    # Write a small manifest for downstream jobs
-    manifest = pd.DataFrame(
-        [{"dataset": n, "rows": rows, "snapshot": str(snap), "latest": str(latest),
-          "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z"}
-         for (n, snap, latest, rows) in written]
-    )
+    # tiny manifest (safe to commit if you want)
+    manifest = pd.DataFrame(manifest_rows)
     write_csv_gz(manifest, root / "manifest_latest.csv.gz")
     print("✅ Done.")
-    for n, snap, latest, rows in written:
-        print(f"   {n}: {rows:,} rows → {snap.name} (and {latest.name})")
 
 if __name__ == "__main__":
-    try:
-        pull()
-    except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        sys.exit(1)
+    a = parse_args()
+    pull(a.start, a.end)
