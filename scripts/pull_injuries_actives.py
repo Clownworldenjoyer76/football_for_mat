@@ -1,180 +1,334 @@
 #!/usr/bin/env python3
 """
-Pull injury reports / practice status and derive OUT/QUESTIONABLE/PROBABLE flags.
+Pull NFL injuries/actives (day-of freshness).
 
-Fix for CI error:
-- Some nfl_data_py versions expose different function names.
-  We detect and call whichever exists:
-    - import_injuries(years)
-    - import_injury_reports(years)
-    - import_injury(years)
-    - import_player_injuries(years)
+Primary source (structured JSON):
+  DraftKings sportsbook (semi-public) – try multiple known league ids.
+  We walk the JSON rather than assuming a fixed schema.
+
+Fallback source (HTML table; optional if libs available):
+  FantasyPros injury report.
+
 Outputs:
-  - data/raw/injuries/injury_reports_latest.csv
-  - data/raw/injuries/injury_reports_{season}.csv  (when --season provided)
+  data/raw/injuries/injury_reports_latest.csv
+  data/raw/injuries/injury_reports_{season}.csv  (when --season given)
+
+NOTE:
+- Filename is LOCKED to scripts/pull_injuries_actives.py per user request.
+- No external keys required. Works in GitHub Actions runner.
+
+Usage:
+  python scripts/pull_injuries_actives.py
+  python scripts/pull_injuries_actives.py --season 2025
 """
 
 from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import sys
+import time
+from typing import Any, Dict, List, Optional
+
 import pandas as pd
+import requests
 
-# ----------------- Config -----------------
+# ---------------- paths ----------------
 RAW_DIR = Path("data/raw")
-OUT_DIR = RAW_DIR / "injuries"
-OUT_DIR.mkdir(parents=True, exist_ok=True)
-OUT_LATEST = OUT_DIR / "injury_reports_latest.csv"
-SCHEDULES_GLOB = RAW_DIR / "nflverse" / "schedules_*.csv.gz"
+INJ_DIR = RAW_DIR / "injuries"
+INJ_DIR.mkdir(parents=True, exist_ok=True)
+NFLVERSE_DIR = RAW_DIR / "nflverse"
 
-# ----------------- Utils -----------------
-def infer_seasons_from_schedules() -> list[int]:
-    paths = sorted(SCHEDULES_GLOB.parent.glob(SCHEDULES_GLOB.name))
-    if not paths:
-        return []
-    frames = []
-    for p in paths:
-        try:
-            frames.append(pd.read_csv(p))
-        except Exception:
-            pass
-    if not frames:
-        return []
-    sched = pd.concat(frames, ignore_index=True)
-    if "season" not in sched.columns:
-        return []
-    return sorted(pd.to_numeric(sched["season"], errors="coerce").dropna().astype(int).unique())
+OUT_LATEST = INJ_DIR / "injury_reports_latest.csv"
 
-def normalize_status(s: str) -> str:
-    if pd.isna(s):
-        return ""
-    s = str(s).strip().lower()
-    return s.replace("_", " ").replace("-", " ")
+# ---------------- constants ----------------
+# DK sometimes uses different league ids; try several candidates.
+DK_URL_CANDIDATES = [
+    "https://sportsbook.draftkings.com/api/sportscontent/v1/leagues/889/injuries",
+    "https://sportsbook.draftkings.com/api/sportscontent/v1/leagues/888/injuries",
+]
+FANTASYPROS_URL = "https://www.fantasypros.com/nfl/injuries/"
+
+UA_HDRS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+}
+
+TEAM_ABBR = {
+    # AFC East
+    "buffalo bills": "BUF", "bills": "BUF",
+    "miami dolphins": "MIA", "dolphins": "MIA",
+    "new england patriots": "NE", "patriots": "NE", "ne patriots": "NE",
+    "new york jets": "NYJ", "jets": "NYJ",
+    # AFC North
+    "baltimore ravens": "BAL", "ravens": "BAL",
+    "cincinnati bengals": "CIN", "bengals": "CIN",
+    "cleveland browns": "CLE", "browns": "CLE",
+    "pittsburgh steelers": "PIT", "steelers": "PIT",
+    # AFC South
+    "houston texans": "HOU", "texans": "HOU",
+    "indianapolis colts": "IND", "colts": "IND",
+    "jacksonville jaguars": "JAX", "jaguars": "JAX", "jax jaguars": "JAX",
+    "tennessee titans": "TEN", "titans": "TEN",
+    # AFC West
+    "denver broncos": "DEN", "broncos": "DEN",
+    "kansas city chiefs": "KC", "chiefs": "KC",
+    "las vegas raiders": "LV", "raiders": "LV",
+    "los angeles chargers": "LAC", "chargers": "LAC",
+    # NFC East
+    "dallas cowboys": "DAL", "cowboys": "DAL",
+    "new york giants": "NYG", "giants": "NYG",
+    "philadelphia eagles": "PHI", "eagles": "PHI",
+    "washington commanders": "WAS", "commanders": "WAS", "washington football team": "WAS",
+    # NFC North
+    "chicago bears": "CHI", "bears": "CHI",
+    "detroit lions": "DET", "lions": "DET",
+    "green bay packers": "GB", "packers": "GB",
+    "minnesota vikings": "MIN", "vikings": "MIN",
+    # NFC South
+    "atlanta falcons": "ATL", "falcons": "ATL",
+    "carolina panthers": "CAR", "panthers": "CAR",
+    "new orleans saints": "NO", "saints": "NO",
+    "tampa bay buccaneers": "TB", "buccaneers": "TB", "bucs": "TB",
+    # NFC West
+    "arizona cardinals": "ARI", "cardinals": "ARI",
+    "los angeles rams": "LAR", "rams": "LAR",
+    "san francisco 49ers": "SF", "49ers": "SF", "niners": "SF",
+    "seattle seahawks": "SEA", "seahawks": "SEA",
+}
 
 OUT_STATUSES = {
-    "out", "injured reserve", "ir", "pup", "non football injury",
-    "nfi", "suspended", "did not practice", "dnp", "covid 19",
+    "out", "injured reserve", "ir", "pup", "nfi", "suspended", "covid", "dnp", "did not practice",
 }
-QUESTIONABLE_STATUSES = {"questionable", "limited practice", "lp", "limited"}
-PROBABLE_STATUSES = {"probable", "full practice", "fp"}
+QUESTIONABLE_STATUSES = {"questionable", "limited", "lp", "dtd", "day to day"}
+PROBABLE_STATUSES = {"probable", "fp", "full"}
 
-# ----------------- Main -----------------
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--season", type=int, default=None, help="e.g., 2025")
-    args = parser.parse_args()
+# ---------------- helpers ----------------
+def norm(s: Any) -> str:
+    if s is None or (isinstance(s, float) and pd.isna(s)):
+        return ""
+    s = str(s).strip()
+    return re.sub(r"\s+", " ", s)
 
-    try:
-        import nfl_data_py as nfl
-    except Exception as e:
-        sys.stderr.write(f"ERROR: cannot import nfl_data_py: {e}\n")
-        sys.exit(1)
+def lower_clean(s: str) -> str:
+    s = norm(s).lower()
+    s = s.replace("-", " ").replace("_", " ")
+    return re.sub(r"[^a-z0-9\s]", "", s)
 
-    # Determine seasons
-    if args.season:
-        seasons = [args.season]
-    else:
-        seasons = infer_seasons_from_schedules()
-        if not seasons:
-            # fallback to recent 3 years
-            nowy = datetime.now().year
-            seasons = [nowy - 2, nowy - 1, nowy]
+def map_team(team: str) -> Optional[str]:
+    if not team:
+        return None
+    key = lower_clean(team)
+    # sometimes DK returns abbreviations already
+    if key.upper() in {v for v in TEAM_ABBR.values()}:
+        return key.upper()
+    return TEAM_ABBR.get(key)
 
-    # Pick an available injuries function & parameter name
-    candidates = [
-        "import_injuries",
-        "import_injury_reports",
-        "import_injury",
-        "import_player_injuries",
-    ]
-    inj_func = None
-    for name in candidates:
-        if hasattr(nfl, name):
-            inj_func = getattr(nfl, name)
-            break
-    if inj_func is None:
-        sys.stderr.write(
-            "ERROR: nfl_data_py does not expose an injuries import function "
-            f"(tried {', '.join(candidates)}). Please update nfl_data_py.\n"
-        )
-        sys.exit(1)
+def status_flags(status: str, practice: str = "") -> dict:
+    st = lower_clean(status)
+    pr = lower_clean(practice)
+    is_out = (st in OUT_STATUSES) or (pr in {"did not practice", "dnp"})
+    is_q   = st in QUESTIONABLE_STATUSES
+    is_p   = st in PROBABLE_STATUSES
+    return {"is_out": int(is_out), "is_questionable": int(is_q), "is_probable": int(is_p)}
 
-    # Some versions expect 'years=' vs positional; support both
-    try:
-        inj = inj_func(seasons)  # positional
-    except TypeError:
+def http_get_json(url: str, retries: int = 3, backoff: float = 0.6) -> dict:
+    last = None
+    for i in range(retries):
         try:
-            inj = inj_func(years=seasons)  # keyword
-        except TypeError:
-            inj = inj_func(seasons=seasons)  # alternate keyword
+            r = requests.get(url, headers=UA_HDRS, timeout=20)
+            if r.status_code == 200:
+                return r.json()
+            last = f"{r.status_code} {r.text[:160]}"
+        except Exception as e:
+            last = str(e)
+        time.sleep(backoff * (2 ** i))
+    raise RuntimeError(f"GET {url} failed: {last}")
 
-    # -------- Normalize schema --------
-    inj = inj.copy()
-    inj.columns = [c.strip().lower() for c in inj.columns]
+# ---------------- DK parser (schema-agnostic) ----------------
+def dk_extract_players(payload: Any) -> List[Dict[str, Any]]:
+    players: List[Dict[str, Any]] = []
 
-    # Unify player_id
-    if "player_id" not in inj.columns:
-        for alt in ["gsis_id", "player_gsis_id", "gsis_player_id", "nfl_id"]:
-            if alt in inj.columns:
-                inj = inj.rename(columns={alt: "player_id"})
-                break
+    NAME_KEYS = {"name", "displayName", "playerName", "fullName"}
+    TEAM_KEYS = {"team", "teamName", "teamAbbreviation", "teamAbbrev"}
+    POS_KEYS  = {"position", "pos"}
+    STAT_KEYS = {"status", "injuryStatus", "gameStatus", "designation"}
+    NOTE_KEYS = {"note", "injury", "details", "comment", "description"}
 
-    # Keep useful columns when present
-    keep_candidates = [
-        "season", "week", "game_id",
-        "team", "opponent",
-        "player_id", "player_name", "position",
-        "report_status", "game_status", "status",
-        "practice_status", "practice_participation",
-        "entry_date", "report_primary_injury",
-    ]
-    keep = [c for c in keep_candidates if c in inj.columns]
-    if keep:
-        inj = inj[keep].copy()
+    def walk(x: Any):
+        if isinstance(x, dict):
+            keys = set(x.keys())
+            if (keys & NAME_KEYS) and (keys & TEAM_KEYS) and ((keys & STAT_KEYS) or (keys & NOTE_KEYS)):
+                rec = {
+                    "player_name": norm(next((x[k] for k in NAME_KEYS if k in x), "")),
+                    "team_raw": norm(next((x[k] for k in TEAM_KEYS if k in x), "")),
+                    "position": norm(next((x[k] for k in POS_KEYS if k in x), "")),
+                    "status": norm(next((x[k] for k in STAT_KEYS if k in x), "")),
+                    "details": norm(next((x[k] for k in NOTE_KEYS if k in x), "")),
+                }
+                players.append(rec)
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
 
-    # Build normalized status fields from whatever exists
-    base_status = None
-    for c in ["report_status", "game_status", "status"]:
-        if c in inj.columns:
-            base_status = c; break
-    if base_status is None:
-        inj["report_status_norm"] = ""
+    walk(payload)
+    if not players:
+        return []
+    df = pd.DataFrame(players)
+    df = df.drop_duplicates(subset=["player_name", "team_raw", "position", "status", "details"])
+    return df.to_dict("records")
+
+def fetch_from_dk() -> pd.DataFrame:
+    last_err = None
+    for url in DK_URL_CANDIDATES:
+        try:
+            data = http_get_json(url)
+            recs = dk_extract_players(data)
+            if recs:
+                df = pd.DataFrame(recs)
+                df["team"] = df["team_raw"].apply(map_team)
+                return df
+            last_err = f"No recognizable player records at {url}"
+        except Exception as e:
+            last_err = f"{url} -> {e}"
+    raise RuntimeError(last_err or "DraftKings fetch failed")
+
+# ---------------- FantasyPros fallback ----------------
+def fetch_from_fantasypros() -> pd.DataFrame:
+    # pandas.read_html needs lxml or html5lib; handle import errors cleanly.
+    try:
+        tables = pd.read_html(FANTASYPROS_URL)  # type: ignore
+    except Exception as e:
+        raise RuntimeError(f"FantasyPros read_html failed (needs lxml/html5lib): {e}")
+
+    frames = []
+    for t in tables:
+        # Normalize columns
+        t.columns = [lower_clean(c) for c in t.columns]
+        cols = set(t.columns)
+        if "player" in cols and ("team" in cols or "pos" in cols):
+            frames.append(t)
+
+    if not frames:
+        raise RuntimeError("FantasyPros: no injury tables recognized")
+
+    df = pd.concat(frames, ignore_index=True)
+
+    colmap = {
+        "player": "player_name",
+        "team": "team_raw",
+        "pos": "position",
+        "injury": "details",
+        "practice status": "practice_status",
+        "game status": "status",
+        "practice": "practice_status",
+        "status": "status",
+        "notes": "details",
+    }
+    df = df.rename(columns={c: colmap.get(c, c) for c in df.columns})
+    for col in ["player_name", "team_raw", "position", "status", "practice_status", "details"]:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[["player_name", "team_raw", "position", "status", "practice_status", "details"]]
+    df["team"] = df["team_raw"].apply(map_team)
+    return df
+
+# ---------------- Optional: attach player_id via rosters_latest ----------------
+def attach_player_ids(df: pd.DataFrame) -> pd.DataFrame:
+    roster_path = NFLVERSE_DIR / "rosters_latest.csv.gz"
+    if not roster_path.exists():
+        return df
+    try:
+        rost = pd.read_csv(roster_path)
+    except Exception:
+        return df
+
+    def n(s: str) -> str:
+        s = lower_clean(s)
+        return s.replace(".", "").replace(" jr", "").replace(" sr", "").strip()
+
+    rost.columns = [lower_clean(c) for c in rost.columns]
+    name_col = None
+    for c in ["full_name", "player_name"]:
+        if c in rost.columns:
+            name_col = c
+            break
+    if name_col is None:
+        return df
+
+    if "team_abbr" in rost.columns and "team" not in rost.columns:
+        rost = rost.rename(columns={"team_abbr": "team"})
+
+    df = df.copy()
+    df["name_key"] = df["player_name"].map(n)
+    rost["name_key"] = rost[name_col].map(n)
+
+    if "team" in rost.columns:
+        merged = df.merge(
+            rost[["player_id", "team", "name_key"]].drop_duplicates(),
+            on=["team", "name_key"], how="left"
+        )
     else:
-        inj["report_status_norm"] = inj[base_status].apply(normalize_status)
+        merged = df
+        merged["player_id"] = pd.NA
+    return merged
 
-    practice_col = None
-    for c in ["practice_status", "practice_participation"]:
-        if c in inj.columns:
-            practice_col = c; break
-    inj["practice_status_norm"] = inj[practice_col].apply(normalize_status) if practice_col else ""
+# ---------------- main ----------------
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--season", type=int, default=None, help="If provided, also write a seasonal copy.")
+    args = ap.parse_args()
 
-    is_out = inj["report_status_norm"].isin(OUT_STATUSES) | inj["practice_status_norm"].isin({"did not practice", "dnp"})
-    is_q = inj["report_status_norm"].isin(QUESTIONABLE_STATUSES)
-    is_prob = inj["report_status_norm"].isin(PROBABLE_STATUSES)
+    # Prefer DK JSON; fall back to FantasyPros if DK unavailable
+    try:
+        df = fetch_from_dk()
+        source = "draftkings"
+    except Exception as e:
+        sys.stderr.write(f"[injuries] DraftKings failed: {e}\nFalling back to FantasyPros...\n")
+        try:
+            df = fetch_from_fantasypros()
+            source = "fantasypros"
+        except Exception as e2:
+            sys.stderr.write(f"[injuries] FantasyPros failed: {e2}\n")
+            sys.exit(1)
 
-    inj["is_out"] = is_out.astype(int)
-    inj["is_questionable"] = is_q.astype(int)
-    inj["is_probable"] = is_prob.astype(int)
+    if "practice_status" not in df.columns:
+        df["practice_status"] = ""
 
-    # Deduplicate to most recent per player/game if we have a timestamp
-    if "entry_date" in inj.columns:
-        inj["entry_dt"] = pd.to_datetime(inj["entry_date"], errors="coerce", utc=True)
-        subset = [c for c in ["season", "week", "game_id", "player_id"] if c in inj.columns]
-        sort_cols = subset + (["entry_dt"] if "entry_dt" in inj.columns else [])
-        inj = inj.sort_values(sort_cols).drop_duplicates(subset=subset, keep="last")
-        inj = inj.drop(columns=["entry_dt"], errors="ignore")
+    flags = df.apply(
+        lambda r: status_flags(r.get("status", ""), r.get("practice_status", "")),
+        axis=1, result_type="expand"
+    )
+    for c in ["is_out", "is_questionable", "is_probable"]:
+        df[c] = flags[c].astype(int)
 
-    inj["fetched_at_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if "team" not in df.columns:
+        df["team"] = df["team_raw"].apply(map_team)
 
-    # Write outputs
+    df = attach_player_ids(df)
+
+    keep = [
+        "player_id", "player_name", "team", "position",
+        "status", "practice_status", "details",
+        "is_out", "is_questionable", "is_probable"
+    ]
+    for k in keep:
+        if k not in df.columns:
+            df[k] = ""
+    out = df[keep].copy()
+    out.insert(0, "source", source)
+    out.insert(1, "fetched_at_utc", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+
     OUT_LATEST.parent.mkdir(parents=True, exist_ok=True)
-    inj.to_csv(OUT_LATEST, index=False)
-    print(f"Wrote: {OUT_LATEST}")
+    out.to_csv(OUT_LATEST, index=False)
+    print(f"Wrote: {OUT_LATEST} (source={source}, rows={len(out)})")
 
     if args.season:
-        seasonal = OUT_DIR / f"injury_reports_{args.season}.csv"
-        inj.to_csv(seasonal, index=False)
+        seasonal = INJ_DIR / f"injury_reports_{args.season}.csv"
+        out.to_csv(seasonal, index=False)
         print(f"Wrote: {seasonal}")
 
 if __name__ == "__main__":
