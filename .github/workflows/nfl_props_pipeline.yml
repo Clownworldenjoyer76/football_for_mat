@@ -187,7 +187,7 @@ jobs:
         run: |
           [ -f data/odds/_api_summary.txt ] && sed -n '1,200p' data/odds/_api_summary.txt || echo "no _api_summary.txt"
 
-      # ===== Commit artifacts =====
+           # ===== Commit artifacts =====
       - name: Commit outputs
         env:
           GH_USER_NAME: "github-actions[bot]"
@@ -196,6 +196,9 @@ jobs:
           set -e
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
+
+          # Raw nflverse pulls
+          git add -f data/raw/nflverse/* 2>/dev/null || true
 
           # Features
           git add -f data/features/*.parquet 2>/dev/null || true
@@ -231,5 +234,5 @@ jobs:
           git add -f output/*.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Pipeline outputs (props, edges, games, pregame optional, odds optional)"
+          git diff --staged --quiet || git commit -m "Pipeline outputs (raw nflverse + others)"
           git push
