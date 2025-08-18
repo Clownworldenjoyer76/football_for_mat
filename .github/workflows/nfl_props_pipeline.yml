@@ -60,7 +60,7 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
-      # --- R setup & rosters (fixed) ---
+      # --- R setup & rosters (dependencies managed; only keep latest) ---
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
 
@@ -71,15 +71,13 @@ jobs:
             any::remotes
             any::nflreadr
 
-      - name: Pull rosters via nflreadr (R)
+      - name: Pull rosters via nflreadr (R) — latest only
         run: |
           Rscript -e "yrs <- 2019:2024;
                       df <- nflreadr::load_rosters(yrs);
-                      ts <- format(Sys.time(), '%Y%m%d');
                       dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
-                      fn <- sprintf('data/raw/nflverse/rosters_%s.csv.gz', ts);
-                      write.csv(df, gzfile(fn), row.names=FALSE);
-                      file.copy(fn, 'data/raw/nflverse/rosters_latest.csv.gz', overwrite=TRUE)"
+                      fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
+                      write.csv(df, gzfile(fn), row.names=FALSE)"
 
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
@@ -88,7 +86,7 @@ jobs:
           path: |
             data/raw/nflverse/weekly_*.csv.gz
             data/raw/nflverse/pbp_*.csv.gz
-            data/raw/nflverse/rosters_*.csv.gz
+            data/raw/nflverse/rosters_latest.csv.gz
             data/raw/nflverse/schedules_*.csv.gz
             data/raw/nflverse/manifest_latest.csv.gz
 
@@ -206,12 +204,17 @@ jobs:
           git config user.email "$GH_USER_EMAIL"
 
           # Raw nflverse pulls
-          git add -f data/raw/nflverse/* 2>/dev/null || true
+          git add -f data/raw/nflverse/weekly_*.csv.gz 2>/dev/null || true
+          git add -f data/raw/nflverse/pbp_*.csv.gz 2>/dev/null || true
+          git add -f data/raw/nflverse/rosters_latest.csv.gz 2>/dev/null || true
+          git add -f data/raw/nflverse/schedules_*.csv.gz 2>/dev/null || true
+          git add -f data/raw/nflverse/manifest_latest.csv.gz 2>/dev/null || true
 
           # Features
           git add -f data/features/*.parquet 2>/dev/null || true
           git add -f data/features/*.csv.gz 2>/dev/null || true
           git add -f data/features/manifest.csv 2>/dev/null || true
+          git add -f data/features/_build_features_summary.txt 2>/dev/null || true
 
           # Predictions / Props
           git add -f data/predictions/*.csv 2>/dev/null || true
@@ -234,10 +237,6 @@ jobs:
           git add -f models/pregame/*.joblib 2>/dev/null || true
           git add -f output/pregame_summary.txt 2>/dev/null || true
 
-          # Features
-          git add -f data/features/_build_features_summary.txt 2>/dev/null || true
-          git add -f data/features/manifest.csv 2>/dev/null || true
-          
           # Output summaries
           git add -f output/*.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
