@@ -1,0 +1,67 @@
+Title,Body,Status
+Implement 01_pull_nflverse.py,"Weekly stats, PBP, rosters, depth charts, schedules via nfl_data_py.",To Do
+Add optional NGS ingestion,Wire up Next Gen Stats if available; make optional.,To Do
+Integrate external feeds,"Odds API, weather API, injuries/actives feed.",To Do
+Raw data landing,Persist raw pulls to data/raw as CSV/Parquet.,To Do
+Warehouse ETL,Transform to star schema in data/warehouse (Parquet).,To Do
+Build ID map,Player and team canonical IDs for cross-source joins.,To Do
+Normalize team codes/names,Enforce BUF/KC/SF… and consistent player names.,To Do
+Join across sources,"Stable joins on player_id, game_id, season, week.",To Do
+Unit tests: joins,Ensure player/game consistency across sources.,To Do
+Labels: continuous props,"Yards, receptions, attempts, completions, etc.",To Do
+Labels: count/binary props,"TDs, sacks, INTs; boolean or counts.",To Do
+Labels: game-level,"Team totals, spreads, totals.",To Do
+Unit tests: labels,Cross-season label integrity.,To Do
+Features: rolling averages,"L3/L5 windows, EWMA.",To Do
+Features: usage metrics,"Snap share, route rate, target share, carry share, RZ share.",To Do
+Features: team context,"Pace, pass rate, PROE, situational splits.",To Do
+Features: opponent strength,"Defense vs position, EPA/play allowed, explosive rates.",To Do
+Features: matchup,"Home/away, rest days, travel, surface.",To Do
+Features: weather transforms,"Temp, wind^2, precip indicators.",To Do
+Features: availability,"Injury status, practice participation, depth chart rank.",To Do
+Script: 02_build_features.py,Modular feature builder with config.,To Do
+Unit tests: features,Deterministic feature creation on sample slice.,To Do
+Filter low-snap games,Exclude < X snaps unless modeling spot usage.,To Do
+Clip/Winsorize outliers,Top/bottom 0.5% or robust strategy.,To Do
+Time-based split,Train/val by season-week; no leakage.,To Do
+Standardize features,z-score numeric features where appropriate.,To Do
+Module + tests: data cleaning,Reusable cleaning functions with unit tests.,To Do
+Model: Elastic Net baseline,Baseline for continuous props.,To Do
+Model: GBM (LGBM/XGB),Primary for continuous props.,To Do
+Model: Poisson/NegBin/Logistic,Counts and binary markets.,To Do
+Walk-forward CV,Weekly rolling training/validation scheme.,To Do
+Script: 03_train_models.py,Train and persist models + metrics.,To Do
+Metrics reporting,"MAE, RMSE, LogLoss, AUC; per-market reports.",To Do
+Unit tests: models,Toy dataset smoke tests.,To Do
+Fit distributions,Normal/Log-Normal for continuous; Poisson/NegBin for counts.,To Do
+Probability calc from CDF,Compute P(hit) vs line for O/U.,To Do
+Calibration,Platt or isotonic regression on validation.,To Do
+Unit tests: distributions,Check shapes and monotonicity.,To Do
+Script: 05_pull_odds_merge.py,"Pull odds, normalize, merge to players/teams.",To Do
+Implied probabilities,Convert American odds to implied prob.,To Do
+Vig removal,Normalize two-runner markets.,To Do
+Edge & EV calculation,Edge=model_prob−market_prob; EV per bet.,To Do
+Unit tests: odds integration,Fixture odds file round-trip.,To Do
+Collect historical lines,Books or proxies for backtests.,To Do
+Walk-forward backtest,Evaluate week-by-week with no leakage.,To Do
+Backtest metrics,"Win rate, ROI, CLV; drawdowns.",To Do
+Script: backtest.py,Run backtests and save reports.,To Do
+Unit tests: backtest,Deterministic replay on sample.,To Do
+Folder structure,"Create /data, /notebooks, /scripts, /config, /output.",To Do
+Script: 04_predict.py,"Load model, predict, write predictions.",To Do
+Automate flow,Orchestrate daily/weekly pipeline.,To Do
+Outputs to /output,"predictions.csv, best_bets.csv.",To Do
+Logging,Structured logs for each step.,To Do
+Drift monitoring,Recent residuals vs prior weeks.,To Do
+Calibration plots,Reliability curves per market.,To Do
+Business KPIs,"ROI, CLV, stake-weighted hit rates.",To Do
+Monitoring notebook/dashboard,Visualize KPIs.,To Do
+Actives enforcement,Don't price OUT players; day-of checks.,To Do
+Sample size thresholds,Min routes/snaps thresholds.,To Do
+Weather rules,"Hard caps, e.g., wind>20 mph.",To Do
+Unit tests: guardrails,Deterministic conditions.,To Do
+Toy pipeline: WR receptions,End-to-end: ingest→features→model→probs→edge.,To Do
+Define bet thresholds,Edge ≥ X% by market.,To Do
+Confidence filters,σ ≤ threshold; sample size OK.,To Do
+Kelly staking with caps,0.5 Kelly and exposure limits.,To Do
+Script: 07_select_bets.py,Generate final selections.,To Do
