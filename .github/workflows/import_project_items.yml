@@ -1,14 +1,31 @@
-name: Import Project Items from CSV
-on: workflow_dispatch
+Name: Import Project Items (minimal)
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner:
+        description: Owner or org
+        required: true
+        default: Clownworldenjoyer76
+      project_number:
+        description: Project number from URL
+        required: true
+        default: "1"
+      csv_path:
+        description: CSV path in repo
+        required: true
+        default: .github/data/github_project_items_test.csv
+
 permissions:
   contents: read
-  issues: write
   projects: write
+
 jobs:
   import:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: echo "Workflow stub is in place"
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            core.info('Minimal workflow loaded. Ready to read CSV and write to Project.')
