@@ -1,5 +1,4 @@
 name: Import Project Items from CSV
-
 on:
   workflow_dispatch:
     inputs:
@@ -15,28 +14,20 @@ on:
         description: "Path to CSV in repo"
         required: true
         default: ".github/data/github_project_items.csv"
-
 permissions:
   contents: read
   issues: write
-  # Required for Projects (v2) GraphQL mutations:
   projects: write
-
 jobs:
   import:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install deps
-        run: python -m pip install --upgrade pip
-
       - name: Import CSV into Project (create Draft Issues and set Status)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,134 +36,70 @@ jobs:
           CSV_PATH: ${{ github.event.inputs.csv_path }}
         run: |
           python - << 'PY'
-          import csv, json, os, sys, textwrap
-          import requests
-
+          import csv, json, os, sys, requests
           GH_TOKEN = os.environ["GH_TOKEN"]
           OWNER = os.environ["OWNER"]
           PROJECT_NUMBER = int(os.environ["PROJECT_NUMBER"])
           CSV_PATH = os.environ["CSV_PATH"]
-
           GQL = "https://api.github.com/graphql"
           S = requests.Session()
           S.headers.update({"Authorization": f"Bearer {GH_TOKEN}"})
-
           def gql(query, variables):
             r = S.post(GQL, json={"query": query, "variables": variables})
-            if r.status_code != 200:
-              print(r.text)
-              r.raise_for_status()
+            r.raise_for_status()
             data = r.json()
             if "errors" in data:
               raise RuntimeError(json.dumps(data["errors"], indent=2))
             return data["data"]
-
-          # 1) Get project (user first, then org)
           q_proj = """
           query($owner:String!, $number:Int!) {
-            user(login:$owner) {
-              projectV2(number:$number) {
-                id
-                fields(first:50) {
-                  nodes {
-                    ... on ProjectV2FieldCommon { id name }
-                    ... on ProjectV2SingleSelectField {
-                      id
-                      name
-                      options { id name }
-                    }
-                  }
-                }
-              }
-            }
-            organization(login:$owner) {
-              projectV2(number:$number) {
-                id
-                fields(first:50) {
-                  nodes {
-                    ... on ProjectV2FieldCommon { id name }
-                    ... on ProjectV2SingleSelectField {
-                      id
-                      name
-                      options { id name }
-                    }
-                  }
-                }
-              }
-            }
+            user(login:$owner) { projectV2(number:$number) { id fields(first:50) { nodes {
+              ... on ProjectV2FieldCommon { id name }
+              ... on ProjectV2SingleSelectField { id name options { id name } }
+            }}}}
+            organization(login:$owner) { projectV2(number:$number) { id fields(first:50) { nodes {
+              ... on ProjectV2FieldCommon { id name }
+              ... on ProjectV2SingleSelectField { id name options { id name } }
+            }}}}
           }
           """
           d = gql(q_proj, {"owner": OWNER, "number": PROJECT_NUMBER})
           proj = (d.get("user") or {}).get("projectV2") or (d.get("organization") or {}).get("projectV2")
           if not proj:
-            print(f"ERROR: Project not found for owner={OWNER} number={PROJECT_NUMBER}")
-            sys.exit(1)
-
+            print(f"ERROR: Project not found for owner={OWNER} number={PROJECT_NUMBER}"); sys.exit(1)
           project_id = proj["id"]
-
-          # Find the Status field (single select)
-          status_field = None
-          for f in proj["fields"]["nodes"]:
-            if f["name"] == "Status" and "options" in f:
-              status_field = f
-              break
+          status_field = next((f for f in proj["fields"]["nodes"] if f.get("name")=="Status" and "options" in f), None)
           if not status_field:
-            print("ERROR: Could not find 'Status' field on the project.")
-            sys.exit(1)
-
+            print("ERROR: Could not find 'Status' field on the project."); sys.exit(1)
           status_field_id = status_field["id"]
           status_options = {opt["name"].lower(): opt["id"] for opt in status_field["options"]}
-
-          # 2) Read CSV rows
           with open(CSV_PATH, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
-
-          # 3) For each row, create Draft Issue and set Status (if provided)
+            rows = list(csv.DictReader(f))
           mut_create = """
           mutation($projectId:ID!, $title:String!, $body:String) {
             createProjectV2DraftIssue(input:{projectId:$projectId, title:$title, body:$body}) {
               projectItem { id }
             }
-          }
-          """
-
+          }"""
           mut_set_status = """
           mutation($projectId:ID!, $itemId:ID!, $fieldId:ID!, $optionId:ID!) {
             updateProjectV2ItemFieldValue(input:{
-              projectId:$projectId,
-              itemId:$itemId,
-              fieldId:$fieldId,
+              projectId:$projectId, itemId:$itemId, fieldId:$fieldId,
               value:{ singleSelectOptionId:$optionId }
-            }) {
-              projectV2Item { id }
-            }
-          }
-          """
-
+            }) { projectV2Item { id } }
+          }"""
           created = 0
           for row in rows:
             title = (row.get("Title") or "").strip()
             body  = (row.get("Body")  or "").strip()
             status = (row.get("Status") or "").strip().lower()
-
-            if not title:
-              continue
-
-            # Create draft issue
+            if not title: continue
             r = gql(mut_create, {"projectId": project_id, "title": title, "body": body or None})
-            item_id = r["createProjectV2DraftIssue"]["projectItem"]["id"]
-            created += 1
-
-            # Set Status if provided and matches an option
+            item_id = r["createProjectV2DraftIssue"]["projectItem"]["id"]; created += 1
             if status and status in status_options:
-              option_id = status_options[status]
               gql(mut_set_status, {
-                "projectId": project_id,
-                "itemId": item_id,
-                "fieldId": status_field_id,
-                "optionId": option_id
+                "projectId": project_id, "itemId": item_id,
+                "fieldId": status_field_id, "optionId": status_options[status]
               })
-
           print(f"Created {created} draft items.")
           PY
