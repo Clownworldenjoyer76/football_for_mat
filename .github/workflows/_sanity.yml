@@ -1,0 +1,12 @@
+name: _Sanity Check
+on:
+  push:
+    paths:
+      - ".github/workflows/_sanity.yml"
+  workflow_dispatch:
+jobs:
+  echo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm runner works
+        run: echo "GitHub Actions is working."
