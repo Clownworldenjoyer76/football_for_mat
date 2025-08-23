@@ -49,17 +49,6 @@ jobs:
             pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib
           fi
 
-      # ===== Core pipeline =====
-      - name: Step 01 (Pull NFL data)
-        run: |
-          if [ -f scripts/01_pull_nflverse_chunked.py ]; then
-            python scripts/01_pull_nflverse_chunked.py --start 2019 --end 2024 --chunk-years 3
-          elif [ -f scripts/01_pull_nflverse.py ]; then
-            python scripts/01_pull_nflverse.py --start 2019 --end 2024
-          else
-            echo "ERROR: no Step 01 script found" && exit 1
-          fi
-
       # --- R setup & rosters (dependencies managed; only keep latest) ---
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
