@@ -62,7 +62,7 @@ jobs:
 
       - name: Pull rosters via nflreadr (R) — latest only
         run: |
-          Rscript -e "yrs <- 2019:2024;
+          Rscript -e "yrs <- 2019:as.integer(format(Sys.Date(), '%Y'));
                       df <- nflreadr::load_rosters(yrs);
                       dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
                       fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
