@@ -27,7 +27,8 @@ jobs:
 
       - name: Pull core NFL datasets (weekly/pbp/rosters/schedules)
         run: |
-          python scripts/01_pull_nflverse.py --start 2019 --end 2024
+          # No --end flag so it includes the current year (2025 now)
+          python scripts/01_pull_nflverse.py --start 2019
 
       - name: Commit & push updated data
         run: |
