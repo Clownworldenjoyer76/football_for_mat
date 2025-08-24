@@ -98,7 +98,13 @@ def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
     tasks: List[TaskSpec] = [
         TaskSpec("weekly",    ["import_weekly_data"],                   dict(years=yrs), required=True),
         TaskSpec("pbp",       ["import_pbp_data"],                      dict(years=yrs), required=True),
-        TaskSpec("rosters",   ["import_roster_data", "import_rosters", "import_roster"], dict(years=yrs), required=False),
+        TaskSpec(
+            "rosters",
+            # expanded to include names used by other nfl_data_py versions
+            ["import_roster_data", "import_rosters", "import_roster", "load_rosters", "get_rosters"],
+            dict(years=yrs),
+            required=False
+        ),
         TaskSpec("schedules", ["import_schedules", "import_schedule"],  dict(years=yrs), required=True),
     ]
 
