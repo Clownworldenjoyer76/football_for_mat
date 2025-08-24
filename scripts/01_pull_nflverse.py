@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import os
+import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -146,13 +147,17 @@ def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
             fallback_latest = OUT_ROOT / f"{t.name}_latest.csv.gz"
             fallback_rows = file_rows_if_exists(fallback_latest)
             if fallback_rows is not None:
-                latest_path = fallback_latest
-                # try to infer the most recent snapshot that matches today's stamp
+                # Ensure a dated snapshot also exists by copying latest -> dated
                 candidate_snap = OUT_ROOT / f"{t.name}_{stamp}.csv.gz"
-                snap_path = candidate_snap if candidate_snap.exists() else None
+                if not candidate_snap.exists():
+                    candidate_snap.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(fallback_latest, candidate_snap)
+                    print(f"   {t.name}: copied {fallback_latest.name} → {candidate_snap.name}", flush=True)
+                latest_path = fallback_latest
+                snap_path = candidate_snap
                 rows_written = fallback_rows
                 note = "used existing latest; loader missing"
-                print(f"   WARNING: loader missing, but found existing {fallback_latest.name} ({rows_written} rows).", flush=True)
+                print(f"   WARNING: loader missing, using existing latest ({rows_written} rows).", flush=True)
             else:
                 note = "skipped; loader missing"
                 print(f"   WARNING: No loader found and no existing latest file; skipping {t.name}.", flush=True)
