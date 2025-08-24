@@ -68,7 +68,9 @@ def write_csv_gz(df: pd.DataFrame, path: Path) -> None:
     tmp.replace(path)
 
 
-def save_snapshot_and_latest(df: pd.DataFrame, name: str, root: Path, stamp: str) -> Tuple[Path, Path]:
+def save_snapshot_and_latest(
+    df: pd.DataFrame, name: str, root: Path, stamp: str
+) -> Tuple[Path, Path]:
     """
     Always use underscore format:
     weekly_YYYYMMDD.csv.gz and weekly_latest.csv.gz
@@ -86,6 +88,16 @@ def add_generated_columns(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
     out["generated_at_utc"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
     out["dataset"] = dataset
     return out
+
+
+def file_rows_if_exists(path: Path) -> Optional[int]:
+    if not path.exists():
+        return None
+    try:
+        df = pd.read_csv(path)
+        return int(len(df))
+    except Exception:
+        return None
 
 
 # ----------------------------- main -----------------------------------
@@ -114,53 +126,56 @@ def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
         print(f"➡️  {t.name}: resolving loader {t.candidates} ...", flush=True)
         fn = resolve_loader(t.candidates)
 
-        if fn is None:
-            msg = (f"WARNING: No loader found in nfl_data_py for {t.name} "
-                   f"(tried {t.candidates}). Skipping {t.name}.")
-            print(msg, flush=True)
-            manifest_rows.append({
-                "dataset": t.name,
-                "rows": 0,
-                "snapshot": "",
-                "latest": "",
-                "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z",
-                "years": f"{yrs[0]}-{yrs[-1]}",
-                "note": "skipped; loader missing"
-            })
-            if t.required:
-                pass
-            continue
+        snap_path: Optional[Path] = None
+        latest_path: Optional[Path] = None
+        rows_written: int = 0
+        note: str = ""
 
-        print(f"   resolved → {fn.__name__}; pulling years {yrs[0]}–{yrs[-1]} ...", flush=True)
-        df = fn(**t.kwargs)
-        if not isinstance(df, pd.DataFrame):
-            df = pd.DataFrame(df)
-
-        df = df.drop_duplicates().reset_index(drop=True)
-        df = add_generated_columns(df, t.name)
-
-        snap, latest = save_snapshot_and_latest(df, t.name, OUT_ROOT, stamp)
+        if fn is not None:
+            print(f"   resolved → {fn.__name__}; pulling years {yrs[0]}–{yrs[-1]} ...", flush=True)
+            df = fn(**t.kwargs)
+            if not isinstance(df, pd.DataFrame):
+                df = pd.DataFrame(df)
+            df = df.drop_duplicates().reset_index(drop=True)
+            df = add_generated_columns(df, t.name)
+            snap_path, latest_path = save_snapshot_and_latest(df, t.name, OUT_ROOT, stamp)
+            rows_written = int(len(df))
+            print(f"   {t.name}: {rows_written:,} rows → {snap_path.name} (+ {latest_path.name})", flush=True)
+        else:
+            # No loader resolved — fallback: if a _latest already exists, record it
+            fallback_latest = OUT_ROOT / f"{t.name}_latest.csv.gz"
+            fallback_rows = file_rows_if_exists(fallback_latest)
+            if fallback_rows is not None:
+                latest_path = fallback_latest
+                # try to infer the most recent snapshot that matches today's stamp
+                candidate_snap = OUT_ROOT / f"{t.name}_{stamp}.csv.gz"
+                snap_path = candidate_snap if candidate_snap.exists() else None
+                rows_written = fallback_rows
+                note = "used existing latest; loader missing"
+                print(f"   WARNING: loader missing, but found existing {fallback_latest.name} ({rows_written} rows).", flush=True)
+            else:
+                note = "skipped; loader missing"
+                print(f"   WARNING: No loader found and no existing latest file; skipping {t.name}.", flush=True)
 
         manifest_rows.append({
             "dataset": t.name,
-            "rows": int(len(df)),
-            "snapshot": str(snap),
-            "latest": str(latest),
+            "rows": rows_written,
+            "snapshot": str(snap_path) if snap_path else "",
+            "latest": str(latest_path) if latest_path else "",
             "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z",
             "years": f"{yrs[0]}-{yrs[-1]}",
-            "note": ""
+            "note": note
         })
-
-        print(f"   {t.name}: {len(df):,} rows → {snap.name} (+ {latest.name})", flush=True)
 
     # Write manifest (always)
     manifest = pd.DataFrame(manifest_rows)
     write_csv_gz(manifest, OUT_ROOT / "manifest_latest.csv.gz")
 
-    # Fail if required datasets missing
-    missing_required = [t.name for t in tasks if t.required and not any(
-        r["dataset"] == t.name and r["rows"] > 0 for r in manifest_rows
-    )]
+    # Fail if required datasets missing (rows must be > 0)
+    missing_required = [
+        t.name for t in tasks
+        if t.required and not any(r["dataset"] == t.name and r["rows"] > 0 for r in manifest_rows)
+    ]
     if missing_required:
         raise RuntimeError(f"Missing required datasets: {', '.join(missing_required)}")
 
