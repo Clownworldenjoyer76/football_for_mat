@@ -73,7 +73,6 @@ def load_injuries() -> Optional[pd.DataFrame]:
 def load_weather() -> Optional[pd.DataFrame]:
     if WEATHER_FILE.exists():
         try:
-            # time column may exist; do not fail if missing
             return pd.read_csv(WEATHER_FILE, low_memory=False)
         except Exception:
             return None
@@ -119,7 +118,6 @@ def merge_injuries(df: pd.DataFrame, injuries: Optional[pd.DataFrame]) -> pd.Dat
     Matches on player_display_name (fallback to player_name) against injuries['NAME'].
     """
     df = df.copy()
-    # Ensure the column exists even if injuries missing
     df["injury_flag"] = 0
 
     if injuries is None or "NAME" not in injuries.columns:
@@ -141,11 +139,9 @@ def merge_injuries(df: pd.DataFrame, injuries: Optional[pd.DataFrame]) -> pd.Dat
 def merge_weather(df: pd.DataFrame, weather: Optional[pd.DataFrame]) -> pd.DataFrame:
     """
     Attach season/week aggregated weather (mean) if available.
-    We keep it simple here; kickoff alignment comes later when richer schedule keys exist.
     """
     if weather is None:
         return df
-
     if not {"season", "week"}.issubset(df.columns):
         return df
 
@@ -156,11 +152,9 @@ def merge_weather(df: pd.DataFrame, weather: Optional[pd.DataFrame]) -> pd.DataF
     for col in ["temperature_2m", "windspeed_10m", "precipitation", "cloudcover"]:
         if col in w.columns:
             agg_cols[col] = "mean"
-
     if not agg_cols:
         return df
 
-    # Some weather exports may include season/week; if not, skip
     if not {"season", "week"}.issubset(w.columns):
         return df
 
@@ -184,7 +178,7 @@ def add_rolling(df: pd.DataFrame, numeric_cols: List[str]) -> pd.DataFrame:
                   .transform(lambda s: pd.to_numeric(s, errors="coerce").rolling(window=3, min_periods=1).mean())
             )
         except Exception:
-            # If a column explodes (all NaN/non-numeric), skip its rolling
+            # If a column is all non-numeric/NaN, skip its rolling
             pass
     return df
 
