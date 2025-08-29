@@ -49,6 +49,19 @@ jobs:
             pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib
           fi
 
+      # --- Detect & back up pre-seeded roster (e.g., Sleeper) ---
+      - name: Detect and back up existing roster
+        run: |
+          mkdir -p tmp
+          if [ -f data/raw/nflverse/rosters_latest.csv.gz ]; then
+            echo "HAVE_SEEDED_ROSTER=1" >> $GITHUB_ENV
+            cp -f data/raw/nflverse/rosters_latest.csv.gz tmp/rosters_latest.seed.gz
+            echo "Found pre-seeded roster; backed up to tmp/rosters_latest.seed.gz"
+          else
+            echo "HAVE_SEEDED_ROSTER=0" >> $GITHUB_ENV
+            echo "No pre-seeded roster detected"
+          fi
+
       # ===== Core pipeline (restricted to 2024 → current year) =====
       - name: Step 01 (Pull NFL data, 2024+)
         run: |
@@ -61,11 +74,13 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
-      # --- R setup & rosters (keep latest; restricted to 2024+)
+      # --- R setup & rosters (skip entirely if we already have a roster file) ---
       - name: Set up R
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
         uses: r-lib/actions/setup-r@v2
 
       - name: Set up R dependencies
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: |
@@ -73,12 +88,22 @@ jobs:
             any::nflreadr
 
       - name: Pull rosters via nflreadr (R) — latest only (2024+)
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
         run: |
           Rscript -e "yrs <- 2024:as.integer(format(Sys.Date(), '%Y'));
                       df <- nflreadr::load_rosters(yrs);
                       dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
                       fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
                       write.csv(df, gzfile(fn), row.names=FALSE)"
+
+      # --- Restore pre-seeded roster if Step 01/R changed it ---
+      - name: Restore pre-seeded roster (if backed up)
+        if: ${{ env.HAVE_SEEDED_ROSTER == '1' }}
+        run: |
+          if [ -f tmp/rosters_latest.seed.gz ]; then
+            cp -f tmp/rosters_latest.seed.gz data/raw/nflverse/rosters_latest.csv.gz
+            echo "Restored pre-seeded roster after data pulls."
+          fi
 
       # ===== Day-of freshness =====
       # (Injuries scraping step removed; rely on CSV if present)
@@ -262,5 +287,5 @@ jobs:
           git add -f output/*.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Pipeline outputs (2024+ raw nflverse + weather + features + others)"
+          git diff --staged --quiet || git commit -m "Pipeline outputs (2024+ pulls; protect pre-seeded rosters)"
           git push
