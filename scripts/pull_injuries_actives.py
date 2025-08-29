@@ -1,5 +1,31 @@
 #!/usr/bin/env python3
 """
+Pull NFL injuries/actives from ESPN and save to data/raw/injuries/injury_reports_latest.csv
+"""
+
+import os
+import pandas as pd
+from datetime import datetime
+
+URL = "https://www.espn.com/nfl/injuries"
+
+def main():
+    print(f"[injuries] Fetching {URL}")
+    tables = pd.read_html(URL)  # requires lxml
+    df = pd.concat(tables, ignore_index=True, sort=False)
+
+    # Add metadata
+    df["fetched_at_utc"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    outdir = "data/raw/injuries"
+    os.makedirs(outdir, exist_ok=True)
+
+    latest_path = os.path.join(outdir, "injury_reports_latest.csv")
+    df.to_csv(latest_path, index=False)
+    print(f"[injuries] wrote {latest_path} with {len(df)} rows")
+
+if __name__ == "__main__":
+    main()#!/usr/bin/env python3
+"""
 Pull NFL injuries/actives (day-of freshness).
 
 Primary source (structured JSON):
