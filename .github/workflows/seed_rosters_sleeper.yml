@@ -2,6 +2,12 @@ name: Seed Rosters (Sleeper)
 
 on:
   workflow_dispatch:
+  schedule:
+    # Run around 1:00 AM America/New_York every Wednesday.
+    # GitHub Actions uses UTC, so we schedule both 05:00 (1am EDT) and 06:00 (1am EST)
+    # and then gate by local TZ in a step to avoid double-runs.
+    - cron: "0 5 * * 3"
+    - cron: "0 6 * * 3"
 
 permissions:
   contents: write
@@ -11,12 +17,23 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TZ: America/New_York
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
+
+      - name: Gate by local NY time (only proceed at 1:00 AM Wednesday)
+        run: |
+          echo "Local date/time (NY): $(TZ=America/New_York date)"
+          DOW=$(TZ=America/New_York date +%u)   # 3 = Wednesday
+          HOUR=$(TZ=America/New_York date +%H)  # 01 = 1 AM
+          if [ "$DOW" != "3" ] || [ "$HOUR" != "01" ]; then
+            echo "Not 1:00 AM Wednesday in America/New_York — exiting without changes."
+            exit 0
+          fi
 
       - name: Install jq
         run: |
@@ -32,10 +49,9 @@ jobs:
       - name: Convert to CSV (active NFL players with a team)
         run: |
           mkdir -p data/raw/nflverse
-          # Write header
+          # Header
           echo 'player_id,full_name,first_name,last_name,position,team,active,status,depth_chart_order,birth_date,height,weight,college,ts_utc,source' > tmp/rosters_latest.csv
-
-          # Convert JSON -> CSV rows
+          # JSON -> CSV rows
           jq -r '
             to_entries[]
             | .value
@@ -74,5 +90,5 @@ jobs:
           git pull --rebase origin main || true
 
           git add -f data/raw/nflverse/rosters_latest.csv.gz
-          git diff --staged --quiet || git commit -m "Seed 2025 rosters from Sleeper (active w/ team)"
+          git diff --staged --quiet || git commit -m "Seed 2025 rosters from Sleeper (scheduled 1am ET)"
           git push
