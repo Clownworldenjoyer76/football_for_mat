@@ -43,11 +43,7 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-            pip install lxml
-          else
-            pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib
+          pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib
 
       # --- R setup & rosters (dependencies managed; only keep latest) ---
       - name: Set up R
