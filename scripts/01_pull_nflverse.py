@@ -7,6 +7,13 @@ Step 01 — Pull core NFL datasets and write snapshots under data/raw/nflverse.
 - Handles per-year 404s gracefully (skips missing years, continues)
 - Writes both dated snapshots and *_latest.csv.gz files
 - Produces manifest_latest.csv.gz summarizing what was written
+
+Updates in this version
+-----------------------
+- Defaults clamp to seasons >= 2024 unless overridden by env or CLI
+- If a pre-seeded roster file exists at data/raw/nflverse/rosters_latest.csv.gz,
+  we DO NOT overwrite it unless ALLOW_OVERWRITE_ROSTERS=1 is set.
+  We still write a dated snapshot for traceability.
 """
 
 from __future__ import annotations
@@ -36,13 +43,14 @@ class TaskSpec:
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Pull core NFL datasets.")
-    ap.add_argument("--start", type=int, default=None, help="Start year (e.g., 2019)")
+    ap.add_argument("--start", type=int, default=None, help="Start year (e.g., 2024)")
     ap.add_argument("--end", type=int, default=None, help="End year (e.g., 2025)")
     return ap.parse_args()
 
 
 def years_range(start: Optional[int], end: Optional[int]) -> List[int]:
-    s = start or int(os.environ.get("YEARS_START", 2016))
+    # Default to 2024+ unless overridden by env or CLI
+    s = start or int(os.environ.get("YEARS_START", 2024))
     e = end or int(os.environ.get("YEARS_END", datetime.utcnow().year))
     if e < s:
         e = s
@@ -96,7 +104,8 @@ def file_rows_if_exists(path: Path) -> Optional[int]:
     if not path.exists():
         return None
     try:
-        df = pd.read_csv(path)
+        # pandas handles .gz transparently
+        df = pd.read_csv(path, low_memory=False)
         return int(len(df))
     except Exception:
         return None
@@ -155,15 +164,9 @@ def fetch_per_year_concat(fn: Callable, years: List[int], base_kwargs: Dict) -> 
                 continue
 
         if not called and yr not in skipped_years:
-            # If we tried variants and still failed (e.g., TypeError everywhere), let it bubble as a TypeError
-            # or mark as skipped silently; here we mark skipped to keep job resilient
             skipped_years.append(yr)
 
-    if frames:
-        out = pd.concat(frames, ignore_index=True, sort=False)
-    else:
-        out = pd.DataFrame()
-
+    out = pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
     return out, ok_years, skipped_years
 
 
@@ -172,6 +175,11 @@ def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
     yrs = years_range(start, end)
     stamp = datetime.utcnow().strftime("%Y%m%d")
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
+
+    # Pre-seeded roster protection
+    roster_latest_path = OUT_ROOT / "rosters_latest.csv.gz"
+    allow_overwrite_rosters = str(os.environ.get("ALLOW_OVERWRITE_ROSTERS", "0")).lower() in ("1", "true", "yes")
+    have_preseeded_roster = roster_latest_path.exists() and not allow_overwrite_rosters
 
     # Define tasks with multiple candidate function names
     tasks: List[TaskSpec] = [
@@ -190,6 +198,27 @@ def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
 
     for t in tasks:
         print(f"➡️  {t.name}: resolving loader {t.candidates} ...", flush=True)
+
+        # Special handling: protect pre-seeded roster file
+        if t.name == "rosters" and have_preseeded_roster:
+            rows = file_rows_if_exists(roster_latest_path) or 0
+            # also write a dated snapshot so each run is auditable
+            dated = OUT_ROOT / f"rosters_{stamp}.csv.gz"
+            if not dated.exists():
+                dated.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(roster_latest_path, dated)
+                print(f"   rosters: preserved pre-seeded file; copied → {dated.name} ({rows} rows).", flush=True)
+            manifest_rows.append({
+                "dataset": t.name,
+                "rows": rows,
+                "snapshot": str(dated),
+                "latest": str(roster_latest_path),
+                "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z",
+                "years": f"{yrs[0]}-{yrs[-1]}",
+                "note": "pre-seeded roster detected; skipped pull"
+            })
+            continue
+
         fn = resolve_loader(t.candidates)
 
         snap_path: Optional[Path] = None
@@ -210,7 +239,6 @@ def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
                 rows_written = int(len(df))
                 print(f"   {t.name}: {rows_written:,} rows → {snap_path.name} (+ {latest_path.name})", flush=True)
             else:
-                # No data at all (e.g., all years 404) → behave like missing but without error for non-required
                 if t.required:
                     raise RuntimeError(f"{t.name}: no data returned for any year {yrs[0]}–{yrs[-1]}")
                 note = "no data; all years skipped (404)"
