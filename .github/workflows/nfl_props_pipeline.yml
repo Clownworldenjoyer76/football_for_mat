@@ -49,18 +49,7 @@ jobs:
             pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib
           fi
 
-      # ===== Core pipeline =====
-      - name: Step 01 (Pull NFL data)
-        run: |
-          if [ -f scripts/01_pull_nflverse_chunked.py ]; then
-            python scripts/01_pull_nflverse_chunked.py --start 2019 --end 2024 --chunk-years 3
-          elif [ -f scripts/01_pull_nflverse.py ]; then
-            python scripts/01_pull_nflverse.py --start 2019 --end 2024
-          else
-            echo "ERROR: no Step 01 script found" && exit 1
-          fi
-
-      # --- R setup & rosters ---
+      # --- R setup & rosters (dependencies managed; only keep latest) ---
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
 
@@ -80,13 +69,7 @@ jobs:
                       write.csv(df, gzfile(fn), row.names=FALSE)"
 
       # ===== Day-of freshness =====
-      - name: Pull injuries/actives (latest)
-        run: |
-          if [ -n "${{ env.FORECAST_SEASON }}" ]; then
-            python scripts/pull_injuries_actives.py --season ${{ env.FORECAST_SEASON }}
-          else
-            python scripts/pull_injuries_actives.py
-          fi
+      # Injuries scraping step REMOVED – we rely on existing CSV
 
       - name: Pull game weather (Open-Meteo)
         run: |
@@ -147,7 +130,24 @@ jobs:
             echo "skip: scripts/05_rank_edges_no_odds.py not found"
           fi
 
-      # ===== Pregame (optional) =====
+      # ===== Game projections (post-game) =====
+      - name: G1 (Build game features)
+        run: |
+          if [ -f scripts/G1_build_game_features.py ]; then
+            python scripts/G1_build_game_features.py
+          else
+            echo "skip: scripts/G1_build_game_features.py not found"
+          fi
+
+      - name: G2 (Predict games)
+        run: |
+          if [ -f scripts/G2_predict_games.py ]; then
+            python scripts/G2_predict_games.py
+          else
+            echo "skip: scripts/G2_predict_games.py not found"
+          fi
+
+      # ===== Pregame branch (optional) =====
       - name: PG0 (Build pregame rolling history)
         if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
         run: |
@@ -180,6 +180,23 @@ jobs:
             echo "skip: scripts/PG2_predict_week.py not found"
           fi
 
+      # ===== Odds (optional) =====
+      - name: Step 06 (Pull odds via The Odds API)
+        if: ${{ env.PULL_ODDS == '1' }}
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          if [ -f scripts/06_pull_odds_api.py ]; then
+            python scripts/06_pull_odds_api.py
+          else
+            echo "skip: scripts/06_pull_odds_api.py not found"
+          fi
+
+      - name: Debug — odds summary (if any)
+        if: ${{ env.PULL_ODDS == '1' }}
+        run: |
+          [ -f data/odds/_api_summary.txt ] && sed -n '1,200p' data/odds/_api_summary.txt || echo "no _api_summary.txt"
+
       # ===== Commit artifacts =====
       - name: Commit outputs
         env:
@@ -189,8 +206,6 @@ jobs:
           set -e
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
-
-          # ensure up to date before pushing
           git pull --rebase origin main || true
 
           # Raw nflverse pulls
@@ -235,5 +250,5 @@ jobs:
           git add -f output/*.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Pipeline outputs (raw nflverse + injuries/weather + features + others)"
+          git diff --staged --quiet || git commit -m "Pipeline outputs (raw nflverse + injuries/weather + others)"
           git push
