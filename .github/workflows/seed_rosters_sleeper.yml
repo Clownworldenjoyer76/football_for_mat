@@ -1,0 +1,78 @@
+name: Seed Rosters (Sleeper)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/New_York
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Fetch Sleeper players JSON
+        run: |
+          mkdir -p tmp
+          curl -sSL https://api.sleeper.app/v1/players/nfl -o tmp/players.json
+          test -s tmp/players.json || { echo "ERROR: Empty players.json"; exit 1; }
+
+      - name: Convert to CSV (active NFL players with a team)
+        run: |
+          mkdir -p data/raw/nflverse
+          # Write header
+          echo 'player_id,full_name,first_name,last_name,position,team,active,status,depth_chart_order,birth_date,height,weight,college,ts_utc,source' > tmp/rosters_latest.csv
+
+          # Convert JSON -> CSV rows
+          jq -r '
+            to_entries[]
+            | .value
+            | select(.active==true and (.team != null and .team != ""))
+            | [
+                (.player_id // .playerId // .id // ""),
+                (.full_name // .name // ((.first_name // "") + " " + (.last_name // "")) ),
+                (.first_name // ""),
+                (.last_name // ""),
+                (.position // ""),
+                (.team // ""),
+                (if .active then "true" else "false" end),
+                (.status // ""),
+                (.depth_chart_order // ""),
+                (.birth_date // ""),
+                (.height // ""),
+                (.weight // ""),
+                (.college // ""),
+                (now | todateiso8601),
+                "sleeper_players_api"
+              ]
+            | @csv
+          ' tmp/players.json >> tmp/rosters_latest.csv
+
+          # Gzip to target path
+          gzip -c tmp/rosters_latest.csv > data/raw/nflverse/rosters_latest.csv.gz
+
+      - name: Commit roster file
+        env:
+          GH_USER_NAME: "github-actions[bot]"
+          GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
+        run: |
+          set -e
+          git config user.name "$GH_USER_NAME"
+          git config user.email "$GH_USER_EMAIL"
+          git pull --rebase origin main || true
+
+          git add -f data/raw/nflverse/rosters_latest.csv.gz
+          git diff --staged --quiet || git commit -m "Seed 2025 rosters from Sleeper (active w/ team)"
+          git push
