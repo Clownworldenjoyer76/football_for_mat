@@ -4,6 +4,8 @@ import os
 import sys
 import datetime as dt
 from typing import Optional, Iterable
+import hashlib
+import io
 
 import pandas as pd
 import requests
@@ -37,6 +39,14 @@ def resolve_latest_year(start_year: Optional[int] = None, min_year: int = 1999) 
     raise RuntimeError("No available nflverse play_by_play asset found")
 
 
+def _atomic_write_bytes(path: str, data: bytes) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".part"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
+
+
 def download_pbp(year: int) -> str:
     os.makedirs(NFLVERSE_DIR, exist_ok=True)
     url = _asset_url(year)
@@ -66,18 +76,65 @@ def _parse_year_from_argv(argv: Iterable[str]) -> Optional[int]:
     return None
 
 
+def _sha256_file(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _to_gzip_csv_bytes(df: pd.DataFrame) -> bytes:
+    bio = io.BytesIO()
+    df.to_csv(bio, index=False)
+    raw = bio.getvalue()
+    import gzip
+    out = io.BytesIO()
+    with gzip.GzipFile(fileobj=out, mode="wb") as gz:
+        gz.write(raw)
+    return out.getvalue()
+
+
 def main():
     explicit_year = _parse_year_from_argv(sys.argv)
     latest_year = resolve_latest_year(explicit_year)
+
+    # 1) Download canonical season file
     csv_path = download_pbp(latest_year)
     df = load_pbp_csv(csv_path)
     if df.empty:
         raise SystemExit(f"ERROR: downloaded CSV has 0 rows: {csv_path}")
-    out_path = os.path.join(NFLVERSE_DIR, f"pbp_{latest_year}.parquet")
-    df.to_parquet(out_path, index=False)
+
+    # 2) Write Parquet (season)
+    parquet_path = os.path.join(NFLVERSE_DIR, f"pbp_{latest_year}.parquet")
+    df.to_parquet(parquet_path, index=False)
+
+    # 3) Write small “latest” artifacts for Git:
+    #    a) head100 preview so diffs are detectable and tiny
+    head_bytes = _to_gzip_csv_bytes(df.head(100))
+    latest_head_path = os.path.join(NFLVERSE_DIR, "pbp_latest.head100.csv.gz")
+    _atomic_write_bytes(latest_head_path, head_bytes)
+
+    #    b) manifest with metadata
+    sha = _sha256_file(csv_path)
+    manifest = pd.DataFrame(
+        [{
+            "file": os.path.basename(csv_path),
+            "year": latest_year,
+            "rows": int(len(df)),
+            "sha256": sha,
+            "fetched_utc": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        }]
+    )
+    manifest_path = os.path.join(NFLVERSE_DIR, "manifest_latest.csv.gz")
+    manifest.to_csv(manifest_path, index=False, compression="gzip")
+
+    # 4) Logs for CI
     print(f"Wrote: {csv_path}")
-    print(f"Wrote: {out_path}")
-    print(f"Rows: {len(df)} | Year: {latest_year}")
+    print(f"Wrote: {parquet_path}")
+    print(f"Wrote: {latest_head_path}")
+    print(f"Wrote: {manifest_path}")
+    print(f"Rows: {len(df)} | Year: {latest_year} | SHA256: {sha[:12]}...")
 
 
 if __name__ == "__main__":
