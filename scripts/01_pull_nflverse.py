@@ -3,7 +3,7 @@
 import os
 import sys
 import datetime as dt
-from typing import Optional
+from typing import Optional, Iterable
 
 import pandas as pd
 import requests
@@ -13,12 +13,20 @@ RAW_DIR = "data/raw"
 FILENAME_TPL = "play_by_play_{year}.csv.gz"
 TIMEOUT = 30  # seconds
 
+
 def _asset_url(year: int) -> str:
     return f"{BASE}/{FILENAME_TPL.format(year=year)}"
 
+
 def _exists(url: str) -> bool:
-    r = requests.head(url, timeout=TIMEOUT)
-    return r.status_code == 200
+    try:
+        r = requests.head(url, timeout=TIMEOUT, allow_redirects=True)
+        if r.status_code == 405:  # HEAD not allowed, fall back to GET
+            r = requests.get(url, stream=True, timeout=TIMEOUT, allow_redirects=True)
+        return r.status_code in (200, 301, 302)
+    except requests.RequestException:
+        return False
+
 
 def resolve_latest_year(start_year: Optional[int] = None, min_year: int = 1999) -> int:
     """
@@ -27,13 +35,10 @@ def resolve_latest_year(start_year: Optional[int] = None, min_year: int = 1999) 
     """
     year = start_year or dt.datetime.utcnow().year
     for y in range(year, min_year - 1, -1):
-        url = _asset_url(y)
-        try:
-            if _exists(url):
-                return y
-        except requests.RequestException:
-            continue
+        if _exists(_asset_url(y)):
+            return y
     raise RuntimeError("No available nflverse play_by_play asset found")
+
 
 def download_pbp(year: int) -> str:
     os.makedirs(RAW_DIR, exist_ok=True)
@@ -47,13 +52,27 @@ def download_pbp(year: int) -> str:
                     f.write(chunk)
     return local_path
 
+
 def load_pbp_csv(path: str) -> pd.DataFrame:
     return pd.read_csv(path, compression="gzip", low_memory=False)
 
+
+def _parse_year_from_argv(argv: Iterable[str]) -> Optional[int]:
+    """
+    Accepts any numeric 4-digit token as the explicit year.
+    Ignores flags like --start, etc.
+    """
+    now_year = dt.datetime.utcnow().year
+    for tok in list(argv)[1:]:
+        if tok.isdigit() and len(tok) == 4:
+            y = int(tok)
+            if 1999 <= y <= now_year:
+                return y
+    return None
+
+
 def main():
-    # Optional: allow explicit year via CLI arg; otherwise auto-detect latest.
-    # Example: python scripts/01_pull_nflverse.py 2023
-    explicit_year = int(sys.argv[1]) if len(sys.argv) > 1 else None
+    explicit_year = _parse_year_from_argv(sys.argv)
     latest_year = resolve_latest_year(explicit_year)
     csv_path = download_pbp(latest_year)
     df = load_pbp_csv(csv_path)
@@ -61,6 +80,7 @@ def main():
     out_path = os.path.join(RAW_DIR, f"pbp_{latest_year}.parquet")
     df.to_parquet(out_path, index=False)
     print(f"Wrote {out_path}")
+
 
 if __name__ == "__main__":
     main()
