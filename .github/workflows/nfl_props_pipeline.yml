@@ -74,6 +74,14 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
+      - name: Step 01b (Pull NGS - optional)
+        run: |
+          if [ -f scripts/01_pull_ngs.py ]; then
+            python scripts/01_pull_ngs.py
+          else
+            echo "skip: scripts/01_pull_ngs.py not found"
+          fi
+
       # --- R setup & rosters (skip entirely if we already have a roster file) ---
       - name: Set up R
         if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
@@ -128,8 +136,13 @@ jobs:
             data/raw/nflverse/rosters_latest.csv.gz
             data/raw/nflverse/schedules_*.csv.gz
             data/raw/nflverse/manifest_latest.csv.gz
+            data/raw/nflverse/pbp_latest.head100.csv.gz
             data/raw/injuries/injury_reports_latest.csv
             data/raw/weather/game_weather_latest.csv
+            data/raw/ngs/nextgen_stats.csv.gz
+            data/raw/ngs/ngs.parquet
+            data/raw/ngs/ngs_latest.head100.csv.gz
+            data/raw/ngs/manifest_latest.csv.gz
 
       - name: Step 02 (Build features)
         run: |
@@ -251,6 +264,13 @@ jobs:
           git add -f data/raw/nflverse/rosters_latest.csv.gz 2>/dev/null || true
           git add -f data/raw/nflverse/schedules_*.csv.gz 2>/dev/null || true
           git add -f data/raw/nflverse/manifest_latest.csv.gz 2>/dev/null || true
+          git add -f data/raw/nflverse/pbp_latest.head100.csv.gz 2>/dev/null || true
+
+          # Raw NGS pulls
+          git add -f data/raw/ngs/nextgen_stats.csv.gz 2>/dev/null || true
+          git add -f data/raw/ngs/ngs.parquet 2>/dev/null || true
+          git add -f data/raw/ngs/ngs_latest.head100.csv.gz 2>/dev/null || true
+          git add -f data/raw/ngs/manifest_latest.csv.gz 2>/dev/null || true
 
           # Day-of freshness
           git add -f data/raw/injuries/injury_reports_latest.csv 2>/dev/null || true
@@ -287,5 +307,5 @@ jobs:
           git add -f output/*.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Pipeline outputs (2024+ pulls; protect pre-seeded rosters)"
+          git diff --staged --quiet || git commit -m "Pipeline outputs (add optional NGS ingestion + tiny previews)"
           git push
