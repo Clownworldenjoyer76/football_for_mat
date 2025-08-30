@@ -1,292 +1,66 @@
-#!/usr/bin/env python3
-"""
-Step 01 — Pull core NFL datasets and write snapshots under data/raw/nflverse.
+# /scripts/01_pull_nflverse.py
 
-- Pulls weekly, pbp, rosters, schedules using nfl_data_py
-- Defensive against version differences (tries multiple loader names)
-- Handles per-year 404s gracefully (skips missing years, continues)
-- Writes both dated snapshots and *_latest.csv.gz files
-- Produces manifest_latest.csv.gz summarizing what was written
-
-Updates in this version
------------------------
-- Defaults clamp to seasons >= 2024 unless overridden by env or CLI
-- If a pre-seeded roster file exists at data/raw/nflverse/rosters_latest.csv.gz,
-  we DO NOT overwrite it unless ALLOW_OVERWRITE_ROSTERS=1 is set.
-  We still write a dated snapshot for traceability.
-"""
-
-from __future__ import annotations
-import argparse
-import gzip
 import os
-import shutil
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+import sys
+import datetime as dt
+from typing import Optional
 
 import pandas as pd
+import requests
 
-# ----------------------------- config ---------------------------------
-OUT_ROOT = Path("data/raw/nflverse")
+BASE = "https://github.com/nflverse/nflverse-data/releases/download/pbp"
+RAW_DIR = "data/raw"
+FILENAME_TPL = "play_by_play_{year}.csv.gz"
+TIMEOUT = 30  # seconds
 
+def _asset_url(year: int) -> str:
+    return f"{BASE}/{FILENAME_TPL.format(year=year)}"
 
-# ----------------------------- helpers --------------------------------
-@dataclass
-class TaskSpec:
-    name: str
-    candidates: List[str]  # candidate function names on nfl_data_py
-    kwargs: Dict           # kwargs to pass when calling
-    required: bool = False # if True and unresolved, raise; else warn & skip
+def _exists(url: str) -> bool:
+    r = requests.head(url, timeout=TIMEOUT)
+    return r.status_code == 200
 
-
-def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Pull core NFL datasets.")
-    ap.add_argument("--start", type=int, default=None, help="Start year (e.g., 2024)")
-    ap.add_argument("--end", type=int, default=None, help="End year (e.g., 2025)")
-    return ap.parse_args()
-
-
-def years_range(start: Optional[int], end: Optional[int]) -> List[int]:
-    # Default to 2024+ unless overridden by env or CLI
-    s = start or int(os.environ.get("YEARS_START", 2024))
-    e = end or int(os.environ.get("YEARS_END", datetime.utcnow().year))
-    if e < s:
-        e = s
-    return list(range(s, e + 1))
-
-
-def resolve_loader(candidates: List[str]) -> Optional[Callable]:
+def resolve_latest_year(start_year: Optional[int] = None, min_year: int = 1999) -> int:
     """
-    Return the first callable on nfl_data_py whose name matches any in candidates.
-    If none exist, return None.
+    Probe GitHub assets descending by year to find the most recent available file.
+    Tries: current_year, current_year-1, ..., down to min_year.
     """
-    import nfl_data_py as nfl
-    for name in candidates:
-        fn = getattr(nfl, name, None)
-        if callable(fn):
-            return fn
-    return None
-
-
-def write_csv_gz(df: pd.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with gzip.open(tmp, "wt", encoding="utf-8") as f:
-        df.to_csv(f, index=False)
-    tmp.replace(path)
-
-
-def save_snapshot_and_latest(
-    df: pd.DataFrame, name: str, root: Path, stamp: str
-) -> Tuple[Path, Path]:
-    """
-    Always use underscore format:
-    weekly_YYYYMMDD.csv.gz and weekly_latest.csv.gz
-    """
-    root.mkdir(parents=True, exist_ok=True)
-    snap = root / f"{name}_{stamp}.csv.gz"
-    latest = root / f"{name}_latest.csv.gz"
-    write_csv_gz(df, snap)
-    write_csv_gz(df, latest)
-    return snap, latest
-
-
-def add_generated_columns(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
-    out = df.copy()
-    out["generated_at_utc"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-    out["dataset"] = dataset
-    return out
-
-
-def file_rows_if_exists(path: Path) -> Optional[int]:
-    if not path.exists():
-        return None
-    try:
-        # pandas handles .gz transparently
-        df = pd.read_csv(path, low_memory=False)
-        return int(len(df))
-    except Exception:
-        return None
-
-
-def fetch_per_year_concat(fn: Callable, years: List[int], base_kwargs: Dict) -> Tuple[pd.DataFrame, List[int], List[int]]:
-    """
-    Call the nfl_data_py loader one season at a time, concatenating results.
-    Skip seasons that 404 (not published yet).
-    Returns: (concat_df, succeeded_years, skipped_years)
-    """
-    import urllib.error
-    try:
-        import requests  # present in requirements; used for exception type
-        RequestsHTTPError = requests.exceptions.HTTPError
-    except Exception:  # keep working even if requests isn't imported properly
-        class RequestsHTTPError(Exception): ...
-        pass
-
-    frames: List[pd.DataFrame] = []
-    ok_years: List[int] = []
-    skipped_years: List[int] = []
-
-    for yr in years:
-        # Try variants: years=[yr], then year=yr, then season=yr
-        called = False
-        for variant in ("years", "year", "season"):
-            try_kwargs = dict(base_kwargs)
-            try_kwargs.pop("years", None)
-            try_kwargs.pop("year", None)
-            try_kwargs.pop("season", None)
-            if variant == "years":
-                try_kwargs["years"] = [yr]
-            else:
-                try_kwargs[variant] = yr
-
-            try:
-                df = fn(**try_kwargs)
-                called = True
-                if not isinstance(df, pd.DataFrame):
-                    df = pd.DataFrame(df)
-                frames.append(df)
-                ok_years.append(yr)
-                break  # variant loop
-            except (urllib.error.HTTPError, RequestsHTTPError) as e:
-                # Skip only if it's a clear 404
-                msg = str(e)
-                if "404" in msg or "Not Found" in msg:
-                    skipped_years.append(yr)
-                    break  # try next year, not next variant
-                else:
-                    # For non-404 HTTP errors, re-raise
-                    raise
-            except TypeError:
-                # Wrong signature for this variant; try next variant
-                continue
-
-        if not called and yr not in skipped_years:
-            skipped_years.append(yr)
-
-    out = pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
-    return out, ok_years, skipped_years
-
-
-# ----------------------------- main -----------------------------------
-def pull(start: Optional[int] = None, end: Optional[int] = None) -> None:
-    yrs = years_range(start, end)
-    stamp = datetime.utcnow().strftime("%Y%m%d")
-    OUT_ROOT.mkdir(parents=True, exist_ok=True)
-
-    # Pre-seeded roster protection
-    roster_latest_path = OUT_ROOT / "rosters_latest.csv.gz"
-    allow_overwrite_rosters = str(os.environ.get("ALLOW_OVERWRITE_ROSTERS", "0")).lower() in ("1", "true", "yes")
-    have_preseeded_roster = roster_latest_path.exists() and not allow_overwrite_rosters
-
-    # Define tasks with multiple candidate function names
-    tasks: List[TaskSpec] = [
-        TaskSpec("weekly",    ["import_weekly_data"],                   dict(years=yrs), required=True),
-        TaskSpec("pbp",       ["import_pbp_data"],                      dict(years=yrs), required=True),
-        TaskSpec(
-            "rosters",
-            ["import_roster_data", "import_rosters", "import_roster", "load_rosters", "get_rosters"],
-            dict(years=yrs),
-            required=False
-        ),
-        TaskSpec("schedules", ["import_schedules", "import_schedule"],  dict(years=yrs), required=True),
-    ]
-
-    manifest_rows: List[Dict] = []
-
-    for t in tasks:
-        print(f"➡️  {t.name}: resolving loader {t.candidates} ...", flush=True)
-
-        # Special handling: protect pre-seeded roster file
-        if t.name == "rosters" and have_preseeded_roster:
-            rows = file_rows_if_exists(roster_latest_path) or 0
-            # also write a dated snapshot so each run is auditable
-            dated = OUT_ROOT / f"rosters_{stamp}.csv.gz"
-            if not dated.exists():
-                dated.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(roster_latest_path, dated)
-                print(f"   rosters: preserved pre-seeded file; copied → {dated.name} ({rows} rows).", flush=True)
-            manifest_rows.append({
-                "dataset": t.name,
-                "rows": rows,
-                "snapshot": str(dated),
-                "latest": str(roster_latest_path),
-                "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z",
-                "years": f"{yrs[0]}-{yrs[-1]}",
-                "note": "pre-seeded roster detected; skipped pull"
-            })
+    year = start_year or dt.datetime.utcnow().year
+    for y in range(year, min_year - 1, -1):
+        url = _asset_url(y)
+        try:
+            if _exists(url):
+                return y
+        except requests.RequestException:
             continue
+    raise RuntimeError("No available nflverse play_by_play asset found")
 
-        fn = resolve_loader(t.candidates)
+def download_pbp(year: int) -> str:
+    os.makedirs(RAW_DIR, exist_ok=True)
+    url = _asset_url(year)
+    local_path = os.path.join(RAW_DIR, FILENAME_TPL.format(year=year))
+    with requests.get(url, stream=True, timeout=TIMEOUT) as r:
+        r.raise_for_status()
+        with open(local_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1 << 15):
+                if chunk:
+                    f.write(chunk)
+    return local_path
 
-        snap_path: Optional[Path] = None
-        latest_path: Optional[Path] = None
-        rows_written: int = 0
-        note: str = ""
+def load_pbp_csv(path: str) -> pd.DataFrame:
+    return pd.read_csv(path, compression="gzip", low_memory=False)
 
-        if fn is not None:
-            print(f"   resolved → {fn.__name__}; pulling seasons {yrs[0]}–{yrs[-1]} (per-year)…", flush=True)
-            df, ok_years, skipped_years = fetch_per_year_concat(fn, yrs, t.kwargs)
-            if len(skipped_years) > 0:
-                note = f"skipped years: {','.join(map(str, skipped_years))}"
-                print(f"   NOTE: {t.name} skipped {skipped_years} (404 not published).", flush=True)
-            if len(df) > 0:
-                df = df.drop_duplicates().reset_index(drop=True)
-                df = add_generated_columns(df, t.name)
-                snap_path, latest_path = save_snapshot_and_latest(df, t.name, OUT_ROOT, stamp)
-                rows_written = int(len(df))
-                print(f"   {t.name}: {rows_written:,} rows → {snap_path.name} (+ {latest_path.name})", flush=True)
-            else:
-                if t.required:
-                    raise RuntimeError(f"{t.name}: no data returned for any year {yrs[0]}–{yrs[-1]}")
-                note = "no data; all years skipped (404)"
-                print(f"   WARNING: {t.name} had no available years; continuing.", flush=True)
-        else:
-            # No loader resolved — fallback: if a _latest already exists, record and copy dated snapshot
-            fallback_latest = OUT_ROOT / f"{t.name}_latest.csv.gz"
-            fallback_rows = file_rows_if_exists(fallback_latest)
-            if fallback_rows is not None:
-                candidate_snap = OUT_ROOT / f"{t.name}_{stamp}.csv.gz"
-                if not candidate_snap.exists():
-                    candidate_snap.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copyfile(fallback_latest, candidate_snap)
-                    print(f"   {t.name}: copied {fallback_latest.name} → {candidate_snap.name}", flush=True)
-                latest_path = fallback_latest
-                snap_path = candidate_snap
-                rows_written = fallback_rows
-                note = "used existing latest; loader missing"
-                print(f"   WARNING: loader missing, using existing latest ({rows_written} rows).", flush=True)
-            else:
-                note = "skipped; loader missing"
-                print(f"   WARNING: No loader found and no existing latest file; skipping {t.name}.", flush=True)
-
-        manifest_rows.append({
-            "dataset": t.name,
-            "rows": rows_written,
-            "snapshot": str(snap_path) if snap_path else "",
-            "latest": str(latest_path) if latest_path else "",
-            "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds")+"Z",
-            "years": f"{yrs[0]}-{yrs[-1]}",
-            "note": note
-        })
-
-    # Write manifest (always)
-    manifest = pd.DataFrame(manifest_rows)
-    write_csv_gz(manifest, OUT_ROOT / "manifest_latest.csv.gz")
-
-    # Require required datasets to have >0 rows
-    missing_required = [
-        t.name for t in tasks
-        if t.required and not any(r["dataset"] == t.name and r["rows"] > 0 for r in manifest_rows)
-    ]
-    if missing_required:
-        raise RuntimeError(f"Missing required datasets: {', '.join(missing_required)}")
-
-    print("✅ Step 01 complete.", flush=True)
-
+def main():
+    # Optional: allow explicit year via CLI arg; otherwise auto-detect latest.
+    # Example: python scripts/01_pull_nflverse.py 2023
+    explicit_year = int(sys.argv[1]) if len(sys.argv) > 1 else None
+    latest_year = resolve_latest_year(explicit_year)
+    csv_path = download_pbp(latest_year)
+    df = load_pbp_csv(csv_path)
+    print(f"Year {latest_year}: {len(df)} rows")
+    out_path = os.path.join(RAW_DIR, f"pbp_{latest_year}.parquet")
+    df.to_parquet(out_path, index=False)
+    print(f"Wrote {out_path}")
 
 if __name__ == "__main__":
-    args = parse_args()
-    pull(args.start, args.end)
+    main()
