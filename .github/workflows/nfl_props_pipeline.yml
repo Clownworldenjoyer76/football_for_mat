@@ -262,59 +262,19 @@ jobs:
           set -e
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
+
+          # ensure dirs exist (avoids pathspec errors)
+          mkdir -p data/raw/nflverse
+          mkdir -p data/raw/ngs
+          mkdir -p data/raw/injuries
+          mkdir -p data/raw/weather
+          mkdir -p data/features data/predictions data/props data/edges data/odds data/games data/pregame models output
+
+          # pull first to avoid rebase failure on unstaged changes
           git pull --rebase origin main || true
 
-          # Stage deletions and modifications first (crucial for cleanup to persist)
-          git add -A data/raw/nflverse data/raw/ngs
+          # stage everything under these roots, including deletions
+          git add -A data/raw/nflverse data/raw/ngs data/raw/injuries data/raw/weather data/features data/predictions data/props data/edges data/odds data/games data/pregame models output
 
-          # Raw nflverse pulls
-          git add -f data/raw/nflverse/weekly_*.csv.gz 2>/dev/null || true
-          git add -f data/raw/nflverse/pbp_*.csv.gz 2>/dev/null || true
-          git add -f data/raw/nflverse/rosters_latest.csv.gz 2>/dev/null || true
-          git add -f data/raw/nflverse/schedules_*.csv.gz 2>/dev/null || true
-          git add -f data/raw/nflverse/manifest_latest.csv.gz 2>/dev/null || true
-          git add -f data/raw/nflverse/pbp_latest.head100.csv.gz 2>/dev/null || true
-
-          # Raw NGS pulls
-          git add -f data/raw/ngs/nextgen_stats.csv.gz 2>/dev/null || true
-          git add -f data/raw/ngs/ngs.parquet 2>/dev/null || true
-          git add -f data/raw/ngs/ngs_latest.head100.csv.gz 2>/dev/null || true
-          git add -f data/raw/ngs/manifest_latest.csv.gz 2>/dev/null || true
-
-          # Day-of freshness
-          git add -f data/raw/injuries/injury_reports_latest.csv 2>/dev/null || true
-          git add -f data/raw/weather/game_weather_latest.csv 2>/dev/null || true
-
-          # Features
-          git add -f data/features/*.parquet 2>/dev/null || true
-          git add -f data/features/*.csv.gz 2>/dev/null || true
-          git add -f data/features/manifest.csv 2>/dev/null || true
-          git add -f data/features/_build_features_summary.txt 2>/dev/null || true
-
-          # Predictions / Props
-          git add -f data/predictions/*.csv 2>/dev/null || true
-          git add -f data/props/*.csv 2>/dev/null || true
-
-          # Edges
-          git add -f data/edges/*.csv 2>/dev/null || true
-          git add -f data/edges/*.csv.gz 2>/dev/null || true
-          git add -f data/edges/*.preview.csv 2>/dev/null || true
-
-          # Odds
-          git add -f data/odds/*.csv 2>/dev/null || true
-          git add -f data/odds/_api_summary.txt 2>/dev/null || true
-
-          # Games
-          git add -f data/games/*.csv 2>/dev/null || true
-
-          # Pregame artifacts
-          git add -f data/pregame/*.csv.gz 2>/dev/null || true
-          git add -f models/pregame/*.joblib 2>/dev/null || true
-          git add -f output/pregame_summary.txt 2>/dev/null || true
-
-          # Output summaries
-          git add -f output/*.csv 2>/dev/null || true
-          git add -f output/*.json 2>/dev/null || true
-
-          git diff --staged --quiet || git commit -m "Cleanup old nflverse full files; add NGS optional ingestion and artifacts"
+          git diff --staged --quiet || git commit -m "Pipeline outputs (updated raw; cleanup old files; NGS ingestion)"
           git push
