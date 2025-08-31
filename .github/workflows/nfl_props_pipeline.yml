@@ -136,7 +136,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nflverse-raw-${{ github.run_id }}
-        # include both nflverse and ngs + latest artifacts
           path: |
             data/raw/nflverse/weekly_*.csv.gz
             data/raw/nflverse/pbp_*.csv.gz
@@ -265,6 +264,9 @@ jobs:
           git config user.email "$GH_USER_EMAIL"
           git pull --rebase origin main || true
 
+          # Stage deletions and modifications first (crucial for cleanup to persist)
+          git add -A data/raw/nflverse data/raw/ngs
+
           # Raw nflverse pulls
           git add -f data/raw/nflverse/weekly_*.csv.gz 2>/dev/null || true
           git add -f data/raw/nflverse/pbp_*.csv.gz 2>/dev/null || true
@@ -314,5 +316,5 @@ jobs:
           git add -f output/*.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Pipeline outputs (add optional NGS + cleanup old nflverse full files)"
+          git diff --staged --quiet || git commit -m "Cleanup old nflverse full files; add NGS optional ingestion and artifacts"
           git push
