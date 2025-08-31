@@ -49,7 +49,7 @@ jobs:
             pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib
           fi
 
-      # --- Detect & back up pre-seeded roster (e.g., Sleeper) ---
+      # --- Detect & back up existing roster (optional seed) ---
       - name: Detect and back up existing roster
         run: |
           mkdir -p tmp
@@ -62,35 +62,19 @@ jobs:
             echo "No pre-seeded roster detected"
           fi
 
-      # ===== Core pipeline (restricted to 2024 → current year) =====
-      - name: Step 01 (Pull NFL data, 2024+)
+      # ===== Core pulls (PBP + canonicalize WEEKLY/ROSTERS) =====
+      - name: Step 01 (Pull NFL data and canonicalize)
         run: |
           YEND=$(date +%Y)
-          if [ -f scripts/01_pull_nflverse_chunked.py ]; then
-            python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2
-          elif [ -f scripts/01_pull_nflverse.py ]; then
+          if [ -f scripts/01_pull_nflverse.py ]; then
             python scripts/01_pull_nflverse.py --start 2024 --end "$YEND"
+          elif [ -f scripts/01_pull_nflverse_chunked.py ]; then
+            python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2
           else
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
-      - name: Step 01b (Pull NGS - optional)
-        run: |
-          if [ -f scripts/01_pull_ngs.py ]; then
-            python scripts/01_pull_ngs.py
-          else
-            echo "skip: scripts/01_pull_ngs.py not found"
-          fi
-
-      # --- Cleanup historic nflverse full files (keep current-year + tiny latest artifacts) ---
-      - name: Cleanup old nflverse raw files
-        run: |
-          mkdir -p data/raw/nflverse
-          CURYEAR=$(date +%Y)
-          find data/raw/nflverse -type f -name "play_by_play_*.csv.gz" ! -name "play_by_play_${CURYEAR}.csv.gz" -delete
-          find data/raw/nflverse -type f -name "pbp_*.parquet" ! -name "pbp_${CURYEAR}.parquet" -delete
-
-      # --- R setup & rosters (skip entirely if we already have a roster file) ---
+      # --- R setup & rosters (skip if we already have rosters_latest.csv.gz) ---
       - name: Set up R
         if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
         uses: r-lib/actions/setup-r@v2
@@ -112,7 +96,7 @@ jobs:
                       fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
                       write.csv(df, gzfile(fn), row.names=FALSE)"
 
-      # --- Restore pre-seeded roster if Step 01/R changed it ---
+      # --- Restore pre-seeded roster if earlier step changed it ---
       - name: Restore pre-seeded roster (if backed up)
         if: ${{ env.HAVE_SEEDED_ROSTER == '1' }}
         run: |
@@ -121,139 +105,39 @@ jobs:
             echo "Restored pre-seeded roster after data pulls."
           fi
 
-      # ===== Day-of freshness =====
-      - name: Pull game weather (Open-Meteo)
+      # ===== Optional NGS ingestion =====
+      - name: Step 01b (Pull NGS - optional)
         run: |
-          if [ -n "${{ env.FORECAST_SEASON }}" ] && [ -n "${{ env.FORECAST_WEEK }}" ]; then
-            python scripts/pull_weather_openmeteo.py --season ${{ env.FORECAST_SEASON }} --week ${{ env.FORECAST_WEEK }}
-          elif [ -n "${{ env.FORECAST_SEASON }}" ]; then
-            python scripts/pull_weather_openmeteo.py --season ${{ env.FORECAST_SEASON }}
+          if [ -f scripts/01_pull_ngs.py ]; then
+            python scripts/01_pull_ngs.py
           else
-            python scripts/pull_weather_openmeteo.py
+            echo "skip: scripts/01_pull_ngs.py not found"
           fi
 
+      # --- Upload snapshot artifact (small, canonical only) ---
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: nflverse-raw-${{ github.run_id }}
           path: |
-            data/raw/nflverse/weekly_*.csv.gz
-            data/raw/nflverse/pbp_*.csv.gz
-            data/raw/nflverse/rosters_latest.csv.gz
-            data/raw/nflverse/schedules_*.csv.gz
-            data/raw/nflverse/manifest_latest.csv.gz
+            data/raw/nflverse/play_by_play_latest.csv.gz
+            data/raw/nflverse/pbp_latest.parquet
             data/raw/nflverse/pbp_latest.head100.csv.gz
-            data/raw/injuries/injury_reports_latest.csv
-            data/raw/weather/game_weather_latest.csv
+            data/raw/nflverse/manifest_latest.csv.gz
+            data/raw/nflverse/weekly_latest.csv.gz
+            data/raw/nflverse/weekly_latest.parquet
+            data/raw/nflverse/weekly_latest.head100.csv.gz
+            data/raw/nflverse/weekly_manifest_latest.csv.gz
+            data/raw/nflverse/rosters_latest.csv.gz
+            data/raw/nflverse/rosters_latest.parquet
+            data/raw/nflverse/rosters_latest.head100.csv.gz
+            data/raw/nflverse/rosters_manifest_latest.csv.gz
             data/raw/ngs/nextgen_stats.csv.gz
             data/raw/ngs/ngs.parquet
             data/raw/ngs/ngs_latest.head100.csv.gz
             data/raw/ngs/manifest_latest.csv.gz
 
-      - name: Step 02 (Build features)
-        run: |
-          if [ -f scripts/02_build_features.py ]; then
-            python scripts/02_build_features.py
-          else
-            echo "ERROR: scripts/02_build_features.py not found" && exit 1
-          fi
-
-      - name: Debug — features summary
-        run: |
-          [ -f data/features/_build_features_summary.txt ] && sed -n '1,200p' data/features/_build_features_summary.txt || echo "no summary"
-
-      - name: Step 03 (Train models)
-        run: |
-          if [ -f scripts/03_train_models.py ]; then
-            python scripts/03_train_models.py
-          else
-            echo "skip: scripts/03_train_models.py not found"
-          fi
-
-      - name: Step 04 (Generate props)
-        run: |
-          if [ -f scripts/04_generate_props.py ]; then
-            python scripts/04_generate_props.py
-          else
-            echo "ERROR: scripts/04_generate_props.py not found" && exit 1
-          fi
-
-      - name: Step 05 (Rank edges - no odds)
-        run: |
-          if [ -f scripts/05_rank_edges_no_odds.py ]; then
-            python scripts/05_rank_edges_no_odds.py
-          else
-            echo "skip: scripts/05_rank_edges_no_odds.py not found"
-          fi
-
-      # ===== Game projections (post-game) =====
-      - name: G1 (Build game features)
-        run: |
-          if [ -f scripts/G1_build_game_features.py ]; then
-            python scripts/G1_build_game_features.py
-          else
-            echo "skip: scripts/G1_build_game_features.py not found"
-          fi
-
-      - name: G2 (Predict games)
-        run: |
-          if [ -f scripts/G2_predict_games.py ]; then
-            python scripts/G2_predict_games.py
-          else
-            echo "skip: scripts/G2_predict_games.py not found"
-          fi
-
-      # ===== Pregame branch (optional) =====
-      - name: PG0 (Build pregame rolling history)
-        if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
-        run: |
-          if [ -f scripts/PG0_prepare_history.py ]; then
-            python scripts/PG0_prepare_history.py
-          else
-            echo "skip: scripts/PG0_prepare_history.py not found"
-          fi
-
-      - name: Debug — pregame history summary
-        if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
-        run: |
-          [ -f data/pregame/_history_summary.txt ] && sed -n '1,200p' data/pregame/_history_summary.txt || echo "no _history_summary.txt"
-
-      - name: PG1 (Train pregame models)
-        if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
-        run: |
-          if [ -f scripts/PG1_train_models.py ]; then
-            python scripts/PG1_train_models.py
-          else
-            echo "skip: scripts/PG1_train_models.py not found"
-          fi
-
-      - name: PG2 (Predict pregame week)
-        if: ${{ env.FORECAST_SEASON != '' && env.FORECAST_WEEK != '' }}
-        run: |
-          if [ -f scripts/PG2_predict_week.py ]; then
-            python scripts/PG2_predict_week.py --season ${{ env.FORECAST_SEASON }} --week ${{ env.FORECAST_WEEK }}
-          else
-            echo "skip: scripts/PG2_predict_week.py not found"
-          fi
-
-      # ===== Odds (optional) =====
-      - name: Step 06 (Pull odds via The Odds API)
-        if: ${{ env.PULL_ODDS == '1' }}
-        env:
-          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-        run: |
-          if [ -f scripts/06_pull_odds_api.py ]; then
-            python scripts/06_pull_odds_api.py
-          else
-            echo "skip: scripts/06_pull_odds_api.py not found"
-          fi
-
-      - name: Debug — odds summary (if any)
-        if: ${{ env.PULL_ODDS == '1' }}
-        run: |
-          [ -f data/odds/_api_summary.txt ] && sed -n '1,200p' data/odds/_api_summary.txt || echo "no _api_summary.txt"
-
-      # ===== Commit artifacts =====
+      # ===== Commit artifacts (stage adds/mods/deletions) =====
       - name: Commit outputs
         env:
           GH_USER_NAME: "github-actions[bot]"
@@ -263,18 +147,23 @@ jobs:
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
 
-          # ensure dirs exist
-          mkdir -p data/raw/nflverse data/raw/ngs data/raw/injuries data/raw/weather
-          mkdir -p data/features data/predictions data/props data/edges data/odds data/games data/pregame models output
+          mkdir -p data/raw/nflverse data/raw/ngs
 
-          # stage all changes (adds, mods, deletions) including ignored paths
-          git add -A -f data/raw/nflverse data/raw/ngs data/raw/injuries data/raw/weather data/features data/predictions data/props data/edges data/odds data/games data/pregame models output
+          # stage everything (including deletions and ignored paths)
+          git add -A -f data/raw/nflverse data/raw/ngs
 
           # commit if staged
-          git diff --staged --quiet || git commit -m "Pipeline outputs (update raw; cleanup old; NGS ingestion)"
+          git diff --staged --quiet || git commit -m "Canonicalize PBP/Weekly/Rosters; update NGS; prune old versions"
 
-          # rebase on latest main after committing local changes
+          # rebase + push
           git pull --rebase origin main || true
-
-          # push
           git push
+
+      # ===== Downstream steps (unchanged placeholders) =====
+      - name: Step 02 (Build features)
+        run: |
+          if [ -f scripts/02_build_features.py ]; then
+            python scripts/02_build_features.py
+          else
+            echo "ERROR: scripts/02_build_features.py not found" && exit 1
+          fi
