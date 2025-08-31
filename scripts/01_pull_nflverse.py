@@ -1,24 +1,74 @@
 # /scripts/01_pull_nflverse.py
+#
+# Purpose:
+# - Download latest nflverse play-by-play (PBP) and write ONE canonical copy
+# - Canonicalize WEEKLY and ROSTERS using files already present in data/raw/nflverse/
+# - Generate tiny head100 previews + manifests
+# - Prune versioned full files to avoid repo bloat
+#
+# Canonical outputs created/updated:
+#   data/raw/nflverse/play_by_play_latest.csv.gz
+#   data/raw/nflverse/pbp_latest.parquet
+#   data/raw/nflverse/pbp_latest.head100.csv.gz
+#   data/raw/nflverse/manifest_latest.csv.gz
+#
+#   data/raw/nflverse/weekly_latest.csv.gz          (if weekly_* exists)
+#   data/raw/nflverse/weekly_latest.parquet         (if weekly_* exists)
+#   data/raw/nflverse/weekly_latest.head100.csv.gz  (if weekly_* exists)
+#   data/raw/nflverse/weekly_manifest_latest.csv.gz (if weekly_* exists)
+#
+#   data/raw/nflverse/rosters_latest.csv.gz         (R step may already write this)
+#   data/raw/nflverse/rosters_latest.parquet        (if rosters present)
+#   data/raw/nflverse/rosters_latest.head100.csv.gz (if rosters present)
+#   data/raw/nflverse/rosters_manifest_latest.csv.gz(if rosters present)
 
 import os
+import re
+import io
+import gzip
+import glob
 import sys
+import shutil
+import hashlib
 import datetime as dt
 from typing import Optional, Iterable
-import hashlib
-import io
 
 import pandas as pd
 import requests
 
+# ------------ Config ------------
+
 BASE = "https://github.com/nflverse/nflverse-data/releases/download/pbp"
 RAW_ROOT = "data/raw"
 NFLVERSE_DIR = os.path.join(RAW_ROOT, "nflverse")
-FILENAME_TPL = "play_by_play_{year}.csv.gz"
+
+PBP_SRC_TPL = "play_by_play_{year}.csv.gz"
+PBP_CANON_CSV = "play_by_play_latest.csv.gz"
+PBP_CANON_PARQ = "pbp_latest.parquet"
+PBP_HEAD = "pbp_latest.head100.csv.gz"
+PBP_MANIFEST = "manifest_latest.csv.gz"
+
+WEEKLY_CANON_CSV = "weekly_latest.csv.gz"
+WEEKLY_CANON_PARQ = "weekly_latest.parquet"
+WEEKLY_HEAD = "weekly_latest.head100.csv.gz"
+WEEKLY_MANIFEST = "weekly_manifest_latest.csv.gz"
+
+ROSTERS_CANON_CSV = "rosters_latest.csv.gz"
+ROSTERS_CANON_PARQ = "rosters_latest.parquet"
+ROSTERS_HEAD = "rosters_latest.head100.csv.gz"
+ROSTERS_MANIFEST = "rosters_manifest_latest.csv.gz"
+
 TIMEOUT = 30  # seconds
 
 
+# ------------ Helpers ------------
+
+def _ensure_dir(path: str) -> None:
+    os.makedirs(path, exist_ok=True)
+
+
 def _asset_url(year: int) -> str:
-    return f"{BASE}/{FILENAME_TPL.format(year=year)}"
+    return f"{BASE}/{PBP_SRC_TPL.format(year=year)}"
 
 
 def _exists(url: str) -> bool:
@@ -31,39 +81,48 @@ def _exists(url: str) -> bool:
         return False
 
 
-def resolve_latest_year(start_year: Optional[int] = None, min_year: int = 1999) -> int:
-    year = start_year or dt.datetime.utcnow().year
-    for y in range(year, min_year - 1, -1):
-        if _exists(_asset_url(y)):
-            return y
-    raise RuntimeError("No available nflverse play_by_play asset found")
-
-
 def _atomic_write_bytes(path: str, data: bytes) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    _ensure_dir(os.path.dirname(path))
     tmp = path + ".part"
     with open(tmp, "wb") as f:
         f.write(data)
     os.replace(tmp, path)
 
 
-def download_pbp(year: int) -> str:
-    os.makedirs(NFLVERSE_DIR, exist_ok=True)
-    url = _asset_url(year)
-    local_path = os.path.join(NFLVERSE_DIR, FILENAME_TPL.format(year=year))
-    with requests.get(url, stream=True, timeout=TIMEOUT) as r:
-        r.raise_for_status()
-        tmp_path = local_path + ".part"
-        with open(tmp_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1 << 15):
-                if chunk:
-                    f.write(chunk)
-        os.replace(tmp_path, local_path)
-    return local_path
+def _to_gzip_csv_bytes(df: pd.DataFrame) -> bytes:
+    bio = io.BytesIO()
+    df.to_csv(bio, index=False)
+    raw = bio.getvalue()
+    out = io.BytesIO()
+    with gzip.GzipFile(fileobj=out, mode="wb") as gz:
+        gz.write(raw)
+    return out.getvalue()
 
 
-def load_pbp_csv(path: str) -> pd.DataFrame:
+def _sha256_file(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _read_csv_gz(path: str) -> pd.DataFrame:
     return pd.read_csv(path, compression="gzip", low_memory=False)
+
+
+def _best_by_year_or_mtime(paths: list[str], regex_year: re.Pattern) -> Optional[str]:
+    if not paths:
+        return None
+    items = []
+    for p in paths:
+        base = os.path.basename(p)
+        m = regex_year.search(base)
+        yr = int(m.group(1)) if m else -1
+        mt = os.path.getmtime(p)
+        items.append((yr, mt, p))
+    items.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    return items[0][2]
 
 
 def _parse_year_from_argv(argv: Iterable[str]) -> Optional[int]:
@@ -76,65 +135,192 @@ def _parse_year_from_argv(argv: Iterable[str]) -> Optional[int]:
     return None
 
 
-def _sha256_file(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
+# ------------ PBP ingestion (canonical overwrite) ------------
+
+def resolve_latest_year(start_year: Optional[int] = None, min_year: int = 1999) -> int:
+    year = start_year or dt.datetime.utcnow().year
+    for y in range(year, min_year - 1, -1):
+        if _exists(_asset_url(y)):
+            return y
+    raise RuntimeError("No available nflverse play_by_play asset found")
 
 
-def _to_gzip_csv_bytes(df: pd.DataFrame) -> bytes:
-    bio = io.BytesIO()
-    df.to_csv(bio, index=False)
-    raw = bio.getvalue()
-    import gzip
-    out = io.BytesIO()
-    with gzip.GzipFile(fileobj=out, mode="wb") as gz:
-        gz.write(raw)
-    return out.getvalue()
+def download_pbp(year: int) -> str:
+    _ensure_dir(NFLVERSE_DIR)
+    url = _asset_url(year)
+    local_path = os.path.join(NFLVERSE_DIR, PBP_SRC_TPL.format(year=year))
+    with requests.get(url, stream=True, timeout=TIMEOUT) as r:
+        r.raise_for_status()
+        tmp_path = local_path + ".part"
+        with open(tmp_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1 << 15):
+                if chunk:
+                    f.write(chunk)
+        os.replace(tmp_path, local_path)
+    return local_path
 
+
+def pbp_pipeline(explicit_year: Optional[int]) -> None:
+    latest_year = resolve_latest_year(explicit_year)
+    season_csv = download_pbp(latest_year)
+
+    df = _read_csv_gz(season_csv)
+    if df.empty:
+        raise SystemExit(f"ERROR: downloaded PBP has 0 rows: {season_csv}")
+
+    # canonical CSV + parquet
+    canon_csv = os.path.join(NFLVERSE_DIR, PBP_CANON_CSV)
+    canon_parq = os.path.join(NFLVERSE_DIR, PBP_CANON_PARQ)
+    shutil.copyfile(season_csv, canon_csv)
+    df.to_parquet(canon_parq, index=False)
+
+    # tiny artifacts
+    _atomic_write_bytes(os.path.join(NFLVERSE_DIR, PBP_HEAD), _to_gzip_csv_bytes(df.head(100)))
+    sha = _sha256_file(canon_csv)
+    pd.DataFrame([{
+        "file": os.path.basename(canon_csv),
+        "rows": int(len(df)),
+        "sha256": sha,
+        "season_source": os.path.basename(season_csv),
+        "year_detected": latest_year,
+        "fetched_utc": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    }]).to_csv(os.path.join(NFLVERSE_DIR, PBP_MANIFEST), index=False, compression="gzip")
+
+    # prune versioned full files (keep only canonical)
+    for p in glob.glob(os.path.join(NFLVERSE_DIR, "play_by_play_*.csv.gz")):
+        if os.path.basename(p) != PBP_CANON_CSV:
+            try:
+                os.remove(p)
+            except FileNotFoundError:
+                pass
+    for p in glob.glob(os.path.join(NFLVERSE_DIR, "pbp_*.parquet")):
+        if os.path.basename(p) != PBP_CANON_PARQ:
+            try:
+                os.remove(p)
+            except FileNotFoundError:
+                pass
+
+    print(f"Wrote: {canon_csv}")
+    print(f"Wrote: {canon_parq}")
+    print(f"Wrote: {os.path.join(NFLVERSE_DIR, PBP_HEAD)}")
+    print(f"Wrote: {os.path.join(NFLVERSE_DIR, PBP_MANIFEST)}")
+    print(f"PBP rows: {len(df)} | Year: {latest_year} | SHA256: {sha[:12]}...")
+
+
+# ------------ WEEKLY canonicalization (no external download) ------------
+
+def weekly_canonicalize() -> None:
+    _ensure_dir(NFLVERSE_DIR)
+    candidates = glob.glob(os.path.join(NFLVERSE_DIR, "weekly_*.csv.gz"))
+    if not candidates:
+        print("INFO: weekly_* not found; skipping weekly canonicalization")
+        return
+
+    best_csv = _best_by_year_or_mtime(candidates, re.compile(r"weekly_(\d{4})"))
+    if not best_csv:
+        print("INFO: could not resolve best weekly; skipping")
+        return
+
+    canon_csv = os.path.join(NFLVERSE_DIR, WEEKLY_CANON_CSV)
+    canon_parq = os.path.join(NFLVERSE_DIR, WEEKLY_CANON_PARQ)
+    shutil.copyfile(best_csv, canon_csv)
+
+    df = _read_csv_gz(canon_csv)
+    if df.empty:
+        raise SystemExit(f"ERROR: weekly canonical empty: {canon_csv}")
+    df.to_parquet(canon_parq, index=False)
+
+    _atomic_write_bytes(os.path.join(NFLVERSE_DIR, WEEKLY_HEAD), _to_gzip_csv_bytes(df.head(100)))
+    sha = _sha256_file(canon_csv)
+    pd.DataFrame([{
+        "file": os.path.basename(canon_csv),
+        "rows": int(len(df)),
+        "sha256": sha,
+    }]).to_csv(os.path.join(NFLVERSE_DIR, WEEKLY_MANIFEST), index=False, compression="gzip")
+
+    # prune others
+    for p in glob.glob(os.path.join(NFLVERSE_DIR, "weekly_*.csv.gz")):
+        if os.path.basename(p) != WEEKLY_CANON_CSV:
+            try:
+                os.remove(p)
+            except FileNotFoundError:
+                pass
+    for p in glob.glob(os.path.join(NFLVERSE_DIR, "weekly_*.parquet")):
+        if os.path.basename(p) != WEEKLY_CANON_PARQ:
+            try:
+                os.remove(p)
+            except FileNotFoundError:
+                pass
+
+    print(f"Wrote: {canon_csv}")
+    print(f"Wrote: {canon_parq}")
+    print(f"Wrote: {os.path.join(NFLVERSE_DIR, WEEKLY_HEAD)}")
+    print(f"Wrote: {os.path.join(NFLVERSE_DIR, WEEKLY_MANIFEST)}")
+    print(f"Weekly rows: {len(df)} | SHA256: {sha[:12]}...")
+
+
+# ------------ ROSTERS canonicalization (no external download) ------------
+
+def rosters_canonicalize() -> None:
+    _ensure_dir(NFLVERSE_DIR)
+    # If rosters_latest.csv.gz already exists (R step), treat it as source.
+    source_csv = os.path.join(NFLVERSE_DIR, ROSTERS_CANON_CSV)
+    if not os.path.exists(source_csv):
+        # else try to find best rosters_*.csv.gz
+        candidates = glob.glob(os.path.join(NFLVERSE_DIR, "rosters_*.csv.gz"))
+        if not candidates:
+            print("INFO: rosters not found; skipping rosters canonicalization")
+            return
+        best_csv = _best_by_year_or_mtime(candidates, re.compile(r"rosters_(\d{4})"))
+        if not best_csv:
+            print("INFO: could not resolve best rosters; skipping")
+            return
+        shutil.copyfile(best_csv, source_csv)
+
+    canon_csv = source_csv
+    canon_parq = os.path.join(NFLVERSE_DIR, ROSTERS_CANON_PARQ)
+
+    df = _read_csv_gz(canon_csv)
+    if df.empty:
+        raise SystemExit(f"ERROR: rosters canonical empty: {canon_csv}")
+    df.to_parquet(canon_parq, index=False)
+
+    _atomic_write_bytes(os.path.join(NFLVERSE_DIR, ROSTERS_HEAD), _to_gzip_csv_bytes(df.head(100)))
+    sha = _sha256_file(canon_csv)
+    pd.DataFrame([{
+        "file": os.path.basename(canon_csv),
+        "rows": int(len(df)),
+        "sha256": sha,
+    }]).to_csv(os.path.join(NFLVERSE_DIR, ROSTERS_MANIFEST), index=False, compression="gzip")
+
+    # prune others
+    for p in glob.glob(os.path.join(NFLVERSE_DIR, "rosters_*.csv.gz")):
+        if os.path.basename(p) != ROSTERS_CANON_CSV:
+            try:
+                os.remove(p)
+            except FileNotFoundError:
+                pass
+    for p in glob.glob(os.path.join(NFLVERSE_DIR, "rosters_*.parquet")):
+        if os.path.basename(p) != ROSTERS_CANON_PARQ:
+            try:
+                os.remove(p)
+            except FileNotFoundError:
+                pass
+
+    print(f"Wrote: {canon_csv}")
+    print(f"Wrote: {canon_parq}")
+    print(f"Wrote: {os.path.join(NFLVERSE_DIR, ROSTERS_HEAD)}")
+    print(f"Wrote: {os.path.join(NFLVERSE_DIR, ROSTERS_MANIFEST)}")
+    print(f"Rosters rows: {len(df)} | SHA256: {sha[:12]}...")
+
+
+# ------------ Entry ------------
 
 def main():
     explicit_year = _parse_year_from_argv(sys.argv)
-    latest_year = resolve_latest_year(explicit_year)
-
-    # 1) Download canonical season file
-    csv_path = download_pbp(latest_year)
-    df = load_pbp_csv(csv_path)
-    if df.empty:
-        raise SystemExit(f"ERROR: downloaded CSV has 0 rows: {csv_path}")
-
-    # 2) Write Parquet (season)
-    parquet_path = os.path.join(NFLVERSE_DIR, f"pbp_{latest_year}.parquet")
-    df.to_parquet(parquet_path, index=False)
-
-    # 3) Write small “latest” artifacts for Git:
-    #    a) head100 preview so diffs are detectable and tiny
-    head_bytes = _to_gzip_csv_bytes(df.head(100))
-    latest_head_path = os.path.join(NFLVERSE_DIR, "pbp_latest.head100.csv.gz")
-    _atomic_write_bytes(latest_head_path, head_bytes)
-
-    #    b) manifest with metadata
-    sha = _sha256_file(csv_path)
-    manifest = pd.DataFrame(
-        [{
-            "file": os.path.basename(csv_path),
-            "year": latest_year,
-            "rows": int(len(df)),
-            "sha256": sha,
-            "fetched_utc": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
-        }]
-    )
-    manifest_path = os.path.join(NFLVERSE_DIR, "manifest_latest.csv.gz")
-    manifest.to_csv(manifest_path, index=False, compression="gzip")
-
-    # 4) Logs for CI
-    print(f"Wrote: {csv_path}")
-    print(f"Wrote: {parquet_path}")
-    print(f"Wrote: {latest_head_path}")
-    print(f"Wrote: {manifest_path}")
-    print(f"Rows: {len(df)} | Year: {latest_year} | SHA256: {sha[:12]}...")
+    pbp_pipeline(explicit_year)
+    weekly_canonicalize()
+    rosters_canonicalize()
 
 
 if __name__ == "__main__":
