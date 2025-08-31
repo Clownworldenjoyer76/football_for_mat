@@ -82,6 +82,14 @@ jobs:
             echo "skip: scripts/01_pull_ngs.py not found"
           fi
 
+      # --- Cleanup historic nflverse full files (keep current-year + tiny latest artifacts) ---
+      - name: Cleanup old nflverse raw files
+        run: |
+          mkdir -p data/raw/nflverse
+          CURYEAR=$(date +%Y)
+          find data/raw/nflverse -type f -name "play_by_play_*.csv.gz" ! -name "play_by_play_${CURYEAR}.csv.gz" -delete
+          find data/raw/nflverse -type f -name "pbp_*.parquet" ! -name "pbp_${CURYEAR}.parquet" -delete
+
       # --- R setup & rosters (skip entirely if we already have a roster file) ---
       - name: Set up R
         if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
@@ -114,8 +122,6 @@ jobs:
           fi
 
       # ===== Day-of freshness =====
-      # (Injuries scraping step removed; rely on CSV if present)
-
       - name: Pull game weather (Open-Meteo)
         run: |
           if [ -n "${{ env.FORECAST_SEASON }}" ] && [ -n "${{ env.FORECAST_WEEK }}" ]; then
@@ -130,6 +136,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nflverse-raw-${{ github.run_id }}
+        # include both nflverse and ngs + latest artifacts
           path: |
             data/raw/nflverse/weekly_*.csv.gz
             data/raw/nflverse/pbp_*.csv.gz
@@ -307,5 +314,5 @@ jobs:
           git add -f output/*.csv 2>/dev/null || true
           git add -f output/*.json 2>/dev/null || true
 
-          git diff --staged --quiet || git commit -m "Pipeline outputs (add optional NGS ingestion + tiny previews)"
+          git diff --staged --quiet || git commit -m "Pipeline outputs (add optional NGS + cleanup old nflverse full files)"
           git push
