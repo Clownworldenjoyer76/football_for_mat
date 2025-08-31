@@ -51,18 +51,28 @@ output/
 config/*.yml
 
 !data/features/_build_features_summary.txt
-
 !data/pregame/_history_summary.txt
 
-# allow tiny artifacts (nflverse)
+# nflverse canonical + tiny artifacts (PBP)
+!data/raw/nflverse/play_by_play_latest.csv.gz
+!data/raw/nflverse/pbp_latest.parquet
+!data/raw/nflverse/pbp_latest.head100.csv.gz
 !data/raw/nflverse/manifest_latest.csv.gz
-!data/raw/nflverse/*_latest.head100.csv.gz
-!data/raw/nflverse/manifest_latest.csv.gz
-!data/raw/nflverse/play_by_play_*.csv.gz
-!data/raw/nflverse/pbp_*.parquet
 
-# allow tiny artifacts (ngs)
-!data/raw/ngs/manifest_latest.csv.gz
-!data/raw/ngs/*_latest.head100.csv.gz
+# nflverse canonical + tiny artifacts (WEEKLY)
+!data/raw/nflverse/weekly_latest.csv.gz
+!data/raw/nflverse/weekly_latest.parquet
+!data/raw/nflverse/weekly_latest.head100.csv.gz
+!data/raw/nflverse/weekly_manifest_latest.csv.gz
+
+# nflverse canonical + tiny artifacts (ROSTERS)
+!data/raw/nflverse/rosters_latest.csv.gz
+!data/raw/nflverse/rosters_latest.parquet
+!data/raw/nflverse/rosters_latest.head100.csv.gz
+!data/raw/nflverse/rosters_manifest_latest.csv.gz
+
+# NGS artifacts
 !data/raw/ngs/nextgen_stats.csv.gz
-!data/raw/ngs/*.parquet
+!data/raw/ngs/ngs.parquet
+!data/raw/ngs/ngs_latest.head100.csv.gz
+!data/raw/ngs/manifest_latest.csv.gz
