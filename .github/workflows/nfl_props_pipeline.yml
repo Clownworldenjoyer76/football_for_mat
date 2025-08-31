@@ -62,19 +62,7 @@ jobs:
             echo "No pre-seeded roster detected"
           fi
 
-      # ===== Core pulls (PBP + canonicalize WEEKLY/ROSTERS) =====
-      - name: Step 01 (Pull NFL data and canonicalize)
-        run: |
-          YEND=$(date +%Y)
-          if [ -f scripts/01_pull_nflverse.py ]; then
-            python scripts/01_pull_nflverse.py --start 2024 --end "$YEND"
-          elif [ -f scripts/01_pull_nflverse_chunked.py ]; then
-            python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2
-          else
-            echo "ERROR: no Step 01 script found" && exit 1
-          fi
-
-      # --- R setup & rosters (skip if we already have rosters_latest.csv.gz) ---
+      # --- R setup & rosters (skip if rosters already exist) ---
       - name: Set up R
         if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
         uses: r-lib/actions/setup-r@v2
@@ -96,7 +84,7 @@ jobs:
                       fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
                       write.csv(df, gzfile(fn), row.names=FALSE)"
 
-      # --- Restore pre-seeded roster if earlier step changed it ---
+      # --- Restore pre-seeded roster if changed ---
       - name: Restore pre-seeded roster (if backed up)
         if: ${{ env.HAVE_SEEDED_ROSTER == '1' }}
         run: |
@@ -105,16 +93,33 @@ jobs:
             echo "Restored pre-seeded roster after data pulls."
           fi
 
+      # ===== Core pulls (PBP + canonicalize WEEKLY/ROSTERS) =====
+      - name: Step 01 (Pull NFL data and canonicalize)
+        run: |
+          YEND=$(date +%Y)
+          if [ -f scripts/01_pull_nflverse.py ]; then
+            python scripts/01_pull_nflverse.py --start 2024 --end "$YEND"
+          elif [ -f scripts/01_pull_nflverse_chunked.py ]; then
+            python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2
+          else
+            echo "ERROR: no Step 01 script found" && exit 1
+          fi
+
+      # --- Re-canonicalize weekly/rosters (ensure head+manifest always created) ---
+      - name: Re-canonicalize weekly/rosters (ensure head+manifest)
+        run: |
+          python scripts/01_pull_nflverse.py
+
       # ===== Optional NGS ingestion =====
-      - name: Step 01b (Pull NGS - optional)
+      - name: Step 01b (Pull NGS - optional, fail if missing)
         run: |
           if [ -f scripts/01_pull_ngs.py ]; then
-            python scripts/01_pull_ngs.py
+            python scripts/01_pull_ngs.py --fail-missing
           else
             echo "skip: scripts/01_pull_ngs.py not found"
           fi
 
-      # --- Upload snapshot artifact (small, canonical only) ---
+      # --- Upload snapshot artifact ---
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -137,7 +142,7 @@ jobs:
             data/raw/ngs/ngs_latest.head100.csv.gz
             data/raw/ngs/manifest_latest.csv.gz
 
-      # ===== Commit artifacts (stage adds/mods/deletions) =====
+      # ===== Commit artifacts =====
       - name: Commit outputs
         env:
           GH_USER_NAME: "github-actions[bot]"
@@ -149,13 +154,10 @@ jobs:
 
           mkdir -p data/raw/nflverse data/raw/ngs
 
-          # stage everything (including deletions and ignored paths)
           git add -A -f data/raw/nflverse data/raw/ngs
 
-          # commit if staged
           git diff --staged --quiet || git commit -m "Canonicalize PBP/Weekly/Rosters; update NGS; prune old versions"
 
-          # rebase + push
           git pull --rebase origin main || true
           git push
 
