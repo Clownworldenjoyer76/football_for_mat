@@ -105,17 +105,22 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
-      # --- Re-canonicalize weekly/rosters (ensure head+manifest always created) ---
-      - name: Re-canonicalize weekly/rosters (ensure head+manifest)
+      # --- Finalize WEEKLY/ROSTERS tiny artifacts (no PBP, no network) ---
+      - name: Finalize weekly/rosters tiny artifacts (no network)
         run: |
-          python scripts/01_pull_nflverse.py
+          python - <<'PY'
+          import runpy
+          g = runpy.run_path('scripts/01_pull_nflverse.py')
+          g['weekly_canonicalize']()
+          g['rosters_canonicalize']()
+          PY
 
       # ===== Optional NGS ingestion (temporarily disabled) =====
       - name: Step 01b (Pull NGS - temporarily disabled)
         run: |
           echo "NOTE: NGS ingestion disabled — circle back when feed is live."
 
-      # --- Upload raw snapshot (artifact) ---
+      # --- Upload raw snapshot (artifact)
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -145,11 +150,9 @@ jobs:
           git config user.email "$GH_USER_EMAIL"
 
           mkdir -p data/raw/nflverse
-
           git add -A -f data/raw/nflverse
 
-          git diff --staged --quiet || git commit -m "Canonicalize PBP/Weekly/Rosters; NGS ingestion temporarily disabled"
-
+          git diff --staged --quiet || git commit -m "Finalize weekly/rosters tiny artifacts via path-run; NGS disabled"
           git pull --rebase origin main || true
           git push
 
