@@ -110,14 +110,10 @@ jobs:
         run: |
           python scripts/01_pull_nflverse.py
 
-      # ===== Optional NGS ingestion =====
-      - name: Step 01b (Pull NGS - optional, fail if missing)
+      # ===== Optional NGS ingestion (temporarily disabled) =====
+      - name: Step 01b (Pull NGS - temporarily disabled)
         run: |
-          if [ -f scripts/01_pull_ngs.py ]; then
-            python scripts/01_pull_ngs.py --fail-missing
-          else
-            echo "skip: scripts/01_pull_ngs.py not found"
-          fi
+          echo "NOTE: NGS ingestion disabled — circle back when feed is live."
 
       # --- Upload snapshot artifact ---
       - name: Upload raw snapshot (artifact)
@@ -137,10 +133,6 @@ jobs:
             data/raw/nflverse/rosters_latest.parquet
             data/raw/nflverse/rosters_latest.head100.csv.gz
             data/raw/nflverse/rosters_manifest_latest.csv.gz
-            data/raw/ngs/nextgen_stats.csv.gz
-            data/raw/ngs/ngs.parquet
-            data/raw/ngs/ngs_latest.head100.csv.gz
-            data/raw/ngs/manifest_latest.csv.gz
 
       # ===== Commit artifacts =====
       - name: Commit outputs
@@ -152,11 +144,11 @@ jobs:
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
 
-          mkdir -p data/raw/nflverse data/raw/ngs
+          mkdir -p data/raw/nflverse
 
-          git add -A -f data/raw/nflverse data/raw/ngs
+          git add -A -f data/raw/nflverse
 
-          git diff --staged --quiet || git commit -m "Canonicalize PBP/Weekly/Rosters; update NGS; prune old versions"
+          git diff --staged --quiet || git commit -m "Canonicalize PBP/Weekly/Rosters; NGS ingestion temporarily disabled"
 
           git pull --rebase origin main || true
           git push
