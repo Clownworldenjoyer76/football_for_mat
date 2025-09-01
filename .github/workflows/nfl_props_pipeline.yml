@@ -110,6 +110,11 @@ jobs:
         run: |
           python scripts/01_pull_nflverse.py
 
+      # ===== External feeds (MLB todays games) =====
+      - name: External feed — MLB todays games
+        run: |
+          python scripts/todaysgames_mlb.py --tz America/New_York --out data/raw/todaysgames.csv
+
       # ===== Optional NGS ingestion (temporarily disabled) =====
       - name: Step 01b (Pull NGS - temporarily disabled)
         run: |
@@ -133,6 +138,7 @@ jobs:
             data/raw/nflverse/rosters_latest.parquet
             data/raw/nflverse/rosters_latest.head100.csv.gz
             data/raw/nflverse/rosters_manifest_latest.csv.gz
+            data/raw/todaysgames.csv
 
       # ===== Commit artifacts =====
       - name: Commit outputs
@@ -147,8 +153,9 @@ jobs:
           mkdir -p data/raw/nflverse
 
           git add -A -f data/raw/nflverse
+          git add -f data/raw/todaysgames.csv
 
-          git diff --staged --quiet || git commit -m "Canonicalize PBP/Weekly/Rosters; NGS ingestion temporarily disabled"
+          git diff --staged --quiet || git commit -m "Canonicalize PBP/Weekly/Rosters; MLB todaysgames.csv; NGS disabled"
 
           git pull --rebase origin main || true
           git push
