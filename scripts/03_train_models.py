@@ -29,59 +29,29 @@ INPUT_FILE = REPO_ROOT / "data" / "features" / "weekly_clean.csv.gz"
 MODELS_DIR = REPO_ROOT / "models" / "pregame"
 OUTPUT_METRICS = REPO_ROOT / "output" / "models" / "metrics_summary.csv"
 
-ID_COLS = [
+# Columns that identify the record; team may be provided as either 'recent_team' or 'team'
+BASE_ID_COLS = [
     "player_id",
     "player_name",
-    "recent_team",
     "position",
     "season",
     "week",
     "season_type",
 ]
+TEAM_PREFERRED = "recent_team"
+TEAM_FALLBACK = "team"
 
 TARGET_COLS = [
-    "completions",
-    "attempts",
-    "passing_yards",
-    "passing_tds",
-    "interceptions",
-    "sacks",
-    "sack_yards",
-    "sack_fumbles",
-    "sack_fumbles_lost",
-    "passing_air_yards",
-    "passing_yards_after_catch",
-    "passing_first_downs",
-    "passing_epa",
-    "passing_2pt_conversions",
-    "pacr",
-    "dakota",
-    "carries",
-    "rushing_yards",
-    "rushing_tds",
-    "rushing_fumbles",
-    "rushing_fumbles_lost",
-    "rushing_first_downs",
-    "rushing_epa",
-    "rushing_2pt_conversions",
-    "receptions",
-    "targets",
-    "receiving_yards",
-    "receiving_tds",
-    "receiving_fumbles",
-    "receiving_fumbles_lost",
-    "receiving_air_yards",
-    "receiving_yards_after_catch",
-    "receiving_first_downs",
-    "receiving_epa",
-    "receiving_2pt_conversions",
-    "racr",
-    "target_share",
-    "air_yards_share",
-    "wopr",
-    "special_teams_tds",
-    "fantasy_points",
-    "fantasy_points_ppr",
+    "completions","attempts","passing_yards","passing_tds","interceptions",
+    "sacks","sack_yards","sack_fumbles","sack_fumbles_lost","passing_air_yards",
+    "passing_yards_after_catch","passing_first_downs","passing_epa",
+    "passing_2pt_conversions","pacr","dakota","carries","rushing_yards",
+    "rushing_tds","rushing_fumbles","rushing_fumbles_lost","rushing_first_downs",
+    "rushing_epa","rushing_2pt_conversions","receptions","targets",
+    "receiving_yards","receiving_tds","receiving_fumbles","receiving_fumbles_lost",
+    "receiving_air_yards","receiving_yards_after_catch","receiving_first_downs",
+    "receiving_epa","receiving_2pt_conversions","racr","target_share",
+    "air_yards_share","wopr","special_teams_tds","fantasy_points","fantasy_points_ppr",
 ]
 
 # ---------------- Helpers ----------------
@@ -98,10 +68,19 @@ def main():
     except Exception as e:
         fail(f"cannot read '{INPUT_FILE.as_posix()}': {e}")
 
-    # make sure ID columns exist
-    for c in ID_COLS:
-        if c not in df.columns:
-            fail(f"required column '{c}' missing in {INPUT_FILE}")
+    # Handle team column variants
+    if TEAM_PREFERRED not in df.columns:
+        if TEAM_FALLBACK in df.columns:
+            df = df.rename(columns={TEAM_FALLBACK: TEAM_PREFERRED})
+        else:
+            fail(f"required column '{TEAM_PREFERRED}' (or '{TEAM_FALLBACK}') missing in {INPUT_FILE}")
+
+    # make sure remaining ID columns exist
+    missing = [c for c in BASE_ID_COLS if c not in df.columns]
+    if missing:
+        fail(f"required columns {missing} missing in {INPUT_FILE}")
+
+    ID_COLS = [TEAM_PREFERRED] + BASE_ID_COLS  # keep consistent ordering
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_METRICS.parent.mkdir(parents=True, exist_ok=True)
@@ -110,12 +89,14 @@ def main():
 
     for target in TARGET_COLS:
         if target not in df.columns:
+            # silently skip targets not present in this dataset
             continue
 
         X = df.drop(columns=ID_COLS + [target])
         y = pd.to_numeric(df[target], errors="coerce").fillna(0)
 
-        if y.nunique() <= 1:
+        # need at least some variance to train
+        if y.nunique(dropna=True) <= 1:
             continue
 
         X_train, X_val, y_train, y_val = train_test_split(
@@ -140,9 +121,9 @@ def main():
         metrics_rows.append(
             {
                 "target": target,
-                "rows": len(df),
-                "mae": mae,
-                "r2": r2,
+                "rows": int(len(df)),
+                "mae": float(mae),
+                "r2": float(r2),
                 "model_file": model_file.as_posix(),
             }
         )
