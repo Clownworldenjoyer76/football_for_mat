@@ -105,7 +105,6 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
-      # --- Finalize WEEKLY/ROSTERS tiny artifacts (no PBP, no network) ---
       - name: Finalize weekly/rosters tiny artifacts (no network)
         run: |
           python - <<'PY'
@@ -115,12 +114,10 @@ jobs:
           g['rosters_canonicalize']()
           PY
 
-      # ===== Optional NGS ingestion (temporarily disabled) =====
       - name: Step 01b (Pull NGS - temporarily disabled)
         run: |
           echo "NOTE: NGS ingestion disabled — circle back when feed is live."
 
-      # --- Upload raw snapshot (artifact)
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -139,7 +136,6 @@ jobs:
             data/raw/nflverse/rosters_latest.head100.csv.gz
             data/raw/nflverse/rosters_manifest_latest.csv.gz
 
-      # ===== Commit artifacts =====
       - name: Commit outputs (weekly/rosters tiny artifacts)
         env:
           GH_USER_NAME: "github-actions[bot]"
@@ -148,15 +144,12 @@ jobs:
           set -e
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
-
-          mkdir -p data/raw/nflverse
+          git reset --hard
+          git clean -fd
           git add -A -f data/raw/nflverse
+          git commit -m "Finalize weekly/rosters tiny artifacts via path-run; NGS disabled" || echo "No changes"
+          git push --force
 
-          git diff --staged --quiet || git commit -m "Finalize weekly/rosters tiny artifacts via path-run; NGS disabled"
-          git pull --rebase origin main || true
-          git push
-
-      # ===== Step 02 (Build features) =====
       - name: Step 02 (Build features)
         run: |
           if [ -f scripts/02_build_features.py ]; then
@@ -165,7 +158,6 @@ jobs:
             echo "ERROR: scripts/02_build_features.py not found" && exit 1
           fi
 
-      # ===== Step 03 (Train models) =====
       - name: Step 03 (Train models)
         run: |
           if [ -f scripts/03_train_models.py ]; then
@@ -174,7 +166,6 @@ jobs:
             echo "ERROR: scripts/03_train_models.py not found" && exit 1
           fi
 
-      # --- Upload model artifacts (artifact)
       - name: Upload models and metrics (artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -183,7 +174,6 @@ jobs:
             models/pregame/**/*.joblib
             output/models/metrics_summary.csv
 
-      # --- Commit trained models & metrics ---
       - name: Commit models and metrics
         env:
           GH_USER_NAME: "github-actions[bot]"
@@ -192,11 +182,9 @@ jobs:
           set -e
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
-
-          mkdir -p models/pregame output/models
+          git reset --hard
+          git clean -fd
           git add -A -f models/pregame
           git add -A -f output/models/metrics_summary.csv
-
-          git diff --staged --quiet || git commit -m "Train models (Step 03): add joblib artifacts and metrics summary"
-          git pull --rebase origin main || true
-          git push
+          git commit -m "Train models (Step 03): add joblib artifacts and metrics summary" || echo "No changes"
+          git push --force
