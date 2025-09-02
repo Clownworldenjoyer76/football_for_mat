@@ -140,7 +140,7 @@ jobs:
             data/raw/nflverse/rosters_manifest_latest.csv.gz
 
       # ===== Commit artifacts =====
-      - name: Commit outputs
+      - name: Commit outputs (weekly/rosters tiny artifacts)
         env:
           GH_USER_NAME: "github-actions[bot]"
           GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
@@ -156,7 +156,7 @@ jobs:
           git pull --rebase origin main || true
           git push
 
-      # ===== Downstream steps (unchanged placeholders) =====
+      # ===== Step 02 (Build features) =====
       - name: Step 02 (Build features)
         run: |
           if [ -f scripts/02_build_features.py ]; then
@@ -164,3 +164,39 @@ jobs:
           else
             echo "ERROR: scripts/02_build_features.py not found" && exit 1
           fi
+
+      # ===== Step 03 (Train models) =====
+      - name: Step 03 (Train models)
+        run: |
+          if [ -f scripts/03_train_models.py ]; then
+            python scripts/03_train_models.py
+          else
+            echo "ERROR: scripts/03_train_models.py not found" && exit 1
+          fi
+
+      # --- Upload model artifacts (artifact)
+      - name: Upload models and metrics (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: models-and-metrics-${{ github.run_id }}
+          path: |
+            models/pregame/**/*.joblib
+            output/models/metrics_summary.csv
+
+      # --- Commit trained models & metrics ---
+      - name: Commit models and metrics
+        env:
+          GH_USER_NAME: "github-actions[bot]"
+          GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
+        run: |
+          set -e
+          git config user.name "$GH_USER_NAME"
+          git config user.email "$GH_USER_EMAIL"
+
+          mkdir -p models/pregame output/models
+          git add -A -f models/pregame
+          git add -A -f output/models/metrics_summary.csv
+
+          git diff --staged --quiet || git commit -m "Train models (Step 03): add joblib artifacts and metrics summary"
+          git pull --rebase origin main || true
+          git push
