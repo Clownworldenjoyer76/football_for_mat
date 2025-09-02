@@ -26,6 +26,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Ensure whitelist for processed schedules
+        run: |
+          mkdir -p data/processed/schedules
+          cat > data/processed/schedules/.gitignore <<'EOF'
+          # Track only the merged schedules file in this folder
+          *
+          !.gitignore
+          !schedules_merged.csv
+          EOF
+
       - name: Sync schedules (2024, 2025)
         run: |
           python scripts/00_sync_schedules.py
@@ -36,6 +46,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/raw/schedules/schedules_2024.csv
           git add data/raw/schedules/schedules_2025.csv
+          git add data/processed/schedules/.gitignore
           git add data/processed/schedules/schedules_merged.csv
-          git commit -m "chore: sync NFL schedules for 2024 and 2025" || echo "No changes to commit"
+          git commit -m "chore: add merged schedules and whitelist" || echo "No changes to commit"
           git push
