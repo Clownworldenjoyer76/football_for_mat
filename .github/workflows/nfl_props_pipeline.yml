@@ -1,3 +1,4 @@
+# .github/workflows/nfl_props_pipeline.yml
 name: NFL Props Pipeline
 
 on:
@@ -105,6 +106,7 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
+      # --- Finalize WEEKLY/ROSTERS tiny artifacts (no PBP, no network) ---
       - name: Finalize weekly/rosters tiny artifacts (no network)
         run: |
           python - <<'PY'
@@ -114,6 +116,12 @@ jobs:
           g['rosters_canonicalize']()
           PY
 
+      # ===== Optional NGS ingestion (temporarily disabled) =====
+      - name: Step 01b (Pull NGS - temporarily disabled)
+        run: |
+          echo "NOTE: NGS ingestion disabled — circle back when feed is live."
+
+      # --- Upload raw snapshot (artifact)
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -132,7 +140,7 @@ jobs:
             data/raw/nflverse/rosters_latest.head100.csv.gz
             data/raw/nflverse/rosters_manifest_latest.csv.gz
 
-      # ===== Features =====
+      # ===== Step 02: Build features =====
       - name: Step 02 (Build features)
         run: |
           if [ -f scripts/02_build_features.py ]; then
@@ -141,7 +149,7 @@ jobs:
             echo "ERROR: scripts/02_build_features.py not found" && exit 1
           fi
 
-      # ===== Train Models =====
+      # ===== Step 03: Train models =====
       - name: Step 03 (Train models)
         run: |
           if [ -f scripts/03_train_models.py ]; then
@@ -149,12 +157,9 @@ jobs:
           else
             echo "ERROR: scripts/03_train_models.py not found" && exit 1
           fi
-          echo "==== Post-train check ===="
-          ls -al models || true
-          ls -al models/pregame || true
-          ls -al output/models || true
 
-      - name: Upload models & metrics (artifact)
+      # --- Upload models + metrics (artifact for debugging) ---
+      - name: Upload models and metrics (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: models-and-metrics-${{ github.run_id }}
@@ -162,26 +167,45 @@ jobs:
             models/pregame/*.joblib
             output/models/metrics_summary.csv
 
-      # ===== Commit artifacts =====
+      # ===== Commit outputs (raw + models + metrics) =====
       - name: Commit outputs (raw + models + metrics)
         env:
           GH_USER_NAME: "github-actions[bot]"
           GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
         run: |
           set -e
+
+          # Ensure a pristine working tree
+          git reset --hard
+          git clean -fdx
+
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
 
+          # Re-stage generated artifacts
           mkdir -p data/raw/nflverse models/pregame output/models
+          git add -A -f \
+            data/raw/nflverse/play_by_play_latest.csv.gz \
+            data/raw/nflverse/pbp_latest.parquet \
+            data/raw/nflverse/pbp_latest.head100.csv.gz \
+            data/raw/nflverse/manifest_latest.csv.gz \
+            data/raw/nflverse/weekly_latest.csv.gz \
+            data/raw/nflverse/weekly_latest.parquet \
+            data/raw/nflverse/weekly_latest.head100.csv.gz \
+            data/raw/nflverse/weekly_manifest_latest.csv.gz \
+            data/raw/nflverse/rosters_latest.csv.gz \
+            data/raw/nflverse/rosters_latest.parquet \
+            data/raw/nflverse/rosters_latest.head100.csv.gz \
+            data/raw/nflverse/rosters_manifest_latest.csv.gz \
+            data/features/weekly_clean.csv.gz \
+            models/pregame/*.joblib \
+            output/models/metrics_summary.csv
 
-          # Stage: raw snapshot, models, metrics
-          git add -A -f data/raw/nflverse
-          git add -f models/pregame/*.joblib || true
-          git add -f output/models/metrics_summary.csv || true
-
-          git status --porcelain
-
-          # Commit if there are staged changes
-          git diff --staged --quiet || git commit -m "Add models and metrics; update raw artifacts"
-          git pull --rebase origin main || true
-          git push
+          # Commit if there are changes
+          if ! git diff --staged --quiet; then
+            git commit -m "Add models and metrics; update raw artifacts"
+            # Push directly; no rebase on ephemeral runner
+            git push --force
+          else
+            echo "No changes to commit."
+          fi
