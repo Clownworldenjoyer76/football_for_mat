@@ -84,7 +84,7 @@ jobs:
                       fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
                       write.csv(df, gzfile(fn), row.names=FALSE)"
 
-      # --- Restore pre-seeded roster if changed ---
+      # --- Restore pre-seeded roster (if backed up) ---
       - name: Restore pre-seeded roster (if backed up)
         if: ${{ env.HAVE_SEEDED_ROSTER == '1' }}
         run: |
@@ -105,7 +105,6 @@ jobs:
             echo "ERROR: no Step 01 script found" && exit 1
           fi
 
-      # --- Finalize WEEKLY/ROSTERS tiny artifacts (no network) ---
       - name: Finalize weekly/rosters tiny artifacts (no network)
         run: |
           python - <<'PY'
@@ -115,12 +114,10 @@ jobs:
           g['rosters_canonicalize']()
           PY
 
-      # ===== Optional NGS ingestion (temporarily disabled) =====
       - name: Step 01b (Pull NGS - temporarily disabled)
         run: |
           echo "NOTE: NGS ingestion disabled — circle back when feed is live."
 
-      # --- Upload raw snapshot (artifact)
       - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -137,7 +134,6 @@ jobs:
             data/raw/nflverse/rosters_latest.parquet
             data/raw/nflverse/rosters_manifest_latest.csv.gz
 
-      # ===== Commit artifacts =====
       - name: Commit outputs (raw + models + metrics)
         env:
           GH_USER_NAME: "github-actions[bot]"
@@ -156,7 +152,6 @@ jobs:
           git pull --rebase origin main || true
           git push
 
-      # ===== Downstream steps (unchanged placeholders) =====
       - name: Step 02 (Build features)
         run: |
           if [ -f scripts/02_build_features.py ]; then
@@ -164,3 +159,40 @@ jobs:
           else
             echo "ERROR: scripts/02_build_features.py not found" && exit 1
           fi
+
+      - name: Step 03 (Train models)
+        run: |
+          if [ -f scripts/03_train_models.py ]; then
+            python scripts/03_train_models.py
+          else
+            echo "ERROR: scripts/03_train_models.py not found" && exit 1
+          fi
+
+      # ===== Step 04: Pregame predictions =====
+      - name: Step 04 (Pregame predictions)
+        run: |
+          python scripts/04_predict_pregame.py --season "${{ env.FORECAST_SEASON }}" --week "${{ env.FORECAST_WEEK }}"
+
+      - name: Upload predictions (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pregame-predictions-${{ github.run_id }}
+          path: |
+            output/predictions/pregame/*.csv.gz
+
+      - name: Commit predictions
+        env:
+          GH_USER_NAME: "github-actions[bot]"
+          GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
+        run: |
+          set -e
+          git config user.name "$GH_USER_NAME"
+          git config user.email "$GH_USER_EMAIL"
+
+          mkdir -p data/predictions/pregame output/predictions/pregame
+          git add -A -f data/predictions/pregame
+          git add -A -f output/predictions/pregame
+
+          git diff --staged --quiet || git commit -m "Add pregame predictions"
+          git pull --rebase origin main || true
+          git push
