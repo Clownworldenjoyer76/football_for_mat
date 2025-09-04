@@ -23,25 +23,23 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 
-# ---------------- Paths ----------------
+# ---------------- Config ----------------
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INPUT_FILE = REPO_ROOT / "data" / "features" / "weekly_clean.csv.gz"
+
 MODELS_DIR = REPO_ROOT / "models" / "pregame"
 OUTPUT_METRICS = REPO_ROOT / "output" / "models" / "metrics_summary.csv"
 
-# ---------------- IDs & Targets ----------------
-# Required ID columns present in weekly_clean.csv.gz (validated exactly).
-REQUIRED_ID_COLS = [
+# NOTE: recent_team REMOVED to match weekly_clean.csv.gz
+ID_COLS = [
     "player_id",
     "player_name",
-    "team",          # NOTE: weekly_clean has 'team' (not 'recent_team')
     "position",
     "season",
     "week",
     "season_type",
 ]
 
-# Target columns to try to train (skipped if missing).
 TARGET_COLS = [
     "completions",
     "attempts",
@@ -101,48 +99,38 @@ def main():
     except Exception as e:
         fail(f"cannot read '{INPUT_FILE.as_posix()}': {e}")
 
-    # Validate required IDs against the *actual* header
-    missing_ids = [c for c in REQUIRED_ID_COLS if c not in df.columns]
-    if missing_ids:
-        fail(f"required ID column(s) missing in {INPUT_FILE.name}: {missing_ids}")
+    # verify ID columns exist
+    missing = [c for c in ID_COLS if c not in df.columns]
+    if missing:
+        fail(f"required ID column(s) missing in {INPUT_FILE.name}: {missing}")
+
+    # numeric-only feature matrix safety
+    def to_numeric(df_in: pd.DataFrame) -> pd.DataFrame:
+        out = df_in.copy()
+        for c in out.columns:
+            if not np.issubdtype(out[c].dtype, np.number):
+                out[c] = pd.to_numeric(out[c], errors="coerce")
+        return out
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_METRICS.parent.mkdir(parents=True, exist_ok=True)
 
-    # Use only numeric feature columns to avoid strings leaking into X
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    # Never use numeric ID columns as features (season/week, etc.)
-    numeric_feature_cols = [c for c in numeric_cols if c not in REQUIRED_ID_COLS]
-
     metrics_rows = []
-    trained = 0
-    skipped_missing = []
-    skipped_constant = []
 
     for target in TARGET_COLS:
         if target not in df.columns:
-            skipped_missing.append(target)
+            # target absent in data; skip quietly
             continue
 
-        # y: numeric, drop rows where target is NaN
+        # Prepare X/y
+        X = df.drop(columns=ID_COLS + [target], errors="ignore")
+        X = to_numeric(X).fillna(0)
+
         y = pd.to_numeric(df[target], errors="coerce")
-        valid = y.notna()
-        if valid.sum() < 2:
-            skipped_constant.append(target)
-            continue
+        y = y.fillna(0)
 
-        # X: numeric features excluding the target itself
-        feat_cols = [c for c in numeric_feature_cols if c != target]
-        if not feat_cols:
-            skipped_constant.append(target)
-            continue
-
-        X = df.loc[valid, feat_cols].fillna(0.0)
-        y = y.loc[valid]
-
-        # If y has no variance, skip
-        if y.nunique() <= 1:
-            skipped_constant.append(target)
+        if y.nunique(dropna=True) <= 1:
+            # not learnable
             continue
 
         X_train, X_val, y_train, y_val = train_test_split(
@@ -150,7 +138,7 @@ def main():
         )
 
         model = RandomForestRegressor(
-            n_estimators=200,
+            n_estimators=100,
             random_state=42,
             n_jobs=-1,
         )
@@ -160,28 +148,24 @@ def main():
         mae = mean_absolute_error(y_val, preds)
         r2 = r2_score(y_val, preds)
 
-        model_file = (MODELS_DIR / f"{target}.joblib")
+        # Save model
+        model_file = MODELS_DIR / f"{target}.joblib"
         joblib.dump(model, model_file)
 
         metrics_rows.append(
             {
                 "target": target,
-                "rows": int(len(X)),
-                "features": int(len(feat_cols)),
-                "mae": float(mae),
-                "r2": float(r2),
+                "rows": len(df),
+                "features": X.shape[1],
+                "mae": mae,
+                "r2": r2,
                 "model_file": model_file.as_posix(),
             }
         )
-        trained += 1
 
     if metrics_rows:
-        pd.DataFrame(metrics_rows).sort_values("target").to_csv(OUTPUT_METRICS, index=False)
-        print(f"Trained {trained} models. Wrote metrics summary to {OUTPUT_METRICS}")
-        if skipped_missing:
-            print(f"Skipped (missing): {', '.join(skipped_missing)}")
-        if skipped_constant:
-            print(f"Skipped (no variance / no features): {', '.join(skipped_constant)}")
+        pd.DataFrame(metrics_rows).to_csv(OUTPUT_METRICS, index=False)
+        print(f"Wrote metrics summary to {OUTPUT_METRICS}")
     else:
         fail("no valid targets trained")
 
