@@ -10,7 +10,7 @@ Inputs
   (same columns used during training)
 
 - Trained models: models/pregame/*.joblib
-  (one per target; supports plain estimator OR (estimator, feature_names) tuple)
+  (one per target)
 
 Optional filters
 ----------------
@@ -32,25 +32,23 @@ import pandas as pd
 import numpy as np
 import joblib
 
-# ---------------- Paths ----------------
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
 FEATURES_FILE = REPO_ROOT / "data" / "features" / "weekly_clean.csv.gz"
 MODELS_DIR    = REPO_ROOT / "models" / "pregame"
 OUT_DIR_DATA  = REPO_ROOT / "data"   / "predictions" / "pregame"
 OUT_DIR_OUT   = REPO_ROOT / "output" / "predictions" / "pregame"
 
-# Must match training identifiers
+# NOTE: recent_team REMOVED to match weekly_clean.csv.gz
 ID_COLS = [
     "player_id",
     "player_name",
-    "recent_team",
     "position",
     "season",
     "week",
     "season_type",
 ]
 
-# ---------------- Utils ----------------
 def fail(msg: str) -> None:
     print(f"INSUFFICIENT INFORMATION: {msg}", file=sys.stderr)
     sys.exit(1)
@@ -68,11 +66,9 @@ def load_features() -> pd.DataFrame:
         df = pd.read_csv(FEATURES_FILE)
     except Exception as e:
         fail(f"cannot read '{FEATURES_FILE.as_posix()}': {e}")
-
     missing = [c for c in ID_COLS if c not in df.columns]
     if missing:
-        fail(f"required column(s) missing in {FEATURES_FILE}: {missing}")
-
+        fail(f"required column(s) missing in {FEATURES_FILE.name}: {missing}")
     return df
 
 def filter_forecast_set(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
@@ -83,42 +79,26 @@ def filter_forecast_set(df: pd.DataFrame, season: str, week: str) -> pd.DataFram
     return df
 
 def load_models() -> dict:
-    """
-    Returns dict: { target: (estimator, feature_names_or_None) }
-    Accepts artifacts saved either as:
-      - estimator only (with .feature_names_in_ if available), or
-      - (estimator, feature_names_list) tuple.
-    """
     if not MODELS_DIR.exists():
         fail(f"models directory not found: {MODELS_DIR.as_posix()}")
-
     models = {}
-    for path in sorted(MODELS_DIR.glob("*.joblib")):
+    for p in sorted(MODELS_DIR.glob("*.joblib")):
         try:
-            obj = joblib.load(path)
+            m = joblib.load(p)
         except Exception as e:
-            fail(f"failed loading model '{path.name}': {e}")
-
-        est, feat_names = None, None
-
-        if isinstance(obj, tuple) and len(obj) == 2:
-            est, feat_names = obj[0], obj[1]
-        else:
-            est = obj
-            feat_names = getattr(est, "feature_names_in_", None)
-
-        if not hasattr(est, "predict"):
-            fail(f"artifact '{path.name}' is not a valid estimator or (estimator, features) tuple")
-
-        target = path.stem
-        models[target] = (est, list(feat_names) if feat_names is not None else None)
-
+            fail(f"failed loading model '{p.name}': {e}")
+        models[p.stem] = m
     if not models:
         fail(f"no models found in {MODELS_DIR.as_posix()}")
-
     return models
 
-# ---------------- Main ----------------
+def to_numeric(df_in: pd.DataFrame) -> pd.DataFrame:
+    out = df_in.copy()
+    for c in out.columns:
+        if not np.issubdtype(out[c].dtype, np.number):
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+    return out
+
 def main():
     args = parse_args()
     season = args.season
@@ -131,28 +111,26 @@ def main():
             sw = f"season={season or 'ALL'}, week={week or 'ALL'}"
             fail(f"no rows to predict for filter: {sw}")
 
-    # identifiers + base numeric matrix
-    out = df[ID_COLS].copy()
-    base_X = df.drop(columns=ID_COLS, errors="ignore")
-
-    # force all non-numeric to numeric (coerce -> 0)
-    for c in base_X.columns:
-        if not np.issubdtype(base_X[c].dtype, np.number):
-            base_X[c] = pd.to_numeric(base_X[c], errors="coerce").fillna(0)
-
     models = load_models()
+
+    # Base identifiers
+    out = df[ID_COLS].copy()
+
+    # Candidate features (drop identifiers only)
+    base_X = df.drop(columns=ID_COLS, errors="ignore")
+    base_X = to_numeric(base_X).fillna(0)
+
     preds_made = 0
-
-    for target, (est, feat_cols) in models.items():
-        # exact column alignment
-        if feat_cols is None:
-            # fall back to estimator's attribute if present
-            feat_cols = list(getattr(est, "feature_names_in_", [])) or [c for c in base_X.columns if c not in ID_COLS]
-
-        X = base_X.reindex(columns=feat_cols, fill_value=0)
+    for target, model in models.items():
+        # Align to training-time features if available
+        if hasattr(model, "feature_names_in_"):
+            feat_cols = list(model.feature_names_in_)
+            X = base_X.reindex(columns=feat_cols, fill_value=0)
+        else:
+            X = base_X.copy()
 
         try:
-            yhat = est.predict(X)
+            yhat = model.predict(X)
         except Exception as e:
             fail(f"prediction failed for target '{target}': {e}")
 
@@ -160,7 +138,7 @@ def main():
         preds_made += 1
 
     if preds_made == 0:
-        fail("no predictions produced (no usable models)")
+        fail("no predictions produced (no models?)")
 
     OUT_DIR_DATA.mkdir(parents=True, exist_ok=True)
     OUT_DIR_OUT.mkdir(parents=True, exist_ok=True)
