@@ -39,11 +39,10 @@ MODELS_DIR    = REPO_ROOT / "models" / "pregame"
 OUT_DIR_DATA  = REPO_ROOT / "data"   / "predictions" / "pregame"
 OUT_DIR_OUT   = REPO_ROOT / "output" / "predictions" / "pregame"
 
-# Must match training script
+# IDENTIFIER COLUMNS — must match training script (no 'recent_team')
 ID_COLS = [
     "player_id",
     "player_name",
-    "recent_team",
     "position",
     "season",
     "week",
@@ -56,7 +55,6 @@ def fail(msg: str) -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    # Allow CLI or env (for GH Actions)
     p.add_argument("--season", type=str, default=os.environ.get("FORECAST_SEASON", "").strip())
     p.add_argument("--week",   type=str, default=os.environ.get("FORECAST_WEEK", "").strip())
     return p.parse_args()
@@ -69,14 +67,13 @@ def load_features() -> pd.DataFrame:
     except Exception as e:
         fail(f"cannot read '{FEATURES_FILE.as_posix()}': {e}")
     # verify ID cols
-    for c in ID_COLS:
-        if c not in df.columns:
-            fail(f"required column '{c}' missing in {FEATURES_FILE}")
+    missing = [c for c in ID_COLS if c not in df.columns]
+    if missing:
+        fail(f"required identifier column(s) missing in {FEATURES_FILE}: {missing}")
     return df
 
 def filter_forecast_set(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
     if season:
-        # season col may be str or int
         df = df[df["season"].astype(str) == str(season)]
     if week:
         df = df[df["week"].astype(str) == str(week)]
@@ -111,27 +108,23 @@ def main():
 
     models = load_models()
 
-    # Build base output with identifiers
+    # Base output with identifiers
     out = df[ID_COLS].copy()
 
-    # Feature matrix we’ll align per-model
-    # (Drop identifiers only; the training script dropped ID_COLS + [target],
-    # so we will select exactly model.feature_names_in_ for each model below.)
+    # Base feature frame (drop only identifiers)
     base_X = df.drop(columns=ID_COLS, errors="ignore")
 
-    # Predict each target with its corresponding model
     preds_made = 0
     for target, model in models.items():
-        # Align columns to training-time features
+        # Align to training-time feature set
         if hasattr(model, "feature_names_in_"):
             feat_cols = list(model.feature_names_in_)
         else:
-            # Extremely defensive: if the attribute is missing, fall back to current columns.
             feat_cols = [c for c in base_X.columns if c not in ID_COLS]
 
         X = base_X.reindex(columns=feat_cols, fill_value=0)
 
-        # Coerce any non-numeric columns that might have slipped in
+        # Ensure numeric dtypes
         for c in X.columns:
             if not np.issubdtype(X[c].dtype, np.number):
                 X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0)
