@@ -2,146 +2,146 @@
 # -*- coding: utf-8 -*-
 
 """
-Make pregame predictions using the trained models.
+Predict with trained models. Robust to:
+- Missing optional ID columns (creates empty placeholders)
+- Older .joblib saved as tuples (uses element [0] as estimator)
 
 Inputs
 ------
-- Feature matrix: data/features/weekly_clean.csv.gz
-- Trained models: models/pregame/*.joblib
+data/features/weekly_clean.csv.gz
+models/pregame/*.joblib
 
 Outputs
 -------
-- data/predictions/pregame/predictions_[season]_wk[week].csv.gz
-- output/predictions/pregame/predictions_[season]_wk[week].csv.gz
+data/predictions/pregame/predictions_<season>_wk<week>.csv.gz
+output/predictions/pregame/predictions_<season>_wk<week>.csv.gz
 """
 
 import argparse
 import os
 from pathlib import Path
 import sys
-import pandas as pd
 import numpy as np
+import pandas as pd
 import joblib
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
-FEATURES_FILE = REPO_ROOT / "data" / "features" / "weekly_clean.csv.gz"
-MODELS_DIR    = REPO_ROOT / "models" / "pregame"
-OUT_DIR_DATA  = REPO_ROOT / "data"   / "predictions" / "pregame"
-OUT_DIR_OUT   = REPO_ROOT / "output" / "predictions" / "pregame"
+REPO = Path(__file__).resolve().parents[1]
+FEATS = REPO / "data" / "features" / "weekly_clean.csv.gz"
+MODELS = REPO / "models" / "pregame"
+OUT_DATA = REPO / "data" / "predictions" / "pregame"
+OUT_MIRR = REPO / "output" / "predictions" / "pregame"
 
 ID_COLS = [
     "player_id",
     "player_name",
+    "recent_team",     # optional; placeholder if missing
     "position",
     "season",
     "week",
     "season_type",
 ]
 
-def fail(msg: str) -> None:
-    print(f"INSUFFICIENT INFORMATION: {msg}", file=sys.stderr)
+def die(msg: str):
+    print(f"INSUFFICIENT INFORMATION: {msg}")
     sys.exit(1)
 
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser()
-    p.add_argument("--season", type=str, default=os.environ.get("FORECAST_SEASON", "").strip())
-    p.add_argument("--week",   type=str, default=os.environ.get("FORECAST_WEEK", "").strip())
-    return p.parse_args()
-
 def load_features() -> pd.DataFrame:
-    if not FEATURES_FILE.exists():
-        fail(f"missing features file '{FEATURES_FILE.as_posix()}'")
+    if not FEATS.exists():
+        die(f"missing features file '{FEATS.as_posix()}'")
     try:
-        df = pd.read_csv(FEATURES_FILE)
+        df = pd.read_csv(FEATS)
     except Exception as e:
-        fail(f"cannot read '{FEATURES_FILE.as_posix()}': {e}")
+        die(f"cannot read '{FEATS.as_posix()}': {e}")
+
+    # normalize optional IDs so downstream never fails on column lookups
     for c in ID_COLS:
         if c not in df.columns:
-            fail(f"required column '{c}' missing in {FEATURES_FILE}")
+            df[c] = "" if c in ("player_name","recent_team","position","season_type") else 0
     return df
 
-def filter_forecast_set(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
+def filter_df(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
     if season:
         df = df[df["season"].astype(str) == str(season)]
     if week:
         df = df[df["week"].astype(str) == str(week)]
     return df
 
-def load_models() -> dict:
-    if not MODELS_DIR.exists():
-        fail(f"models directory not found: {MODELS_DIR.as_posix()}")
-    models = {}
-    for p in sorted(MODELS_DIR.glob("*.joblib")):
-        obj = joblib.load(p)
-        # Handle tuples (old models) or plain model (new)
-        if isinstance(obj, tuple) and len(obj) >= 1:
-            model = obj[0]
-        else:
-            model = obj
-        target = p.stem
-        models[target] = model
-    if not models:
-        fail(f"no models found in {MODELS_DIR.as_posix()}")
-    return models
+def load_estimator(p: Path):
+    obj = joblib.load(p)
+    # accept (estimator, meta) tuples from older runs
+    if isinstance(obj, tuple) and len(obj) > 0:
+        obj = obj[0]
+    return obj
 
 def main():
-    args = parse_args()
-    season = args.season
-    week   = args.week
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--season", default=os.environ.get("FORECAST_SEASON", "").strip())
+    ap.add_argument("--week",   default=os.environ.get("FORECAST_WEEK", "").strip())
+    args = ap.parse_args()
 
     df = load_features()
-    if season or week:
-        df = filter_forecast_set(df, season, week)
+    if args.season or args.week:
+        df = filter_df(df, args.season, args.week)
         if df.empty:
-            sw = f"season={season or 'ALL'}, week={week or 'ALL'}"
-            fail(f"no rows to predict for filter: {sw}")
+            die(f"no rows to predict for season='{args.season or 'ALL'}' week='{args.week or 'ALL'}'")
 
-    models = load_models()
+    if not MODELS.exists():
+        die(f"models directory not found: {MODELS.as_posix()}")
+
+    files = sorted(MODELS.glob("*.joblib"))
+    if not files:
+        die(f"no models in {MODELS.as_posix()}")
+
+    # base output
     out = df[ID_COLS].copy()
     base_X = df.drop(columns=ID_COLS, errors="ignore")
 
-    preds_made = 0
-    for target, model in models.items():
-        if hasattr(model, "feature_names_in_"):
-            feat_cols = list(model.feature_names_in_)
-        else:
-            feat_cols = [c for c in base_X.columns if c not in ID_COLS]
+    made = 0
+    for mp in files:
+        est = load_estimator(mp)
+        if not hasattr(est, "predict"):
+            die(f"loaded object has no predict(): {mp.name}")
 
-        X = base_X.reindex(columns=feat_cols, fill_value=0)
+        # align to training-time features if available
+        if hasattr(est, "feature_names_in_"):
+            cols = list(est.feature_names_in_)
+        else:
+            cols = [c for c in base_X.columns if c not in ID_COLS]
+
+        X = base_X.reindex(columns=cols, fill_value=0)
+
+        # numeric only
         for c in X.columns:
             if not np.issubdtype(X[c].dtype, np.number):
                 X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0)
 
         try:
-            yhat = model.predict(X)
+            yhat = est.predict(X)
         except Exception as e:
-            fail(f"prediction failed for target '{target}': {e}")
+            die(f"prediction failed for model '{mp.stem}': {e}")
 
-        out[target] = yhat
-        preds_made += 1
+        out[mp.stem] = yhat
+        made += 1
 
-    if preds_made == 0:
-        fail("no predictions produced (no models?)")
+    if made == 0:
+        die("no predictions produced")
 
-    OUT_DIR_DATA.mkdir(parents=True, exist_ok=True)
-    OUT_DIR_OUT.mkdir(parents=True, exist_ok=True)
+    OUT_DATA.mkdir(parents=True, exist_ok=True)
+    OUT_MIRR.mkdir(parents=True, exist_ok=True)
 
-    if season or week:
-        s = season if season else "ALL"
-        w = week if week else "ALL"
+    if args.season or args.week:
+        s = args.season if args.season else "ALL"
+        w = args.week if args.week else "ALL"
         fname = f"predictions_{s}_wk{w}.csv.gz"
     else:
         fname = "predictions_all.csv.gz"
 
-    f_data = OUT_DIR_DATA / fname
-    f_out  = OUT_DIR_OUT  / fname
+    p1 = OUT_DATA / fname
+    p2 = OUT_MIRR / fname
+    out.to_csv(p1, index=False, compression="gzip")
+    out.to_csv(p2, index=False, compression="gzip")
 
-    out.to_csv(f_data, index=False, compression="gzip")
-    out.to_csv(f_out,  index=False, compression="gzip")
-
-    print(f"Predictions written:\n - {f_data.as_posix()}\n - {f_out.as_posix()}")
-    print(f"Rows: {len(out):,} | Targets: {preds_made}")
+    print(f"Wrote:\n- {p1.as_posix()}\n- {p2.as_posix()}\nRows={len(out):,} Models={made}")
 
 if __name__ == "__main__":
     main()
