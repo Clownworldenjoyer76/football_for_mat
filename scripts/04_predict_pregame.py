@@ -7,10 +7,7 @@ Make pregame predictions using the trained models.
 Inputs
 ------
 - Feature matrix: data/features/weekly_clean.csv.gz
-  (same columns used during training)
-
 - Trained models: models/pregame/*.joblib
-  (one per target)
 
 Optional filters
 ----------------
@@ -19,9 +16,8 @@ Optional filters
 
 Outputs
 -------
-- data/predictions/pregame/predictions_[season]_wk[week].csv.gz  (or predictions_all.csv.gz)
-- output/predictions/pregame/predictions_[season]_wk[week].csv.gz (mirrored copy)
-- Prints a short summary of what was predicted.
+- data/predictions/pregame/predictions_[season]_wk[week].csv.gz
+- output/predictions/pregame/predictions_[season]_wk[week].csv.gz
 """
 
 import argparse
@@ -39,10 +35,11 @@ MODELS_DIR    = REPO_ROOT / "models" / "pregame"
 OUT_DIR_DATA  = REPO_ROOT / "data"   / "predictions" / "pregame"
 OUT_DIR_OUT   = REPO_ROOT / "output" / "predictions" / "pregame"
 
-# NOTE: recent_team REMOVED to match weekly_clean.csv.gz
-ID_COLS = [
+# Canonical IDs (match training)
+ID_COLS_CANON = [
     "player_id",
     "player_name",
+    "team",
     "position",
     "season",
     "week",
@@ -59,6 +56,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--week",   type=str, default=os.environ.get("FORECAST_WEEK", "").strip())
     return p.parse_args()
 
+def _harmonize_team_cols(df: pd.DataFrame) -> pd.DataFrame:
+    if "team" not in df.columns and "recent_team" in df.columns:
+        df = df.copy()
+        df["team"] = df["recent_team"]
+    if "recent_team" not in df.columns and "team" in df.columns:
+        df = df.copy()
+        df["recent_team"] = df["team"]
+    return df
+
 def load_features() -> pd.DataFrame:
     if not FEATURES_FILE.exists():
         fail(f"missing features file '{FEATURES_FILE.as_posix()}'")
@@ -66,9 +72,12 @@ def load_features() -> pd.DataFrame:
         df = pd.read_csv(FEATURES_FILE)
     except Exception as e:
         fail(f"cannot read '{FEATURES_FILE.as_posix()}': {e}")
-    missing = [c for c in ID_COLS if c not in df.columns]
-    if missing:
-        fail(f"required column(s) missing in {FEATURES_FILE.name}: {missing}")
+
+    df = _harmonize_team_cols(df)
+
+    for c in ID_COLS_CANON:
+        if c not in df.columns:
+            fail(f"required column '{c}' missing in {FEATURES_FILE}")
     return df
 
 def filter_forecast_set(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
@@ -92,13 +101,6 @@ def load_models() -> dict:
         fail(f"no models found in {MODELS_DIR.as_posix()}")
     return models
 
-def to_numeric(df_in: pd.DataFrame) -> pd.DataFrame:
-    out = df_in.copy()
-    for c in out.columns:
-        if not np.issubdtype(out[c].dtype, np.number):
-            out[c] = pd.to_numeric(out[c], errors="coerce")
-    return out
-
 def main():
     args = parse_args()
     season = args.season
@@ -113,27 +115,21 @@ def main():
 
     models = load_models()
 
-    # Base identifiers
-    out = df[ID_COLS].copy()
+    out = df[ID_COLS_CANON].copy()
 
-    # Candidate features (drop identifiers only)
-    base_X = df.drop(columns=ID_COLS, errors="ignore")
-    base_X = to_numeric(base_X).fillna(0)
+    base_X = df.drop(columns=ID_COLS_CANON, errors="ignore")
+    for c in base_X.columns:
+        if not np.issubdtype(base_X[c].dtype, np.number):
+            base_X[c] = pd.to_numeric(base_X[c], errors="coerce").fillna(0)
 
     preds_made = 0
     for target, model in models.items():
-        # Align to training-time features if available
-        if hasattr(model, "feature_names_in_"):
-            feat_cols = list(model.feature_names_in_)
-            X = base_X.reindex(columns=feat_cols, fill_value=0)
-        else:
-            X = base_X.copy()
-
+        feat_cols = list(getattr(model, "feature_names_in_", base_X.columns))
+        X = base_X.reindex(columns=feat_cols, fill_value=0)
         try:
             yhat = model.predict(X)
         except Exception as e:
             fail(f"prediction failed for target '{target}': {e}")
-
         out[target] = yhat
         preds_made += 1
 
