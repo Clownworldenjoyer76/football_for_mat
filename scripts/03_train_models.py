@@ -21,7 +21,6 @@ import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
-import numpy as np
 
 # ---------------- Config ----------------
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -30,11 +29,9 @@ INPUT_FILE = REPO_ROOT / "data" / "features" / "weekly_clean.csv.gz"
 MODELS_DIR = REPO_ROOT / "models" / "pregame"
 OUTPUT_METRICS = REPO_ROOT / "output" / "models" / "metrics_summary.csv"
 
-# Use 'team' (your features) but accept either name.
-ID_COLS_CANON = [
+ID_COLS = [
     "player_id",
     "player_name",
-    "team",          # canonical name in features
     "position",
     "season",
     "week",
@@ -86,21 +83,10 @@ TARGET_COLS = [
     "fantasy_points_ppr",
 ]
 
+# ---------------- Helpers ----------------
 def fail(msg: str) -> None:
     print(f"INSUFFICIENT INFORMATION: {msg}", file=sys.stderr)
     sys.exit(1)
-
-def _harmonize_team_cols(df: pd.DataFrame) -> pd.DataFrame:
-    # Accept either 'team' (your data) or 'recent_team' (older code).
-    if "team" not in df.columns and "recent_team" in df.columns:
-        df = df.copy()
-        df["team"] = df["recent_team"]
-    if "recent_team" not in df.columns and "team" in df.columns:
-        # create a shadow column so any downstream code that still references
-        # 'recent_team' won’t break
-        df = df.copy()
-        df["recent_team"] = df["team"]
-    return df
 
 def main():
     if not INPUT_FILE.exists():
@@ -111,10 +97,8 @@ def main():
     except Exception as e:
         fail(f"cannot read '{INPUT_FILE.as_posix()}': {e}")
 
-    df = _harmonize_team_cols(df)
-
-    # verify ID columns (canonical names)
-    for c in ID_COLS_CANON:
+    # make sure ID columns exist
+    for c in ID_COLS:
         if c not in df.columns:
             fail(f"required column '{c}' missing in {INPUT_FILE}")
 
@@ -127,14 +111,7 @@ def main():
         if target not in df.columns:
             continue
 
-        # Drop identifiers + the target to form features
-        X = df.drop(columns=ID_COLS_CANON + [target], errors="ignore")
-
-        # Coerce non-numeric safely
-        for c in X.columns:
-            if not np.issubdtype(X[c].dtype, np.number):
-                X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0)
-
+        X = df.drop(columns=ID_COLS + [target])
         y = pd.to_numeric(df[target], errors="coerce").fillna(0)
 
         if y.nunique() <= 1:
@@ -155,6 +132,7 @@ def main():
         mae = mean_absolute_error(y_val, preds)
         r2 = r2_score(y_val, preds)
 
+        # Save only the model, not a tuple
         model_file = MODELS_DIR / f"{target}.joblib"
         joblib.dump(model, model_file)
 
