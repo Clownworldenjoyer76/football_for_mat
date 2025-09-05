@@ -9,11 +9,6 @@ Inputs
 - Feature matrix: data/features/weekly_clean.csv.gz
 - Trained models: models/pregame/*.joblib
 
-Optional filters
-----------------
---season SEASON (e.g., 2025)
---week   WEEK   (e.g., 1)
-
 Outputs
 -------
 - data/predictions/pregame/predictions_[season]_wk[week].csv.gz
@@ -35,11 +30,9 @@ MODELS_DIR    = REPO_ROOT / "models" / "pregame"
 OUT_DIR_DATA  = REPO_ROOT / "data"   / "predictions" / "pregame"
 OUT_DIR_OUT   = REPO_ROOT / "output" / "predictions" / "pregame"
 
-# Canonical IDs (match training)
-ID_COLS_CANON = [
+ID_COLS = [
     "player_id",
     "player_name",
-    "team",
     "position",
     "season",
     "week",
@@ -56,15 +49,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--week",   type=str, default=os.environ.get("FORECAST_WEEK", "").strip())
     return p.parse_args()
 
-def _harmonize_team_cols(df: pd.DataFrame) -> pd.DataFrame:
-    if "team" not in df.columns and "recent_team" in df.columns:
-        df = df.copy()
-        df["team"] = df["recent_team"]
-    if "recent_team" not in df.columns and "team" in df.columns:
-        df = df.copy()
-        df["recent_team"] = df["team"]
-    return df
-
 def load_features() -> pd.DataFrame:
     if not FEATURES_FILE.exists():
         fail(f"missing features file '{FEATURES_FILE.as_posix()}'")
@@ -72,10 +56,7 @@ def load_features() -> pd.DataFrame:
         df = pd.read_csv(FEATURES_FILE)
     except Exception as e:
         fail(f"cannot read '{FEATURES_FILE.as_posix()}': {e}")
-
-    df = _harmonize_team_cols(df)
-
-    for c in ID_COLS_CANON:
+    for c in ID_COLS:
         if c not in df.columns:
             fail(f"required column '{c}' missing in {FEATURES_FILE}")
     return df
@@ -92,11 +73,14 @@ def load_models() -> dict:
         fail(f"models directory not found: {MODELS_DIR.as_posix()}")
     models = {}
     for p in sorted(MODELS_DIR.glob("*.joblib")):
-        try:
-            m = joblib.load(p)
-        except Exception as e:
-            fail(f"failed loading model '{p.name}': {e}")
-        models[p.stem] = m
+        obj = joblib.load(p)
+        # Handle tuples (old models) or plain model (new)
+        if isinstance(obj, tuple) and len(obj) >= 1:
+            model = obj[0]
+        else:
+            model = obj
+        target = p.stem
+        models[target] = model
     if not models:
         fail(f"no models found in {MODELS_DIR.as_posix()}")
     return models
@@ -114,22 +98,26 @@ def main():
             fail(f"no rows to predict for filter: {sw}")
 
     models = load_models()
-
-    out = df[ID_COLS_CANON].copy()
-
-    base_X = df.drop(columns=ID_COLS_CANON, errors="ignore")
-    for c in base_X.columns:
-        if not np.issubdtype(base_X[c].dtype, np.number):
-            base_X[c] = pd.to_numeric(base_X[c], errors="coerce").fillna(0)
+    out = df[ID_COLS].copy()
+    base_X = df.drop(columns=ID_COLS, errors="ignore")
 
     preds_made = 0
     for target, model in models.items():
-        feat_cols = list(getattr(model, "feature_names_in_", base_X.columns))
+        if hasattr(model, "feature_names_in_"):
+            feat_cols = list(model.feature_names_in_)
+        else:
+            feat_cols = [c for c in base_X.columns if c not in ID_COLS]
+
         X = base_X.reindex(columns=feat_cols, fill_value=0)
+        for c in X.columns:
+            if not np.issubdtype(X[c].dtype, np.number):
+                X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0)
+
         try:
             yhat = model.predict(X)
         except Exception as e:
             fail(f"prediction failed for target '{target}': {e}")
+
         out[target] = yhat
         preds_made += 1
 
