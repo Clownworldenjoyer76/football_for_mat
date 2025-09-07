@@ -2,146 +2,211 @@
 # -*- coding: utf-8 -*-
 
 """
-Predict with trained models. Robust to:
-- Missing optional ID columns (creates empty placeholders)
-- Older .joblib saved as tuples (uses element [0] as estimator)
+Make pregame predictions using the trained models.
 
 Inputs
 ------
-data/features/weekly_clean.csv.gz
-models/pregame/*.joblib
+- Feature matrix: data/features/weekly_clean.csv.gz
+
+- Trained models: models/pregame/*.joblib
+  (supports plain estimators, (model, meta) tuples, or {"model": estimator} dicts)
+
+Optional filters
+----------------
+--season SEASON (e.g., 2025)
+--week   WEEK   (e.g., 1)
 
 Outputs
 -------
-data/predictions/pregame/predictions_<season>_wk<week>.csv.gz
-output/predictions/pregame/predictions_<season>_wk<week>.csv.gz
+- data/predictions/pregame/predictions_[season]_wk[week].csv.gz  (or predictions_all.csv.gz)
+- output/predictions/pregame/predictions_[season]_wk[week].csv.gz (mirror)
+
+This script is hardened to:
+- Align inputs to the exact training feature list (model.feature_names_in_).
+- Handle tuple/dict joblib artifacts.
+- Tolerate missing non-essential ID columns (e.g., recent_team).
 """
 
 import argparse
 import os
-from pathlib import Path
 import sys
-import numpy as np
+from pathlib import Path
 import pandas as pd
+import numpy as np
 import joblib
 
-REPO = Path(__file__).resolve().parents[1]
-FEATS = REPO / "data" / "features" / "weekly_clean.csv.gz"
-MODELS = REPO / "models" / "pregame"
-OUT_DATA = REPO / "data" / "predictions" / "pregame"
-OUT_MIRR = REPO / "output" / "predictions" / "pregame"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+FEATURES_FILE = REPO_ROOT / "data" / "features" / "weekly_clean.csv.gz"
+MODELS_DIR    = REPO_ROOT / "models" / "pregame"
+OUT_DIR_DATA  = REPO_ROOT / "data"   / "predictions" / "pregame"
+OUT_DIR_OUT   = REPO_ROOT / "output" / "predictions" / "pregame"
 
-ID_COLS = [
+# Known identifier columns; we will only keep those that actually exist in the data.
+KNOWN_ID_COLS = [
     "player_id",
     "player_name",
-    "recent_team",     # optional; placeholder if missing
+    "recent_team",      # optional
+    "team",             # optional, used if recent_team absent
     "position",
     "season",
     "week",
     "season_type",
 ]
 
-def die(msg: str):
-    print(f"INSUFFICIENT INFORMATION: {msg}")
+def fail(msg: str) -> None:
+    print(f"INSUFFICIENT INFORMATION: {msg}", file=sys.stderr)
     sys.exit(1)
 
-def load_features() -> pd.DataFrame:
-    if not FEATS.exists():
-        die(f"missing features file '{FEATS.as_posix()}'")
-    try:
-        df = pd.read_csv(FEATS)
-    except Exception as e:
-        die(f"cannot read '{FEATS.as_posix()}': {e}")
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument("--season", type=str, default=os.environ.get("FORECAST_SEASON", "").strip())
+    p.add_argument("--week",   type=str, default=os.environ.get("FORECAST_WEEK", "").strip())
+    return p.parse_args()
 
-    # normalize optional IDs so downstream never fails on column lookups
-    for c in ID_COLS:
-        if c not in df.columns:
-            df[c] = "" if c in ("player_name","recent_team","position","season_type") else 0
+def load_features() -> pd.DataFrame:
+    if not FEATURES_FILE.exists():
+        fail(f"missing features file '{FEATURES_FILE.as_posix()}'")
+    try:
+        df = pd.read_csv(FEATURES_FILE)
+    except Exception as e:
+        fail(f"cannot read '{FEATURES_FILE.as_posix()}': {e}")
+
+    # If 'recent_team' is absent but 'team' exists, we will not fail; we’ll just
+    # include whichever identifier columns are present later.
     return df
 
-def filter_df(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
+def filter_forecast_set(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
     if season:
         df = df[df["season"].astype(str) == str(season)]
     if week:
         df = df[df["week"].astype(str) == str(week)]
     return df
 
-def load_estimator(p: Path):
-    obj = joblib.load(p)
-    # accept (estimator, meta) tuples from older runs
-    if isinstance(obj, tuple) and len(obj) > 0:
-        obj = obj[0]
-    return obj
+def _unwrap_model(obj):
+    """
+    Accepts:
+      - a plain estimator with .predict
+      - a (model, meta) tuple
+      - a dict like {"model": estimator, ...}
+    Returns:
+      (estimator, feature_names) where feature_names is either
+      model.feature_names_in_ or None.
+    """
+    model = obj
+    if isinstance(obj, tuple) and len(obj) >= 1:
+        model = obj[0]
+    elif isinstance(obj, dict) and "model" in obj:
+        model = obj["model"]
+
+    # Basic contract check
+    if not hasattr(model, "predict"):
+        fail("loaded artifact is not a valid estimator (no .predict)")
+
+    # Preferred sklearn attribute
+    feat_names = getattr(model, "feature_names_in_", None)
+    # Some custom scripts stash a private name
+    if feat_names is None:
+        feat_names = getattr(model, "_feature_names_in", None)
+
+    return model, feat_names
+
+def load_models() -> dict:
+    if not MODELS_DIR.exists():
+        fail(f"models directory not found: {MODELS_DIR.as_posix()}")
+
+    models = {}
+    for p in sorted(MODELS_DIR.glob("*.joblib")):
+        try:
+            obj = joblib.load(p)
+        except Exception as e:
+            fail(f"failed loading '{p.name}': {e}")
+
+        model, feat_names = _unwrap_model(obj)
+
+        # If we still do not have a feature list, require retraining.
+        if feat_names is None:
+            fail(
+                f"model '{p.name}' has no feature name list; "
+                f"retrain so sklearn sets feature_names_in_, or save it explicitly."
+            )
+
+        models[p.stem] = {"model": model, "features": list(feat_names)}
+
+    if not models:
+        fail(f"no models found in {MODELS_DIR.as_posix()}")
+    return models
+
+def coerce_numeric(X: pd.DataFrame) -> pd.DataFrame:
+    for c in X.columns:
+        if not np.issubdtype(X[c].dtype, np.number):
+            X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0)
+    return X
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--season", default=os.environ.get("FORECAST_SEASON", "").strip())
-    ap.add_argument("--week",   default=os.environ.get("FORECAST_WEEK", "").strip())
-    args = ap.parse_args()
+    args = parse_args()
+    season = args.season
+    week   = args.week
 
     df = load_features()
-    if args.season or args.week:
-        df = filter_df(df, args.season, args.week)
+    if season or week:
+        df = filter_forecast_set(df, season, week)
         if df.empty:
-            die(f"no rows to predict for season='{args.season or 'ALL'}' week='{args.week or 'ALL'}'")
+            sw = f"season={season or 'ALL'}, week={week or 'ALL'}"
+            fail(f"no rows to predict for filter: {sw}")
 
-    if not MODELS.exists():
-        die(f"models directory not found: {MODELS.as_posix()}")
+    # Choose ID columns that actually exist
+    id_cols = [c for c in KNOWN_ID_COLS if c in df.columns]
+    if not id_cols:
+        fail("no known identifier columns present in features file")
 
-    files = sorted(MODELS.glob("*.joblib"))
-    if not files:
-        die(f"no models in {MODELS.as_posix()}")
+    # Base matrix for modeling (drop only the ID columns; per-model selection follows)
+    base_X = df.drop(columns=id_cols, errors="ignore")
 
-    # base output
-    out = df[ID_COLS].copy()
-    base_X = df.drop(columns=ID_COLS, errors="ignore")
+    # Load models with their feature lists
+    bundle = load_models()
 
-    made = 0
-    for mp in files:
-        est = load_estimator(mp)
-        if not hasattr(est, "predict"):
-            die(f"loaded object has no predict(): {mp.name}")
+    # Start output with identifiers
+    out = df[id_cols].copy()
 
-        # align to training-time features if available
-        if hasattr(est, "feature_names_in_"):
-            cols = list(est.feature_names_in_)
-        else:
-            cols = [c for c in base_X.columns if c not in ID_COLS]
+    preds_made = 0
+    for target, info in bundle.items():
+        model = info["model"]
+        feat_cols = info["features"]
 
-        X = base_X.reindex(columns=cols, fill_value=0)
-
-        # numeric only
-        for c in X.columns:
-            if not np.issubdtype(X[c].dtype, np.number):
-                X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0)
+        # Align strictly and in-order to training features
+        X = base_X.reindex(columns=feat_cols, fill_value=0)
+        X = coerce_numeric(X)
 
         try:
-            yhat = est.predict(X)
+            yhat = model.predict(X)
         except Exception as e:
-            die(f"prediction failed for model '{mp.stem}': {e}")
+            fail(f"prediction failed for model '{target}': {e}")
 
-        out[mp.stem] = yhat
-        made += 1
+        out[target] = yhat
+        preds_made += 1
 
-    if made == 0:
-        die("no predictions produced")
+    if preds_made == 0:
+        fail("no predictions produced")
 
-    OUT_DATA.mkdir(parents=True, exist_ok=True)
-    OUT_MIRR.mkdir(parents=True, exist_ok=True)
+    # Output locations
+    OUT_DIR_DATA.mkdir(parents=True, exist_ok=True)
+    OUT_DIR_OUT.mkdir(parents=True, exist_ok=True)
 
-    if args.season or args.week:
-        s = args.season if args.season else "ALL"
-        w = args.week if args.week else "ALL"
+    if season or week:
+        s = season if season else "ALL"
+        w = week if week else "ALL"
         fname = f"predictions_{s}_wk{w}.csv.gz"
     else:
         fname = "predictions_all.csv.gz"
 
-    p1 = OUT_DATA / fname
-    p2 = OUT_MIRR / fname
-    out.to_csv(p1, index=False, compression="gzip")
-    out.to_csv(p2, index=False, compression="gzip")
+    f_data = OUT_DIR_DATA / fname
+    f_out  = OUT_DIR_OUT  / fname
 
-    print(f"Wrote:\n- {p1.as_posix()}\n- {p2.as_posix()}\nRows={len(out):,} Models={made}")
+    out.to_csv(f_data, index=False, compression="gzip")
+    out.to_csv(f_out,  index=False, compression="gzip")
+
+    print(f"Predictions written:\n - {f_data.as_posix()}\n - {f_out.as_posix()}")
+    print(f"Rows: {len(out):,} | Targets: {preds_made}")
 
 if __name__ == "__main__":
     main()
