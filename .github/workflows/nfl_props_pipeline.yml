@@ -17,11 +17,7 @@ on:
         default: ""
 
 permissions:
-  contents: read
-
-concurrency:
-  group: nfl-props-${{ github.ref }}
-  cancel-in-progress: true
+  contents: write
 
 jobs:
   run:
@@ -31,110 +27,238 @@ jobs:
       PULL_ODDS: ${{ github.event.inputs.pull_odds }}
       FORECAST_SEASON: ${{ github.event.inputs.forecast_season }}
       FORECAST_WEEK: ${{ github.event.inputs.forecast_week }}
-      LOG_FILE: _logs/pipeline.log
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Show initial git state
+        run: |
+          git config --list || true
+          echo "---- BRANCH ----"
+          git rev-parse --abbrev-ref HEAD || true
+          echo "---- STATUS ----"
+          git status -vv || true
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Create log and base dirs
+      - name: Install deps
         run: |
-          mkdir -p _logs
-          echo "=== $(date -Is) :: START RUN ===" | tee -a "$LOG_FILE"
-          mkdir -p data/raw data/features data/predictions output/models models/pregame
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib
+          fi
 
-      - name: Install Python deps
+      # --- Detect & back up existing roster (optional seed) ---
+      - name: Detect and back up existing roster
         run: |
-          set -euo pipefail
-          {
-            python -m pip install --upgrade pip
-            if [ -f requirements.txt ]; then
-              pip install -r requirements.txt
-            else
-              pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib
-            fi
-          } 2>&1 | tee -a "$LOG_FILE"
-          test ${PIPESTATUS[0]} -eq 0
+          mkdir -p tmp
+          if [ -f data/raw/nflverse/rosters_latest.csv.gz ]; then
+            echo "HAVE_SEEDED_ROSTER=1" >> $GITHUB_ENV
+            cp -f data/raw/nflverse/rosters_latest.csv.gz tmp/rosters_latest.seed.gz
+            echo "Found pre-seeded roster; backed up to tmp/rosters_latest.seed.gz"
+          else
+            echo "HAVE_SEEDED_ROSTER=0" >> $GITHUB_ENV
+            echo "No pre-seeded roster detected"
+          fi
 
-      - name: Step 01 — Pull/canonicalize (if present)
+      # --- R setup & rosters (skip if rosters already exist) ---
+      - name: Set up R
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Set up R dependencies
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::nflreadr
+
+      - name: Pull rosters via nflreadr (R) — latest only (2024+)
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
         run: |
-          set -euo pipefail
-          {
-            if [ -f scripts/01_pull_nflverse.py ]; then
-              YEND=$(date +%Y)
-              python scripts/01_pull_nflverse.py --start 2024 --end "$YEND"
-            elif [ -f scripts/01_pull_nflverse_chunked.py ]; then
-              YEND=$(date +%Y)
-              python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2
-            else
-              echo "SKIP: no Step 01 script found"
-            fi
-          } 2>&1 | tee -a "$LOG_FILE"
-          test ${PIPESTATUS[0]} -eq 0
+          Rscript -e "yrs <- 2024:as.integer(format(Sys.Date(), '%Y'));
+                      df <- nflreadr::load_rosters(yrs);
+                      dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
+                      fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
+                      write.csv(df, gzfile(fn), row.names=FALSE)"
 
-      - name: Step 02 — Build features (if present)
+      # --- Restore pre-seeded roster if changed ---
+      - name: Restore pre-seeded roster (if backed up)
+        if: ${{ env.HAVE_SEEDED_ROSTER == '1' }}
         run: |
-          set -euo pipefail
-          {
-            if [ -f scripts/02_build_features.py ]; then
-              python scripts/02_build_features.py
-            else
-              echo "SKIP: scripts/02_build_features.py not found"
-            fi
-          } 2>&1 | tee -a "$LOG_FILE"
-          test ${PIPESTATUS[0]} -eq 0
+          if [ -f tmp/rosters_latest.seed.gz ]; then
+            cp -f tmp/rosters_latest.seed.gz data/raw/nflverse/rosters_latest.csv.gz
+            echo "Restored pre-seeded roster after data pulls."
+          fi
 
-      - name: Step 03 — Train models (if present)
+      # ===== Core pulls (PBP + canonicalize WEEKLY/ROSTERS) =====
+      - name: Step 01 (Pull NFL data and canonicalize)
         run: |
-          set -euo pipefail
-          {
-            if [ -f scripts/03_train_models.py ]; then
-              python scripts/03_train_models.py
-            else
-              echo "SKIP: scripts/03_train_models.py not found"
-            fi
-          } 2>&1 | tee -a "$LOG_FILE"
-          test ${PIPESTATUS[0]} -eq 0
+          YEND=$(date +%Y)
+          if [ -f scripts/01_pull_nflverse.py ]; then
+            python scripts/01_pull_nflverse.py --start 2024 --end "$YEND"
+          elif [ -f scripts/01_pull_nflverse_chunked.py ]; then
+            python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2
+          else
+            echo "ERROR: no Step 01 script found" && exit 1
+          fi
 
-      - name: Step 04 — Pregame predictions (if present)
+      # --- Finalize WEEKLY/ROSTERS tiny artifacts (no network) ---
+      - name: Finalize weekly/rosters tiny artifacts (no network)
         run: |
-          set -euo pipefail
-          {
-            if [ -f scripts/04_predict_pregame.py ]; then
-              python scripts/04_predict_pregame.py
-            else
-              echo "SKIP: scripts/04_predict_pregame.py not found"
-            fi
-          } 2>&1 | tee -a "$LOG_FILE"
-          test ${PIPESTATUS[0]} -eq 0
+          python - <<'PY'
+          import runpy
+          g = runpy.run_path('scripts/01_pull_nflverse.py')
+          g['weekly_canonicalize']()
+          g['rosters_canonicalize']()
+          PY
 
-      - name: Finalize log
-        if: always()
+      # ===== Optional NGS ingestion (temporarily disabled) =====
+      - name: Step 01b (Pull NGS - temporarily disabled)
         run: |
-          echo "=== $(date -Is) :: END RUN (status=${{ job.status }}) ===" | tee -a "$LOG_FILE"
+          echo "NOTE: NGS ingestion disabled — circle back when feed is live."
 
-      - name: Upload log artifact (always)
-        if: always()
+      # ===== Build features (Step 02) =====
+      - name: Step 02 (Build features)
+        run: |
+          if [ -f scripts/02_build_features.py ]; then
+            python scripts/02_build_features.py
+          else
+            echo "ERROR: scripts/02_build_features.py not found" && exit 1
+          fi
+
+      # ===== Train models (Step 03) =====
+      - name: Step 03 (Train models)
+        run: |
+          if [ -f scripts/03_train_models.py ]; then
+            python scripts/03_train_models.py
+          else
+            echo "ERROR: scripts/03_train_models.py not found" && exit 1
+          fi
+
+      # ===== Predict (Step 04) =====
+      - name: Step 04 (Predict pregame)
+        run: |
+          if [ -f scripts/04_predict_pregame.py ]; then
+            python scripts/04_predict_pregame.py --season "$FORECAST_SEASON" --week "$FORECAST_WEEK"
+          else
+            echo "WARN: scripts/04_predict_pregame.py not found; skipping predictions."
+          fi
+
+      # --- Upload raw snapshot (artifact)
+      - name: Upload raw snapshot (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: run-logs-${{ github.run_id }}
-          path: _logs/pipeline.log
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload outputs (best-effort)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: outputs-${{ github.run_id }}
+          name: nflverse-raw-${{ github.run_id }}
           path: |
-            output/**
-            data/predictions/**
-            models/pregame/**
-          if-no-files-found: warn
-          retention-days: 7
+            data/raw/nflverse/play_by_play_latest.csv.gz
+            data/raw/nflverse/pbp_latest.parquet
+            data/raw/nflverse/pbp_latest.head100.csv.gz
+            data/raw/nflverse/manifest_latest.csv.gz
+            data/raw/nflverse/weekly_latest.csv.gz
+            data/raw/nflverse/weekly_latest.parquet
+            data/raw/nflverse/weekly_manifest_latest.csv.gz
+            data/raw/nflverse/rosters_latest.csv.gz
+            data/raw/nflverse/rosters_latest.parquet
+            data/raw/nflverse/rosters_manifest_latest.csv.gz
+
+      # ===== Diagnostics: list what changed =====
+      - name: Diagnostics (workspace listing)
+        run: |
+          set -e
+          echo "====== TREE (TOP) ======"
+          ls -la
+          echo "====== MODELS ======"
+          find models -type f -maxdepth 3 -print 2>/dev/null || true
+          echo "====== OUTPUT/MODELS ======"
+          find output/models -type f -maxdepth 3 -print 2>/dev/null || true
+          echo "====== PREDICTIONS (data/output) ======"
+          find data/predictions -type f -maxdepth 4 -print 2>/dev/null || true
+          find output/predictions -type f -maxdepth 4 -print 2>/dev/null || true
+          echo "====== GIT STATUS BEFORE ADD ======"
+          git status -vv || true
+          # Save to a file so you can download it from the run
+          {
+            echo "=== MODELS ==="; find models -type f -maxdepth 3 -print 2>/dev/null || true
+            echo "=== OUTPUT/MODELS ==="; find output/models -type f -maxdepth 3 -print 2>/dev/null || true
+            echo "=== PREDICTIONS (data) ==="; find data/predictions -type f -maxdepth 4 -print 2>/dev/null || true
+            echo "=== PREDICTIONS (output) ==="; find output/predictions -type f -maxdepth 4 -print 2>/dev/null || true
+          } > workspace-listing.txt
+
+      - name: Upload diagnostics (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-listing-${{ github.run_id }}
+          path: workspace-listing.txt
+
+      # ===== Commit outputs (raw + models + metrics + predictions) =====
+      - name: Commit outputs to repo (robust)
+        env:
+          GH_USER_NAME: "github-actions[bot]"
+          GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
+        run: |
+          set -e
+          git config user.name "$GH_USER_NAME"
+          git config user.email "$GH_USER_EMAIL"
+
+          # Ensure dirs exist to avoid 'pathspec did not match' errors
+          mkdir -p data/raw/nflverse
+          mkdir -p models/pregame
+          mkdir -p output/models
+          mkdir -p data/predictions/pregame
+          mkdir -p output/predictions/pregame
+
+          echo "====== VERIFY KEY FILES ======"
+          ls -l output/models/metrics_summary.csv || true
+          ls -l models/pregame/*.joblib 2>/dev/null || true
+          ls -l data/predictions/pregame/*.csv.gz 2>/dev/null || true
+          ls -l output/predictions/pregame/*.csv.gz 2>/dev/null || true
+
+          echo "====== GIT ADD (FORCE, RESPECTING .gitignore '!' RULES) ======"
+          git add -A -f data/raw/nflverse
+          git add -A -f models/pregame
+          git add -A -f output/models
+          git add -A -f data/predictions/pregame
+          git add -A -f output/predictions/pregame
+
+          echo "====== GIT STATUS AFTER ADD ======"
+          git status -vv
+
+          # Commit only if there are staged changes
+          if git diff --staged --quiet; then
+            echo "NO_CHANGES_TO_COMMIT"
+          else
+            git commit -m "pipeline: outputs updated (run ${{ github.run_id }})"
+            # Rebase-pull to avoid non-fast-forward errors on busy repos
+            git pull --rebase origin ${{ github.ref_name }} || true
+            git push
+          fi
+
+      # ===== Always upload run logs =====
+      - name: Collect & upload logs
+        if: always()
+        run: |
+          mkdir -p runlogs
+          dmesg | tail -n +1 > runlogs/dmesg.txt 2>/dev/null || true
+          journalctl --no-pager -n 5000 > runlogs/journal_tail.txt 2>/dev/null || true
+          git status -vv > runlogs/git_status_end.txt 2>/dev/null || true
+          echo "Run ID: ${{ github.run_id }}" > runlogs/meta.txt
+          echo "Ref: ${{ github.ref }} / Name: ${{ github.ref_name }}" >> runlogs/meta.txt
+        shell: bash
+
+      - name: Upload logs (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs-${{ github.run_id }}
+          path: runlogs
