@@ -22,7 +22,7 @@ logs/
 # Jupyter
 .ipynb_checkpoints
 
-# Data
+# Data (large, intermediate, or regenerated)
 data/warehouse/
 data/features/
 data/predictions/
@@ -31,25 +31,17 @@ data/end_chain/
 data/cleaned/
 data/_projections/
 
-# Keep these
+# Keep these data subsets
 !data/props/
 !data/edges/
 !data/games/
 !data/games/*.csv
 !data/processed/schedules/schedules_merged.csv
 
-# Output
+# Output (default ignore)
 output/
-!output/*.csv
-!output/models/
-!output/models/*.csv
 
-# Models
-models/
-!models/pregame/
-!models/pregame/*.joblib
-
-# Compressed files
+# Compressed files (default ignore)
 *.gz
 *.zip
 *.tar
@@ -58,29 +50,49 @@ models/
 # Configs
 config/*.yml
 
+# Keep feature + pregame summaries
 !data/features/_build_features_summary.txt
 !data/pregame/_history_summary.txt
 
-# nflverse canonical + tiny artifacts (PBP)
+# ===== nflverse canonical + tiny artifacts (PBP) =====
 !data/raw/nflverse/play_by_play_latest.csv.gz
 !data/raw/nflverse/pbp_latest.parquet
 !data/raw/nflverse/pbp_latest.head100.csv.gz
 !data/raw/nflverse/manifest_latest.csv.gz
 
-# nflverse canonical + tiny artifacts (WEEKLY)
+# ===== nflverse canonical + tiny artifacts (WEEKLY) =====
 !data/raw/nflverse/weekly_latest.csv.gz
 !data/raw/nflverse/weekly_latest.parquet
 !data/raw/nflverse/weekly_latest.head100.csv.gz
 !data/raw/nflverse/weekly_manifest_latest.csv.gz
 
-# nflverse canonical + tiny artifacts (ROSTERS)
+# ===== nflverse canonical + tiny artifacts (ROSTERS) =====
 !data/raw/nflverse/rosters_latest.csv.gz
 !data/raw/nflverse/rosters_latest.parquet
 !data/raw/nflverse/rosters_latest.head100.csv.gz
 !data/raw/nflverse/rosters_manifest_latest.csv.gz
 
-# NGS artifacts
+# ===== NGS artifacts (if present) =====
 !data/raw/ngs/nextgen_stats.csv.gz
 !data/raw/ngs/ngs.parquet
 !data/raw/ngs/ngs_latest.head100.csv.gz
 !data/raw/ngs/manifest_latest.csv.gz
+
+# ===== Models: ensure trained models are versioned =====
+!models/
+!models/pregame/
+!models/pregame/*.joblib
+
+# ===== Metrics: ensure training metrics are versioned =====
+!output/
+!output/models/
+!output/models/metrics_summary.csv
+
+# ===== Predictions: keep generated prediction files =====
+!data/predictions/
+!data/predictions/pregame/
+!data/predictions/pregame/*.csv.gz
+
+!output/predictions/
+!output/predictions/pregame/
+!output/predictions/pregame/*.csv.gz
