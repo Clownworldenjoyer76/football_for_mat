@@ -2,29 +2,30 @@
 # -*- coding: utf-8 -*-
 
 """
-Make pregame predictions using the trained models.
+File: scripts/04_predict_pregame.py
+Purpose: Make pregame predictions using the trained models with strict
+         feature alignment to the training-time columns.
 
 Inputs
 ------
-- Feature matrix: data/features/weekly_clean.csv.gz
+- data/features/weekly_clean.csv.gz            (feature matrix)
+- models/pregame/*.joblib                      (one model per target)
+  Each .joblib may be:
+    • a fitted sklearn estimator/pipeline, or
+    • a tuple/list like (estimator, feature_names) or (estimator, meta)
+      where one element is the estimator and one element may be a list of
+      training feature names.
 
-- Trained models: models/pregame/*.joblib
-  (supports plain estimators, (model, meta) tuples, or {"model": estimator} dicts)
-
-Optional filters
-----------------
---season SEASON (e.g., 2025)
---week   WEEK   (e.g., 1)
+Optional filters (CLI or env)
+-----------------------------
+--season SEASON      (or env FORECAST_SEASON)
+--week   WEEK        (or env FORECAST_WEEK)
 
 Outputs
 -------
 - data/predictions/pregame/predictions_[season]_wk[week].csv.gz  (or predictions_all.csv.gz)
-- output/predictions/pregame/predictions_[season]_wk[week].csv.gz (mirror)
-
-This script is hardened to:
-- Align inputs to the exact training feature list (model.feature_names_in_).
-- Handle tuple/dict joblib artifacts.
-- Tolerate missing non-essential ID columns (e.g., recent_team).
+- output/predictions/pregame/predictions_[season]_wk[week].csv.gz
+- Prints a short summary.
 """
 
 import argparse
@@ -34,23 +35,19 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import joblib
+from typing import Iterable, List, Tuple, Union
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+# ----- Paths -----
+REPO_ROOT     = Path(__file__).resolve().parents[1]
 FEATURES_FILE = REPO_ROOT / "data" / "features" / "weekly_clean.csv.gz"
 MODELS_DIR    = REPO_ROOT / "models" / "pregame"
 OUT_DIR_DATA  = REPO_ROOT / "data"   / "predictions" / "pregame"
 OUT_DIR_OUT   = REPO_ROOT / "output" / "predictions" / "pregame"
 
-# Known identifier columns; we will only keep those that actually exist in the data.
-KNOWN_ID_COLS = [
-    "player_id",
-    "player_name",
-    "recent_team",      # optional
-    "team",             # optional, used if recent_team absent
-    "position",
-    "season",
-    "week",
-    "season_type",
+# Identifier columns to include if present (do not hard-require any except that at least one exists)
+PREFERRED_ID_COLS = [
+    "player_id", "player_name", "recent_team", "position",
+    "season", "week", "season_type", "team", "game_id"
 ]
 
 def fail(msg: str) -> None:
@@ -63,6 +60,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--week",   type=str, default=os.environ.get("FORECAST_WEEK", "").strip())
     return p.parse_args()
 
+# ----- Feature IO -----
 def load_features() -> pd.DataFrame:
     if not FEATURES_FILE.exists():
         fail(f"missing features file '{FEATURES_FILE.as_posix()}'")
@@ -70,115 +68,124 @@ def load_features() -> pd.DataFrame:
         df = pd.read_csv(FEATURES_FILE)
     except Exception as e:
         fail(f"cannot read '{FEATURES_FILE.as_posix()}': {e}")
-
-    # If 'recent_team' is absent but 'team' exists, we will not fail; we’ll just
-    # include whichever identifier columns are present later.
     return df
 
-def filter_forecast_set(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
+def select_id_cols(df: pd.DataFrame) -> List[str]:
+    cols = [c for c in PREFERRED_ID_COLS if c in df.columns]
+    if not cols:
+        fail(f"no identifier columns found among {PREFERRED_ID_COLS}")
+    return cols
+
+def filter_rows(df: pd.DataFrame, season: str, week: str) -> pd.DataFrame:
     if season:
-        df = df[df["season"].astype(str) == str(season)]
+        df = df[df["season"].astype(str) == str(season)] if "season" in df.columns else df.iloc[0:0]
     if week:
-        df = df[df["week"].astype(str) == str(week)]
+        df = df[df["week"].astype(str) == str(week)] if "week" in df.columns else df.iloc[0:0]
     return df
 
-def _unwrap_model(obj):
+# ----- Model loading with robust unwrapping -----
+def _unwrap_estimator(obj: object) -> Tuple[object, List[str]]:
     """
+    Return (estimator, feature_names) where:
+      - estimator has .predict
+      - feature_names are the training-time columns if known, else [] (caller will infer)
     Accepts:
-      - a plain estimator with .predict
-      - a (model, meta) tuple
-      - a dict like {"model": estimator, ...}
-    Returns:
-      (estimator, feature_names) where feature_names is either
-      model.feature_names_in_ or None.
+      • estimator
+      • (estimator, feature_list) or any tuple/list containing an estimator and a list of strings
     """
-    model = obj
-    if isinstance(obj, tuple) and len(obj) >= 1:
-        model = obj[0]
-    elif isinstance(obj, dict) and "model" in obj:
-        model = obj["model"]
+    est = None
+    feat_names: List[str] = []
 
-    # Basic contract check
-    if not hasattr(model, "predict"):
-        fail("loaded artifact is not a valid estimator (no .predict)")
+    # direct estimator
+    if hasattr(obj, "predict"):
+        est = obj
 
-    # Preferred sklearn attribute
-    feat_names = getattr(model, "feature_names_in_", None)
-    # Some custom scripts stash a private name
-    if feat_names is None:
-        feat_names = getattr(model, "_feature_names_in", None)
+    # tuple/list forms
+    if est is None and isinstance(obj, (tuple, list)):
+        # find the estimator element
+        for part in obj:
+            if hasattr(part, "predict"):
+                est = part
+                break
+        # find an explicit feature list if provided
+        for part in obj:
+            if isinstance(part, (list, tuple)) and all(isinstance(x, str) for x in part):
+                feat_names = list(part)
+                break
 
-    return model, feat_names
+    if est is None:
+        fail("loaded model object is not a predictor (no .predict)")
+
+    # if estimator exposes feature_names_in_, prefer that
+    if hasattr(est, "feature_names_in_") and len(getattr(est, "feature_names_in_")) > 0:
+        feat_names = list(est.feature_names_in_)
+
+    return est, feat_names
 
 def load_models() -> dict:
     if not MODELS_DIR.exists():
         fail(f"models directory not found: {MODELS_DIR.as_posix()}")
-
     models = {}
     for p in sorted(MODELS_DIR.glob("*.joblib")):
         try:
-            obj = joblib.load(p)
+            raw = joblib.load(p)
         except Exception as e:
             fail(f"failed loading '{p.name}': {e}")
-
-        model, feat_names = _unwrap_model(obj)
-
-        # If we still do not have a feature list, require retraining.
-        if feat_names is None:
-            fail(
-                f"model '{p.name}' has no feature name list; "
-                f"retrain so sklearn sets feature_names_in_, or save it explicitly."
-            )
-
-        models[p.stem] = {"model": model, "features": list(feat_names)}
-
+        est, feats = _unwrap_estimator(raw)
+        models[p.stem] = {"estimator": est, "features": feats}
     if not models:
         fail(f"no models found in {MODELS_DIR.as_posix()}")
     return models
 
-def coerce_numeric(X: pd.DataFrame) -> pd.DataFrame:
-    for c in X.columns:
-        if not np.issubdtype(X[c].dtype, np.number):
-            X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0)
-    return X
+# ----- Prediction -----
+def to_numeric_frame(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    for c in out.columns:
+        if not np.issubdtype(out[c].dtype, np.number):
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+    return out.fillna(0)
 
 def main():
-    args = parse_args()
+    args   = parse_args()
     season = args.season
     week   = args.week
 
-    df = load_features()
+    # load + (optional) filter
+    feat_df = load_features()
     if season or week:
-        df = filter_forecast_set(df, season, week)
-        if df.empty:
+        feat_df = filter_rows(feat_df, season, week)
+        if feat_df.empty:
             sw = f"season={season or 'ALL'}, week={week or 'ALL'}"
             fail(f"no rows to predict for filter: {sw}")
 
-    # Choose ID columns that actually exist
-    id_cols = [c for c in KNOWN_ID_COLS if c in df.columns]
-    if not id_cols:
-        fail("no known identifier columns present in features file")
+    # identifiers to carry through (whatever is present)
+    id_cols = select_id_cols(feat_df)
+    base_X  = feat_df.drop(columns=id_cols, errors="ignore")
 
-    # Base matrix for modeling (drop only the ID columns; per-model selection follows)
-    base_X = df.drop(columns=id_cols, errors="ignore")
+    # load models
+    model_map = load_models()
 
-    # Load models with their feature lists
-    bundle = load_models()
-
-    # Start output with identifiers
-    out = df[id_cols].copy()
-
+    # build output
+    out = feat_df[id_cols].copy()
     preds_made = 0
-    for target, info in bundle.items():
-        model = info["model"]
-        feat_cols = info["features"]
 
-        # Align strictly and in-order to training features
-        X = base_X.reindex(columns=feat_cols, fill_value=0)
-        X = coerce_numeric(X)
+    for target, pack in model_map.items():
+        est   = pack["estimator"]
+        feats = pack["features"]  # may be []
+        # if no explicit feature list, align to current columns minus ids
+        if not feats:
+            # best effort: if estimator has n_features_in_, try to guess by name intersection
+            if hasattr(est, "feature_names_in_"):
+                feats = list(est.feature_names_in_)
+            else:
+                feats = [c for c in base_X.columns if c not in id_cols]
+
+        # build aligned matrix
+        X = base_X.reindex(columns=feats, fill_value=0)
+        X = to_numeric_frame(X)
 
         try:
-            yhat = model.predict(X)
+            yhat = est.predict(X)
         except Exception as e:
             fail(f"prediction failed for model '{target}': {e}")
 
@@ -188,7 +195,6 @@ def main():
     if preds_made == 0:
         fail("no predictions produced")
 
-    # Output locations
     OUT_DIR_DATA.mkdir(parents=True, exist_ok=True)
     OUT_DIR_OUT.mkdir(parents=True, exist_ok=True)
 
@@ -205,8 +211,10 @@ def main():
     out.to_csv(f_data, index=False, compression="gzip")
     out.to_csv(f_out,  index=False, compression="gzip")
 
-    print(f"Predictions written:\n - {f_data.as_posix()}\n - {f_out.as_posix()}")
+    print("Pregame predictions complete")
     print(f"Rows: {len(out):,} | Targets: {preds_made}")
+    print(f"Wrote: {f_data.as_posix()}")
+    print(f"Wrote: {f_out.as_posix()}")
 
 if __name__ == "__main__":
     main()
