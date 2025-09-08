@@ -27,7 +27,6 @@ jobs:
       PULL_ODDS: ${{ github.event.inputs.pull_odds }}
       FORECAST_SEASON: ${{ github.event.inputs.forecast_season }}
       FORECAST_WEEK: ${{ github.event.inputs.forecast_week }}
-      RUN_ID: ${{ github.run_id }}
 
     steps:
       - name: Checkout
@@ -39,154 +38,143 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install Python deps
         run: |
-          set -e
+          set -euo pipefail
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install pandas==1.5.3 numpy==1.26.4 scikit-learn==1.4.2 lightgbm==4.3.0 xgboost==2.0.3 \
-                       scipy==1.10.1 pyarrow==14.0.2 nfl_data_py==0.3.3 pyyaml==6.0.2 requests
-          fi
+          pip install -r requirements.txt
           echo "Deps installed OK"
 
-      # ---------- Step 01: Pull & canonicalize ----------
+      # ---------- Step 01 ----------
       - name: Step 01 — Pull/canonicalize (if present)
         run: |
-          set -e
+          set -euo pipefail
           if [ -f scripts/01_pull_nflverse.py ]; then
             python scripts/01_pull_nflverse.py
           else
-            echo "scripts/01_pull_nflverse.py not present, skipping"
+            echo "scripts/01_pull_nflverse.py not found — skipping"
           fi
 
-      # ---------- Step 02: Build features ----------
+      # ---------- Step 02 ----------
       - name: Step 02 — Build features (if present)
         run: |
-          set -e
+          set -euo pipefail
           if [ -f scripts/02_build_features.py ]; then
             python scripts/02_build_features.py
           else
-            echo "scripts/02_build_features.py not present, skipping"
+            echo "scripts/02_build_features.py not found — skipping"
           fi
 
-      # ---------- Step 03: Train models ----------
+      # ---------- Step 03 ----------
       - name: Step 03 — Train models (if present)
         run: |
-          set -e
+          set -euo pipefail
           if [ -f scripts/03_train_models.py ]; then
             python scripts/03_train_models.py
           else
-            echo "scripts/03_train_models.py not present, skipping"
+            echo "scripts/03_train_models.py not found — skipping"
           fi
 
-      # ---------- Step 04: Pregame predictions ----------
+      # ---------- Step 04 ----------
       - name: Step 04 — Pregame predictions (if present)
         run: |
-          set -e
+          set -euo pipefail
           if [ -f scripts/04_predict_pregame.py ]; then
             python scripts/04_predict_pregame.py --season "${FORECAST_SEASON}" --week "${FORECAST_WEEK}"
           else
-            echo "scripts/04_predict_pregame.py not present, skipping"
+            echo "scripts/04_predict_pregame.py not found — skipping"
           fi
 
-      # ---------- Always create a concise run summary ----------
+      # ---------- Always write a compact run summary ----------
       - name: Finalize log
+        if: always()
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p output/logs
-          LOG="output/logs/summary_${RUN_ID}.log"
+          LOG="output/logs/summary_${GITHUB_RUN_ID}.log"
           {
-            echo "RUN_ID: ${RUN_ID}"
-            echo "REPO:   ${{ github.repository }}"
-            echo "BRANCH: ${{ github.ref_name }}"
-            echo "TIME:   $(date -u '+%Y-%m-%d %H:%M:%S') UTC"
+            echo "RUN_ID: ${GITHUB_RUN_ID}"
+            echo "REPO:   ${GITHUB_REPOSITORY}"
+            echo "BRANCH: ${GITHUB_REF_NAME}"
+            echo "TIME:   $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
             echo "SEASON: ${FORECAST_SEASON}"
             echo "WEEK:   ${FORECAST_WEEK}"
             echo "PULL_ODDS: ${PULL_ODDS}"
             echo "----------------------------------------"
-            if [ -f data/features/weekly_clean.csv.gz ]; then
-              ROWS=$(python - <<'PY'
-import pandas as pd, sys
-df = pd.read_csv("data/features/weekly_clean.csv.gz")
-print(len(df))
-PY
-              )
-              echo "Features present: data/features/weekly_clean.csv.gz  rows=${ROWS}"
-            else
-              echo "Features missing: data/features/weekly_clean.csv.gz"
-            fi
-            if [ -f output/models/metrics_summary.csv ]; then
-              echo "Metrics present: output/models/metrics_summary.csv"
-            else
-              echo "Metrics missing: output/models/metrics_summary.csv"
-            fi
-            if [ -f output/predictions/pregame/predictions_all.csv.gz ]; then
-              echo "Predictions present: output/predictions/pregame/predictions_all.csv.gz"
-            else
-              echo "Predictions missing (or filtered file name differs)"
-            fi
+            echo "Workspace listing (top-level):"
+            ls -alh
             echo "----------------------------------------"
-            echo "JOB STATUS: success"
-          } > "${LOG}"
-          echo "Wrote ${LOG}"
+            # Tiny file stats (do not fail if missing)
+            for f in \
+              data/features/weekly_clean.csv.gz \
+              output/models/metrics_summary.csv \
+              output/predictions/pregame/predictions_all.csv.gz \
+              data/predictions/pregame/predictions_all.csv.gz
+            do
+              if [ -f "$f" ]; then
+                echo "FOUND: $f ($(du -h "$f" | cut -f1"))"
+              else
+                echo "MISS:  $f"
+              fi
+            done
+            echo "----------------------------------------"
+            echo "JOB STATUS (so far): ${{ job.status }}"
+          } > "$LOG"
+          echo "Wrote $LOG"
 
-      # ---------- Upload small logs/artifacts ----------
       - name: Upload log artifact (always)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: run-logs-${{ github.run_id }}
-          path: |
-            output/logs/summary_${{ github.run_id }}.log
-            data/features/_build_features_summary.txt
-          if-no-files-found: ignore
-          retention-days: 14
+          path: output/logs/summary_${{ github.run_id }}.log
+          if-no-files-found: warn
+          compression-level: 6
+          retention-days: 7
 
-      # ---------- Upload main outputs (best-effort) ----------
-      - name: Upload outputs (best-effort)
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: outputs-${{ github.run_id }}
-          path: |
-            output/models/metrics_summary.csv
-            output/predictions/pregame/*.csv.gz
-          if-no-files-found: ignore
-          retention-days: 14
-
-      # ---------- Commit outputs to repo (no rebase, push directly) ----------
+      # ---------- Commit outputs to repo (robust) ----------
       - name: Commit outputs to repo (robust)
+        if: always()
         env:
-          GH_USER_NAME: "github-actions[bot]"
-          GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
-          set -e
-          git config user.name "$GH_USER_NAME"
-          git config user.email "$GH_USER_EMAIL"
+          set -euo pipefail
 
-          # Ensure directories exist before staging (no error if missing)
-          mkdir -p data/features
-          mkdir -p models/pregame
-          mkdir -p output/models
-          mkdir -p output/predictions/pregame
-          mkdir -p output/logs
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage desired paths (force include if ignored)
-          git add -A -f data/features
-          git add -A -f models/pregame
-          git add -A -f output/models
-          git add -A -f output/predictions/pregame
-          git add -A -f output/logs
+          # Stage generated content (force-include ignored paths)
+          git add -A -f data/raw/nflverse || true
+          git add -A -f data/features || true
+          git add -A -f models/pregame || true
+          git add -A -f data/predictions || true
+          git add -A -f output || true
 
-          # Only commit if there are changes
-          if ! git diff --cached --quiet; then
-            git commit -m "CI: update outputs (run $RUN_ID)"
-            # Push directly; no pull/rebase to avoid conflicts in CI
-            git push origin HEAD:main
-            echo "Pushed changes to main"
-          else
-            echo "No changes to commit"
+          if git diff --staged --quiet; then
+            echo "Nothing to commit; skipping push."
+            exit 0
           fi
+
+          git commit -m "CI: add generated outputs (run ${GITHUB_RUN_ID})"
+
+          # Push with retry; if rejected or 408, fetch and pull with autostash (merge, no rebase)
+          attempt=1
+          while [ $attempt -le 5 ]; do
+            echo "Push attempt ${attempt}..."
+            if git push origin "HEAD:${BRANCH_NAME}"; then
+              echo "Push OK"
+              exit 0
+            fi
+            echo "Push failed. Performing fetch + pull (no-rebase, autostash) and retrying..."
+            git fetch origin "${BRANCH_NAME}"
+            # Avoid the classic: "cannot pull with rebase: You have unstaged changes."
+            git pull --no-rebase --autostash origin "${BRANCH_NAME}" || true
+            sleep $(( attempt * 5 ))
+            attempt=$(( attempt + 1 ))
+          done
+
+          echo "ERROR: push failed after retries" >&2
+          exit 1
