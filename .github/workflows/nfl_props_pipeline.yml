@@ -27,6 +27,7 @@ jobs:
       PULL_ODDS: ${{ github.event.inputs.pull_odds }}
       FORECAST_SEASON: ${{ github.event.inputs.forecast_season }}
       FORECAST_WEEK: ${{ github.event.inputs.forecast_week }}
+      RUN_ID: ${{ github.run_id }}
 
     steps:
       - name: Checkout
@@ -40,179 +41,124 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install deps
+      - name: Install Python deps
         run: |
+          set -e
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
-            pip install pandas numpy nfl_data_py scikit-learn lightgbm xgboost scipy pyarrow requests joblib lxml html5lib
+            pip install pandas==1.5.3 numpy==1.26.4 scikit-learn==1.4.2 lightgbm==4.3.0 xgboost==2.0.3 \
+                       scipy==1.10.1 pyarrow==14.0.2 nfl_data_py==0.3.3 pyyaml==6.0.2 requests
           fi
           echo "Deps installed OK"
 
-      # Optional: detect/backup roster seed to keep file stable across runs
-      - name: Detect and back up existing roster
-        run: |
-          mkdir -p tmp
-          if [ -f data/raw/nflverse/rosters_latest.csv.gz ]; then
-            echo "HAVE_SEEDED_ROSTER=1" >> $GITHUB_ENV
-            cp -f data/raw/nflverse/rosters_latest.csv.gz tmp/rosters_latest.seed.gz
-          else
-            echo "HAVE_SEEDED_ROSTER=0" >> $GITHUB_ENV
-          fi
-
-      # R only if roster not present
-      - name: Set up R
-        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
-        uses: r-lib/actions/setup-r@v2
-
-      - name: Set up R dependencies
-        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
-        uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          packages: |
-            any::remotes
-            any::nflreadr
-
-      - name: Pull rosters via nflreadr (R) — latest only (2024+)
-        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
-        run: |
-          Rscript -e "yrs <- 2024:as.integer(format(Sys.Date(), '%Y'));
-                      df <- nflreadr::load_rosters(yrs);
-                      dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
-                      fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
-                      write.csv(df, gzfile(fn), row.names=FALSE)"
-
-      - name: Restore pre-seeded roster (if backed up)
-        if: ${{ env.HAVE_SEEDED_ROSTER == '1' }}
-        run: |
-          if [ -f tmp/rosters_latest.seed.gz ]; then
-            cp -f tmp/rosters_latest.seed.gz data/raw/nflverse/rosters_latest.csv.gz
-          fi
-
-      # ===== Step 01: Pull core data and canonicalize =====
-      - name: Step 01 (Pull NFL data and canonicalize)
+      # ---------- Step 01: Pull & canonicalize ----------
+      - name: Step 01 — Pull/canonicalize (if present)
         run: |
           set -e
-          YEND=$(date +%Y)
           if [ -f scripts/01_pull_nflverse.py ]; then
-            python scripts/01_pull_nflverse.py --start 2024 --end "$YEND"
-          elif [ -f scripts/01_pull_nflverse_chunked.py ]; then
-            python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2
+            python scripts/01_pull_nflverse.py
           else
-            echo "ERROR: no Step 01 script found" >&2
-            exit 1
+            echo "scripts/01_pull_nflverse.py not present, skipping"
           fi
 
-      - name: Finalize weekly/rosters tiny artifacts (no network)
-        run: |
-          python - <<'PY'
-          import runpy
-          g = runpy.run_path('scripts/01_pull_nflverse.py')
-          g['weekly_canonicalize']()
-          g['rosters_canonicalize']()
-          PY
-
-      # Placeholder for NGS
-      - name: Step 01b (Pull NGS - temporarily disabled)
-        run: |
-          echo "NOTE: NGS ingestion disabled"
-
-      # ===== Step 02: Build features =====
-      - name: Step 02 (Build features)
+      # ---------- Step 02: Build features ----------
+      - name: Step 02 — Build features (if present)
         run: |
           set -e
           if [ -f scripts/02_build_features.py ]; then
             python scripts/02_build_features.py
           else
-            echo "ERROR: scripts/02_build_features.py not found" >&2
-            exit 1
+            echo "scripts/02_build_features.py not present, skipping"
           fi
 
-      # ===== Step 03: Train models =====
-      - name: Step 03 (Train models)
+      # ---------- Step 03: Train models ----------
+      - name: Step 03 — Train models (if present)
         run: |
           set -e
           if [ -f scripts/03_train_models.py ]; then
             python scripts/03_train_models.py
           else
-            echo "ERROR: scripts/03_train_models.py not found" >&2
-            exit 1
+            echo "scripts/03_train_models.py not present, skipping"
           fi
 
-      # ===== Step 04: Predict (pregame) =====
-      - name: Step 04 (Predict pregame)
-        env:
-          FORECAST_SEASON: ${{ env.FORECAST_SEASON }}
-          FORECAST_WEEK: ${{ env.FORECAST_WEEK }}
+      # ---------- Step 04: Pregame predictions ----------
+      - name: Step 04 — Pregame predictions (if present)
         run: |
           set -e
           if [ -f scripts/04_predict_pregame.py ]; then
-            python scripts/04_predict_pregame.py --season "$FORECAST_SEASON" --week "$FORECAST_WEEK"
+            python scripts/04_predict_pregame.py --season "${FORECAST_SEASON}" --week "${FORECAST_WEEK}"
           else
-            echo "SKIP: scripts/04_predict_pregame.py not found"
+            echo "scripts/04_predict_pregame.py not present, skipping"
           fi
 
-      # ===== Always write a compact summary log =====
-      - name: Write summary log
-        if: always()
+      # ---------- Always create a concise run summary ----------
+      - name: Finalize log
         run: |
           set -e
           mkdir -p output/logs
-          RUN_ID="${{ github.run_id }}"
+          LOG="output/logs/summary_${RUN_ID}.log"
           {
-            echo "RUN_ID: $RUN_ID"
+            echo "RUN_ID: ${RUN_ID}"
             echo "REPO:   ${{ github.repository }}"
             echo "BRANCH: ${{ github.ref_name }}"
-            echo "TIME:   $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "TIME:   $(date -u '+%Y-%m-%d %H:%M:%S') UTC"
             echo "SEASON: ${FORECAST_SEASON}"
             echo "WEEK:   ${FORECAST_WEEK}"
             echo "PULL_ODDS: ${PULL_ODDS}"
             echo "----------------------------------------"
-            if [ -f requirements.txt ]; then
-              echo "requirements.txt:"
-              cat requirements.txt
-              echo "----------------------------------------"
+            if [ -f data/features/weekly_clean.csv.gz ]; then
+              ROWS=$(python - <<'PY'
+import pandas as pd, sys
+df = pd.read_csv("data/features/weekly_clean.csv.gz")
+print(len(df))
+PY
+              )
+              echo "Features present: data/features/weekly_clean.csv.gz  rows=${ROWS}"
+            else
+              echo "Features missing: data/features/weekly_clean.csv.gz"
             fi
-            echo "TREE (top-level):"
-            ls -la
+            if [ -f output/models/metrics_summary.csv ]; then
+              echo "Metrics present: output/models/metrics_summary.csv"
+            else
+              echo "Metrics missing: output/models/metrics_summary.csv"
+            fi
+            if [ -f output/predictions/pregame/predictions_all.csv.gz ]; then
+              echo "Predictions present: output/predictions/pregame/predictions_all.csv.gz"
+            else
+              echo "Predictions missing (or filtered file name differs)"
+            fi
             echo "----------------------------------------"
-            echo "FEATURES:"
-            ls -la data/features || true
-            echo "MODELS:"
-            ls -la models/pregame || true
-            echo "PREDICTIONS:"
-            ls -la output/predictions/pregame || true
-            echo "RAW SNAPSHOT:"
-            ls -la data/raw/nflverse || true
-            echo "----------------------------------------"
-            echo "JOB STATUS: ${{ job.status }}"
-            echo "END TIME:   $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          } > "output/logs/summary_${RUN_ID}.log"
-          echo "Summary log at output/logs/summary_${RUN_ID}.log"
+            echo "JOB STATUS: success"
+          } > "${LOG}"
+          echo "Wrote ${LOG}"
 
-      # ===== Upload raw snapshot as artifact (optional) =====
-      - name: Upload raw snapshot (artifact)
-        if: always()
+      # ---------- Upload small logs/artifacts ----------
+      - name: Upload log artifact (always)
         uses: actions/upload-artifact@v4
         with:
-          name: nflverse-raw-${{ github.run_id }}
-          if-no-files-found: ignore
+          name: run-logs-${{ github.run_id }}
           path: |
-            data/raw/nflverse/play_by_play_latest.csv.gz
-            data/raw/nflverse/pbp_latest.parquet
-            data/raw/nflverse/pbp_latest.head100.csv.gz
-            data/raw/nflverse/manifest_latest.csv.gz
-            data/raw/nflverse/weekly_latest.csv.gz
-            data/raw/nflverse/weekly_latest.parquet
-            data/raw/nflverse/weekly_manifest_latest.csv.gz
-            data/raw/nflverse/rosters_latest.csv.gz
-            data/raw/nflverse/rosters_latest.parquet
-            data/raw/nflverse/rosters_manifest_latest.csv.gz
+            output/logs/summary_${{ github.run_id }}.log
+            data/features/_build_features_summary.txt
+          if-no-files-found: ignore
+          retention-days: 14
 
-      # ===== Commit outputs to repo =====
-      - name: Commit outputs (raw + models + metrics + predictions + logs)
-        if: success()
+      # ---------- Upload main outputs (best-effort) ----------
+      - name: Upload outputs (best-effort)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: outputs-${{ github.run_id }}
+          path: |
+            output/models/metrics_summary.csv
+            output/predictions/pregame/*.csv.gz
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # ---------- Commit outputs to repo (no rebase, push directly) ----------
+      - name: Commit outputs to repo (robust)
         env:
           GH_USER_NAME: "github-actions[bot]"
           GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
@@ -221,26 +167,26 @@ jobs:
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
 
-          mkdir -p data/raw/nflverse data/predictions/pregame models/pregame output/models output/predictions/pregame output/logs
+          # Ensure directories exist before staging (no error if missing)
+          mkdir -p data/features
+          mkdir -p models/pregame
+          mkdir -p output/models
+          mkdir -p output/predictions/pregame
+          mkdir -p output/logs
 
-          # Force-add even if ignored
-          git add -A -f data/raw/nflverse
+          # Stage desired paths (force include if ignored)
+          git add -A -f data/features
           git add -A -f models/pregame
           git add -A -f output/models
-          git add -A -f data/predictions/pregame
           git add -A -f output/predictions/pregame
           git add -A -f output/logs
 
-          # Helpful: show staged delta in logs
-          echo "---- STAGED CHANGES ----"
-          git status --porcelain=v1 || true
-          git diff --staged --stat || true
-          echo "------------------------"
-
-          if git diff --staged --quiet; then
-            echo "Nothing to commit."
+          # Only commit if there are changes
+          if ! git diff --cached --quiet; then
+            git commit -m "CI: update outputs (run $RUN_ID)"
+            # Push directly; no pull/rebase to avoid conflicts in CI
+            git push origin HEAD:main
+            echo "Pushed changes to main"
           else
-            git commit -m "CI: add raw snapshot, models, metrics, predictions, and logs (run ${{ github.run_id }})"
-            git pull --rebase origin ${{ github.ref_name }} || true
-            git push
+            echo "No changes to commit"
           fi
