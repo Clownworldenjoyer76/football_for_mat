@@ -21,15 +21,12 @@ permissions:
 
 jobs:
   run:
-    name: run
     runs-on: ubuntu-latest
     env:
       TZ: America/New_York
       PULL_ODDS: ${{ github.event.inputs.pull_odds }}
       FORECAST_SEASON: ${{ github.event.inputs.forecast_season }}
       FORECAST_WEEK: ${{ github.event.inputs.forecast_week }}
-      LOG_DIR: output/logs
-      LOG_FILE: output/logs/summary_${{ github.run_id }}.log
 
     steps:
       - name: Checkout
@@ -38,112 +35,212 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Prepare log file
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install deps
         run: |
-          mkdir -p "$LOG_DIR"
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install pandas numpy nfl_data_py scikit-learn lightgbm xgboost scipy pyarrow requests joblib lxml html5lib
+          fi
+          echo "Deps installed OK"
+
+      # Optional: detect/backup roster seed to keep file stable across runs
+      - name: Detect and back up existing roster
+        run: |
+          mkdir -p tmp
+          if [ -f data/raw/nflverse/rosters_latest.csv.gz ]; then
+            echo "HAVE_SEEDED_ROSTER=1" >> $GITHUB_ENV
+            cp -f data/raw/nflverse/rosters_latest.csv.gz tmp/rosters_latest.seed.gz
+          else
+            echo "HAVE_SEEDED_ROSTER=0" >> $GITHUB_ENV
+          fi
+
+      # R only if roster not present
+      - name: Set up R
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Set up R dependencies
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::nflreadr
+
+      - name: Pull rosters via nflreadr (R) — latest only (2024+)
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
+        run: |
+          Rscript -e "yrs <- 2024:as.integer(format(Sys.Date(), '%Y'));
+                      df <- nflreadr::load_rosters(yrs);
+                      dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
+                      fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
+                      write.csv(df, gzfile(fn), row.names=FALSE)"
+
+      - name: Restore pre-seeded roster (if backed up)
+        if: ${{ env.HAVE_SEEDED_ROSTER == '1' }}
+        run: |
+          if [ -f tmp/rosters_latest.seed.gz ]; then
+            cp -f tmp/rosters_latest.seed.gz data/raw/nflverse/rosters_latest.csv.gz
+          fi
+
+      # ===== Step 01: Pull core data and canonicalize =====
+      - name: Step 01 (Pull NFL data and canonicalize)
+        run: |
+          set -e
+          YEND=$(date +%Y)
+          if [ -f scripts/01_pull_nflverse.py ]; then
+            python scripts/01_pull_nflverse.py --start 2024 --end "$YEND"
+          elif [ -f scripts/01_pull_nflverse_chunked.py ]; then
+            python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2
+          else
+            echo "ERROR: no Step 01 script found" >&2
+            exit 1
+          fi
+
+      - name: Finalize weekly/rosters tiny artifacts (no network)
+        run: |
+          python - <<'PY'
+          import runpy
+          g = runpy.run_path('scripts/01_pull_nflverse.py')
+          g['weekly_canonicalize']()
+          g['rosters_canonicalize']()
+          PY
+
+      # Placeholder for NGS
+      - name: Step 01b (Pull NGS - temporarily disabled)
+        run: |
+          echo "NOTE: NGS ingestion disabled"
+
+      # ===== Step 02: Build features =====
+      - name: Step 02 (Build features)
+        run: |
+          set -e
+          if [ -f scripts/02_build_features.py ]; then
+            python scripts/02_build_features.py
+          else
+            echo "ERROR: scripts/02_build_features.py not found" >&2
+            exit 1
+          fi
+
+      # ===== Step 03: Train models =====
+      - name: Step 03 (Train models)
+        run: |
+          set -e
+          if [ -f scripts/03_train_models.py ]; then
+            python scripts/03_train_models.py
+          else
+            echo "ERROR: scripts/03_train_models.py not found" >&2
+            exit 1
+          fi
+
+      # ===== Step 04: Predict (pregame) =====
+      - name: Step 04 (Predict pregame)
+        env:
+          FORECAST_SEASON: ${{ env.FORECAST_SEASON }}
+          FORECAST_WEEK: ${{ env.FORECAST_WEEK }}
+        run: |
+          set -e
+          if [ -f scripts/04_predict_pregame.py ]; then
+            python scripts/04_predict_pregame.py --season "$FORECAST_SEASON" --week "$FORECAST_WEEK"
+          else
+            echo "SKIP: scripts/04_predict_pregame.py not found"
+          fi
+
+      # ===== Always write a compact summary log =====
+      - name: Write summary log
+        if: always()
+        run: |
+          set -e
+          mkdir -p output/logs
+          RUN_ID="${{ github.run_id }}"
           {
-            echo "RUN_ID: ${{ github.run_id }}"
+            echo "RUN_ID: $RUN_ID"
             echo "REPO:   ${{ github.repository }}"
             echo "BRANCH: ${{ github.ref_name }}"
-            echo "TIME:   $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo "TIME:   $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
             echo "SEASON: ${FORECAST_SEASON}"
             echo "WEEK:   ${FORECAST_WEEK}"
             echo "PULL_ODDS: ${PULL_ODDS}"
             echo "----------------------------------------"
-          } > "$LOG_FILE"
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install Python deps
-        run: |
-          set -eo pipefail
-          python -m pip install --upgrade pip 2>&1 | tee -a "$LOG_FILE"
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt 2>&1 | tee -a "$LOG_FILE"
-          else
-            pip install pandas numpy nfl_data_py scikit-learn lightgbm scipy requests joblib lxml html5lib 2>&1 | tee -a "$LOG_FILE"
-          fi
-          echo "Deps installed OK" | tee -a "$LOG_FILE"
-
-      - name: Step 01 — Pull/canonicalize (if present)
-        run: |
-          set -eo pipefail
-          if [ -f scripts/01_pull_nflverse.py ]; then
-            echo "[Step01] scripts/01_pull_nflverse.py" | tee -a "$LOG_FILE"
-            YEND=$(date +%Y)
-            python scripts/01_pull_nflverse.py --start 2024 --end "$YEND" 2>&1 | tee -a "$LOG_FILE"
-          elif [ -f scripts/01_pull_nflverse_chunked.py ]; then
-            echo "[Step01] scripts/01_pull_nflverse_chunked.py" | tee -a "$LOG_FILE"
-            YEND=$(date +%Y)
-            python scripts/01_pull_nflverse_chunked.py --start 2024 --end "$YEND" --chunk-years 2 2>&1 | tee -a "$LOG_FILE"
-          else
-            echo "[Step01] INS UFFICIENT INFORMATION: no Step 01 pull script found" | tee -a "$LOG_FILE"
-          fi
-          echo "[Step01] DONE" | tee -a "$LOG_FILE"
-
-      - name: Step 02 — Build features (if present)
-        run: |
-          set -eo pipefail
-          if [ -f scripts/02_build_features.py ]; then
-            echo "[Step02] scripts/02_build_features.py" | tee -a "$LOG_FILE"
-            python scripts/02_build_features.py 2>&1 | tee -a "$LOG_FILE"
-          else
-            echo "[Step02] INS UFFICIENT INFORMATION: scripts/02_build_features.py missing" | tee -a "$LOG_FILE"
-          fi
-          echo "[Step02] DONE" | tee -a "$LOG_FILE"
-
-      - name: Step 03 — Train models (if present)
-        run: |
-          set -eo pipefail
-          if [ -f scripts/03_train_models.py ]; then
-            echo "[Step03] scripts/03_train_models.py" | tee -a "$LOG_FILE"
-            python scripts/03_train_models.py 2>&1 | tee -a "$LOG_FILE"
-          else
-            echo "[Step03] INS UFFICIENT INFORMATION: scripts/03_train_models.py missing" | tee -a "$LOG_FILE"
-          fi
-          echo "[Step03] DONE" | tee -a "$LOG_FILE"
-
-      - name: Step 04 — Pregame predictions (if present)
-        run: |
-          set -eo pipefail
-          if [ -f scripts/04_predict_pregame.py ]; then
-            echo "[Step04] scripts/04_predict_pregame.py" | tee -a "$LOG_FILE"
-            python scripts/04_predict_pregame.py --season "${FORECAST_SEASON}" --week "${FORECAST_WEEK}" 2>&1 | tee -a "$LOG_FILE"
-          else
-            echo "[Step04] INS UFFICIENT INFORMATION: scripts/04_predict_pregame.py missing" | tee -a "$LOG_FILE"
-          fi
-          echo "[Step04] DONE" | tee -a "$LOG_FILE"
-
-      - name: Finalize summary
-        if: always()
-        run: |
-          {
+            if [ -f requirements.txt ]; then
+              echo "requirements.txt:"
+              cat requirements.txt
+              echo "----------------------------------------"
+            fi
+            echo "TREE (top-level):"
+            ls -la
+            echo "----------------------------------------"
+            echo "FEATURES:"
+            ls -la data/features || true
+            echo "MODELS:"
+            ls -la models/pregame || true
+            echo "PREDICTIONS:"
+            ls -la output/predictions/pregame || true
+            echo "RAW SNAPSHOT:"
+            ls -la data/raw/nflverse || true
             echo "----------------------------------------"
             echo "JOB STATUS: ${{ job.status }}"
-            echo "END TIME:   $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-          } >> "$LOG_FILE"
-          echo "::group::SUMMARY"
-          cat "$LOG_FILE"
-          echo "::endgroup::"
+            echo "END TIME:   $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          } > "output/logs/summary_${RUN_ID}.log"
+          echo "Summary log at output/logs/summary_${RUN_ID}.log"
 
-      - name: Commit summary log (always)
-        if: always()
-        run: |
-          set -e
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f "$LOG_FILE"
-          # Use a unique message; skip commit if nothing changed
-          git diff --staged --quiet || git commit -m "ci: add summary log for run ${{ github.run_id }}"
-          # Push without pull/rebase to avoid conflicts; unique filename prevents clashes
-          git push
-
-      - name: Upload summary as artifact (always)
+      # ===== Upload raw snapshot as artifact (optional) =====
+      - name: Upload raw snapshot (artifact)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: run-summary-${{ github.run_id }}
-          path: ${{ env.LOG_FILE }}
+          name: nflverse-raw-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            data/raw/nflverse/play_by_play_latest.csv.gz
+            data/raw/nflverse/pbp_latest.parquet
+            data/raw/nflverse/pbp_latest.head100.csv.gz
+            data/raw/nflverse/manifest_latest.csv.gz
+            data/raw/nflverse/weekly_latest.csv.gz
+            data/raw/nflverse/weekly_latest.parquet
+            data/raw/nflverse/weekly_manifest_latest.csv.gz
+            data/raw/nflverse/rosters_latest.csv.gz
+            data/raw/nflverse/rosters_latest.parquet
+            data/raw/nflverse/rosters_manifest_latest.csv.gz
+
+      # ===== Commit outputs to repo =====
+      - name: Commit outputs (raw + models + metrics + predictions + logs)
+        if: success()
+        env:
+          GH_USER_NAME: "github-actions[bot]"
+          GH_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
+        run: |
+          set -e
+          git config user.name "$GH_USER_NAME"
+          git config user.email "$GH_USER_EMAIL"
+
+          mkdir -p data/raw/nflverse data/predictions/pregame models/pregame output/models output/predictions/pregame output/logs
+
+          # Force-add even if ignored
+          git add -A -f data/raw/nflverse
+          git add -A -f models/pregame
+          git add -A -f output/models
+          git add -A -f data/predictions/pregame
+          git add -A -f output/predictions/pregame
+          git add -A -f output/logs
+
+          # Helpful: show staged delta in logs
+          echo "---- STAGED CHANGES ----"
+          git status --porcelain=v1 || true
+          git diff --staged --stat || true
+          echo "------------------------"
+
+          if git diff --staged --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "CI: add raw snapshot, models, metrics, predictions, and logs (run ${{ github.run_id }})"
+            git pull --rebase origin ${{ github.ref_name }} || true
+            git push
+          fi
