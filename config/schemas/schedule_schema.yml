@@ -1,0 +1,66 @@
+# Full file: /mnt/data/football_for_mat-main/config/schemas/schedule_schema.yml
+version: 1
+name: schedule_schema
+description: Canonical schema for normalized NFL schedules
+fields:
+  - name: season
+    type: int
+    required: true
+  - name: season_type
+    type: enum
+    values: [preseason, regular, postseason]
+    required: true
+  - name: week
+    type: int
+    required: true
+  - name: game_date_utc
+    type: date
+    format: YYYY-MM-DD
+    required: true
+  - name: game_time_utc
+    type: time
+    format: HH:MM:SS
+    required: true
+  - name: home_team
+    type: string
+    required: true
+  - name: away_team
+    type: string
+    required: true
+  - name: home_team_id
+    type: string
+    required: true
+  - name: away_team_id
+    type: string
+    required: true
+  - name: venue
+    type: string
+    required: false
+  - name: venue_city
+    type: string
+    required: false
+  - name: venue_state
+    type: string
+    required: false
+  - name: game_status
+    type: enum
+    values: [scheduled, in_progress, final, postponed, canceled]
+    required: true
+  - name: source
+    type: string
+    required: true
+  - name: source_event_id
+    type: string
+    required: true
+  - name: canonical_game_id
+    type: string
+    required: true
+  - name: canonical_hash
+    type: string
+    required: true
+constraints:
+  unique:
+    - [season, season_type, week, home_team, away_team, game_date_utc, game_time_utc]
+    - [canonical_game_id]
+  non_null:
+    - [season, season_type, week, game_date_utc, game_time_utc, home_team, away_team, home_team_id, away_team_id, source, source_event_id, canonical_game_id, canonical_hash]
