@@ -1,0 +1,48 @@
+# Full file: /mnt/data/football_for_mat-main/.github/workflows/odds_fetch.yml
+name: Odds Fetch (API)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Tuesdays 05:00 America/New_York.
+    # GitHub cron uses UTC; include both offsets to cover DST transitions.
+    - cron: "0 9 * * 2"   # 09:00 UTC ≈ 05:00 EDT
+    - cron: "0 10 * * 2"  # 10:00 UTC ≈ 05:00 EST
+
+jobs:
+  fetch-odds:
+    runs-on: ubuntu-latest
+    env:
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Fetch odds (API)
+        run: |
+          python scripts/01_fetch_odds.py --sport americanfootball_nfl --regions us --markets h2h,spreads,totals --books draftkings,fanduel,betmgm
+
+      - name: Upload processed CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: odds-processed
+          path: data/odds/processed/*.csv
+          if-no-files-found: warn
+
+      - name: Upload raw JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: odds-raw
+          path: data/odds/raw/*.json
+          if-no-files-found: warn
