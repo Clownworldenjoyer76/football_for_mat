@@ -25,34 +25,40 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pandas pyarrow python-dateutil
 
       - name: Ensure whitelist for processed schedules
         run: |
           mkdir -p data/processed/schedules
           cat > data/processed/schedules/.gitignore <<'EOF'
-          # Track only the merged schedules file in this folder
+          # Track only specific files in this folder
           *
           !.gitignore
           !schedules_merged.csv
+          !schedules_normalized.csv
           EOF
 
       - name: Sync schedules (2024, 2025)
         run: |
           python scripts/00_sync_schedules.py
 
-      # NEW: Raw → staging loader
       - name: Stage schedules (raw → staging)
         run: |
           python scripts/02_load_schedules.py
 
-      # Optional artifact for CI inspection (does not affect repo)
-      - name: Upload staged artifacts
+      - name: Normalize IDs (staging → normalized)
+        run: |
+          python scripts/03_normalize_ids.py
+
+      - name: Upload staged + normalized artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: schedules-staged
+          name: schedules-artifacts
           path: |
-            data/processed/schedules/_staging/schedules_staged.parquet
             data/processed/schedules/_staging/schedules_staged.csv
+            data/processed/schedules/_staging/schedules_staged.parquet
+            data/processed/schedules/schedules_normalized.csv
+            data/processed/schedules/schedules_normalized.parquet
           if-no-files-found: warn
 
       - name: Commit schedules
@@ -63,5 +69,6 @@ jobs:
           git add data/raw/schedules/schedules_2025.csv
           git add data/processed/schedules/.gitignore
           git add data/processed/schedules/schedules_merged.csv
-          git commit -m "chore: add merged schedules and whitelist" || echo "No changes to commit"
+          git add data/processed/schedules/schedules_normalized.csv
+          git commit -m "chore: sync, stage, normalize schedules" || echo "No changes to commit"
           git push
