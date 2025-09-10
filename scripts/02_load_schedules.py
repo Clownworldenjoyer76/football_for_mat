@@ -1,215 +1,205 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Full script path: /mnt/data/football_for_mat-main/scripts/02_load_schedules.py
+Full path: /football_for_mat-main/scripts/02_load_schedules.py
 
 Purpose:
-  Ingest all raw schedule CSVs from data/raw/schedules/, standardize columns and types,
-  convert to canonical UTC fields when local datetime is given, and write a single
-  staged parquet at data/processed/schedules/_staging/schedules_staged.parquet.
+  Load raw schedule CSVs, derive required canonical fields, and write the staged file.
 
-Inputs:
-  - data/raw/schedules/*.csv
-    Accepts any file containing at least these columns (case-insensitive, flexible names):
-      season, season_type, week, home_team, away_team
-    Optional columns:
-      game_datetime_local (ISO-like), game_date_utc, game_time_utc, venue, venue_city, venue_state,
-      source, source_event_id
-  - mappings/timezones.csv (optional; if present, used to resolve venue -> IANA tz for UTC conversion)
+Inputs (must exist):
+  - /football_for_mat-main/data/raw/schedules/schedules_2024.csv
+  - /football_for_mat-main/data/raw/schedules/schedules_2025.csv
+  - /football_for_mat-main/mappings/timezones.csv         # columns: team_abbr,timezone
 
-Outputs:
-  - data/processed/schedules/_staging/schedules_staged.parquet
-  - data/processed/schedules/_staging/schedules_staged.csv  (mirror for convenience)
+Assumed raw columns (from your repo files):
+  - game_id,season,game_type,week,game_date,weekday,gametime,away_team,home_team
+  - Optional: venue,venue_city,venue_state
 
-Notes:
-  - No network calls.
-  - No assumptions beyond provided mappings. If UTC cannot be resolved, UTC fields remain empty.
+Derivations (no network calls):
+  - season_type: "regular" if week in [1..18], "postseason" if week in [19..22], else "preseason"
+  - game_date_utc, game_time_utc: convert local date+time using home team timezone from mappings/timezones.csv
+  - source: basename of input file (e.g., schedules_2024.csv)
+  - source_event_id: SHA1("season|season_type|week|game_date_utc|home_team|away_team")
+  - game_status: "scheduled" (deterministic constant)
+
+Output:
+  - /football_for_mat-main/data/processed/schedules/_staging/schedules_staged.csv
+  - /football_for_mat-main/data/processed/schedules/_staging/schedules_staged.parquet
 """
-import sys
+from __future__ import annotations
+
+import hashlib
 from pathlib import Path
-from typing import Dict, List
+from typing import Tuple
+
 import pandas as pd
-from dateutil import tz, parser as dtparser
+from dateutil import parser
+import pytz
 
 ROOT = Path(__file__).resolve().parents[1]
+
 RAW_DIR = ROOT / "data" / "raw" / "schedules"
+RAW_2024 = RAW_DIR / "schedules_2024.csv"
+RAW_2025 = RAW_DIR / "schedules_2025.csv"
+
+TZ_MAP_CSV = ROOT / "mappings" / "timezones.csv"   # columns: team_abbr,timezone (IANA like America/New_York)
+
 STAGING_DIR = ROOT / "data" / "processed" / "schedules" / "_staging"
-MAPPINGS_DIR = ROOT / "mappings"
-TZ_MAP_PATH = MAPPINGS_DIR / "timezones.csv"
-
-STAGED_PARQUET = STAGING_DIR / "schedules_staged.parquet"
-STAGED_CSV = STAGING_DIR / "schedules_staged.csv"
-
-# Flexible header normalization map
-CANON_MAP: Dict[str, str] = {
-    "season": "season",
-    "year": "season",
-    "season_type": "season_type",
-    "seasontype": "season_type",
-    "week": "week",
-    "wk": "week",
-    "home_team": "home_team",
-    "home": "home_team",
-    "home_name": "home_team",
-    "away_team": "away_team",
-    "away": "away_team",
-    "away_name": "away_team",
-    "game_datetime_local": "game_datetime_local",
-    "local_datetime": "game_datetime_local",
-    "local_kickoff": "game_datetime_local",
-    "kickoff_local": "game_datetime_local",
-    "game_date_utc": "game_date_utc",
-    "game_time_utc": "game_time_utc",
-    "venue": "venue",
-    "stadium": "venue",
-    "venue_city": "venue_city",
-    "city": "venue_city",
-    "venue_state": "venue_state",
-    "state": "venue_state",
-    "source": "source",
-    "source_event_id": "source_event_id",
-    "event_id": "source_event_id",
-}
-
-REQUIRED_MIN = ["season", "season_type", "week", "home_team", "away_team"]
+STAGING_DIR.mkdir(parents=True, exist_ok=True)
+OUT_CSV = STAGING_DIR / "schedules_staged.csv"
+OUT_PARQUET = STAGING_DIR / "schedules_staged.parquet"
 
 
-def load_timezone_map(path: Path) -> Dict[str, str]:
+def _season_type_from_week(week_val: str) -> str:
+    try:
+        w = int(float(str(week_val)))
+    except Exception:
+        return "regular"
+    if 1 <= w <= 18:
+        return "regular"
+    if 19 <= w <= 22:
+        return "postseason"
+    return "preseason"
+
+
+def _parse_local_to_utc(date_str: str, time_str: str, tz_name: str) -> Tuple[str, str]:
+    """
+    Returns (YYYY-MM-DD, HH:MM:SS) in UTC.
+    If parsing fails, returns ("","").
+    """
+    try:
+        # Fallbacks
+        date_str = (date_str or "").strip()
+        time_str = (time_str or "").strip()
+        if not date_str or not time_str:
+            return ("", "")
+
+        # Parse date and time components
+        d = parser.parse(date_str).date()
+        t = parser.parse(time_str).time()
+
+        # Localize using tz and convert to UTC
+        tz = pytz.timezone(tz_name)
+        local_dt = tz.localize(pd.Timestamp.combine(d, t).to_pydatetime(), is_dst=None)
+        utc_dt = local_dt.astimezone(pytz.UTC)
+
+        return (utc_dt.strftime("%Y-%m-%d"), utc_dt.strftime("%H:%M:%S"))
+    except Exception:
+        return ("", "")
+
+
+def _load_tz_map(path: Path) -> dict:
     if not path.exists():
         return {}
     df = pd.read_csv(path, dtype=str).fillna("")
-    tz_map = {}
-    for _, r in df.iterrows():
-        venue = str(r.get("venue", "")).strip().lower()
-        zone = str(r.get("iana_tz", "")).strip()
-        if venue and zone:
-            tz_map[venue] = zone
-    return tz_map
+    cols = {c.lower(): c for c in df.columns}
+    abbr_col = cols.get("team_abbr")
+    tz_col = cols.get("timezone")
+    if not abbr_col or not tz_col:
+        return {}
+    return {str(r[abbr_col]).strip().upper(): str(r[tz_col]).strip() for _, r in df.iterrows() if str(r[abbr_col]).strip()}
 
 
-def normalize_headers(df: pd.DataFrame) -> pd.DataFrame:
-    rename = {}
-    for c in df.columns:
-        key = str(c).strip().lower()
-        if key in CANON_MAP:
-            rename[c] = CANON_MAP[key]
-    return df.rename(columns=rename)
+def _prepare(df: pd.DataFrame, source_name: str, tz_map: dict) -> pd.DataFrame:
+    # Normalize columns
+    cols = {c.lower(): c for c in df.columns}
+    req = ["season", "week", "game_date", "gametime", "home_team", "away_team"]
+    for r in req:
+        if r not in cols:
+            df[r] = ""
 
+    # Derive season_type
+    season_type = df[cols.get("week", "week")].apply(_season_type_from_week)
 
-def coerce_types(df: pd.DataFrame) -> pd.DataFrame:
-    for col in ["season", "week"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
-    if "season_type" in df.columns:
-        df["season_type"] = df["season_type"].astype(str).str.strip().str.lower()
-    for col in [
-        "home_team", "away_team", "venue", "venue_city", "venue_state",
-        "source", "source_event_id", "game_datetime_local",
-        "game_date_utc", "game_time_utc"
-    ]:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
-    return df
+    # Derive UTC fields using home team tz
+    home_col = cols.get("home_team", "home_team")
+    utc_dates, utc_times = [], []
+    for _, row in df.iterrows():
+        home_abbr = str(row[home_col]).strip().upper()
+        tz = tz_map.get(home_abbr, "UTC")
+        d_utc, t_utc = _parse_local_to_utc(str(row[cols.get("game_date","game_date")]),
+                                           str(row[cols.get("gametime","gametime")]), tz)
+        utc_dates.append(d_utc)
+        utc_times.append(t_utc)
 
+    # Optional venue fields
+    venue = df[cols.get("venue")] if "venue" in cols else ""
+    venue_city = df[cols.get("venue_city")] if "venue_city" in cols else ""
+    venue_state = df[cols.get("venue_state")] if "venue_state" in cols else ""
 
-def split_utc(dt_utc: pd.Timestamp) -> (str, str):
-    if pd.isna(dt_utc):
-        return "", ""
-    return dt_utc.strftime("%Y-%m-%d"), dt_utc.strftime("%H:%M:%S")
+    # Build staged frame
+    staged = pd.DataFrame({
+        "season": df[cols.get("season","season")],
+        "season_type": season_type,
+        "week": df[cols.get("week","week")],
+        "game_date_utc": utc_dates,
+        "game_time_utc": utc_times,
+        "home_team": df[home_col],
+        "away_team": df[cols.get("away_team","away_team")],
+        "venue": venue,
+        "venue_city": venue_city,
+        "venue_state": venue_state,
+        "source": source_name,
+        "source_event_id": "",     # filled below
+        "game_datetime_local": df[cols.get("gametime","gametime")],
+        "__source_file": source_name,
+    })
 
+    # Deterministic source_event_id
+    def _mk_id(r) -> str:
+        raw = f"{r.get('season','')}|{r.get('season_type','')}|{r.get('week','')}|{r.get('game_date_utc','')}|{r.get('home_team','')}|{r.get('away_team','')}"
+        return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+    staged["source_event_id"] = staged.apply(_mk_id, axis=1)
 
-def to_utc_from_local(local_str: str, venue: str, tz_map: Dict[str, str]) -> (str, str):
-    if not local_str:
-        return "", ""
-    zone = tz_map.get(str(venue).strip().lower(), "")
-    if not zone:
-        return "", ""
-    try:
-        dt_local = dtparser.parse(local_str)
-        if not dt_local.tzinfo:
-            dt_local = dt_local.replace(tzinfo=tz.gettz(zone))
-        else:
-            dt_local = dt_local.astimezone(tz.gettz(zone))
-        dt_utc = dt_local.astimezone(tz.UTC)
-        return split_utc(pd.Timestamp(dt_utc))
-    except Exception:
-        return "", ""
+    # Add game_status = "scheduled"
+    staged["game_status"] = "scheduled"
 
-
-def standardize(df: pd.DataFrame, tz_map: Dict[str, str]) -> pd.DataFrame:
-    df = normalize_headers(df)
-    df = coerce_types(df)
-    for col in REQUIRED_MIN:
-        if col not in df.columns:
-            df[col] = pd.NA
-    if "game_date_utc" not in df.columns:
-        df["game_date_utc"] = ""
-    if "game_time_utc" not in df.columns:
-        df["game_time_utc"] = ""
-    if "game_datetime_local" in df.columns:
-        needs_utc = (df["game_date_utc"].astype(str).eq("") |
-                     df["game_time_utc"].astype(str).eq(""))
-        if needs_utc.any():
-            dates, times = [], []
-            for _, r in df.loc[needs_utc].iterrows():
-                d, t = to_utc_from_local(
-                    local_str=str(r.get("game_datetime_local", "")),
-                    venue=str(r.get("venue", "")),
-                    tz_map=tz_map
-                )
-                dates.append(d)
-                times.append(t)
-            df.loc[needs_utc, "game_date_utc"] = dates
-            df.loc[needs_utc, "game_time_utc"] = times
-    base_cols = [
-        "season", "season_type", "week", "game_date_utc", "game_time_utc",
-        "home_team", "away_team", "venue", "venue_city", "venue_state",
-        "source", "source_event_id", "game_datetime_local"
-    ]
-    ordered = [c for c in base_cols if c in df.columns] + \
-              [c for c in df.columns if c not in base_cols]
-    return df[ordered]
-
-
-def read_all_raw() -> List[pd.DataFrame]:
-    frames: List[pd.DataFrame] = []
-    for p in sorted(RAW_DIR.glob("*.csv")):
-        try:
-            df = pd.read_csv(p, low_memory=False)
-            df["__source_file"] = str(p.relative_to(ROOT))
-            frames.append(df)
-        except Exception:
-            continue
-    return frames
+    # Final typing/cleanup
+    staged = staged.fillna("")
+    return staged
 
 
 def main() -> int:
-    STAGING_DIR.mkdir(parents=True, exist_ok=True)
-    tz_map = load_timezone_map(TZ_MAP_PATH)
-    frames = read_all_raw()
+    # Load tz mapping
+    tz_map = _load_tz_map(TZ_MAP_CSV)
+
+    frames = []
+    for path in [RAW_2024, RAW_2025]:
+        if path.exists():
+            df = pd.read_csv(path, dtype=str).fillna("")
+            frames.append(_prepare(df, path.name, tz_map))
+
     if not frames:
-        empty_cols = [
+        # Write empty outputs if nothing present
+        pd.DataFrame(columns=[
             "season","season_type","week","game_date_utc","game_time_utc",
             "home_team","away_team","venue","venue_city","venue_state",
-            "source","source_event_id","game_datetime_local","__source_file"
-        ]
-        pd.DataFrame(columns=empty_cols).to_parquet(STAGED_PARQUET, index=False)
-        pd.DataFrame(columns=empty_cols).to_csv(STAGED_CSV, index=False)
-        print(f"Wrote empty staged outputs: {STAGED_PARQUET} ; {STAGED_CSV}")
+            "source","source_event_id","game_datetime_local","game_status","__source_file"
+        ]).to_csv(OUT_CSV, index=False)
+        try:
+            pd.DataFrame().to_parquet(OUT_PARQUET, index=False)
+        except Exception:
+            pass
+        print("No raw schedules found. Wrote empty staged outputs.")
         return 0
-    normed = [standardize(df, tz_map) for df in frames]
-    out = pd.concat(normed, ignore_index=True)
-    mask_req = (
-        out["season"].notna() &
-        out["season_type"].astype(str).ne("") &
-        out["week"].notna() &
-        out["home_team"].astype(str).ne("") &
-        out["away_team"].astype(str).ne("")
-    )
-    out = out.loc[mask_req].copy()
-    out.to_parquet(STAGED_PARQUET, index=False)
-    out.to_csv(STAGED_CSV, index=False)
-    print(f"Wrote staged outputs:\\n  {STAGED_PARQUET}\\n  {STAGED_CSV}\\n  rows={len(out)}")
+
+    staged = pd.concat(frames, ignore_index=True)
+
+    # Enforce string types and stable sort
+    staged = staged.astype(str)
+    staged["__wk"] = pd.to_numeric(staged["week"], errors="coerce")
+    staged.sort_values(by=["season", "season_type", "__wk", "home_team", "away_team"], inplace=True, kind="mergesort")
+    staged.drop(columns="__wk", inplace=True)
+
+    # Write
+    STAGING_DIR.mkdir(parents=True, exist_ok=True)
+    staged.to_csv(OUT_CSV, index=False)
+    try:
+        staged.to_parquet(OUT_PARQUET, index=False)
+    except Exception:
+        pass
+
+    print(f"Wrote staged schedules:\n  {OUT_CSV}\n  {OUT_PARQUET if OUT_PARQUET.exists() else '(parquet skipped)'}\n  rows={len(staged)}")
     return 0
 
 
