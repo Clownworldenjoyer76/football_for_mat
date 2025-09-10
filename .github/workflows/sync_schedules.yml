@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pandas pyarrow python-dateutil
+          pip install pandas pyarrow python-dateutil pyyaml
 
       - name: Ensure whitelist for processed schedules
         run: |
@@ -37,6 +37,8 @@ jobs:
           !schedules_merged.csv
           !schedules_normalized.csv
           EOF
+          mkdir -p output/reports
+          printf "*\n!.gitignore\n!schedule_validation_errors.csv\n!schedule_dupes.csv\n!schedule_summary.csv\n" > output/reports/.gitignore
 
       - name: Sync schedules (2024, 2025)
         run: |
@@ -50,7 +52,11 @@ jobs:
         run: |
           python scripts/03_normalize_ids.py
 
-      - name: Upload staged + normalized artifacts
+      - name: Validate normalized schedules
+        run: |
+          python scripts/04_validate_schedules.py
+
+      - name: Upload artifacts (staged, normalized, reports)
         uses: actions/upload-artifact@v4
         with:
           name: schedules-artifacts
@@ -59,16 +65,23 @@ jobs:
             data/processed/schedules/_staging/schedules_staged.parquet
             data/processed/schedules/schedules_normalized.csv
             data/processed/schedules/schedules_normalized.parquet
+            output/reports/schedule_validation_errors.csv
+            output/reports/schedule_dupes.csv
+            output/reports/schedule_summary.csv
           if-no-files-found: warn
 
-      - name: Commit schedules
+      - name: Commit schedules and reports
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/raw/schedules/schedules_2024.csv
-          git add data/raw/schedules/schedules_2025.csv
-          git add data/processed/schedules/.gitignore
-          git add data/processed/schedules/schedules_merged.csv
-          git add data/processed/schedules/schedules_normalized.csv
-          git commit -m "chore: sync, stage, normalize schedules" || echo "No changes to commit"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/raw/schedules/schedules_2024.csv || true
+          git add data/raw/schedules/schedules_2025.csv || true
+          git add data/processed/schedules/.gitignore || true
+          git add data/processed/schedules/schedules_merged.csv || true
+          git add data/processed/schedules/schedules_normalized.csv || true
+          git add output/reports/.gitignore || true
+          git add output/reports/schedule_validation_errors.csv || true
+          git add output/reports/schedule_dupes.csv || true
+          git add output/reports/schedule_summary.csv || true
+          git commit -m "chore: sync→stage→normalize→validate schedules with reports" || echo "No changes to commit"
           git push
