@@ -31,14 +31,13 @@ jobs:
         run: |
           mkdir -p data/processed/schedules
           cat > data/processed/schedules/.gitignore <<'EOF'
-          # Track only specific files in this folder
           *
           !.gitignore
           !schedules_merged.csv
           !schedules_normalized.csv
           EOF
           mkdir -p output/reports
-          printf "*\n!.gitignore\n!schedule_validation_errors.csv\n!schedule_dupes.csv\n!schedule_summary.csv\n" > output/reports/.gitignore
+          printf "*\n!.gitignore\n!schedule_validation_errors.csv\n!schedule_dupes.csv\n!schedule_summary.csv\n!unique_teams.csv\n" > output/reports/.gitignore
 
       - name: Sync schedules (2024, 2025)
         run: |
@@ -47,6 +46,10 @@ jobs:
       - name: Stage schedules (raw → staging)
         run: |
           python scripts/02_load_schedules.py
+
+      - name: Prepare team mapping skeleton
+        run: |
+          python scripts/03a_prepare_team_mapping_skeleton.py
 
       - name: Normalize IDs (staging → normalized)
         run: |
@@ -68,6 +71,7 @@ jobs:
             output/reports/schedule_validation_errors.csv
             output/reports/schedule_dupes.csv
             output/reports/schedule_summary.csv
+            output/reports/unique_teams.csv
           if-no-files-found: warn
 
       - name: Commit schedules and reports
@@ -83,5 +87,6 @@ jobs:
           git add output/reports/schedule_validation_errors.csv || true
           git add output/reports/schedule_dupes.csv || true
           git add output/reports/schedule_summary.csv || true
-          git commit -m "chore: sync→stage→normalize→validate schedules with reports" || echo "No changes to commit"
+          git add output/reports/unique_teams.csv || true
+          git commit -m "chore: sync→stage→map→normalize→validate schedules" || echo "No changes to commit"
           git push
