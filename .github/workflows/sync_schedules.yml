@@ -40,6 +40,21 @@ jobs:
         run: |
           python scripts/00_sync_schedules.py
 
+      # NEW: Raw → staging loader
+      - name: Stage schedules (raw → staging)
+        run: |
+          python scripts/02_load_schedules.py
+
+      # Optional artifact for CI inspection (does not affect repo)
+      - name: Upload staged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: schedules-staged
+          path: |
+            data/processed/schedules/_staging/schedules_staged.parquet
+            data/processed/schedules/_staging/schedules_staged.csv
+          if-no-files-found: warn
+
       - name: Commit schedules
         run: |
           git config user.name "github-actions[bot]"
