@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements.txt
           pip install pandas pyarrow python-dateutil pyyaml
 
-      - name: Ensure whitelist and reports tracking
+      - name: Ensure whitelists and reports tracking
         run: |
           mkdir -p data/processed/schedules
           cat > data/processed/schedules/.gitignore <<'EOF'
@@ -36,78 +36,86 @@ jobs:
           !schedules_merged.csv
           !schedules_normalized.csv
           EOF
+          mkdir -p data/final
+          cat > data/final/.gitignore <<'EOF'
+          *
+          !.gitignore
+          !schedules_latest.csv
+          !schedules_latest.parquet
+          EOF
           mkdir -p output/reports
           printf "*\n!.gitignore\n!schedule_validation_errors.csv\n!schedule_dupes.csv\n!schedule_summary.csv\n!unique_teams.csv\n" > output/reports/.gitignore
 
-      # --- NEW: Ensure schema file exists in CI even if not committed ---
       - name: Ensure schedule schema file
         run: |
           mkdir -p config/schemas
-          cat > config/schemas/schedule_schema.yml <<'YAML'
-          version: 1
-          name: schedule_schema
-          description: Canonical schema for normalized NFL schedules
-          fields:
-            - name: season
-              type: int
-              required: true
-            - name: season_type
-              type: enum
-              values: [preseason, regular, postseason]
-              required: true
-            - name: week
-              type: int
-              required: true
-            - name: game_date_utc
-              type: date
-              required: true
-            - name: game_time_utc
-              type: time
-              required: true
-            - name: home_team
-              type: string
-              required: true
-            - name: away_team
-              type: string
-              required: true
-            - name: home_team_id
-              type: string
-              required: false
-            - name: away_team_id
-              type: string
-              required: false
-            - name: venue
-              type: string
-              required: false
-            - name: venue_city
-              type: string
-              required: false
-            - name: venue_state
-              type: string
-              required: false
-            - name: game_status
-              type: enum
-              values: [scheduled, in_progress, final, postponed, canceled]
-              required: true
-            - name: source
-              type: string
-              required: true
-            - name: source_event_id
-              type: string
-              required: true
-            - name: canonical_game_id
-              type: string
-              required: false
-            - name: canonical_hash
-              type: string
-              required: false
-          constraints:
-            unique:
-              - [season, season_type, week, home_team, away_team, game_date_utc, game_time_utc]
-              - [canonical_game_id]
-            non_null:
-              - [season, season_type, week, game_date_utc, game_time_utc, home_team, away_team, source, source_event_id]
-          YAML
+          if [ ! -s config/schemas/schedule_schema.yml ]; then
+            cat > config/schemas/schedule_schema.yml <<'YAML'
+            version: 1
+            name: schedule_schema
+            description: Canonical schema for normalized NFL schedules
+            fields:
+              - name: season
+                type: int
+                required: true
+              - name: season_type
+                type: enum
+                values: [preseason, regular, postseason]
+                required: true
+              - name: week
+                type: int
+                required: true
+              - name: game_date_utc
+                type: date
+                required: true
+              - name: game_time_utc
+                type: time
+                required: true
+              - name: home_team
+                type: string
+                required: true
+              - name: away_team
+                type: string
+                required: true
+              - name: home_team_id
+                type: string
+                required: false
+              - name: away_team_id
+                type: string
+                required: false
+              - name: venue
+                type: string
+                required: false
+              - name: venue_city
+                type: string
+                required: false
+              - name: venue_state
+                type: string
+                required: false
+              - name: game_status
+                type: enum
+                values: [scheduled, in_progress, final, postponed, canceled]
+                required: true
+              - name: source
+                type: string
+                required: true
+              - name: source_event_id
+                type: string
+                required: true
+              - name: canonical_game_id
+                type: string
+                required: false
+              - name: canonical_hash
+                type: string
+                required: false
+            constraints:
+              unique:
+                - [season, season_type, week, home_team, away_team, game_date_utc, game_time_utc]
+                - [canonical_game_id]
+              non_null:
+                - [season, season_type, week, game_date_utc, game_time_utc, home_team, away_team, source, source_event_id]
+            YAML
+          fi
 
       - name: Sync schedules (2024, 2025)
         run: |
@@ -117,7 +125,6 @@ jobs:
         run: |
           python scripts/02_load_schedules.py
 
-      # --- NEW: Assert staged file exists (fail-fast if missing) ---
       - name: Assert staged exists
         run: |
           test -s data/processed/schedules/_staging/schedules_staged.csv
@@ -134,7 +141,11 @@ jobs:
         run: |
           python scripts/04_validate_schedules.py
 
-      - name: Upload artifacts (staged, normalized, reports)
+      - name: Publish latest schedules
+        run: |
+          python scripts/05_publish_schedules.py
+
+      - name: Upload artifacts (staged, normalized, reports, final)
         uses: actions/upload-artifact@v4
         with:
           name: schedules-artifacts
@@ -147,6 +158,8 @@ jobs:
             output/reports/schedule_dupes.csv
             output/reports/schedule_summary.csv
             output/reports/unique_teams.csv
+            data/final/schedules_latest.csv
+            data/final/schedules_latest.parquet
           if-no-files-found: warn
 
       - name: Commit schedules and reports
@@ -164,5 +177,8 @@ jobs:
           git add output/reports/schedule_dupes.csv || true
           git add output/reports/schedule_summary.csv || true
           git add output/reports/unique_teams.csv || true
-          git commit -m "chore: ensure schema, stage assert, sync→stage→map→normalize→validate" || echo "No changes to commit"
+          git add data/final/.gitignore || true
+          git add data/final/schedules_latest.csv || true
+          git add data/final/schedules_latest.parquet || true
+          git commit -m "chore: sync→stage→map→normalize→validate→publish schedules" || echo "No changes to commit"
           git push
