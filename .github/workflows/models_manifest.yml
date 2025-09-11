@@ -5,7 +5,7 @@ on:
   push:
     paths:
       - "models/**/*.joblib"
-      - "scripts/models/build_models_manifest.py"
+      - "scripts/build_models_manifest.py"
 
 permissions:
   contents: write
@@ -30,7 +30,7 @@ jobs:
 
       - name: Build models manifest
         run: |
-          python scripts/models/build_models_manifest.py
+          python scripts/build_models_manifest.py
 
       - name: Commit manifest
         run: |
