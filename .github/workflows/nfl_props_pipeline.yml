@@ -1,5 +1,4 @@
 name: NFL Props Pipeline
-
 on:
   workflow_dispatch:
     inputs:
@@ -36,20 +35,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Ensure output folders exist
+      - name: Ensure folders exist
         run: |
-          mkdir -p output/logs
-          mkdir -p output/models
-          mkdir -p output/predictions/pregame
-          mkdir -p data/predictions/pregame
-          mkdir -p models/pregame
-          mkdir -p models/manifest
+          mkdir -p output/logs output/models output/predictions/pregame data/predictions/pregame models/pregame models/manifest
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -61,29 +54,6 @@ jobs:
           fi
           echo "Deps installed OK" | tee -a output/logs/step_install.log
 
-      # --- OPTIONAL ROSTERS VIA R (only if not already present) ---
-      - name: Set up R (only if roster not present)
-        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
-        uses: r-lib/actions/setup-r@v2
-
-      - name: Set up R dependencies (only if roster not present)
-        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
-        uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          packages: |
-            any::remotes
-            any::nflreadr
-
-      - name: Pull rosters via nflreadr (only if roster not present)
-        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
-        run: |
-          Rscript -e "yrs <- 2024:as.integer(format(Sys.Date(), '%Y'));
-                      df <- nflreadr::load_rosters(yrs);
-                      dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
-                      fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
-                      write.csv(df, gzfile(fn), row.names=FALSE)"
-
-      # ===== Step 01: Pull & Canonicalize =====
       - name: Step 01 (Pull NFL data and canonicalize)
         run: |
           YEND=$(date +%Y)
@@ -101,11 +71,10 @@ jobs:
           python - <<'PY' 2>&1 | tee -a output/logs/step01_finalize.log
           import runpy
           g = runpy.run_path('scripts/01_pull_nflverse.py')
-          g['weekly_canonicalize']()
-          g['rosters_canonicalize']()
+          if 'weekly_canonicalize' in g: g['weekly_canonicalize']()
+          if 'rosters_canonicalize' in g: g['rosters_canonicalize']()
           PY
 
-      # ===== Step 02: Build Features =====
       - name: Step 02 (Build features)
         run: |
           if [ -f scripts/02_build_features.py ]; then
@@ -115,7 +84,12 @@ jobs:
             exit 1
           fi
 
-      # ===== Step 03: Train Models =====
+      - name: Step 02.5 (Debug features)
+        run: |
+          if [ -f scripts/00_debug_features.py ]; then
+            python scripts/00_debug_features.py 2>&1 | tee -a output/logs/step02_5_debug.log
+          fi
+
       - name: Step 03 (Train models)
         run: |
           if [ -f scripts/03_train_models.py ]; then
@@ -125,7 +99,6 @@ jobs:
             exit 1
           fi
 
-      # ===== (NEW) Build models manifest inline =====
       - name: Step 03.5 (Build models manifest)
         run: |
           if [ -f scripts/build_models_manifest.py ]; then
@@ -134,7 +107,6 @@ jobs:
             echo "WARN: scripts/build_models_manifest.py not found — skipping manifest" | tee -a output/logs/step_manifest.log
           fi
 
-      # ===== Step 04: Pregame Predictions =====
       - name: Step 04 (Predict pregame)
         env:
           FORECAST_SEASON: ${{ env.FORECAST_SEASON }}
@@ -146,7 +118,6 @@ jobs:
             echo "WARN: scripts/04_predict_pregame.py not found — skipping predictions" | tee -a output/logs/step04.log
           fi
 
-      # ===== Always produce a concise summary log in repo =====
       - name: Write run summary (always)
         if: always()
         run: |
@@ -156,14 +127,12 @@ jobs:
             echo "REPO:   ${{ github.repository }}"
             echo "BRANCH: ${{ github.ref_name }}"
             echo "TIME:   $(date -u '+%Y-%m-%d %H:%M:%S') UTC"
-            echo "SEASON: ${FORECAST_SEASON}"
-            echo "WEEK:   ${FORECAST_WEEK}"
-            echo "PULL_ODDS: ${PULL_ODDS}"
             echo "----------------------------------------"
             echo "[Install]  $( [ -f output/logs/step_install.log ] && echo OK || echo N/A )"
             echo "[Step01]   $( [ -f output/logs/step01.log ] && echo OK || echo N/A )"
             echo "[Finalize] $( [ -f output/logs/step01_finalize.log ] && echo OK || echo N/A )"
             echo "[Step02]   $( [ -f output/logs/step02.log ] && echo OK || echo N/A )"
+            echo "[Debug]    $( [ -f output/logs/step02_5_debug.log ] && echo OK || echo N/A )"
             echo "[Step03]   $( [ -f output/logs/step03.log ] && echo OK || echo N/A )"
             echo "[Manifest] $( [ -f output/logs/step_manifest.log ] && echo OK || echo N/A )"
             echo "[Step04]   $( [ -f output/logs/step04.log ] && echo OK || echo N/A )"
@@ -172,93 +141,6 @@ jobs:
           } > "${SUMMARY}"
           echo "Summary -> ${SUMMARY}"
 
-      # ===== Create tiny previews & LATEST.md pointer file =====
-      - name: Create previews and LATEST.md (always)
-        if: always()
-        run: |
-          PREV_DIR="output/previews"
-          mkdir -p "${PREV_DIR}"
-
-          # Tiny previews (do not fail if sources missing)
-          if [ -f output/models/metrics_summary.csv ]; then
-            head -n 50 output/models/metrics_summary.csv > "${PREV_DIR}/metrics_summary.head50.csv"
-          fi
-          if [ -f output/predictions/pregame/predictions_all.csv.gz ]; then
-            gzip -dc output/predictions/pregame/predictions_all.csv.gz | head -n 200 > "${PREV_DIR}/predictions_all.head200.csv"
-          fi
-
-          LATEST="output/LATEST.md"
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${RUN_ID}"
-          {
-            echo "# Latest Pipeline Artifacts"
-            echo ""
-            echo "- Run: **${RUN_ID}**  |  Status: **${{ job.status }}**"
-            echo "- Trigger: \`${{ github.event_name }}\` on \`${{ github.ref_name }}\`"
-            echo "- Open run: ${RUN_URL}"
-            echo ""
-            echo "## Repo Files (committed)"
-            echo "- \`output/logs/summary_${RUN_ID}.log\`"
-            echo "- \`output/models/metrics_summary.csv\` (if produced)"
-            echo "- \`output/previews/metrics_summary.head50.csv\` (if produced)"
-            echo "- \`output/previews/predictions_all.head200.csv\` (if produced)"
-            echo "- \`models/manifest/models_manifest.csv\` (if produced)"
-            echo "- \`models/manifest/models_manifest.lock.json\` (if produced)"
-            echo ""
-            echo "## Download Full Artifacts"
-            echo "- Models: look for **models-pregame** artifact on the run page."
-            echo "- Predictions: look for **predictions-pregame** artifact."
-            echo "- Raw data snapshot: **nflverse-raw** artifact."
-          } > "${LATEST}"
-          echo "Wrote ${LATEST}"
-
-      # ===== Upload heavy artifacts =====
-      - name: Upload models (artifact)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: models-pregame
-          if-no-files-found: ignore
-          path: |
-            models/pregame/*.joblib
-
-      - name: Upload predictions (artifact)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: predictions-pregame
-          if-no-files-found: ignore
-          path: |
-            data/predictions/pregame/*.csv.gz
-            output/predictions/pregame/*.csv.gz
-
-      - name: Upload raw snapshot (artifact)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nflverse-raw
-          if-no-files-found: ignore
-          path: |
-            data/raw/nflverse/play_by_play_latest.csv.gz
-            data/raw/nflverse/pbp_latest.parquet
-            data/raw/nflverse/pbp_latest.head100.csv.gz
-            data/raw/nflverse/manifest_latest.csv.gz
-            data/raw/nflverse/weekly_latest.csv.gz
-            data/raw/nflverse/weekly_latest.parquet
-            data/raw/nflverse/weekly_manifest_latest.csv.gz
-            data/raw/nflverse/rosters_latest.csv.gz
-            data/raw/nflverse/rosters_latest.parquet
-            data/raw/nflverse/rosters_manifest_latest.csv.gz
-
-      - name: Upload logs bundle (artifact)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pipeline-logs
-          if-no-files-found: ignore
-          path: |
-            output/logs/*.log
-
-      # ===== Commit lightweight pointers & summaries into repo =====
       - name: Commit outputs to repo (always)
         if: always()
         env:
@@ -268,24 +150,16 @@ jobs:
           set -e
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
-
-          # Ensure paths exist even if empty (avoid errors)
-          mkdir -p output/logs output/models output/previews output/predictions/pregame models/manifest
-
-          # Stage only lightweight files
+          mkdir -p output/logs output/models output/previews models/manifest
           git add -A -f output/logs
           git add -A -f output/models/metrics_summary.csv
-          git add -A -f output/previews
-          git add -A -f output/LATEST.md
           git add -A -f models/manifest/models_manifest.csv
           git add -A -f models/manifest/models_manifest.lock.json
-
-          # Commit if anything changed
           if ! git diff --staged --quiet; then
-            git commit -m "Run ${RUN_ID}: add summary log, metrics, previews, and manifest"
+            git commit -m "Pipeline: logs/metrics/manifest"
             git pull --rebase origin ${{ github.ref_name }} || true
             git push
-            echo "Committed lightweight outputs to repo."
+            echo "Committed outputs."
           else
             echo "No changes to commit."
           fi
