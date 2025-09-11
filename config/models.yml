@@ -1,26 +1,19 @@
-# /config/models.yml
-# Single source of truth for model training params and reproducibility
 seed: 42
-version_tag: auto   # "auto" = derive from git short SHA + UTC date; or set explicit string
-
-# Default estimator + hyperparameters (can be overridden per-target)
+version_tag: auto
 estimator: random_forest
 random_forest:
   n_estimators: 400
   max_depth: null
   n_jobs: -1
 
-# List of targets to train
 targets:
   - qb_passing_yards
   - rb_rushing_yards
   - wr_rec_yards
   - wrte_receptions
 
-# Input feature file (gzip ok)
 features_path: data/features/weekly_clean.csv.gz
 
-# Columns that are identifiers and must not be used as features
 id_columns:
   - season
   - week
