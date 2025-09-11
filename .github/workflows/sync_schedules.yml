@@ -45,6 +45,8 @@ jobs:
           EOF
           mkdir -p output/reports
           printf "*\n!.gitignore\n!schedule_validation_errors.csv\n!schedule_dupes.csv\n!schedule_summary.csv\n!unique_teams.csv\n" > output/reports/.gitignore
+          mkdir -p docs/data
+          printf "*\n!.gitignore\n!schedules_latest.csv\n!schedules_latest.parquet\n" > docs/data/.gitignore
 
       - name: Sync schedules (2024, 2025)
         run: |
@@ -74,7 +76,11 @@ jobs:
         run: |
           python scripts/05_publish_schedules.py
 
-      - name: Upload artifacts (staged, normalized, reports, final)
+      - name: Publish to docs (mirror final → docs/data)
+        run: |
+          python scripts/06_publish_to_docs.py
+
+      - name: Upload artifacts (staged, normalized, reports, final, docs)
         uses: actions/upload-artifact@v4
         with:
           name: schedules-artifacts
@@ -89,9 +95,11 @@ jobs:
             output/reports/unique_teams.csv
             data/final/schedules_latest.csv
             data/final/schedules_latest.parquet
+            docs/data/schedules_latest.csv
+            docs/data/schedules_latest.parquet
           if-no-files-found: warn
 
-      - name: Commit schedules and reports
+      - name: Commit schedules and docs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -108,5 +116,8 @@ jobs:
           git add data/final/.gitignore || true
           git add data/final/schedules_latest.csv || true
           git add data/final/schedules_latest.parquet || true
-          git commit -m "chore: sync→stage→map→normalize→validate→publish schedules" || echo "No changes to commit"
+          git add docs/data/.gitignore || true
+          git add docs/data/schedules_latest.csv || true
+          git add docs/data/schedules_latest.parquet || true
+          git commit -m "chore: sync→stage→map→normalize→validate→publish→docs schedules" || echo "No changes to commit"
           git push
