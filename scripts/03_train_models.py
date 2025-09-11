@@ -1,176 +1,193 @@
 #!/usr/bin/env python3
+# /scripts/03_train_models.py
 # -*- coding: utf-8 -*-
-
 """
-Train pregame regression models on strictly numeric features and save
-only the fitted estimator per target.
+Train pregame regression models on strictly numeric features and save ONLY the
+fitted estimator per target, with versioned filenames and full metadata for
+reproducibility.
 
 Inputs
 ------
-data/features/weekly_clean.csv.gz
+- config/models.yml
+- data/features/weekly_clean.csv.gz
 
 Outputs
 -------
-models/pregame/<target>.joblib
-output/models/metrics_summary.csv
+- models/pregame/<target>_<tag>.joblib           (versioned)
+- models/pregame/<target>.latest.joblib          (stable pointer)
+- models/pregame/<target>_<tag>.meta.json        (sidecar metadata)
+- output/models/metrics_summary.csv              (includes artifact sha256)
 """
 
+from __future__ import annotations
+import json, os, random, sys, subprocess, hashlib, shutil
+from datetime import datetime, timezone
 from pathlib import Path
-import os
-import sys
-import json
-import joblib
-import numpy as np
 import pandas as pd
+import numpy as np
+import joblib
+import yaml
 
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
 REPO = Path(__file__).resolve().parents[1]
+CONFIG = REPO / "config" / "models.yml"
 FEATS = REPO / "data" / "features" / "weekly_clean.csv.gz"
 MODELS_DIR = REPO / "models" / "pregame"
 OUT_DIR = REPO / "output" / "models"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 SUMMARY_CSV = OUT_DIR / "metrics_summary.csv"
 
-# Identifier columns (excluded from X)
-ID_COLS = [
-    "player_id",
-    "player_name",
-    "recent_team",     # may be missing in some builds; handled below
-    "position",
-    "season",
-    "week",
-    "season_type",
-]
-
-# Targets to train if present
-TARGETS = [
-    "air_yards_share","attempts","carries","completions","dakota",
-    "fantasy_points","fantasy_points_ppr","interceptions","pacr",
-    "passing_2pt_conversions","passing_air_yards","passing_epa",
-    "passing_first_downs","passing_tds","passing_yards",
-    "passing_yards_after_catch","racr","receiving_2pt_conversions",
-    "receiving_air_yards","receiving_epa","receiving_first_downs",
-    "receiving_fumbles","receiving_fumbles_lost","receiving_tds",
-    "receiving_yards","receiving_yards_after_catch","receptions",
-    "rushing_2pt_conversions","rushing_epa","rushing_first_downs",
-    "rushing_fumbles","rushing_fumbles_lost","rushing_tds",
-    "rushing_yards","sack_fumbles","sack_fumbles_lost","sack_yards",
-    "sacks","special_teams_tds","target_share","targets","wopr",
-    # add any additional targets here if your features file includes them
-]
-
 # -----------------------------------------------------------------------------
-# Small utilities
+# Helpers
 # -----------------------------------------------------------------------------
-def die(msg: str) -> None:
-    print(f"INSUFFICIENT INFORMATION: {msg}")
-    sys.exit(1)
-
-def load_features() -> pd.DataFrame:
-    if not FEATS.exists():
-        die(f"missing features file '{FEATS.as_posix()}'")
+def git_commit_short() -> str:
     try:
-        df = pd.read_csv(FEATS)
-    except Exception as e:
-        die(f"cannot read '{FEATS.as_posix()}': {e}")
-
-    # normalize optional ID columns (create empty if missing)
-    for c in ID_COLS:
-        if c not in df.columns:
-            # do NOT fail here; create harmless placeholder to keep IDs aligned
-            df[c] = "" if c in ("player_name","recent_team","position","season_type") else 0
-
-    return df
-
-def pick_regressor():
-    """Return a robust regressor available on the runner."""
-    # Avoid importing heavy libs unless installed
-    try:
-        from sklearn.ensemble import RandomForestRegressor
-        return RandomForestRegressor(
-            n_estimators=400,
-            max_depth=None,
-            n_jobs=-1,
-            random_state=42,
-        )
-    except Exception as e:
-        die(f"sklearn not available: {e}")
-
-def numeric_X(df: pd.DataFrame, target: str) -> pd.DataFrame:
-    # Start from all columns except IDs + target
-    cols_drop = [c for c in ID_COLS if c in df.columns] + [target]
-    base = df.drop(columns=cols_drop, errors="ignore")
-    # Keep strictly numeric; coerce anything else to NaN then fill
-    for c in base.columns:
-        if not np.issubdtype(base[c].dtype, np.number):
-            base[c] = pd.to_numeric(base[c], errors="coerce")
-    X = base.select_dtypes(include=[np.number]).copy()
-    # Guard: empty feature matrix is not useful
-    if X.shape[1] == 0:
-        die(f"no numeric features available after filtering for target '{target}'")
-    return X.fillna(0.0)
-
-def fit_one(df: pd.DataFrame, target: str):
-    if target not in df.columns:
-        return None, None
-    y = pd.to_numeric(df[target], errors="coerce").fillna(0.0).to_numpy()
-    X = numeric_X(df, target)
-    model = pick_regressor()
-    model.fit(X, y)
-    # Ensure feature names are attached for alignment at inference
-    try:
-        setattr(model, "feature_names_in_", X.columns.to_numpy())
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, text=True).strip()
     except Exception:
-        pass
-    return model, {"rows": int(X.shape[0]), "features": int(X.shape[1])}
+        return "nogit"
 
-def main():
-    df = load_features()
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+def sha256_file(p: Path, chunk_size: int = 1 << 20) -> str:
+    h = hashlib.sha256()
+    with p.open("rb") as f:
+        while True:
+            b = f.read(chunk_size)
+            if not b:
+                break
+            h.update(b)
+    return h.hexdigest()
+
+def load_config() -> dict:
+    if not CONFIG.exists():
+        raise SystemExit(f"Missing config: {CONFIG}")
+    with CONFIG.open() as f:
+        cfg = yaml.safe_load(f)
+    return cfg or {}
+
+def set_global_seed(seed: int) -> None:
+    os.environ["PYTHONHASHSEED"] = "0"
+    random.seed(seed)
+    np.random.seed(seed)
+
+def build_version_tag(cfg: dict) -> str:
+    tag_cfg = str(cfg.get("version_tag", "auto"))
+    if tag_cfg != "auto":
+        return tag_cfg
+    # auto: use YYYYMMDD + git short
+    return datetime.now(timezone.utc).strftime("%Y%m%d") + "_" + git_commit_short()
+
+def get_features_df(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        raise SystemExit(f"Features file not found: {path}")
+    return pd.read_csv(path, low_memory=False)
+
+def numeric_X(df: pd.DataFrame, target: str, id_cols: list[str]) -> pd.DataFrame:
+    cols_drop = [c for c in id_cols if c in df.columns] + [target]
+    base = df.drop(columns=cols_drop, errors="ignore")
+    # Keep numeric only; coerce errant types to NaN then fill
+    X = base.apply(pd.to_numeric, errors="coerce").fillna(0.0)
+    return X
+
+def get_estimator(cfg: dict, seed: int):
+    est_name = cfg.get("estimator", "random_forest")
+    if est_name == "random_forest":
+        try:
+            from sklearn.ensemble import RandomForestRegressor
+        except Exception as e:
+            raise SystemExit(f"sklearn not available: {e}")
+        params = cfg.get("random_forest", {}) | {"random_state": seed}
+        return RandomForestRegressor(**params), {"name": "RandomForestRegressor", "params": params}
+    else:
+        raise SystemExit(f"Unsupported estimator: {est_name}")
+
+# -----------------------------------------------------------------------------
+# Train
+# -----------------------------------------------------------------------------
+def train_all() -> None:
+    cfg = load_config()
+    seed = int(cfg.get("seed", 42))
+    set_global_seed(seed)
+    tag = build_version_tag(cfg)
+    commit = git_commit_short()
+    built_utc = utc_now_iso()
+
+    targets = list(cfg.get("targets", []))
+    if not targets:
+        raise SystemExit("No targets specified in config/models.yml -> targets: []")
+
+    id_cols = list(cfg.get("id_columns", []))
+
+    df = get_features_df(FEATS)
 
     rows = []
-    for tgt in TARGETS:
-        model, info = fit_one(df, tgt)
-        if model is None:
+    for tgt in targets:
+        y = df[tgt] if tgt in df.columns else None
+        if y is None:
+            print(f"[WARN] Target column missing, skipping: {tgt}")
             continue
 
-        # Save ONLY the estimator (no tuples, no extras)
-        mpath = MODELS_DIR / f"{tgt}.joblib"
-        joblib.dump(model, mpath, compress=3)
+        X = numeric_X(df, tgt, id_cols)
+        est, est_info = get_estimator(cfg, seed)
 
-        # Basic in-sample metrics (quick, deterministic)
-        X = pd.DataFrame({})  # placeholder to satisfy lints
-        try:
-            # Recompute numeric X quickly for metrics
-            X = numeric_X(df, tgt)
-            pred = model.predict(X)
-            y = pd.to_numeric(df[tgt], errors="coerce").fillna(0.0).to_numpy()
+        # Fit
+        est.fit(X, y)
 
-            mae = float(np.mean(np.abs(y - pred)))
-            # R^2 (manual) to avoid extra imports
-            ss_res = float(np.sum((y - pred) ** 2))
-            ss_tot = float(np.sum((y - np.mean(y)) ** 2)) if len(y) else 0.0
-            r2 = float(1.0 - ss_res / ss_tot) if ss_tot > 0 else 0.0
-        except Exception:
-            mae, r2 = float("nan"), float("nan")
+        # Save model (versioned + latest)
+        versioned = MODELS_DIR / f"{tgt}_{tag}.joblib"
+        latest = MODELS_DIR / f"{tgt}.latest.joblib"
+        joblib.dump(est, versioned, compress=3)
+        # Maintain a stable pointer (copy so checksum differs; that’s OK)
+        shutil.copyfile(versioned, latest)
+
+        # Sidecar metadata for manifest
+        meta = {
+            "target": tgt,
+            "built_at_utc": built_utc,
+            "git_commit": commit,
+            "random_seed": seed,
+            "features_path": str(FEATS),
+            "data_sha256": sha256_file(FEATS) if FEATS.exists() else None,
+            "estimator": est_info["name"],
+            "hyperparameters": est_info["params"],
+            "feature_columns": list(X.columns),
+            "artifact_path": str(versioned),
+            "artifact_sha256": sha256_file(versioned),
+            "version_tag": tag,
+        }
+        meta_path = MODELS_DIR / f"{tgt}_{tag}.meta.json"
+        with meta_path.open("w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        # Quick in-sample metrics
+        preds = est.predict(X)
+        mae = float(np.mean(np.abs(preds - y)))
+        ss_res = float(np.sum((preds - y) ** 2))
+        ss_tot = float(np.sum((y - float(np.mean(y))) ** 2)) if len(y) else 0.0
+        r2 = 1.0 - ss_res / ss_tot if ss_tot else 0.0
 
         rows.append({
             "target": tgt,
-            "rows": info["rows"],
-            "features": info["features"],
+            "artifact_path": str(versioned),
+            "artifact_sha256": meta["artifact_sha256"],
+            "git_commit": commit,
+            "random_seed": seed,
+            "built_at_utc": built_utc,
             "mae": mae,
             "r2": r2,
-            "model_file": mpath.as_posix(),
+            "version_tag": tag,
         })
 
-    # Write summary
-    pd.DataFrame(rows).to_csv(SUMMARY_CSV, index=False)
+        print(f"[OK] Saved {versioned.name}  sha256={meta['artifact_sha256'][:10]}...  mae={mae:.3f} r2={r2:.3f}")
 
-    print(f"Saved models -> {MODELS_DIR.as_posix()}")
-    print(f"Wrote metrics -> {SUMMARY_CSV.as_posix()}")
+    # Write metrics summary
+    pd.DataFrame(rows).to_csv(SUMMARY_CSV, index=False)
+    print(f"Wrote metrics -> {SUMMARY_CSV}")
+    print(f"Models dir -> {MODELS_DIR}")
 
 if __name__ == "__main__":
-    main()
+    train_all()
