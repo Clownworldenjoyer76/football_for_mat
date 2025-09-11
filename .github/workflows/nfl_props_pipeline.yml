@@ -1,4 +1,5 @@
 name: NFL Props Pipeline
+
 on:
   workflow_dispatch:
     inputs:
@@ -35,14 +36,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Ensure folders exist
+      - name: Ensure output folders exist
         run: |
-          mkdir -p output/logs output/models output/predictions/pregame data/predictions/pregame models/pregame models/manifest
+          mkdir -p output/logs
+          mkdir -p output/models
+          mkdir -p output/predictions/pregame
+          mkdir -p data/predictions/pregame
+          mkdir -p models/pregame
+          mkdir -p models/manifest
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -54,6 +61,29 @@ jobs:
           fi
           echo "Deps installed OK" | tee -a output/logs/step_install.log
 
+      # --- OPTIONAL ROSTERS VIA R (only if roster not present) ---
+      - name: Set up R (only if roster not present)
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Set up R dependencies (only if roster not present)
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::nflreadr
+
+      - name: Pull rosters via nflreadr (only if roster not present)
+        if: ${{ hashFiles('data/raw/nflverse/rosters_latest.csv.gz') == '' }}
+        run: |
+          Rscript -e "yrs <- 2024:as.integer(format(Sys.Date(), '%Y'));
+                      df <- nflreadr::load_rosters(yrs);
+                      dir.create('data/raw/nflverse', recursive=TRUE, showWarnings=FALSE);
+                      fn <- 'data/raw/nflverse/rosters_latest.csv.gz';
+                      write.csv(df, gzfile(fn), row.names=FALSE)"
+
+      # ===== Step 01: Pull & Canonicalize =====
       - name: Step 01 (Pull NFL data and canonicalize)
         run: |
           YEND=$(date +%Y)
@@ -75,6 +105,7 @@ jobs:
           if 'rosters_canonicalize' in g: g['rosters_canonicalize']()
           PY
 
+      # ===== Step 02: Build Features =====
       - name: Step 02 (Build features)
         run: |
           if [ -f scripts/02_build_features.py ]; then
@@ -84,12 +115,14 @@ jobs:
             exit 1
           fi
 
+      # ===== Step 02.5: Debug features (list columns + suggestions)
       - name: Step 02.5 (Debug features)
         run: |
           if [ -f scripts/00_debug_features.py ]; then
             python scripts/00_debug_features.py 2>&1 | tee -a output/logs/step02_5_debug.log
           fi
 
+      # ===== Step 03: Train Models =====
       - name: Step 03 (Train models)
         run: |
           if [ -f scripts/03_train_models.py ]; then
@@ -99,6 +132,7 @@ jobs:
             exit 1
           fi
 
+      # ===== Step 03.5: Build models manifest =====
       - name: Step 03.5 (Build models manifest)
         run: |
           if [ -f scripts/build_models_manifest.py ]; then
@@ -107,6 +141,7 @@ jobs:
             echo "WARN: scripts/build_models_manifest.py not found — skipping manifest" | tee -a output/logs/step_manifest.log
           fi
 
+      # ===== Step 04: Pregame Predictions (optional) =====
       - name: Step 04 (Predict pregame)
         env:
           FORECAST_SEASON: ${{ env.FORECAST_SEASON }}
@@ -118,29 +153,27 @@ jobs:
             echo "WARN: scripts/04_predict_pregame.py not found — skipping predictions" | tee -a output/logs/step04.log
           fi
 
-      - name: Write run summary (always)
+      # ===== Upload heavy artifacts =====
+      - name: Upload models (artifact)
         if: always()
-        run: |
-          SUMMARY="output/logs/summary_${RUN_ID}.log"
-          {
-            echo "RUN_ID: ${RUN_ID}"
-            echo "REPO:   ${{ github.repository }}"
-            echo "BRANCH: ${{ github.ref_name }}"
-            echo "TIME:   $(date -u '+%Y-%m-%d %H:%M:%S') UTC"
-            echo "----------------------------------------"
-            echo "[Install]  $( [ -f output/logs/step_install.log ] && echo OK || echo N/A )"
-            echo "[Step01]   $( [ -f output/logs/step01.log ] && echo OK || echo N/A )"
-            echo "[Finalize] $( [ -f output/logs/step01_finalize.log ] && echo OK || echo N/A )"
-            echo "[Step02]   $( [ -f output/logs/step02.log ] && echo OK || echo N/A )"
-            echo "[Debug]    $( [ -f output/logs/step02_5_debug.log ] && echo OK || echo N/A )"
-            echo "[Step03]   $( [ -f output/logs/step03.log ] && echo OK || echo N/A )"
-            echo "[Manifest] $( [ -f output/logs/step_manifest.log ] && echo OK || echo N/A )"
-            echo "[Step04]   $( [ -f output/logs/step04.log ] && echo OK || echo N/A )"
-            echo "----------------------------------------"
-            echo "JOB STATUS: ${{ job.status }}"
-          } > "${SUMMARY}"
-          echo "Summary -> ${SUMMARY}"
+        uses: actions/upload-artifact@v4
+        with:
+          name: models-pregame
+          if-no-files-found: warn
+          path: |
+            models/pregame/*.joblib
 
+      - name: Upload logs bundle (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs
+          if-no-files-found: ignore
+          path: |
+            output/logs/*.log
+            output/logs/*.txt
+
+      # ===== Commit outputs to repo (models + manifest + metrics) =====
       - name: Commit outputs to repo (always)
         if: always()
         env:
@@ -150,16 +183,26 @@ jobs:
           set -e
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
-          mkdir -p output/logs output/models output/previews models/manifest
-          git add -A -f output/logs
-          git add -A -f output/models/metrics_summary.csv
+
+          # Stage models and sidecars
+          git add -A -f models/pregame/*.joblib
+          git add -A -f models/pregame/*.meta.json
+
+          # Stage manifest + metrics
           git add -A -f models/manifest/models_manifest.csv
           git add -A -f models/manifest/models_manifest.lock.json
+          git add -A -f output/models/metrics_summary.csv
+
+          # Stage useful logs
+          git add -A -f output/logs/step*.log
+          git add -A -f output/logs/features_columns.txt
+          git add -A -f output/logs/targets_suggestions.json || true
+
           if ! git diff --staged --quiet; then
-            git commit -m "Pipeline: logs/metrics/manifest"
+            git commit -m "Pipeline ${RUN_ID}: models, manifest, metrics, logs"
             git pull --rebase origin ${{ github.ref_name }} || true
             git push
-            echo "Committed outputs."
+            echo "Committed models + outputs to repo."
           else
             echo "No changes to commit."
           fi
