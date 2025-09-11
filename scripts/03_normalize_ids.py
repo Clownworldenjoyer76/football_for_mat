@@ -1,28 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Full script path: /mnt/data/football_for_mat-main/scripts/03_normalize_ids.py
+Full script path: /football_for_mat-main/scripts/03_normalize_ids.py
 
 Purpose:
   Normalize staged schedules by resolving team abbreviations and IDs, standardizing
   venues, and generating canonical identifiers.
 
 Inputs:
-  - data/processed/schedules/_staging/schedules_staged.csv
-  - mappings/team_aliases.csv (columns: alias,team_abbr,team_full)
-  - mappings/team_ids.csv (columns: team_abbr,team_full,gsis_id,pfr_id,espn_id,sportradar_id)
-  - mappings/venue_aliases.csv (columns: alias,venue,venue_city,venue_state)
+  - /football_for_mat-main/data/processed/schedules/_staging/schedules_staged.csv
+  - /football_for_mat-main/mappings/team_aliases.csv (columns: alias,team_abbr,team_full)
+  - /football_for_mat-main/mappings/team_ids.csv (columns: team_abbr,team_full,gsis_id,pfr_id,espn_id,sportradar_id)
+  - /football_for_mat-main/mappings/venue_aliases.csv (columns: alias,venue,venue_city,venue_state)
 
 Outputs:
-  - data/processed/schedules/schedules_normalized.csv
-  - data/processed/schedules/schedules_normalized.parquet
-
-Behavior (no assumptions):
-  - Only uses explicit mappings to resolve team abbreviations and IDs.
-  - If a team cannot be resolved via mappings, leaves abbr/IDs empty.
-  - Only computes canonical_game_id and canonical_hash when required inputs exist.
+  - /football_for_mat-main/data/processed/schedules/schedules_normalized.csv
+  - /football_for_mat-main/data/processed/schedules/schedules_normalized.parquet
 """
-
 from __future__ import annotations
 
 import hashlib
@@ -97,10 +91,6 @@ def resolve_team(value: str,
                  team_ids_df: pd.DataFrame) -> Tuple[str, str]:
     """
     Resolve a provided team string to (team_abbr, team_full) using explicit data only.
-    Rules:
-      - If value matches a known team_abbr in team_ids_df, return that abbr + full.
-      - Else if value matches an alias (case-insensitive), return mapped abbr + full.
-      - Else return ("","") (no assumptions).
     """
     s = (value or "").strip()
     if not s:
@@ -115,7 +105,6 @@ def resolve_team(value: str,
     t = alias_map.get(s.lower())
     if t:
         abbr, full = t
-        # If team_full missing in alias map, try lookup from team_ids_df
         if not full and not team_ids_df.empty:
             hit = team_ids_df.loc[team_ids_df["team_abbr"].str.casefold() == abbr.casefold()]
             if not hit.empty:
@@ -200,7 +189,7 @@ def main() -> int:
         empty_cols = [
             "season","season_type","week","game_date_utc","game_time_utc",
             "home_team","away_team","venue","venue_city","venue_state",
-            "source","source_event_id","game_datetime_local",
+            "source","source_event_id","game_datetime_local","game_status",
             "home_abbr","away_abbr","home_team_full","away_team_full",
             "home_gsis_id","away_gsis_id","home_pfr_id","away_pfr_id",
             "home_espn_id","away_espn_id","home_sportradar_id","away_sportradar_id",
@@ -214,7 +203,7 @@ def main() -> int:
         print(f"Input missing: {STAGED_CSV}. Wrote empty outputs.")
         return 0
 
-    df = pd.read_csv(STAGED_CSV)
+    df = pd.read_csv(STAGED_CSV, dtype=str).fillna("")
 
     # Load mappings
     df_alias = load_csv_if_exists(TEAM_ALIASES_CSV, dtype=str).fillna("")
@@ -264,12 +253,12 @@ def main() -> int:
     # Compute canonical ids
     df = compute_canonical_ids(df)
 
-    # Column ordering
+    # Column ordering (ensure game_status is preserved)
     ordered_cols = [
         "season","season_type","week","game_date_utc","game_time_utc",
         "home_team","away_team","home_abbr","away_abbr","home_team_full","away_team_full",
         "venue","venue_city","venue_state",
-        "source","source_event_id","game_datetime_local",
+        "source","source_event_id","game_datetime_local","game_status",
         "home_gsis_id","away_gsis_id","home_pfr_id","away_pfr_id",
         "home_espn_id","away_espn_id","home_sportradar_id","away_sportradar_id",
         "canonical_game_id","canonical_hash"
