@@ -43,11 +43,13 @@ jobs:
           mkdir -p output/predictions/pregame
           mkdir -p data/predictions/pregame
           mkdir -p models/pregame
+          mkdir -p models/manifest
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -123,6 +125,15 @@ jobs:
             exit 1
           fi
 
+      # ===== (NEW) Build models manifest inline =====
+      - name: Step 03.5 (Build models manifest)
+        run: |
+          if [ -f scripts/build_models_manifest.py ]; then
+            python scripts/build_models_manifest.py 2>&1 | tee -a output/logs/step_manifest.log
+          else
+            echo "WARN: scripts/build_models_manifest.py not found — skipping manifest" | tee -a output/logs/step_manifest.log
+          fi
+
       # ===== Step 04: Pregame Predictions =====
       - name: Step 04 (Predict pregame)
         env:
@@ -154,6 +165,7 @@ jobs:
             echo "[Finalize] $( [ -f output/logs/step01_finalize.log ] && echo OK || echo N/A )"
             echo "[Step02]   $( [ -f output/logs/step02.log ] && echo OK || echo N/A )"
             echo "[Step03]   $( [ -f output/logs/step03.log ] && echo OK || echo N/A )"
+            echo "[Manifest] $( [ -f output/logs/step_manifest.log ] && echo OK || echo N/A )"
             echo "[Step04]   $( [ -f output/logs/step04.log ] && echo OK || echo N/A )"
             echo "----------------------------------------"
             echo "JOB STATUS: ${{ job.status }}"
@@ -189,6 +201,8 @@ jobs:
             echo "- \`output/models/metrics_summary.csv\` (if produced)"
             echo "- \`output/previews/metrics_summary.head50.csv\` (if produced)"
             echo "- \`output/previews/predictions_all.head200.csv\` (if produced)"
+            echo "- \`models/manifest/models_manifest.csv\` (if produced)"
+            echo "- \`models/manifest/models_manifest.lock.json\` (if produced)"
             echo ""
             echo "## Download Full Artifacts"
             echo "- Models: look for **models-pregame** artifact on the run page."
@@ -256,17 +270,19 @@ jobs:
           git config user.email "$GH_USER_EMAIL"
 
           # Ensure paths exist even if empty (avoid errors)
-          mkdir -p output/logs output/models output/previews output/predictions/pregame
+          mkdir -p output/logs output/models output/previews output/predictions/pregame models/manifest
 
           # Stage only lightweight files
           git add -A -f output/logs
           git add -A -f output/models/metrics_summary.csv
           git add -A -f output/previews
           git add -A -f output/LATEST.md
+          git add -A -f models/manifest/models_manifest.csv
+          git add -A -f models/manifest/models_manifest.lock.json
 
           # Commit if anything changed
           if ! git diff --staged --quiet; then
-            git commit -m "Run ${RUN_ID}: add summary log, metrics, previews, and LATEST.md"
+            git commit -m "Run ${RUN_ID}: add summary log, metrics, previews, and manifest"
             git pull --rebase origin ${{ github.ref_name }} || true
             git push
             echo "Committed lightweight outputs to repo."
