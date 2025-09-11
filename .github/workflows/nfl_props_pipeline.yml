@@ -153,7 +153,7 @@ jobs:
             echo "WARN: scripts/04_predict_pregame.py not found — skipping predictions" | tee -a output/logs/step04.log
           fi
 
-      # ===== Upload heavy artifacts =====
+      # ===== Upload artifacts (DON'T commit big binaries) =====
       - name: Upload models (artifact)
         if: always()
         uses: actions/upload-artifact@v4
@@ -162,6 +162,7 @@ jobs:
           if-no-files-found: warn
           path: |
             models/pregame/*.joblib
+            !models/pregame/*.latest.joblib   # exclude pointer files to avoid duplication
 
       - name: Upload logs bundle (artifact)
         if: always()
@@ -172,8 +173,9 @@ jobs:
           path: |
             output/logs/*.log
             output/logs/*.txt
+            output/logs/*.json
 
-      # ===== Commit outputs to repo (models + manifest + metrics) =====
+      # ===== Commit only lightweight outputs to repo =====
       - name: Commit outputs to repo (always)
         if: always()
         env:
@@ -184,25 +186,20 @@ jobs:
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
 
-          # Stage models and sidecars
-          git add -A -f models/pregame/*.joblib
-          git add -A -f models/pregame/*.meta.json
-
-          # Stage manifest + metrics
+          # DO NOT stage .joblib binaries (avoid 100MB limit)
+          # Stage manifest + metrics + useful logs
           git add -A -f models/manifest/models_manifest.csv
           git add -A -f models/manifest/models_manifest.lock.json
           git add -A -f output/models/metrics_summary.csv
-
-          # Stage useful logs
           git add -A -f output/logs/step*.log
           git add -A -f output/logs/features_columns.txt
           git add -A -f output/logs/targets_suggestions.json || true
 
           if ! git diff --staged --quiet; then
-            git commit -m "Pipeline ${RUN_ID}: models, manifest, metrics, logs"
+            git commit -m "Pipeline ${RUN_ID}: manifest, metrics, logs (no binaries)"
             git pull --rebase origin ${{ github.ref_name }} || true
             git push
-            echo "Committed models + outputs to repo."
+            echo "Committed lightweight outputs."
           else
             echo "No changes to commit."
           fi
