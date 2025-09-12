@@ -94,3 +94,37 @@ Models dir -> /home/runner/work/football_for_mat/football_for_mat/models/pregame
 [INFO] Wrote metrics -> /home/runner/work/football_for_mat/football_for_mat/output/models/metrics_summary.csv
 [INFO] Models dir -> /home/runner/work/football_for_mat/football_for_mat/models/pregame
 [CLEANUP] Removed legacy files: qb_passing_yards.joblib, rb_rushing_yards.joblib, wr_rec_yards.joblib, wrte_receptions.joblib
+[INFO] Wrote feature column list -> /home/runner/work/football_for_mat/football_for_mat/output/logs/features_columns.txt
+[OK] Saved passing_yards_20250912_b1a2184.joblib for 'passing_yards' (actual='passing_yards') sha256=99bf46ea11...  mae=0.285 r2=1.000
+[OK] Saved rushing_yards_20250912_b1a2184.joblib for 'rushing_yards' (actual='rushing_yards') sha256=b9647b18c7...  mae=0.548 r2=0.996
+[OK] Saved receiving_yards_20250912_b1a2184.joblib for 'receiving_yards' (actual='receiving_yards') sha256=75a689611b...  mae=0.261 r2=0.999
+[OK] Saved receptions_20250912_b1a2184.joblib for 'receptions' (actual='receptions') sha256=06caade2dc...  mae=0.039 r2=0.998
+[OK] Saved completions_20250912_b1a2184.joblib for 'completions' (actual='completions') sha256=545799bde1...  mae=0.028 r2=1.000
+[OK] Saved passing_tds_20250912_b1a2184.joblib for 'passing_tds' (actual='passing_tds') sha256=adeacee07b...  mae=0.007 r2=0.996
+[OK] Saved interceptions_20250912_b1a2184.joblib for 'interceptions' (actual='interceptions') sha256=f0f0f0d276...  mae=0.012 r2=0.974
+[OK] Saved rushing_tds_20250912_b1a2184.joblib for 'rushing_tds' (actual='rushing_tds') sha256=aaf7bcb3bf...  mae=0.004 r2=0.995
+[OK] Saved targets_20250912_b1a2184.joblib for 'targets' (actual='targets') sha256=cd1999448b...  mae=0.071 r2=0.998
+[OK] Saved receiving_tds_20250912_b1a2184.joblib for 'receiving_tds' (actual='receiving_tds') sha256=8d1413acaa...  mae=0.002 r2=0.999
+[OK] Saved sacks_20250912_b1a2184.joblib for 'sacks' (actual='sacks') sha256=78b0c52b62...  mae=0.000 r2=1.000
+Traceback (most recent call last):
+  File "/home/runner/work/football_for_mat/football_for_mat/scripts/03_train_models.py", line 216, in <module>
+    train_all()
+  File "/home/runner/work/football_for_mat/football_for_mat/scripts/03_train_models.py", line 165, in train_all
+    est.fit(X, y)
+  File "/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/sklearn/base.py", line 1474, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+  File "/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/sklearn/ensemble/_forest.py", line 363, in fit
+    X, y = self._validate_data(
+  File "/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/sklearn/base.py", line 650, in _validate_data
+    X, y = check_X_y(X, y, **check_params)
+  File "/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/sklearn/utils/validation.py", line 1279, in check_X_y
+    y = _check_y(y, multi_output=multi_output, y_numeric=y_numeric, estimator=estimator)
+  File "/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/sklearn/utils/validation.py", line 1289, in _check_y
+    y = check_array(
+  File "/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/sklearn/utils/validation.py", line 1049, in check_array
+    _assert_all_finite(
+  File "/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/sklearn/utils/validation.py", line 126, in _assert_all_finite
+    _assert_all_finite_element_wise(
+  File "/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/sklearn/utils/validation.py", line 175, in _assert_all_finite_element_wise
+    raise ValueError(msg_err)
+ValueError: Input y contains NaN.
