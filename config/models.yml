@@ -1,5 +1,5 @@
 # config/models.yml
-# Stable: trains only columns we KNOW exist today (from features + logs)
+# Trains confirmed targets + the three new enriched ones.
 
 seed: 42
 version_tag: auto
@@ -10,8 +10,8 @@ random_forest:
   max_depth: null
   n_jobs: -1
 
-# === Trains now (confirmed present) ===
 targets:
+  # existing, confirmed
   - passing_yards
   - rushing_yards
   - receiving_yards
@@ -24,25 +24,24 @@ targets:
   - receiving_tds
   - sacks
 
-# Add more later ONLY after columns exist in features:
-#  - pass_attempts
-#  - rush_attempts
-#  - qb_sacks_taken
-#  - qb_rush_yards
-#  - qb_rush_attempts
-#  - rushing_long
-#  - longest_reception
-#  - field_goals_made
-#  - field_goals_attempted
-#  - longest_field_goal
-#  - kicking_points
-#  - tackles_combined
-#  - tackles_assists
-#  - interceptions_def
-#  - passes_defended
-#  - anytime_td         # needs a 0/1 label
-#  - team_points_for
-#  - game_total_points
+  # NEW: now available from enrichment
+  - pass_attempts
+  - rush_attempts
+  - qb_sacks_taken
+
+# keep these commented out until we have real values (not NaN placeholders):
+# - rushing_long
+# - longest_reception
+# - field_goals_made
+# - field_goals_attempted
+# - longest_field_goal
+# - kicking_points
+# - tackles_combined
+# - tackles_assists
+# - interceptions_def
+# - passes_defended
+# - team_points_for
+# - game_total_points
 
 features_path: data/features/weekly_clean.csv.gz
 
