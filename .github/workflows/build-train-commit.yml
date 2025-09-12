@@ -1,0 +1,148 @@
+name: build-train-commit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "scripts/**"
+      - "config/**"
+      - "data/**"
+      - ".github/workflows/build-train-commit.yml"
+
+permissions:
+  contents: write   # required for pushing commits and creating a Release
+
+concurrency:
+  group: build-train-commit-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  TZ: "UTC"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # Optional enrichment step (safe if file is absent)
+      - name: Enrich features (optional)
+        run: |
+          if [ -f scripts/02b_enrich_features.py ]; then
+            echo "[INFO] Running 02b_enrich_features.py"
+            python scripts/02b_enrich_features.py
+          else
+            echo "[INFO] No scripts/02b_enrich_features.py; skipping."
+          fi
+
+      - name: Train models
+        run: |
+          echo "[INFO] Running 03_train_models.py"
+          python scripts/03_train_models.py
+
+      - name: Build models manifest (with metadata)
+        run: |
+          echo "[INFO] Running build_models_manifest.py"
+          python scripts/build_models_manifest.py
+
+      - name: Validate manifest is populated
+        run: |
+          python - <<'PY'
+          import sys, pandas as pd, os
+          p = "models/manifest/models_manifest.csv"
+          if not os.path.exists(p):
+              print(f"ERROR: {p} not found.", file=sys.stderr)
+              sys.exit(1)
+          df = pd.read_csv(p)
+          missing_cols = [c for c in ["path","filename","sha256","target","version_tag"] if c not in df.columns]
+          if missing_cols:
+              print(f"ERROR: manifest missing columns: {missing_cols}", file=sys.stderr); sys.exit(1)
+          if df.empty:
+              print("ERROR: manifest is empty.", file=sys.stderr); sys.exit(1)
+          # require at least one non-empty target row
+          if not df["target"].fillna("").str.len().gt(0).any():
+              print("ERROR: manifest has no populated 'target' values.", file=sys.stderr); sys.exit(1)
+          print("OK: manifest valid with", df['target'].fillna("").replace("", pd.NA).dropna().nunique(), "unique targets")
+          PY
+
+      - name: Show key outputs
+        run: |
+          echo "---- metrics head ----"
+          sed -n '1,25p' output/models/metrics_summary.csv || true
+          echo "---- manifest head ----"
+          sed -n '1,25p' models/manifest/models_manifest.csv || true
+          echo "---- models dir ----"
+          ls -lh models/pregame || true
+
+      - name: Ensure .gitignore excludes joblibs
+        run: |
+          if [ -f .gitignore ]; then
+            if ! grep -q "^models/pregame/.*\.joblib$" .gitignore; then
+              echo "models/pregame/*.joblib" >> .gitignore
+              echo "[INFO] Appended joblib ignore to .gitignore"
+            fi
+          else
+            echo "models/pregame/*.joblib" > .gitignore
+            echo "[INFO] Created .gitignore with joblib ignore"
+          fi
+
+      - name: Commit lightweight outputs (manifest/metrics/logs only)
+        run: |
+          set -e
+          git config user.name  "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add .gitignore
+          git add models/manifest/* || true
+          git add output/models/metrics_summary.csv || true
+          git add output/logs/*.log || true
+          if ! git diff --cached --quiet; then
+            git commit -m "Pipeline ${{ github.run_id }}: manifest, metrics, logs"
+            git push
+            echo "[INFO] Committed lightweight artifacts."
+          else
+            echo "[INFO] No lightweight changes to commit."
+          fi
+
+      - name: Upload model artifacts (free, short-term)
+        uses: actions/upload-artifact@v4
+        with:
+          name: models-pregame-${{ github.run_id }}
+          path: models/pregame/*.joblib
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Create or update 'latest-models' release (long-term)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-models
+          name: Latest Models
+          prerelease: true
+          files: |
+            models/pregame/*.joblib
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
