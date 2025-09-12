@@ -115,11 +115,20 @@ jobs:
             exit 1
           fi
 
-      # ===== Step 02.5: Debug features (list columns + suggestions)
+      # ===== Step 02.5: Debug features =====
       - name: Step 02.5 (Debug features)
         run: |
           if [ -f scripts/00_debug_features.py ]; then
             python scripts/00_debug_features.py 2>&1 | tee -a output/logs/step02_5_debug.log
+          fi
+
+      # ===== Step 02.6: Enrich features =====
+      - name: Step 02.6 (Enrich features)
+        run: |
+          if [ -f scripts/02b_enrich_features.py ]; then
+            python scripts/02b_enrich_features.py 2>&1 | tee -a output/logs/step02b_enrich.log
+          else
+            echo "WARN: scripts/02b_enrich_features.py not found — skipping enrichment" | tee -a output/logs/step02b_enrich.log
           fi
 
       # ===== Step 03: Train Models =====
@@ -153,7 +162,7 @@ jobs:
             echo "WARN: scripts/04_predict_pregame.py not found — skipping predictions" | tee -a output/logs/step04.log
           fi
 
-      # ===== Upload artifacts (DON'T commit big binaries) =====
+      # ===== Upload artifacts (models kept out of Git) =====
       - name: Upload models (artifact)
         if: always()
         uses: actions/upload-artifact@v4
@@ -162,7 +171,7 @@ jobs:
           if-no-files-found: warn
           path: |
             models/pregame/*.joblib
-            !models/pregame/*.latest.joblib   # exclude pointer files to avoid duplication
+            !models/pregame/*.latest.joblib
 
       - name: Upload logs bundle (artifact)
         if: always()
@@ -186,8 +195,7 @@ jobs:
           git config user.name "$GH_USER_NAME"
           git config user.email "$GH_USER_EMAIL"
 
-          # DO NOT stage .joblib binaries (avoid 100MB limit)
-          # Stage manifest + metrics + useful logs
+          # Manifest + metrics + logs (no .joblib binaries)
           git add -A -f models/manifest/models_manifest.csv
           git add -A -f models/manifest/models_manifest.lock.json
           git add -A -f output/models/metrics_summary.csv
@@ -196,10 +204,10 @@ jobs:
           git add -A -f output/logs/targets_suggestions.json || true
 
           if ! git diff --staged --quiet; then
-            git commit -m "Pipeline ${RUN_ID}: manifest, metrics, logs (no binaries)"
+            git commit -m "Pipeline ${RUN_ID}: manifest, metrics, logs (with enriched features)"
             git pull --rebase origin ${{ github.ref_name }} || true
             git push
             echo "Committed lightweight outputs."
-          else
+          else:
             echo "No changes to commit."
           fi
