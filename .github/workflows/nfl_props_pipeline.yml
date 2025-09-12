@@ -202,12 +202,12 @@ jobs:
           git add -A -f output/logs/step*.log
           git add -A -f output/logs/features_columns.txt
           git add -A -f output/logs/targets_suggestions.json || true
+          git add -A -f output/logs/step02b_enrich.log || true
 
           if ! git diff --staged --quiet; then
             git commit -m "Pipeline ${RUN_ID}: manifest, metrics, logs (with enriched features)"
-            git pull --rebase origin ${{ github.ref_name }} || true
-            git push
+            git push origin ${{ github.ref_name }}
             echo "Committed lightweight outputs."
-          else:
+          else
             echo "No changes to commit."
           fi
