@@ -11,7 +11,7 @@ on:
       - ".github/workflows/build-train-commit.yml"
 
 permissions:
-  contents: write   # required for pushing commits and creating a Release
+  contents: write   # allow commits + releases
 
 concurrency:
   group: build-train-commit-${{ github.ref }}
@@ -49,7 +49,7 @@ jobs:
           python -m pip install -U pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # Optional enrichment step (safe if file is absent)
+      # Optional enrichment step (safe if file absent)
       - name: Enrich features (optional)
         run: |
           if [ -f scripts/02b_enrich_features.py ]; then
@@ -75,15 +75,14 @@ jobs:
           import sys, pandas as pd, os
           p = "models/manifest/models_manifest.csv"
           if not os.path.exists(p):
-              print(f"ERROR: {p} not found.", file=sys.stderr)
-              sys.exit(1)
+              print(f"ERROR: {p} not found.", file=sys.stderr); sys.exit(1)
           df = pd.read_csv(p)
-          missing_cols = [c for c in ["path","filename","sha256","target","version_tag"] if c not in df.columns]
-          if missing_cols:
-              print(f"ERROR: manifest missing columns: {missing_cols}", file=sys.stderr); sys.exit(1)
+          need = ["path","filename","sha256","target","version_tag"]
+          miss = [c for c in need if c not in df.columns]
+          if miss:
+              print(f"ERROR: manifest missing columns: {miss}", file=sys.stderr); sys.exit(1)
           if df.empty:
               print("ERROR: manifest is empty.", file=sys.stderr); sys.exit(1)
-          # require at least one non-empty target row
           if not df["target"].fillna("").str.len().gt(0).any():
               print("ERROR: manifest has no populated 'target' values.", file=sys.stderr); sys.exit(1)
           print("OK: manifest valid with", df['target'].fillna("").replace("", pd.NA).dropna().nunique(), "unique targets")
@@ -127,19 +126,31 @@ jobs:
             echo "[INFO] No lightweight changes to commit."
           fi
 
-      - name: Upload model artifacts (free, short-term)
+      - name: Upload model artifacts (90-day retention)
         uses: actions/upload-artifact@v4
         with:
           name: models-pregame-${{ github.run_id }}
           path: models/pregame/*.joblib
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 90
 
-      - name: Create or update 'latest-models' release (long-term)
+      - name: Create or update 'latest-models' release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-models
           name: Latest Models
+          prerelease: true
+          files: |
+            models/pregame/*.joblib
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create immutable run release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: models-${{ github.run_number }}
+          name: Models Run ${{ github.run_number }}
           prerelease: true
           files: |
             models/pregame/*.joblib
