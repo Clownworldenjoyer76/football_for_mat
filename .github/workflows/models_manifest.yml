@@ -2,10 +2,9 @@ name: models-manifest
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "models/**/*.joblib"
-      - "scripts/build_models_manifest.py"
+  schedule:
+    # Example: run daily at 3:00 UTC
+    - cron: "0 3 * * *"
 
 permissions:
   contents: write
