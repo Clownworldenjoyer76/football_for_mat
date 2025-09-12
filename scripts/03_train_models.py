@@ -1,216 +1,278 @@
 #!/usr/bin/env python3
-# /scripts/03_train_models.py
-# Deterministic trainer
-# - Reads config/models.yml
-# - Trains one model per target
-# - Saves only VERSIONED artifacts: models/pregame/<target>_<YYYYMMDD>_<sha>.joblib
-# - Writes <target>_<tag>.meta.json sidecar with full provenance
-# - NO '.latest.joblib' copies
-# - Cleans up legacy/unversioned/`.latest` artifacts from older runs
+# scripts/03_train_models.py
+# Robust model trainer:
+# - maps friendly targets -> actual columns (when needed)
+# - DROPS rows with NaN/inf in the target BEFORE fit (critical fix)
+# - logs row counts before/after filtering
+# - writes versioned artifact names with git short sha + date
+# - updates metrics summary incrementally (append-safe)
 from __future__ import annotations
 
-import json, os, random, sys, subprocess, hashlib, shutil, re
-from datetime import datetime, timezone
+import json
+import math
+import os
+import sys
+import hashlib
 from pathlib import Path
+from datetime import datetime
 import pandas as pd
 import numpy as np
-import joblib, yaml
 
-REPO = Path('.').resolve()
-CONFIG = REPO / 'config' / 'models.yml'
-FEATS = REPO / 'data' / 'features' / 'weekly_clean.csv.gz'
-MODELS_DIR = REPO / 'models' / 'pregame'
-OUT_DIR = REPO / 'output' / 'models'
-LOG_DIR = REPO / 'output' / 'logs'
-OUT_DIR.mkdir(parents=True, exist_ok=True)
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.model_selection import train_test_split
+
+ROOT = Path(".")
+FEATURES = ROOT / "data" / "features" / "weekly_clean.csv.gz"
+CONFIG   = ROOT / "config" / "models.yml"
+OUTPUT_DIR = ROOT / "output" / "models"
+LOG_DIR    = ROOT / "output" / "logs"
+METRICS_CSV = ROOT / "output" / "models" / "metrics_summary.csv"
+MODELS_DIR  = ROOT / "models" / "pregame"
+
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-SUMMARY_CSV = OUT_DIR / 'metrics_summary.csv'
-FEATURES_LIST = LOG_DIR / 'features_columns.txt'
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-# ----------------------------- helpers -----------------------------
-def git_commit_short() -> str:
+# --------- small YAML loader without pyyaml hard dependency ----------
+def _load_yaml(path: Path) -> dict:
     try:
-        return subprocess.check_output(['git','rev-parse','--short','HEAD'], text=True).strip()
+        import yaml  # type: ignore
+        with path.open("r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
     except Exception:
-        return 'nogit'
+        # ultra-minimal fallback (expects simple YAML only)
+        text = path.read_text(encoding="utf-8")
+        # this won’t handle complex YAML; your repo already installs pyyaml via requirements,
+        # so the try branch will normally run.
+        import re
+        data = {}
+        key = None
+        for line in text.splitlines():
+            if re.match(r"^\s*#", line) or not line.strip():
+                continue
+            if ":" in line and not line.strip().startswith("-"):
+                k, v = line.split(":", 1)
+                key = k.strip()
+                v = v.strip()
+                if v == "" or v.lower() == "null":
+                    data[key] = None
+                elif v.lower() in ("true","false"):
+                    data[key] = (v.lower()=="true")
+                else:
+                    data[key] = v
+            elif line.strip().startswith("-") and key:
+                data.setdefault(key, [])
+                data[key].append(line.strip()[1:].strip())
+        return data
 
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+# --------------------- utilities ---------------------
+def log(msg: str):
+    print(msg)
+    with (LOG_DIR / "step03.log").open("a", encoding="utf-8") as f:
+        f.write(msg + "\n")
 
-def sha256_file(p: Path, chunk_size: int = 1<<20) -> str:
+def git_short_sha() -> str:
+    try:
+        import subprocess
+        sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
+        return sha or "nogit"
+    except Exception:
+        return "nogit"
+
+def today_tag() -> str:
+    return datetime.utcnow().strftime("%Y%m%d")
+
+def sha256_file(p: Path) -> str:
     h = hashlib.sha256()
-    with p.open('rb') as f:
-        for b in iter(lambda: f.read(chunk_size), b''):
-            h.update(b)
+    with p.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
     return h.hexdigest()
 
-def load_config() -> dict:
+def _is_finite_series(s: pd.Series) -> pd.Series:
+    return np.isfinite(pd.to_numeric(s, errors="coerce"))
+
+# --------------------- training core ---------------------
+def load_config():
     if not CONFIG.exists():
-        print(f'[FATAL] Missing config: {CONFIG}', file=sys.stderr)
-        sys.exit(2)
-    with CONFIG.open() as f:
-        return yaml.safe_load(f) or {}
+        raise FileNotFoundError(f"Missing config: {CONFIG}")
+    cfg = _load_yaml(CONFIG)
+    # defaults
+    seed = int(cfg.get("seed", 42) or 42)
+    version_tag = cfg.get("version_tag", "auto")
+    est_name = (cfg.get("estimator") or "random_forest").lower()
+    rf_params = cfg.get("random_forest") or {}
+    targets = cfg.get("targets") or []
+    features_path = cfg.get("features_path") or str(FEATURES)
+    id_columns = set(cfg.get("id_columns") or [])
 
-def set_global_seed(seed: int) -> None:
-    os.environ['PYTHONHASHSEED'] = '0'
-    random.seed(seed)
-    np.random.seed(seed)
+    return {
+        "seed": seed,
+        "version_tag": version_tag,
+        "estimator": est_name,
+        "rf_params": rf_params,
+        "targets": targets,
+        "features_path": features_path,
+        "id_columns": id_columns,
+    }
 
-def build_version_tag(tag_cfg: str) -> str:
-    if tag_cfg and tag_cfg != 'auto':
-        return str(tag_cfg)
-    return datetime.now(timezone.utc).strftime('%Y%m%d') + '_' + git_commit_short()
-
-def get_features_df(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        print(f'[FATAL] Features file not found: {path}', file=sys.stderr)
-        sys.exit(2)
-    df = pd.read_csv(path, low_memory=False)
-    with FEATURES_LIST.open('w', encoding='utf-8') as f:
-        for c in df.columns:
-            f.write(c + '\n')
-    print(f'[INFO] Wrote feature column list -> {FEATURES_LIST}')
-    return df
-
-def normkey(s: str) -> str:
-    return re.sub(r'[^a-z0-9]', '', s.lower())
-
-ALIAS = {
-    'qb_passing_yards': ['qbpassyards','passingyards','passyards','qbpassyds','passyds','qb_passing_yds','qb_pass_yds'],
-    'rb_rushing_yards': ['rbrushyards','rushingyards','rushyards','rb_rush_yds','rb_rushing_yds'],
-    'wr_rec_yards'    : ['wrrecyards','receivingyards','recyards','wr_rec_yds','wr_receiving_yds','wrte_rec_yards'],
-    'wrte_receptions' : ['wrtereceptions','receptions','rec','wr_receptions','wrte_rec'],
+# Map friendly names to actual feature columns when needed
+TARGET_ALIASES = {
+    "qb_passing_yards": "passing_yards",
+    "rb_rushing_yards": "rushing_yards",
+    "wr_rec_yards": "receiving_yards",
+    "wrte_receptions": "receptions",
+    # the new ones (exact names already match columns)
+    "pass_attempts": "pass_attempts",
+    "rush_attempts": "rush_attempts",
+    "qb_sacks_taken": "qb_sacks_taken",
 }
 
-def resolve_targets(df_cols, desired):
-    cols_norm = {normkey(c): c for c in df_cols}
-    mapping = {}
-    for want in desired:
-        wn = normkey(want)
-        if wn in cols_norm:
-            mapping[want] = cols_norm[wn]
-            continue
-        for alt in ALIAS.get(want, []):
-            an = normkey(alt)
-            if an in cols_norm:
-                mapping[want] = cols_norm[an]
-                break
-    return mapping
+def select_actual_column(df: pd.DataFrame, target: str) -> tuple[str, str]:
+    """
+    Returns (reported_target_name, actual_column_name)
+    The reported name is what we log/manifest as 'target'
+    """
+    # exact column present?
+    if target in df.columns:
+        return target, target
+    # alias mapping?
+    if target in TARGET_ALIASES and TARGET_ALIASES[target] in df.columns:
+        return target, TARGET_ALIASES[target]
+    # heuristic fallbacks
+    candidates = [
+        target,
+        TARGET_ALIASES.get(target, ""),
+    ]
+    candidates += [
+        target.replace("qb_", "").replace("rb_", "").replace("wrte_", "").replace("wr_", ""),
+        target.replace("rec_", "receiving_"),
+        target.replace("pass_", "passing_"),
+        target.replace("rush_", "rushing_"),
+    ]
+    candidates = [c for c in dict.fromkeys(candidates) if c and c in df.columns]
+    if candidates:
+        return target, candidates[0]
+    raise KeyError(f"Target column not found for '{target}'")
 
-def numeric_X(df: pd.DataFrame, target_col: str, id_cols):
-    cols_drop = [c for c in id_cols if c in df.columns] + [target_col]
-    base = df.drop(columns=cols_drop, errors='ignore')
-    X = base.apply(pd.to_numeric, errors='coerce').fillna(0.0)
-    return X
+def build_estimator(cfg) -> RandomForestRegressor:
+    params = dict(
+        n_estimators=400,
+        max_depth=None,
+        n_jobs=-1,
+        random_state=cfg["seed"],
+    )
+    params.update({k: v for k, v in cfg["rf_params"].items() if v is not None})
+    return RandomForestRegressor(**params)
 
-def get_estimator(cfg: dict, seed: int):
-    est_name = cfg.get('estimator','random_forest')
-    if est_name == 'random_forest':
-        from sklearn.ensemble import RandomForestRegressor
-        params = dict(cfg.get('random_forest',{}))
-        params['random_state'] = seed
-        return RandomForestRegressor(**params), {'name':'RandomForestRegressor','params':params}
-    raise SystemExit(f'Unsupported estimator: {est_name}')
+def train_one(df: pd.DataFrame, cfg, target_name: str) -> dict | None:
+    reported, actual = select_actual_column(df, target_name)
 
-def cleanup_legacy_files():
-    # remove *.latest.joblib and old unversioned artifacts if present
-    removed = []
-    for p in MODELS_DIR.glob('*.latest.joblib'):
-        try:
-            p.unlink()
-            removed.append(p.name)
-        except Exception:
-            pass
-    # common old unversioned names to purge
-    legacy = ['qb_passing_yards.joblib','rb_rushing_yards.joblib','wr_rec_yards.joblib','wrte_receptions.joblib']
-    for name in legacy:
-        p = MODELS_DIR / name
-        if p.exists():
-            try:
-                p.unlink()
-                removed.append(p.name)
-            except Exception:
-                pass
-    if removed:
-        print('[CLEANUP] Removed legacy files:', ', '.join(removed))
+    # Drop rows with NaN/inf in the target — FIX for your crash
+    y_raw = pd.to_numeric(df[actual], errors="coerce")
+    mask = y_raw.notna() & _is_finite_series(y_raw)
+    n_before = len(df)
+    df_train = df.loc[mask].copy()
+    y = y_raw.loc[mask]
+    n_after = len(df_train)
 
-# ----------------------------- train -----------------------------
-def train_all() -> None:
+    if n_after == 0:
+        log(f"[SKIP] '{reported}' has 0 usable rows after dropping NaN/inf.")
+        return None
+    if n_after < 100:
+        log(f"[WARN] '{reported}' has few rows after filtering (n={n_after}/{n_before}). Results may be unstable.")
+
+    # Feature matrix: numeric columns excluding id columns and the target itself
+    drop_cols = set(cfg["id_columns"]) | {actual}
+    X = df_train.drop(columns=[c for c in drop_cols if c in df_train.columns], errors="ignore")
+    # keep only numeric columns
+    num_cols = [c for c in X.columns if pd.api.types.is_numeric_dtype(X[c])]
+    X = X[num_cols].copy()
+
+    # if any remaining NaN in features, fill with 0 (simple, model-agnostic)
+    X = X.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+    # train/test split (deterministic)
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=cfg["seed"])
+
+    est = build_estimator(cfg)
+    est.fit(Xtr, ytr)
+    pred = est.predict(Xte)
+
+    mae = float(mean_absolute_error(yte, pred))
+    r2  = float(r2_score(yte, pred))
+
+    # Save artifact
+    git_sha = git_short_sha()
+    tag = cfg["version_tag"]
+    if not tag or tag == "auto":
+        tag = f"{today_tag()}_{git_sha}"
+
+    fname = f"{reported}_{tag}.joblib"
+    fpath = (MODELS_DIR / fname).resolve()
+
+    # write model
+    from joblib import dump
+    dump(est, fpath)
+
+    sha = sha256_file(fpath)
+    built_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    log(f"[OK] Saved {fname} for '{reported}' (actual='{actual}') sha256={sha[:10]}...  mae={mae:.3f} r2={r2:.3f}")
+
+    # Append metrics row (append-safe)
+    row = {
+        "target": reported,
+        "actual_column": actual,
+        "artifact_path": str(fpath),
+        "artifact_sha256": sha,
+        "git_commit": git_sha,
+        "random_seed": cfg["seed"],
+        "built_at_utc": built_at,
+        "mae": mae,
+        "r2": r2,
+        "version_tag": tag,
+    }
+    _append_metrics(row)
+
+    return row
+
+def _append_metrics(row: dict):
+    METRICS_CSV.parent.mkdir(parents=True, exist_ok=True)
+    if METRICS_CSV.exists():
+        dfm = pd.read_csv(METRICS_CSV)
+        dfm = pd.concat([dfm, pd.DataFrame([row])], ignore_index=True)
+        dfm.to_csv(METRICS_CSV, index=False)
+    else:
+        pd.DataFrame([row]).to_csv(METRICS_CSV, index=False)
+    log(f"[INFO] Wrote metrics -> {METRICS_CSV}")
+
+def train_all():
+    if not FEATURES.exists():
+        raise FileNotFoundError(f"Features not found: {FEATURES}")
+    df = pd.read_csv(FEATURES, low_memory=False)
+
     cfg = load_config()
-    seed = int(cfg.get('seed',42))
-    set_global_seed(seed)
-    tag = build_version_tag(str(cfg.get('version_tag','auto')))
-    commit = git_commit_short()
-    built_utc = utc_now_iso()
+    targets = cfg["targets"]
+    if not targets:
+        log("[WARN] No targets specified in config/models.yml -> targets")
+        return
 
-    desired_targets = list(cfg.get('targets',[]))
-    if not desired_targets:
-        print('[FATAL] No targets specified in config/models.yml -> targets: []', file=sys.stderr)
-        sys.exit(2)
-    id_cols = list(cfg.get('id_columns', []))
+    # For visibility, write out the feature column list
+    (LOG_DIR / "features_columns.txt").write_text("\n".join(df.columns), encoding="utf-8")
+    log(f"[INFO] Wrote feature column list -> {LOG_DIR / 'features_columns.txt'}")
 
-    df = get_features_df(FEATS)
-    mapping = resolve_targets(list(df.columns), desired_targets)
-    if not mapping:
-        print(f'[FATAL] None of your desired targets are present in features. Desired={desired_targets}', file=sys.stderr)
-        print('[HINT] See output/logs/features_columns.txt for available columns.', file=sys.stderr)
-        sys.exit(3)
+    for t in targets:
+        try:
+            _ = train_one(df, cfg, t)
+        except KeyError as e:
+            log(f"[WARN] Target column missing, skipping: {t}")
+        except Exception as e:
+            log(f"[ERROR] Training failed for target={t}: {type(e).__name__}: {e}")
+            raise
 
-    rows = []
-    for want, actual_col in mapping.items():
-        y = df[actual_col]
-        X = numeric_X(df, actual_col, id_cols)
-        est, est_info = get_estimator(cfg, seed)
-        est.fit(X, y)
+    log(f"[INFO] Models dir -> {MODELS_DIR}")
 
-        versioned = MODELS_DIR / f'{want}_{tag}.joblib'
-        joblib.dump(est, versioned, compress=3)
-
-        meta = {
-            'target': want,
-            'actual_column': actual_col,
-            'built_at_utc': built_utc,
-            'git_commit': commit,
-            'random_seed': seed,
-            'features_path': str(FEATS),
-            'data_sha256': sha256_file(FEATS) if FEATS.exists() else None,
-            'estimator': est_info['name'],
-            'hyperparameters': est_info['params'],
-            'feature_columns': list(X.columns),
-            'artifact_path': str(versioned),
-            'artifact_sha256': sha256_file(versioned),
-            'version_tag': tag,
-        }
-        (MODELS_DIR / f'{want}_{tag}.meta.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2))
-
-        preds = est.predict(X)
-        mae = float(np.mean(np.abs(preds - y)))
-        ss_res = float(np.sum((preds - y) ** 2))
-        ss_tot = float(np.sum((y - float(np.mean(y))) ** 2)) if len(y) else 0.0
-        r2 = 1.0 - ss_res / ss_tot if ss_tot else 0.0
-
-        rows.append({
-            'target': want,
-            'actual_column': actual_col,
-            'artifact_path': str(versioned),
-            'artifact_sha256': meta['artifact_sha256'],
-            'git_commit': commit,
-            'random_seed': seed,
-            'built_at_utc': built_utc,
-            'mae': mae,
-            'r2': r2,
-            'version_tag': tag,
-        })
-        print(f"[OK] Saved {versioned.name} for '{want}' (actual='{actual_col}') sha256={meta['artifact_sha256'][:10]}...  mae={mae:.3f} r2={r2:.3f}")
-
-    # write metrics
-    pd.DataFrame(rows).to_csv(SUMMARY_CSV, index=False)
-    print(f'[INFO] Wrote metrics -> {SUMMARY_CSV}')
-    print(f'[INFO] Models dir -> {MODELS_DIR}')
-
-    # cleanup after successful training
-    cleanup_legacy_files()
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     train_all()
