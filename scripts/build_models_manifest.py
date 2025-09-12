@@ -1,124 +1,116 @@
 #!/usr/bin/env python3
-import argparse
-import csv
-import hashlib
-import json
-import os
-import subprocess
-from datetime import datetime
+import csv, hashlib, json, os, sys, time
+from datetime import datetime, timezone
 from pathlib import Path
 
-import joblib
+REPO = Path(__file__).resolve().parents[1]  # repo root
+MODELS_DIR = REPO / "models" / "pregame"
+METRICS = REPO / "output" / "models" / "metrics_summary.csv"
+FEATURES_PATH = REPO / "data" / "features" / "weekly_clean.csv.gz"
+FEATURE_COLS_TXT = REPO / "output" / "logs" / "features_columns.txt"
+MANIFEST_OUT = REPO / "models" / "manifest" / "models_manifest.csv"
 
-# --- Helpers -------------------------------------------------------------
-
-def sha256_of_file(path: Path) -> str:
+def sha256_file(p: Path) -> str:
     h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
+    with p.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
 
-def get_git_commit() -> str:
+def iso_utc(ts: float) -> str:
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+def read_feature_count() -> int:
+    if not FEATURE_COLS_TXT.exists():
+        return ""
     try:
-        return (
-            subprocess.check_output(["git", "rev-parse", "HEAD"])
-            .decode("utf-8")
-            .strip()
-        )
+        with FEATURE_COLS_TXT.open() as f:
+            return sum(1 for _ in f if _.strip())
     except Exception:
         return ""
 
-def get_version_tag() -> str:
-    ts = datetime.utcnow().strftime("%Y%m%d")
-    short_commit = get_git_commit()[:7]
-    return f"{ts}_{short_commit}" if short_commit else ts
+def main():
+    if not METRICS.exists():
+        print(f"ERROR: missing metrics file: {METRICS}", file=sys.stderr)
+        sys.exit(1)
 
-def sizeof_file(path: Path) -> int:
-    return path.stat().st_size if path.exists() else 0
+    # Index metrics by artifact filename and sha256
+    by_fname = {}
+    by_sha = {}
 
-def get_modified_time(path: Path) -> str:
-    return datetime.utcfromtimestamp(path.stat().st_mtime).isoformat() + "Z"
+    with METRICS.open() as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            fname = os.path.basename(row["artifact_path"])
+            by_fname[fname] = row
+            by_sha[row["artifact_sha256"]] = row
 
-# --- Main ----------------------------------------------------------------
-
-def build_manifest(models_dir: Path, features_file: Path, output_csv: Path, output_json: Path):
-    rows = []
-    version_tag = get_version_tag()
-    git_commit = get_git_commit()
-    built_at = datetime.utcnow().isoformat() + "Z"
-
-    features_sha = sha256_of_file(features_file) if features_file.exists() else ""
-    feature_count = 0
-    if features_file.suffix.endswith("gz"):
-        import pandas as pd
+    # Compute data hash (optional)
+    data_sha = ""
+    if FEATURES_PATH.exists():
         try:
-            df = pd.read_csv(features_file)
-            feature_count = len(df.columns)
+            data_sha = sha256_file(FEATURES_PATH)
         except Exception:
             pass
 
-    for path in models_dir.glob("*.joblib"):
-        sha = sha256_of_file(path)
-        row = {
-            "path": str(path),
-            "filename": path.name,
-            "sha256": sha,
-            "filesize_bytes": sizeof_file(path),
-            "modified_time_utc": get_modified_time(path),
-            "target": "",
-            "version_tag": version_tag,
-            "git_commit": git_commit,
-            "random_seed": "",
-            "estimator": "",
-            "hyperparameters_json": "",
-            "features_path": str(features_file) if features_file.exists() else "",
-            "data_sha256": features_sha,
-            "feature_count": feature_count,
-            "built_at_utc": built_at,
-        }
+    feature_count = read_feature_count()
 
-        # try to extract metadata from joblib
+    MANIFEST_OUT.parent.mkdir(parents=True, exist_ok=True)
+    fields = [
+        "path","filename","sha256","filesize_bytes","modified_time_utc",
+        "target","version_tag","git_commit","random_seed","estimator",
+        "hyperparameters_json","features_path","data_sha256","feature_count",
+        "built_at_utc",
+    ]
+
+    rows = []
+
+    # Prefer artifacts listed in metrics (authoritative)
+    for row in by_fname.values():
+        fname = os.path.basename(row["artifact_path"])
+        local_path = MODELS_DIR / fname
+        if not local_path.exists():
+            # if training wrote somewhere else, try to map anyway but skip if missing
+            continue
+
         try:
-            model_obj = joblib.load(path)
-            if hasattr(model_obj, "target"):
-                row["target"] = model_obj.target
-            if hasattr(model_obj, "random_state"):
-                row["random_seed"] = getattr(model_obj, "random_state")
-            row["estimator"] = type(model_obj).__name__
-            if hasattr(model_obj, "get_params"):
-                row["hyperparameters_json"] = json.dumps(model_obj.get_params())
-        except Exception as e:
-            print(f"[WARN] could not load {path}: {e}")
+            sha = sha256_file(local_path)
+        except Exception:
+            sha = ""
 
-        rows.append(row)
+        stat = local_path.stat()
+        rows.append({
+            "path": str(local_path.relative_to(REPO)).replace("\\","/"),
+            "filename": fname,
+            "sha256": sha or row.get("artifact_sha256",""),
+            "filesize_bytes": stat.st_size,
+            "modified_time_utc": iso_utc(stat.st_mtime),
+            "target": row.get("target",""),
+            "version_tag": row.get("version_tag",""),
+            "git_commit": row.get("git_commit",""),
+            "random_seed": row.get("random_seed",""),
+            "estimator": "",  # not tracked in metrics; leave blank
+            "hyperparameters_json": "",  # not tracked; leave blank
+            "features_path": str(FEATURES_PATH.relative_to(REPO)).replace("\\","/") if FEATURES_PATH.exists() else "",
+            "data_sha256": data_sha,
+            "feature_count": feature_count,
+            "built_at_utc": row.get("built_at_utc",""),
+        })
 
-    # write CSV
-    with open(output_csv, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(rows)
+    # Write manifest
+    with MANIFEST_OUT.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        # keep stable order (by target then filename)
+        for r in sorted(rows, key=lambda r: (r.get("target",""), r["filename"])):
+            w.writerow(r)
 
-    # write lock JSON
-    lock = {
-        "repo_root": str(Path(".").resolve().name),
-        "built_at_utc": built_at,
-        "artifacts": {r["path"]: r["sha256"] for r in rows},
-    }
-    with open(output_json, "w") as f:
-        json.dump(lock, f, indent=2)
+    # Sanity check: at least one populated target
+    if not any(r["target"] for r in rows):
+        print("ERROR: manifest has no populated 'target' values.", file=sys.stderr)
+        sys.exit(1)
 
-    print(f"[OK] wrote manifest -> {output_csv}")
-    print(f"[OK] wrote lock -> {output_json}")
-
-# --- Entrypoint ----------------------------------------------------------
+    print(f"[OK] Wrote manifest -> {MANIFEST_OUT} ({len(rows)} rows)")
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--models-dir", default="models/pregame")
-    ap.add_argument("--features-file", default="data/features/weekly_clean.csv.gz")
-    ap.add_argument("--output-csv", default="models/manifest/models_manifest.csv")
-    ap.add_argument("--output-json", default="models/manifest/models_manifest.lock.json")
-    args = ap.parse_args()
-
-    build_manifest(Path(args.models_dir), Path(args.features_file), Path(args.output_csv), Path(args.output_json))
+    main()
