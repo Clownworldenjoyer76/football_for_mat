@@ -1,195 +1,136 @@
 #!/usr/bin/env python3
 """
-Build a models manifest that ALWAYS has a populated `target` column.
+Build models manifest from output/models/metrics_summary.csv only.
 
-- Reads output/models/metrics_summary.csv (ground truth for `target`, metrics, version_tag, etc.)
-- Scans models/**/*.joblib for current artifacts
-- Joins by filename (or artifact_path endswith(filename))
+- Does NOT scan the repo for .joblib files
 - Writes:
     models/manifest/models_manifest.csv
     models/manifest/models_manifest.lock.json
+- Fails the job if no valid rows (so your validation step stays meaningful)
 """
 
 from __future__ import annotations
-import csv
-import glob
-import hashlib
-import json
-import os
+import csv, json, os, sys
 from pathlib import Path
-from datetime import datetime, timezone
-import re
-import sys
-from typing import Dict, Optional
+from datetime import datetime
 
-import pandas as pd
+ROOT = Path(__file__).resolve().parents[1]
+METRICS = ROOT / "output/models/metrics_summary.csv"
+OUT_DIR = ROOT / "models/manifest"
+MANIFEST_CSV = OUT_DIR / "models_manifest.csv"
+LOCK_JSON = OUT_DIR / "models_manifest.lock.json"
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-MODELS_DIR = REPO_ROOT / "models"
-MANIFEST_DIR = MODELS_DIR / "manifest"
-MANIFEST_CSV = MANIFEST_DIR / "models_manifest.csv"
-LOCK_JSON = MANIFEST_DIR / "models_manifest.lock.json"
-
-# Primary source of truth for targets/metrics
-METRICS_CSV_CANDIDATES = [
-    REPO_ROOT / "output" / "models" / "metrics_summary.csv",
-    # Fallbacks (keep in case layouts change)
-    REPO_ROOT / "football_for_mat" / "output" / "models" / "metrics_summary.csv",
+# Columns we’ll emit to the CSV (keep stable order)
+CSV_COLUMNS = [
+    "path", "filename", "sha256", "filesize_bytes", "modified_time_utc",
+    "target", "version_tag", "git_commit", "random_seed",
+    "estimator", "hyperparameters_json", "features_path", "data_sha256",
+    "feature_count", "built_at_utc", "actual_column", "mae", "r2"
 ]
 
-def sha256_file(p: Path, block_size: int = 1 << 20) -> str:
-    h = hashlib.sha256()
-    with p.open("rb") as f:
-        while True:
-            b = f.read(block_size)
-            if not b:
-                break
-            h.update(b)
-    return h.hexdigest()
-
-def iso_utc(ts: float) -> str:
-    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
-
-def find_metrics_csv() -> Optional[Path]:
-    for cand in METRICS_CSV_CANDIDATES:
-        if cand.exists():
-            return cand
-    return None
-
-def infer_target_from_filename(name: str) -> Optional[str]:
-    # Accept names like: passing_yards_20250912_cc4d012.joblib  -> passing_yards
-    # or sacks.joblib -> sacks
-    base = name
-    if base.endswith(".joblib"):
-        base = base[:-7]
-    # split at last _YYYYMMDD_*
-    m = re.match(r"^([a-zA-Z0-9]+(?:_[a-zA-Z0-9]+)*)_(\d{8})_[0-9a-fA-F]+$", base)
-    if m:
-        return m.group(1)
-    return base or None
-
-def main() -> int:
-    print("[build_models_manifest] starting...")
-    MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
-
-    metrics_path = find_metrics_csv()
-    if metrics_path is None:
-        print("WARN: metrics_summary.csv not found; targets will be inferred from filenames.", file=sys.stderr)
-        metrics_df = pd.DataFrame()
-    else:
-        metrics_df = pd.read_csv(metrics_path)
-        # Normalize filename key for joining
-        metrics_df["__filename"] = metrics_df["artifact_path"].apply(lambda s: Path(str(s)).name if pd.notna(s) else "")
-        metrics_df["__filename_lower"] = metrics_df["__filename"].str.lower()
-
-    # Collect joblibs
-    joblibs = [Path(p) for p in glob.glob(str(MODELS_DIR / "**" / "*.joblib"), recursive=True)]
+def read_metrics(path: Path) -> list[dict]:
+    if not path.exists():
+        print(f"ERROR: metrics file missing: {path}", file=sys.stderr)
+        sys.exit(1)
     rows = []
-    lock_entries = []
+    with path.open(newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            # normalize keys just in case
+            r = {k.strip(): v for k, v in r.items()}
+            # must have a target
+            if not r.get("target"):
+                continue
+            rows.append(r)
+    return rows
 
-    git_sha = os.environ.get("GITHUB_SHA", "")
-    git_short = git_sha[:7] if git_sha else ""
+def coalesce(*vals):
+    for v in vals:
+        if v is None: 
+            continue
+        if isinstance(v, str) and v.strip() == "":
+            continue
+        return v
+    return ""
 
-    for p in sorted(joblibs):
-        rel = p.relative_to(REPO_ROOT)
-        fname = p.name
-        fname_lower = fname.lower()
-        filesize = p.stat().st_size
-        modified_utc = iso_utc(p.stat().st_mtime)
-        file_sha = sha256_file(p)
+def main():
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    metrics = read_metrics(METRICS)
 
-        # Try join to metrics by filename (case-insensitive)
-        metrics_row = None
-        if not metrics_df.empty:
-            m = metrics_df.loc[metrics_df["__filename_lower"] == fname_lower]
-            if len(m) == 0:
-                # Second chance: metrics artifact_path endswith our relative path
-                m = metrics_df[metrics_df["artifact_path"].astype(str).str.endswith(fname, na=False)]
-            if len(m) > 0:
-                metrics_row = m.iloc[0].to_dict()
+    if not metrics:
+        print("ERROR: manifest has no populated 'target' values.", file=sys.stderr)
+        sys.exit(1)
 
-        # Populate fields, preferring metrics when present
-        target = None
-        version_tag = None
-        actual_column = None
-        mae = None
-        r2 = None
-        built_at_utc = None
-        random_seed = None
-        artifact_git = None
+    # Deduplicate by (target, version_tag) keeping latest built_at_utc if present
+    def parse_dt(s: str):
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except Exception:
+            return datetime.min
 
-        if metrics_row:
-            target = metrics_row.get("target") or target
-            version_tag = metrics_row.get("version_tag") or version_tag
-            actual_column = metrics_row.get("actual_column") or actual_column
-            mae = metrics_row.get("mae")
-            r2 = metrics_row.get("r2")
-            built_at_utc = metrics_row.get("built_at_utc")
-            random_seed = metrics_row.get("random_seed")
-            artifact_git = metrics_row.get("git_commit") or git_short
+    dedup = {}
+    for r in metrics:
+        key = (r.get("target",""), r.get("version_tag",""))
+        chosen = dedup.get(key)
+        if not chosen or parse_dt(r.get("built_at_utc","")) > parse_dt(chosen.get("built_at_utc","")):
+            dedup[key] = r
+    rows = list(dedup.values())
 
-        # Fallbacks if metrics missing
-        if not target:
-            target = infer_target_from_filename(fname)
+    # Build CSV + lock entries
+    csv_rows = []
+    lock_rows = []
 
-        if not version_tag:
-            # Try extract suffix like *_YYYYMMDD_<hash>
-            m = re.match(r".*_(\d{8}_[0-9a-fA-F]+)\.joblib$", fname)
-            if m:
-                version_tag = m.group(1)
-            else:
-                version_tag = ""
-
-        row = {
-            "path": str(rel).replace("\\", "/"),
-            "filename": fname,
-            "sha256": file_sha,
-            "filesize_bytes": filesize,
-            "modified_time_utc": modified_utc,
-            "target": target or "",                            # must be populated
-            "version_tag": version_tag,
-            "git_commit": artifact_git or git_short,
-            "random_seed": random_seed if pd.notna(random_seed) else "",
-            "estimator": "",                                   # optional (not available here)
-            "hyperparameters_json": "tuple",                   # keep shape consistent with prior CSVs
-            "features_path": str(metrics_row.get("features_path")) if metrics_row and pd.notna(metrics_row.get("features_path")) else "",
-            "data_sha256": str(metrics_row.get("data_sha256")) if metrics_row and pd.notna(metrics_row.get("data_sha256")) else "",
-            "feature_count": int(metrics_row.get("feature_count")) if metrics_row and pd.notna(metrics_row.get("feature_count")) else "",
-            "built_at_utc": built_at_utc or modified_utc,
-            # Nice-to-have columns, if consumers ever need them:
-            "actual_column": actual_column or "",
-            "mae": mae if (mae is not None and pd.notna(mae)) else "",
-            "r2": r2 if (r2 is not None and pd.notna(r2)) else "",
-        }
-        rows.append(row)
-
-        lock_entries.append({
-            "filename": fname,
-            "path": row["path"],
-            "sha256": file_sha,
-            "target": row["target"],
-            "version_tag": version_tag,
+    for r in rows:
+        artifact_path = r.get("artifact_path","")              # absolute in CI
+        filename = Path(artifact_path).name if artifact_path else ""
+        sha256 = r.get("artifact_sha256","")
+        # We don’t know size/mtime for artifacts stored off-repo; leave blank
+        csv_rows.append({
+            "path": artifact_path,                             # keep full path (informational)
+            "filename": filename,
+            "sha256": sha256,
+            "filesize_bytes": "",
+            "modified_time_utc": "",
+            "target": r.get("target",""),
+            "version_tag": r.get("version_tag",""),
+            "git_commit": r.get("git_commit",""),
+            "random_seed": r.get("random_seed",""),
+            "estimator": "",                                   # unknown in metrics_summary
+            "hyperparameters_json": "",                        # unknown in metrics_summary
+            "features_path": "",                               # unknown in metrics_summary
+            "data_sha256": "",                                 # unknown in metrics_summary
+            "feature_count": "",                               # unknown in metrics_summary
+            "built_at_utc": r.get("built_at_utc",""),
+            "actual_column": r.get("actual_column",""),
+            "mae": r.get("mae",""),
+            "r2": r.get("r2",""),
+        })
+        lock_rows.append({
+            "filename": filename,
+            "artifact_path": artifact_path,
+            "sha256": sha256,
+            "target": r.get("target",""),
+            "version_tag": r.get("version_tag",""),
+            "built_at_utc": r.get("built_at_utc",""),
+            "git_commit": r.get("git_commit",""),
+            # helpful hint to consumers that these are workflow artifacts, not repo files
+            "source": "metrics_summary",
         })
 
-    df = pd.DataFrame(rows)
+    # Write CSV
+    with MANIFEST_CSV.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(csv_rows)
 
-    # Hard guard: fail if we somehow created empty/blank targets
-    if df.empty or df["target"].isna().any() or (df["target"].astype(str).str.strip() == "").any():
-        print("ERROR: manifest has no populated 'target' values.", file=sys.stderr)
-        # Show a quick debug sample
-        print(df[["filename", "target"]].head().to_string(index=False))
-        return 1
-
-    # Write outputs
-    df.sort_values(["target", "filename"], inplace=True)
-    MANIFEST_CSV.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(MANIFEST_CSV, index=False, quoting=csv.QUOTE_MINIMAL)
+    # Write lock JSON
     with LOCK_JSON.open("w") as f:
-        json.dump({"artifacts": lock_entries}, f, indent=2)
+        json.dump({"artifacts": lock_rows}, f, indent=2)
 
-    print(f"[build_models_manifest] wrote {len(df)} rows -> {MANIFEST_CSV}")
-    print(f"[build_models_manifest] wrote lock -> {LOCK_JSON}")
-    return 0
+    print(f"[OK] Wrote manifest -> {MANIFEST_CSV}")
+    print(f"[OK] Wrote lock     -> {LOCK_JSON}")
+    # explicit success exit
+    sys.exit(0)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
