@@ -1,6 +1,5 @@
 # config/models.yml
-# Updated with columns detected in your features file, plus additional desired targets
-# to generate suggestions on the next run.
+# Stable: trains only columns we KNOW exist today (from features + logs)
 
 seed: 42
 version_tag: auto
@@ -11,47 +10,42 @@ random_forest:
   max_depth: null
   n_jobs: -1
 
-# Targets to train (present) + targets to suggest (may not exist yet)
-# The trainer will train any that exactly match a column;
-# the debug step will produce suggestions for every name listed here.
+# === Trains now (confirmed present) ===
 targets:
-  # ===== Present in your data (confirmed) =====
   - passing_yards
   - rushing_yards
   - receiving_yards
   - receptions
-  - completions           # pass_completions
+  - completions
   - passing_tds
-  - interceptions         # thrown by QB
+  - interceptions
   - rushing_tds
   - targets
   - receiving_tds
-  - sacks                 # defensive sacks (per-player)
+  - sacks
 
-  # ===== Additional targets (for suggestions; add exact matches after next run) =====
-  - pass_attempts
-  - rush_attempts
-  - qb_sacks_taken
-  - qb_rush_yards
-  - qb_rush_attempts
-  - rushing_long
-  - longest_reception
-  - field_goals_made
-  - field_goals_attempted
-  - longest_field_goal
-  - kicking_points
-  - tackles_combined
-  - tackles_assists
-  - interceptions_def
-  - passes_defended
-  - anytime_td
-  - team_points_for
-  - game_total_points
+# Add more later ONLY after columns exist in features:
+#  - pass_attempts
+#  - rush_attempts
+#  - qb_sacks_taken
+#  - qb_rush_yards
+#  - qb_rush_attempts
+#  - rushing_long
+#  - longest_reception
+#  - field_goals_made
+#  - field_goals_attempted
+#  - longest_field_goal
+#  - kicking_points
+#  - tackles_combined
+#  - tackles_assists
+#  - interceptions_def
+#  - passes_defended
+#  - anytime_td         # needs a 0/1 label
+#  - team_points_for
+#  - game_total_points
 
-# Data location
 features_path: data/features/weekly_clean.csv.gz
 
-# Columns to exclude from features (IDs etc.)
 id_columns:
   - season
   - week
