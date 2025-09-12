@@ -1,98 +1,52 @@
-# Python cache
+# --- Python build/artifacts ---
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 *.so
-
-# Virtual environments
-.env
-.venv
-env/
+*.pyd
+*.pyo
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+.cache/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
 venv/
+.env
+.env.*
 
-# OS files
+# --- OS noise ---
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-logs/
+# --- Editors/IDEs ---
+.vscode/
+.idea/
+*.code-workspace
 
-# Jupyter
-.ipynb_checkpoints
+# --- Model binaries (never commit) ---
+models/pregame/*.joblib
 
-# Data (large, intermediate, or regenerated)
-data/warehouse/
-data/features/
-data/predictions/
-data/odds/
-data/end_chain/
-data/cleaned/
-data/_projections/
+# --- Large data (keep repo lean) ---
+data/raw/
+data/external/
+data/interim/
+data/cache/
+data/tmp/
+# if you really want to track a specific file under data/, un-ignore it below like:
+# !data/path/to/keep.csv
 
-# Keep these data subsets
-!data/props/
-!data/edges/
-!data/games/
-!data/games/*.csv
-!data/processed/schedules/schedules_merged.csv
-
-# Output (default ignore)
-output/
-
-# Compressed files (default ignore)
-*.gz
-*.zip
-*.tar
-*.tgz
-
-# Configs
-config/*.yml
-
-# Keep feature + pregame summaries
-!data/features/_build_features_summary.txt
-!data/pregame/_history_summary.txt
-
-# ===== nflverse canonical + tiny artifacts (PBP) =====
-!data/raw/nflverse/play_by_play_latest.csv.gz
-!data/raw/nflverse/pbp_latest.parquet
-!data/raw/nflverse/pbp_latest.head100.csv.gz
-!data/raw/nflverse/manifest_latest.csv.gz
-
-# ===== nflverse canonical + tiny artifacts (WEEKLY) =====
-!data/raw/nflverse/weekly_latest.csv.gz
-!data/raw/nflverse/weekly_latest.parquet
-!data/raw/nflverse/weekly_latest.head100.csv.gz
-!data/raw/nflverse/weekly_manifest_latest.csv.gz
-
-# ===== nflverse canonical + tiny artifacts (ROSTERS) =====
-!data/raw/nflverse/rosters_latest.csv.gz
-!data/raw/nflverse/rosters_latest.parquet
-!data/raw/nflverse/rosters_latest.head100.csv.gz
-!data/raw/nflverse/rosters_manifest_latest.csv.gz
-
-# ===== NGS artifacts (if present) =====
-!data/raw/ngs/nextgen_stats.csv.gz
-!data/raw/ngs/ngs.parquet
-!data/raw/ngs/ngs_latest.head100.csv.gz
-!data/raw/ngs/manifest_latest.csv.gz
-
-# ===== Models: ensure trained models are versioned =====
-!models/
-!models/pregame/
-!models/pregame/*.joblib
-
-# ===== Metrics: ensure training metrics are versioned =====
-!output/
+# --- Outputs ---
+# ignore everything under output/ by default…
+output/**
+# …but keep these “lightweight” artifacts we want in git:
 !output/models/
 !output/models/metrics_summary.csv
+!output/logs/
+!output/logs/*.log
 
-# ===== Predictions: keep generated prediction files =====
-!data/predictions/
-!data/predictions/pregame/
-!data/predictions/pregame/*.csv.gz
-
-!output/predictions/
-!output/predictions/pregame/
-!output/predictions/pregame/*.csv.gz
+# --- Manifests we do want in git ---
+!models/manifest/
