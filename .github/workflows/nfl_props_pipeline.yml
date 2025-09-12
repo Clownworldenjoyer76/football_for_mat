@@ -2,147 +2,81 @@ name: NFL Props Pipeline
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/**"
-      - "config/**"
-      - "data/**"
-      - "requirements.txt"
-      - ".github/workflows/nfl_props_pipeline.yml"
+  schedule:
+    - cron: "0 6 * * *"  # daily 6AM UTC run
 
 permissions:
   contents: write
 
-concurrency:
-  group: nfl-props-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   build-train-commit:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-
     env:
-      PYTHONUNBUFFERED: "1"
-      PYTHONPATH: "."
-      MODELS_DIR: models/pregame
-      FEATURES_PATH: data/features/weekly_clean.csv.gz
-      LOGS_DIR: output/logs
-      METRICS_PATH: output/models/metrics_summary.csv
+      TZ: America/New_York
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           lfs: true
+          fetch-depth: 0
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-          cache: "pip"
-          cache-dependency-path: "requirements.txt"
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
-          python -m pip install -U pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      # ---------- TRAIN ----------
-      - name: Train models (single invocation)
+      # --- Data prep ---
+      - name: Step 01 - Canonicalize raw data
+        run: python scripts/01_canonicalize_raw.py
+
+      - name: Step 02 - Build features
+        run: python scripts/02_build_features.py
+
+      - name: Step 02.5 - Debug features
+        run: python scripts/02a_debug_features.py
+
+      - name: Step 02.6 - Enrich features
+        run: python scripts/02b_enrich_features.py
+
+      # --- Model training ---
+      - name: Step 03 - Train models
+        run: python scripts/03_train_models.py
+
+      # --- Manifest build ---
+      - name: Step 03.5 - Build models manifest
+        run: python scripts/build_models_manifest.py models/pregame output/logs/features_columns.txt
+
+      # --- Commit results back ---
+      - name: Commit updated models, metrics, and manifest
         run: |
-          set -e
-          python -u scripts/03_train_models.py
-        env:
-          # add any keys you need here, e.g. API keys
-          CI: "true"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Show training outputs
-        if: always()
-        run: |
-          echo "==== Models dir ===="
-          ls -lh "${{ env.MODELS_DIR }}" || true
-          echo "==== Metrics head ===="
-          head -n 50 "${{ env.METRICS_PATH }}" || true
-          echo "==== Feature columns ===="
-          head -n 50 "${{ env.LOGS_DIR }}/features_columns.txt" || true
+          git lfs track "*.joblib"
 
-      # ---------- MANIFEST ----------
-      - name: Build models manifest with metadata
-        run: |
-          set -e
-          python -u scripts/build_models_manifest.py \
-            --models-dir "${{ env.MODELS_DIR }}" \
-            --features "${{ env.FEATURES_PATH }}"
-
-      - name: Validate manifest is populated
-        run: |
-          set -e
-          MANIFEST=models/manifest/models_manifest.csv
-          echo "Checking manifest at ${MANIFEST}"
-          test -s "${MANIFEST}"
-
-          # ensure at least one row has a non-empty 'target' (column 6)
-          awk -F',' 'NR>1 && $6!="" {c++} END { if (c==0) { print "ERROR: manifest has no populated target column."; exit 1 } }' "${MANIFEST}"
-
-          # ensure metrics exist and are non-empty
-          test -s "${{ env.METRICS_PATH }}"
-
-      - name: Print manifest head
-        run: |
-          head -n 30 models/manifest/models_manifest.csv
-
-      # ---------- GIT LFS + COMMIT ----------
-      - name: Configure Git LFS for .joblib
-        run: |
-          git lfs install
-          # Track .joblib (big files >100MB need LFS or commit will fail)
-          if ! grep -q "\.joblib" .gitattributes 2>/dev/null; then
-            git lfs track "*.joblib"
-          fi
-          git add .gitattributes || true
-
-      - name: Stage artifacts and provenance
-        run: |
-          set -e
-          # Models (go via LFS), manifest, and metrics
-          git add ${{ env.MODELS_DIR }}/*.joblib
+          git add models/pregame/*.joblib
           git add models/manifest/models_manifest.csv
-          # If your builder also writes the lock file, include it:
-          if [ -f models/manifest/models_manifest.lock.json ]; then
-            git add models/manifest/models_manifest.lock.json
-          fi
-          # Metrics + logs are handy to keep
-          if [ -f "${{ env.METRICS_PATH }}" ]; then git add "${{ env.METRICS_PATH }}"; fi
-          if [ -f "${{ env.LOGS_DIR }}/features_columns.txt" ]; then git add "${{ env.LOGS_DIR }}/features_columns.txt"; fi
+          git add models/manifest/models_manifest.lock.json || true
+          git add output/models/metrics_summary.csv
+          git add output/logs/features_columns.txt
 
-      - name: Commit (skip CI)
-        run: |
-          set -e
-          git config user.name  "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-          if ! git diff --cached --quiet; then
-            git commit -m "[skip ci] Update models, manifest and metrics"
-          else
-            echo "No changes to commit."
-          fi
+          git commit -m "[skip ci] Update models, manifest and metrics" || echo "No changes to commit"
+          git push
 
-      - name: Push
-        if: always()
-        run: |
-          # Push even if nothing new; will be no-op
-          git push || true
-
-      # ---------- ARTIFACT (optional) ----------
-      - name: Upload run artifacts (for quick download)
+      # --- Upload artifacts for inspection ---
+      - name: Upload models and logs
         uses: actions/upload-artifact@v4
         with:
-          name: models-and-manifest
-          if-no-files-found: ignore
-          retention-days: 7
+          name: models-and-logs
           path: |
-            ${{ env.MODELS_DIR }}/*.joblib
+            models/pregame/*.joblib
             models/manifest/models_manifest.csv
             models/manifest/models_manifest.lock.json
-            ${{ env.METRICS_PATH }}
-            ${{ env.LOGS_DIR }}/features_columns.txt
+            output/models/metrics_summary.csv
+            output/logs/features_columns.txt
