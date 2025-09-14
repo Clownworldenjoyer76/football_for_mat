@@ -1,302 +1,207 @@
 #!/usr/bin/env python3
 """
-Builds a models manifest from files under models/pregame and (optionally)
-enriches with metrics from output/models/metrics_summary.csv.
+Build/refresh models manifest + lock file.
 
-Outputs:
-- models/manifest/models_manifest.csv
-- models/manifest/models_manifest.json
-- models/manifest/models_manifest.lock.json  (stable, sorted, deduped)
+- Scans models/ (default: models/pregame/*.joblib) and records artifact metadata.
+- Enriches rows with training metrics from:
+   1) output/models/metrics_summary.csv (legacy: mae, r2, version_tag, etc.)
+   2) output/metrics_summary.json (new: MAE, RMSE, rows)
+- Writes:
+   - models/manifest/models_manifest.csv
+   - models/manifest/models_manifest.lock.json
 """
 
-import hashlib
+from __future__ import annotations
+import csv
 import json
-import os
-import re
-import sys
-from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
+from datetime import timezone, datetime
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]  # repo root (…/football_for_mat)
-MODELS_DIR = ROOT / "models" / "pregame"
-OUT_DIR = ROOT / "models" / "manifest"
-METRICS_CSV = ROOT / "output" / "models" / "metrics_summary.csv"
+# ---------- Config ----------
+MODELS_GLOB = "models/pregame/**/*.joblib"
+MANIFEST_CSV = Path("models/manifest/models_manifest.csv")
+LOCK_JSON    = Path("models/manifest/models_manifest.lock.json")
 
-OUT_CSV = OUT_DIR / "models_manifest.csv"
-OUT_JSON = OUT_DIR / "models_manifest.json"
-OUT_LOCK = OUT_DIR / "models_manifest.lock.json"
+METRICS_CSV  = Path("output/models/metrics_summary.csv")     # legacy, has r2 + artifact paths
+METRICS_JSON = Path("output/metrics_summary.json")           # new, has MAE/RMSE/rows
 
-
-def sha256_file(path: Path) -> str:
+# ---------- Helpers ----------
+def sha256_of_file(p: Path) -> str:
     h = hashlib.sha256()
-    with path.open("rb") as f:
+    with p.open("rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
 
-
-def iso_utc(ts: float) -> str:
-    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def git_short_sha() -> str:
-    # Prefer CI-provided env var; fallback to git command; else blank
-    env = os.getenv("GITHUB_SHA")
-    if env:
-        return env[:7]
-    try:
-        import subprocess
-
-        out = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT).decode().strip()
-        return out
-    except Exception:
+def iso_utc(ts: float | int | None) -> str:
+    if not ts:
         return ""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
+def safe_str(x):
+    return "" if x is None else str(x)
 
-FN_PATTERN = re.compile(r"^(?P<target>.+?)_(?P<version_tag>[0-9]{8}_[0-9a-f]{7,})\.joblib$")
+# ---------- Load metrics ----------
+def load_metrics_csv(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    df = pd.read_csv(path)
+    # normalize expected cols
+    for col in [
+        "target","actual_column","artifact_path","artifact_sha256","git_commit",
+        "random_seed","built_at_utc","mae","r2","version_tag"
+    ]:
+        if col not in df.columns:
+            df[col] = ""
+    return df
 
+def load_metrics_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    with path.open() as f:
+        raw = json.load(f)
+    # Normalize keys: {target: {"MAE": float, "RMSE": float, "rows": int, ...}}
+    norm = {}
+    for tgt, vals in raw.items():
+        if isinstance(vals, dict):
+            norm[tgt] = {
+                "MAE": vals.get("MAE"),
+                "RMSE": vals.get("RMSE"),
+                "rows": vals.get("rows")
+            }
+    return norm
 
-def parse_name(filename: str):
-    """
-    Returns (target, version_tag). If pattern doesn't match, falls back to (stem, "").
-    """
-    m = FN_PATTERN.match(filename)
-    if m:
-        return m.group("target"), m.group("version_tag")
-    # Fallback: use stem as 'target'-ish, blank version
-    return Path(filename).stem, ""
+# ---------- Build manifest rows ----------
+def build_manifest_rows() -> list[dict]:
+    csv_metrics = load_metrics_csv(METRICS_CSV)
+    json_metrics = load_metrics_json(METRICS_JSON)
 
+    # Map legacy CSV metrics by artifact_path (most specific) and by target (fallback)
+    by_artifact = {}
+    by_target   = {}
+    if not csv_metrics.empty:
+        for _, r in csv_metrics.iterrows():
+            by_target[safe_str(r.get("target",""))] = r
+            ap = safe_str(r.get("artifact_path",""))
+            if ap:
+                by_artifact[ap] = r
 
-def collect_model_files():
-    """
-    Yields dict rows with file metadata for every .joblib under models/pregame
-    """
     rows = []
-    if not MODELS_DIR.exists():
-        return rows
-    for p in sorted(MODELS_DIR.rglob("*.joblib")):
-        rel = p.relative_to(ROOT).as_posix()
-        target, version_tag = parse_name(p.name)
+    for path in sorted(Path(".").glob(MODELS_GLOB)):
+        rel_path = str(path.as_posix())
 
+        # Basic file stats
         try:
-            stat = p.stat()
+            stat = path.stat()
             filesize = stat.st_size
             mtime_iso = iso_utc(stat.st_mtime)
+            file_sha = sha256_of_file(path)
         except FileNotFoundError:
-            # In case of a transient delete
+            # ignore vanishing files
             continue
 
-        rows.append(
-            {
-                "path": rel,
-                "filename": p.name,
-                "sha256": sha256_file(p),
-                "filesize_bytes": filesize,
-                "modified_time_utc": mtime_iso,
-                "target": target,
-                "version_tag": version_tag,
-            }
-        )
+        filename = path.name
+
+        # Infer target from filename if needed (strip .joblib)
+        inferred_target = filename.replace(".joblib", "")
+
+        # Pull legacy metrics (CSV), preferring artifact match
+        legacy = by_artifact.get(rel_path) or by_target.get(inferred_target) or {}
+
+        # Pull new metrics (JSON) by target key
+        jsonm = json_metrics.get(inferred_target, {})
+
+        # Compose row
+        row = {
+            "path": rel_path,
+            "filename": filename,
+            "sha256": file_sha,
+            "filesize_bytes": filesize,
+            "modified_time_utc": mtime_iso,
+
+            # From legacy CSV when available
+            "target": safe_str(legacy.get("target") or inferred_target),
+            "version_tag": safe_str(legacy.get("version_tag")),
+            "git_commit": safe_str(legacy.get("git_commit")),
+            "random_seed": safe_str(legacy.get("random_seed")),
+            "estimator": safe_str(legacy.get("estimator")),
+            "hyperparameters_json": safe_str(legacy.get("hyperparameters_json")),
+            "features_path": safe_str(legacy.get("features_path")),
+            "data_sha256": safe_str(legacy.get("data_sha256")),
+            "feature_count": safe_str(legacy.get("feature_count")),
+            "built_at_utc": safe_str(legacy.get("built_at_utc")),
+            "actual_column": safe_str(legacy.get("actual_column")),
+            "mae": safe_str(legacy.get("mae")),
+            "r2": safe_str(legacy.get("r2")),
+
+            # Always include these, letting JSON override/augment
+            "artifact_filename": filename,          # convenience, mirrors filename
+            "artifact_sha256": file_sha,            # convenience, mirrors sha256
+
+            # New fields from JSON
+            "rmse": "",                             # filled below if present
+            "rows": ""
+        }
+
+        # If JSON has fresher MAE/RMSE/rows, set/override
+        if jsonm:
+            if jsonm.get("MAE") is not None:
+                row["mae"] = f"{float(jsonm['MAE']):.6g}"
+            if jsonm.get("RMSE") is not None:
+                row["rmse"] = f"{float(jsonm['RMSE']):.6g}"
+            if jsonm.get("rows") is not None:
+                row["rows"] = str(int(jsonm["rows"]))
+
+        rows.append(row)
+
     return rows
 
+# ---------- Write outputs ----------
+def write_manifest_csv(rows: list[dict], out_path: Path):
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
-def read_metrics():
-    """
-    Returns metrics dataframe or empty df.
-    Expected columns in metrics_summary.csv:
-      target, actual_column, artifact_path, artifact_sha256, git_commit, random_seed,
-      built_at_utc, mae, r2, version_tag
-    """
-    if not METRICS_CSV.exists():
-        return pd.DataFrame()
-    try:
-        df = pd.read_csv(METRICS_CSV)
-    except Exception:
-        return pd.DataFrame()
-
-    # Normalize keys we’ll merge on
-    # Use filename + sha256 + version_tag for robust join when absolute paths differ.
-    df["artifact_filename"] = df["artifact_path"].fillna("").apply(lambda s: Path(s).name if s else "")
-    for col in ("artifact_sha256", "version_tag", "target", "actual_column", "mae", "r2", "git_commit", "random_seed", "built_at_utc"):
-        if col not in df.columns:
-            df[col] = ""
-    return df[
-        [
-            "artifact_filename",
-            "artifact_sha256",
-            "version_tag",
-            "target",
-            "actual_column",
-            "mae",
-            "r2",
-            "git_commit",
-            "random_seed",
-            "built_at_utc",
-        ]
+    # Column order (stable)
+    columns = [
+        "path","filename","sha256","filesize_bytes","modified_time_utc",
+        "target","version_tag","git_commit","random_seed","estimator","hyperparameters_json",
+        "features_path","data_sha256","feature_count","built_at_utc",
+        "actual_column","mae","r2","rmse","rows",
+        "artifact_filename","artifact_sha256",
     ]
 
+    # Ensure all keys exist
+    for r in rows:
+        for c in columns:
+            r.setdefault(c, "")
 
-def stable_sort_columns(df: pd.DataFrame, desired_order: list) -> pd.DataFrame:
-    for col in desired_order:
-        if col not in df.columns:
-            df[col] = ""
-    # Keep extras but put them after
-    ordered = [c for c in desired_order if c in df.columns]
-    extras = [c for c in df.columns if c not in ordered]
-    return df[ordered + extras]
+    with out_path.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=columns)
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
 
-
-def write_if_changed(path: Path, content: bytes) -> bool:
-    """
-    Write only if bytes differ. Returns True if file written/updated.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        with path.open("rb") as f:
-            if f.read() == content:
-                return False
-    with path.open("wb") as f:
-        f.write(content)
-    return True
-
+def write_lock_json(rows: list[dict], out_path: Path):
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    artifacts = []
+    for r in rows:
+        artifacts.append({
+            "filename": r.get("filename",""),
+            "path": r.get("path",""),
+            "sha256": r.get("sha256",""),
+            "target": r.get("target",""),
+            "version_tag": r.get("version_tag",""),
+        })
+    with out_path.open("w") as f:
+        json.dump({"artifacts": artifacts}, f, indent=2)
 
 def main():
-    rows = collect_model_files()
-    if not rows:
-        print("[WARN] No .joblib artifacts found under models/pregame")
-    df = pd.DataFrame(rows)
-
-    # Merge metrics if available
-    mdf = read_metrics()
-    if not df.empty and not mdf.empty:
-        # Merge on filename + sha256 (most robust); if sha256 missing in metrics, fallback on filename + version_tag
-        left = df.copy()
-        left["artifact_filename"] = left["filename"]
-        merged = left.merge(
-            mdf,
-            how="left",
-            on="artifact_filename",
-            suffixes=("", "_m"),
-        )
-
-        # Prefer exact sha256 match where available
-        def pick(row, col):
-            base = row.get(col, "")
-            met = row.get(col + "_m", "")
-            if col in ("target", "version_tag"):  # prefer file-derived for these
-                return base or met
-            # prefer metrics value when present
-            return met or base
-
-        merged["git_commit"] = merged.apply(lambda r: pick(r, "git_commit"), axis=1)
-        merged["random_seed"] = merged.apply(lambda r: pick(r, "random_seed"), axis=1)
-        merged["built_at_utc"] = merged.apply(lambda r: pick(r, "built_at_utc"), axis=1)
-        merged["actual_column"] = merged.apply(lambda r: pick(r, "actual_column"), axis=1)
-        merged["mae"] = merged.apply(lambda r: pick(r, "mae"), axis=1)
-        merged["r2"] = merged.apply(lambda r: pick(r, "r2"), axis=1)
-
-        # If version_tag is blank in file name but present in metrics, keep metrics
-        merged["version_tag"] = merged.apply(
-            lambda r: r["version_tag"] or r.get("version_tag_m", "") or "", axis=1
-        )
-
-        df = merged.drop(columns=[c for c in merged.columns if c.endswith("_m")])
-    else:
-        # fill metric columns with blanks to keep header consistent
-        for c in ("git_commit", "random_seed", "built_at_utc", "actual_column", "mae", "r2"):
-            df[c] = ""
-
-    # If git_commit still blank, fill with current short sha (best effort)
-    short_sha = git_short_sha()
-    if short_sha:
-        df["git_commit"] = df["git_commit"].replace("", short_sha)
-
-    # Stable ordering
-    df["__sort_key"] = (
-        df["target"].astype(str).str.lower()
-        + "|"
-        + df["version_tag"].astype(str)
-        + "|"
-        + df["filename"].astype(str).str.lower()
-    )
-    df = df.sort_values("__sort_key").drop(columns="__sort_key")
-
-    # Normalize column order (keeps extras at end)
-    desired_cols = [
-        "path",
-        "filename",
-        "sha256",
-        "filesize_bytes",
-        "modified_time_utc",
-        "target",
-        "version_tag",
-        "git_commit",
-        "random_seed",
-        "estimator",
-        "hyperparameters_json",
-        "features_path",
-        "data_sha256",
-        "feature_count",
-        "built_at_utc",
-        "actual_column",
-        "mae",
-        "r2",
-    ]
-    df = stable_sort_columns(df, desired_cols)
-
-    # Ensure the optional (unknown) fields are empty strings rather than NaN
-    df = df.fillna("")
-
-    # === Write CSV ===
-    csv_bytes = df.to_csv(index=False).encode("utf-8")
-    wrote_csv = write_if_changed(OUT_CSV, csv_bytes)
-
-    # === Write JSON mirror ===
-    json_bytes = df.to_json(orient="records", indent=2).encode("utf-8")
-    wrote_json = write_if_changed(OUT_JSON, json_bytes)
-
-    # === Write LOCK (stable, minimal keys) ===
-    artifacts = []
-    for _, r in df.iterrows():
-        artifacts.append(
-            {
-                "filename": r["filename"],
-                "path": r["path"],
-                "sha256": r["sha256"],
-                "target": r["target"],
-                "version_tag": r["version_tag"],
-            }
-        )
-    # Dedupe, then stable sort
-    seen = set()
-    deduped = []
-    for a in artifacts:
-        key = (a["path"], a["sha256"])
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(a)
-    deduped.sort(key=lambda a: (a["target"], a["version_tag"], a["filename"]))
-
-    lock_payload = {"artifacts": deduped}
-    lock_bytes = (json.dumps(lock_payload, indent=2) + "\n").encode("utf-8")
-    wrote_lock = write_if_changed(OUT_LOCK, lock_bytes)
-
-    # Summary
-    wrote_any = wrote_csv or wrote_json or wrote_lock
-    print(f"[INFO] Models found: {len(df)}")
-    print(f"[INFO] Wrote CSV: {wrote_csv} -> {OUT_CSV.relative_to(ROOT)}")
-    print(f"[INFO] Wrote JSON: {wrote_json} -> {OUT_JSON.relative_to(ROOT)}")
-    print(f"[INFO] Wrote LOCK: {wrote_lock} -> {OUT_LOCK.relative_to(ROOT)}")
-    if not wrote_any:
-        print("[INFO] No manifest changes.")
-
+    rows = build_manifest_rows()
+    write_manifest_csv(rows, MANIFEST_CSV)
+    write_lock_json(rows, LOCK_JSON)
+    print(f"[OK] Wrote {MANIFEST_CSV} and {LOCK_JSON} with {len(rows)} artifacts.")
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        sys.exit(1)
+    main()
