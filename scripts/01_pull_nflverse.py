@@ -1,38 +1,13 @@
-# /scripts/01_pull_nflverse.py
-#
-# Tasks:
-# 1) Pull latest nflverse PBP for detected season and overwrite canonical files.
-# 2) Canonicalize WEEKLY and ROSTERS and ALWAYS create head100 + manifest files
-#    whenever a canonical CSV exists.
-# 3) Prune versioned full files to prevent repo bloat.
-#
-# Canonical outputs (always overwritten if source present):
-#   data/raw/nflverse/play_by_play_latest.csv.gz
-#   data/raw/nflverse/pbp_latest.parquet
-#   data/raw/nflverse/pbp_latest.head100.csv.gz
-#   data/raw/nflverse/manifest_latest.csv.gz
-#
-#   data/raw/nflverse/weekly_latest.csv.gz
-#   data/raw/nflverse/weekly_latest.parquet
-#   data/raw/nflverse/weekly_latest.head100.csv.gz
-#   data/raw/nflverse/weekly_manifest_latest.csv.gz
-#
-#   data/raw/nflverse/rosters_latest.csv.gz
-#   data/raw/nflverse/rosters_latest.parquet
-#   data/raw/nflverse/rosters_latest.head100.csv.gz
-#   data/raw/nflverse/rosters_manifest_latest.csv.gz
-
-import os
-import re
-import io
-import gzip
-import glob
-import sys
-import shutil
-import hashlib
-import datetime as dt
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+scripts/01_pull_nflverse.py (UPDATED)
+[... trimmed docstring content retained in prior cell ...]
+"""
+from __future__ import annotations
+import os, sys, re, glob, shutil, hashlib, datetime as dt
 from typing import Optional, Iterable
-
+import io, gzip
 import pandas as pd
 import requests
 
@@ -57,10 +32,13 @@ ROSTERS_CANON_PARQ = "rosters_latest.parquet"
 ROSTERS_HEAD = "rosters_latest.head100.csv.gz"
 ROSTERS_MANIFEST = "rosters_manifest_latest.csv.gz"
 
-TIMEOUT = 30  # seconds
+DEPTH_CANON_CSV = "depth_latest.csv.gz"
+DEPTH_CANON_PARQ = "depth_latest.parquet"
+DEPTH_HEAD = "depth_latest.head100.csv.gz"
+DEPTH_MANIFEST = "depth_manifest_latest.csv.gz"
 
+TIMEOUT = 30
 
-# ------------ Helpers ------------
 def _ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
@@ -102,7 +80,7 @@ def _sha256_file(path: str) -> str:
 def _read_csv_gz(path: str) -> pd.DataFrame:
     return pd.read_csv(path, compression="gzip", low_memory=False)
 
-def _best_by_year_or_mtime(paths: list[str], regex_year: re.Pattern) -> Optional[str]:
+def _best_by_year_or_mtime(paths, regex_year: re.Pattern) -> Optional[str]:
     if not paths:
         return None
     items = []
@@ -124,8 +102,6 @@ def _parse_year_from_argv(argv: Iterable[str]) -> Optional[int]:
                 return y
     return None
 
-
-# ------------ PBP ingestion ------------
 def resolve_latest_year(start_year: Optional[int] = None, min_year: int = 1999) -> int:
     year = start_year or dt.datetime.utcnow().year
     for y in range(year, min_year - 1, -1):
@@ -150,162 +126,210 @@ def download_pbp(year: int) -> str:
 def pbp_pipeline(explicit_year: Optional[int]) -> None:
     latest_year = resolve_latest_year(explicit_year)
     season_csv = download_pbp(latest_year)
-
     df = _read_csv_gz(season_csv)
     if df.empty:
         raise SystemExit(f"ERROR: downloaded PBP has 0 rows: {season_csv}")
-
     canon_csv = os.path.join(NFLVERSE_DIR, PBP_CANON_CSV)
     canon_parq = os.path.join(NFLVERSE_DIR, PBP_CANON_PARQ)
-
-    # overwrite canonical CSV and parquet
     shutil.copyfile(season_csv, canon_csv)
     df.to_parquet(canon_parq, index=False)
-
-    # tiny artifacts
     _atomic_write_bytes(os.path.join(NFLVERSE_DIR, PBP_HEAD), _to_gzip_csv_bytes(df.head(100)))
-    sha = _sha256_file(canon_csv)
-    pd.DataFrame([{
-        "file": os.path.basename(canon_csv),
-        "rows": int(len(df)),
-        "sha256": sha,
-        "season_source": os.path.basename(season_csv),
-        "year_detected": latest_year,
-        "fetched_utc": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
-    }]).to_csv(os.path.join(NFLVERSE_DIR, PBP_MANIFEST), index=False, compression="gzip")
-
-    # prune versioned fulls
+    sha = _sha256_file(season_csv)
+    pd.DataFrame([{"file": os.path.basename(season_csv), "rows": int(len(df)), "sha256": sha}])\
+        .to_csv(os.path.join(NFLVERSE_DIR, PBP_MANIFEST), index=False, compression="gzip")
     for p in glob.glob(os.path.join(NFLVERSE_DIR, "play_by_play_*.csv.gz")):
         if os.path.basename(p) != PBP_CANON_CSV:
             try: os.remove(p)
-            except FileNotFoundError: pass
+            except OSError: pass
     for p in glob.glob(os.path.join(NFLVERSE_DIR, "pbp_*.parquet")):
         if os.path.basename(p) != PBP_CANON_PARQ:
             try: os.remove(p)
-            except FileNotFoundError: pass
-
+            except OSError: pass
     print(f"Wrote: {canon_csv}")
     print(f"Wrote: {canon_parq}")
     print(f"Wrote: {os.path.join(NFLVERSE_DIR, PBP_HEAD)}")
     print(f"Wrote: {os.path.join(NFLVERSE_DIR, PBP_MANIFEST)}")
     print(f"PBP rows: {len(df)} | Year: {latest_year} | SHA256: {sha[:12]}...")
 
-
-# ------------ WEEKLY canonicalization (with SameFile guard) ------------
 def weekly_canonicalize() -> None:
     _ensure_dir(NFLVERSE_DIR)
-
     canon_csv = os.path.join(NFLVERSE_DIR, WEEKLY_CANON_CSV)
-    # Resolve source CSV: prefer existing canonical; else best weekly_* file
     if os.path.exists(canon_csv):
         source_csv = canon_csv
     else:
         candidates = glob.glob(os.path.join(NFLVERSE_DIR, "weekly_*.csv.gz"))
         if not candidates:
-            print("INFO: weekly_* not found; skipping weekly canonicalization")
-            return
+            print("INFO: weekly_* not found; skipping weekly canonicalization"); return
         best_csv = _best_by_year_or_mtime(candidates, re.compile(r"weekly_(\d{4})"))
         if not best_csv:
-            print("INFO: could not resolve best weekly; skipping")
-            return
-        # Copy only if different path
+            print("INFO: could not resolve best weekly; skipping"); return
         if os.path.abspath(best_csv) != os.path.abspath(canon_csv):
             shutil.copyfile(best_csv, canon_csv)
         source_csv = canon_csv
-
-    # Build parquet + small artifacts from canonical CSV
     df = _read_csv_gz(source_csv)
     if df.empty:
         raise SystemExit(f"ERROR: weekly canonical empty: {source_csv}")
-
     canon_parq = os.path.join(NFLVERSE_DIR, WEEKLY_CANON_PARQ)
     df.to_parquet(canon_parq, index=False)
-
     _atomic_write_bytes(os.path.join(NFLVERSE_DIR, WEEKLY_HEAD), _to_gzip_csv_bytes(df.head(100)))
     sha = _sha256_file(source_csv)
-    pd.DataFrame([{
-        "file": os.path.basename(source_csv),
-        "rows": int(len(df)),
-        "sha256": sha,
-    }]).to_csv(os.path.join(NFLVERSE_DIR, WEEKLY_MANIFEST), index=False, compression="gzip")
-
-    # prune other versioned weekly files
+    pd.DataFrame([{"file": os.path.basename(source_csv), "rows": int(len(df)), "sha256": sha}])\
+        .to_csv(os.path.join(NFLVERSE_DIR, WEEKLY_MANIFEST), index=False, compression="gzip")
     for p in glob.glob(os.path.join(NFLVERSE_DIR, "weekly_*.csv.gz")):
         if os.path.basename(p) != WEEKLY_CANON_CSV:
             try: os.remove(p)
-            except FileNotFoundError: pass
+            except OSError: pass
     for p in glob.glob(os.path.join(NFLVERSE_DIR, "weekly_*.parquet")):
         if os.path.basename(p) != WEEKLY_CANON_PARQ:
             try: os.remove(p)
-            except FileNotFoundError: pass
-
-    print(f"Wrote: {canon_csv}")
+            except OSError: pass
     print(f"Wrote: {canon_parq}")
     print(f"Wrote: {os.path.join(NFLVERSE_DIR, WEEKLY_HEAD)}")
     print(f"Wrote: {os.path.join(NFLVERSE_DIR, WEEKLY_MANIFEST)}")
     print(f"Weekly rows: {len(df)} | SHA256: {sha[:12]}...")
 
-
-# ------------ ROSTERS canonicalization (with SameFile guard) ------------
 def rosters_canonicalize() -> None:
     _ensure_dir(NFLVERSE_DIR)
-
     canon_csv = os.path.join(NFLVERSE_DIR, ROSTERS_CANON_CSV)
-    # Resolve source CSV: prefer existing canonical; else best rosters_* file
     if os.path.exists(canon_csv):
         source_csv = canon_csv
     else:
         candidates = glob.glob(os.path.join(NFLVERSE_DIR, "rosters_*.csv.gz"))
         if not candidates:
-            print("INFO: rosters_* not found; skipping rosters canonicalization")
-            return
+            print("INFO: rosters_* not found; skipping rosters canonicalization"); return
         best_csv = _best_by_year_or_mtime(candidates, re.compile(r"rosters_(\d{4})"))
         if not best_csv:
-            print("INFO: could not resolve best rosters; skipping")
-            return
+            print("INFO: could not resolve best rosters; skipping"); return
         if os.path.abspath(best_csv) != os.path.abspath(canon_csv):
             shutil.copyfile(best_csv, canon_csv)
         source_csv = canon_csv
-
-    # Build parquet + small artifacts from canonical CSV
     df = _read_csv_gz(source_csv)
     if df.empty:
         raise SystemExit(f"ERROR: rosters canonical empty: {source_csv}")
-
     canon_parq = os.path.join(NFLVERSE_DIR, ROSTERS_CANON_PARQ)
     df.to_parquet(canon_parq, index=False)
-
     _atomic_write_bytes(os.path.join(NFLVERSE_DIR, ROSTERS_HEAD), _to_gzip_csv_bytes(df.head(100)))
     sha = _sha256_file(source_csv)
-    pd.DataFrame([{
-        "file": os.path.basename(source_csv),
-        "rows": int(len(df)),
-        "sha256": sha,
-    }]).to_csv(os.path.join(NFLVERSE_DIR, ROSTERS_MANIFEST), index=False, compression="gzip")
-
-    # prune other versioned rosters files
+    pd.DataFrame([{"file": os.path.basename(source_csv), "rows": int(len(df)), "sha256": sha}])\
+        .to_csv(os.path.join(NFLVERSE_DIR, ROSTERS_MANIFEST), index=False, compression="gzip")
     for p in glob.glob(os.path.join(NFLVERSE_DIR, "rosters_*.csv.gz")):
         if os.path.basename(p) != ROSTERS_CANON_CSV:
             try: os.remove(p)
-            except FileNotFoundError: pass
+            except OSError: pass
     for p in glob.glob(os.path.join(NFLVERSE_DIR, "rosters_*.parquet")):
         if os.path.basename(p) != ROSTERS_CANON_PARQ:
             try: os.remove(p)
-            except FileNotFoundError: pass
-
-    print(f"Wrote: {canon_csv}")
+            except OSError: pass
     print(f"Wrote: {canon_parq}")
     print(f"Wrote: {os.path.join(NFLVERSE_DIR, ROSTERS_HEAD)}")
     print(f"Wrote: {os.path.join(NFLVERSE_DIR, ROSTERS_MANIFEST)}")
     print(f"Rosters rows: {len(df)} | SHA256: {sha[:12]}...")
 
+def depth_canonicalize() -> None:
+    _ensure_dir(NFLVERSE_DIR)
+    canon_csv = os.path.join(NFLVERSE_DIR, DEPTH_CANON_CSV)
+    if os.path.exists(canon_csv):
+        source_csv = canon_csv
+    else:
+        candidates = glob.glob(os.path.join(NFLVERSE_DIR, "depth_*.csv.gz")) + \
+                     glob.glob(os.path.join(NFLVERSE_DIR, "depth_charts_*.csv.gz"))
+        if not candidates:
+            print("INFO: depth_* not found; skipping depth canonicalization"); return
+        best_csv = _best_by_year_or_mtime(candidates, re.compile(r"(?:depth|depth_charts)_(\d{4})"))
+        if not best_csv:
+            print("INFO: could not resolve best depth; skipping"); return
+        if os.path.abspath(best_csv) != os.path.abspath(canon_csv):
+            shutil.copyfile(best_csv, canon_csv)
+        source_csv = canon_csv
+    df = _read_csv_gz(source_csv)
+    if df.empty:
+        raise SystemExit(f"ERROR: depth canonical empty: {source_csv}")
+    canon_parq = os.path.join(NFLVERSE_DIR, DEPTH_CANON_PARQ)
+    df.to_parquet(canon_parq, index=False)
+    _atomic_write_bytes(os.path.join(NFLVERSE_DIR, DEPTH_HEAD), _to_gzip_csv_bytes(df.head(100)))
+    sha = _sha256_file(source_csv)
+    pd.DataFrame([{"file": os.path.basename(source_csv), "rows": int(len(df)), "sha256": sha}])\
+        .to_csv(os.path.join(NFLVERSE_DIR, DEPTH_MANIFEST), index=False, compression="gzip")
+    for p in glob.glob(os.path.join(NFLVERSE_DIR, "depth_*.csv.gz")) + \
+             glob.glob(os.path.join(NFLVERSE_DIR, "depth_charts_*.csv.gz")):
+        if os.path.basename(p) != DEPTH_CANON_CSV:
+            try: os.remove(p)
+            except OSError: pass
+    for p in glob.glob(os.path.join(NFLVERSE_DIR, "depth_*.parquet")) + \
+             glob.glob(os.path.join(NFLVERSE_DIR, "depth_charts_*.parquet")):
+        if os.path.basename(p) != DEPTH_CANON_PARQ:
+            try: os.remove(p)
+            except OSError: pass
+    print(f"Wrote: {canon_parq}")
+    print(f"Wrote: {os.path.join(NFLVERSE_DIR, DEPTH_HEAD)}")
+    print(f"Wrote: {os.path.join(NFLVERSE_DIR, DEPTH_MANIFEST)}")
+    print(f"Depth rows: {len(df)} | SHA256: {sha[:12]}...")
 
-# ------------ Entry ------------
+WEEKLY_URL_TPL  = os.environ.get("NFLVERSE_WEEKLY_URL_TPL",  "")
+ROSTERS_URL_TPL = os.environ.get("NFLVERSE_ROSTERS_URL_TPL", "")
+DEPTH_URL_TPL   = os.environ.get("NFLVERSE_DEPTH_URL_TPL",   "")
+
+WEEKLY_SRC_TPL  = "weekly_{year}.csv.gz"
+ROSTERS_SRC_TPL = "rosters_{year}.csv.gz"
+DEPTH_SRC_TPL   = "depth_charts_{year}.csv.gz"
+
+def _probe(url: str) -> bool:
+    try:
+        r = requests.head(url, timeout=TIMEOUT, allow_redirects=True)
+        if r.status_code == 405:
+            r = requests.get(url, stream=True, timeout=TIMEOUT, allow_redirects=True)
+        return r.status_code in (200, 301, 302)
+    except requests.RequestException:
+        return False
+
+def _download(url: str, dest_path: str) -> None:
+    _ensure_dir(os.path.dirname(dest_path))
+    with requests.get(url, stream=True, timeout=TIMEOUT) as r:
+        r.raise_for_status()
+        tmp = dest_path + ".part"
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1 << 15):
+                if chunk:
+                    f.write(chunk)
+        os.replace(tmp, dest_path)
+
+def _maybe_download_from_tpl(tpl: str, year: int, local_tpl: str, must_exist: bool, label: str) -> Optional[str]:
+    if not tpl:
+        return None
+    url = tpl.format(year=year)
+    if not _probe(url):
+        if must_exist:
+            raise SystemExit(f"ERROR: {label} feed not available at {url}")
+        print(f"INFO: {label} feed not available at {url}; skipping download")
+        return None
+    local = os.path.join(NFLVERSE_DIR, local_tpl.format(year=year))
+    _download(url, local)
+    print(f"Downloaded {label}: {url} -> {local}")
+    return local
+
+def _parse_flags(argv: Iterable[str]) -> dict:
+    argv = list(argv)[1:]
+    return {
+        "dl_weekly": "--dl-weekly" in argv,
+        "dl_rosters": "--dl-rosters" in argv,
+        "dl_depth": "--dl-depth" in argv,
+        "fail_missing": "--fail-missing" in argv,
+    }
+
 def main():
     explicit_year = _parse_year_from_argv(sys.argv)
-    pbp_pipeline(explicit_year)
+    flags = _parse_flags(sys.argv)
+    latest_year = resolve_latest_year(explicit_year)
+    pbp_pipeline(latest_year)
+    if flags["dl_weekly"]:
+        _maybe_download_from_tpl(WEEKLY_URL_TPL, latest_year, WEEKLY_SRC_TPL, flags["fail_missing"], "WEEKLY")
+    if flags["dl_rosters"]:
+        _maybe_download_from_tpl(ROSTERS_URL_TPL, latest_year, ROSTERS_SRC_TPL, flags["fail_missing"], "ROSTERS")
+    if flags["dl_depth"]:
+        _maybe_download_from_tpl(DEPTH_URL_TPL, latest_year, DEPTH_SRC_TPL, flags["fail_missing"], "DEPTH")
     weekly_canonicalize()
     rosters_canonicalize()
+    depth_canonicalize()
 
 if __name__ == "__main__":
     main()
