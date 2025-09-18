@@ -1,17 +1,14 @@
 name: build-train-commit
 
 on:
+  # run manually from the Actions tab
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths:
-      - "scripts/**"
-      - "config/**"
-      - "data/**"
-      - ".github/workflows/build-train-commit.yml"
+  # run automatically every Friday 10:00 UTC (change cron if you prefer)
+  schedule:
+    - cron: "0 10 * * FRI"
 
 permissions:
-  contents: write   # allow commits + releases
+  contents: write
 
 concurrency:
   group: build-train-commit-${{ github.ref }}
@@ -49,25 +46,19 @@ jobs:
           python -m pip install -U pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # Optional enrichment step (safe if file absent)
       - name: Enrich features (optional)
         run: |
           if [ -f scripts/02b_enrich_features.py ]; then
-            echo "[INFO] Running 02b_enrich_features.py"
             python scripts/02b_enrich_features.py
           else
-            echo "[INFO] No scripts/02b_enrich_features.py; skipping."
+            echo "No scripts/02b_enrich_features.py; skipping."
           fi
 
       - name: Train models
-        run: |
-          echo "[INFO] Running 03_train_models.py"
-          python scripts/03_train_models.py
+        run: python scripts/03_train_models.py
 
       - name: Build models manifest (with metadata)
-        run: |
-          echo "[INFO] Running build_models_manifest.py"
-          python scripts/build_models_manifest.py
+        run: python scripts/build_models_manifest.py
 
       - name: Validate manifest is populated
         run: |
@@ -79,22 +70,15 @@ jobs:
           df = pd.read_csv(p)
           need = ["path","filename","sha256","target","version_tag"]
           miss = [c for c in need if c not in df.columns]
-          if miss:
-              print(f"ERROR: manifest missing columns: {miss}", file=sys.stderr); sys.exit(1)
-          if df.empty:
-              print("ERROR: manifest is empty.", file=sys.stderr); sys.exit(1)
-          if not df["target"].fillna("").str.len().gt(0).any():
-              print("ERROR: manifest has no populated 'target' values.", file=sys.stderr); sys.exit(1)
-          print("OK: manifest valid with", df['target'].fillna("").replace("", pd.NA).dropna().nunique(), "unique targets")
+          if miss or df.empty or not df["target"].fillna("").str.len().gt(0).any():
+              print("ERROR: manifest invalid or empty.", file=sys.stderr); sys.exit(1)
+          print("OK: manifest valid.")
           PY
 
       - name: Show key outputs
         run: |
-          echo "---- metrics head ----"
           sed -n '1,25p' output/models/metrics_summary.csv || true
-          echo "---- manifest head ----"
           sed -n '1,25p' models/manifest/models_manifest.csv || true
-          echo "---- models dir ----"
           ls -lh models/pregame || true
 
       - name: Ensure .gitignore excludes joblibs
@@ -102,11 +86,9 @@ jobs:
           if [ -f .gitignore ]; then
             if ! grep -q "^models/pregame/.*\.joblib$" .gitignore; then
               echo "models/pregame/*.joblib" >> .gitignore
-              echo "[INFO] Appended joblib ignore to .gitignore"
             fi
           else
             echo "models/pregame/*.joblib" > .gitignore
-            echo "[INFO] Created .gitignore with joblib ignore"
           fi
 
       - name: Commit lightweight outputs (manifest/metrics/logs only)
@@ -114,16 +96,14 @@ jobs:
           set -e
           git config user.name  "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add .gitignore
-          git add models/manifest/* || true
+          git add .gitignore models/manifest/* || true
           git add output/models/metrics_summary.csv || true
           git add output/logs/*.log || true
           if ! git diff --cached --quiet; then
             git commit -m "Pipeline ${{ github.run_id }}: manifest, metrics, logs"
             git push
-            echo "[INFO] Committed lightweight artifacts."
           else
-            echo "[INFO] No lightweight changes to commit."
+            echo "No lightweight changes to commit."
           fi
 
       - name: Upload model artifacts (90-day retention)
