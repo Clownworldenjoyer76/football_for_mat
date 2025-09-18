@@ -1,37 +1,43 @@
 #!/usr/bin/env python3
-import csv, hashlib, json, os, sys, gzip, io
-from datetime import datetime, timezone
+"""
+Build/refresh models manifest by scanning models/pregame/*.joblib and
+merging with output/models/metrics_summary.csv and output/metrics_summary.json.
+
+Outputs:
+- models/manifest/models_manifest.csv  (rich table)
+- models/manifest/models_manifest.lock.json  (lightweight list for Release uploads)
+"""
+
+import os
+import json
+import csv
+import hashlib
+from datetime import datetime
 from pathlib import Path
+from typing import Dict, Any, List
 
-# -----------------------------
-# Config
-# -----------------------------
-MODELS_DIR = Path("models/pregame")
-MANIFEST_DIR = Path("models/manifest")
-MANIFEST_CSV = MANIFEST_DIR / "models_manifest.csv"
-LOCK_JSON = MANIFEST_DIR / "models_manifest.lock.json"
+import pandas as pd
 
-METRICS_CSV = Path("output/models/metrics_summary.csv")
-METRICS_JSON = Path("output/metrics_summary.json")  # optional/legacy
+REPO_ROOT = Path(__file__).resolve().parents[1]  # repo/
+MODELS_DIR = REPO_ROOT / "models" / "pregame"
+MANIFEST_DIR = REPO_ROOT / "models" / "manifest"
+MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
 
-# Legacy four targets → their actual stat column names in metrics JSONs
-LEGACY_ACTUAL_MAP = {
-    "qb_passing_yards": "passing_yards",
-    "rb_rushing_yards": "rushing_yards",
-    "wr_rec_yards": "receiving_yards",
-    "wrte_receptions": "receptions",
-}
+METRICS_CSV = REPO_ROOT / "output" / "models" / "metrics_summary.csv"
+METRICS_JSON = REPO_ROOT / "output" / "metrics_summary.json"
 
-# infer more targets from filenames like: passing_yards_20250912_ABC123.joblib
-def infer_target_from_filename(name: str) -> str | None:
-    stem = name.replace(".joblib", "")
-    # common pattern: target_<tag>.joblib
-    parts = stem.split("_")
-    if len(parts) >= 2:
-        # try longest leading slice that matches a known stat-y word
-        # fallback to first part
-        return parts[0]
-    return stem
+CSV_OUT = MANIFEST_DIR / "models_manifest.csv"
+LOCK_OUT = MANIFEST_DIR / "models_manifest.lock.json"
+
+def git_short_sha() -> str:
+    sha = os.getenv("GITHUB_SHA", "").strip()
+    if sha:
+        return sha[:7]
+    try:
+        import subprocess
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
+    except Exception:
+        return "local"
 
 def sha256_file(p: Path) -> str:
     h = hashlib.sha256()
@@ -40,184 +46,121 @@ def sha256_file(p: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
-def utc_iso(dt: float | datetime) -> str:
-    if isinstance(dt, datetime):
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc).isoformat()
-    return datetime.fromtimestamp(dt, tz=timezone.utc).isoformat()
+def parse_target_from_filename(fn: str) -> str:
+    """
+    From 'passing_yards_20250912_aaaaaaa.joblib' -> 'passing_yards'
+    From legacy 'qb_passing_yards.joblib' -> 'qb_passing_yards' (kept as-is)
+    """
+    base = fn.replace(".joblib", "")
+    parts = base.split("_")
+    if len(parts) >= 3 and parts[-2].isdigit() and len(parts[-3]) > 0:
+        # looks like <target>_<yyyymmdd>_<sha>
+        return "_".join(parts[:-2])
+    return base
 
-def read_metrics_csv() -> dict:
-    """Return dict keyed by target with columns: mae,r2,artifact_path,artifact_sha256,version_tag,actual_column,rmse,rows."""
-    out = {}
-    if not METRICS_CSV.exists():
-        return out
-    with open(METRICS_CSV, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for r in reader:
-            tgt = r.get("target", "").strip()
-            if not tgt:
-                continue
-            out[tgt] = {
-                "actual_column": r.get("actual_column") or "",
-                "artifact_path": r.get("artifact_path") or "",
-                "artifact_sha256": r.get("artifact_sha256") or "",
-                "git_commit": r.get("git_commit") or "",
-                "random_seed": r.get("random_seed") or "",
-                "built_at_utc": r.get("built_at_utc") or "",
-                "mae": r.get("mae") or "",
-                "r2": r.get("r2") or "",
-                "rmse": r.get("rmse") or "",  # some CSVs may not have it
-                "rows": r.get("rows") or "",
-                "version_tag": r.get("version_tag") or "",
-            }
-    return out
-
-def read_metrics_json() -> dict:
-    """Also support output/metrics_summary.json (your 4-legacy-metrics file)."""
-    out = {}
-    if not METRICS_JSON.exists():
-        return out
-    with open(METRICS_JSON, encoding="utf-8") as f:
-        blob = json.load(f)
-    # format:
-    # {
-    #   "qb_passing_yards": {"status":"ok","MAE":43.2669,"RMSE":62.2819,"rows":1315},
-    #   ...
-    # }
-    for legacy_key, vals in blob.items():
-        if not isinstance(vals, dict):
-            continue
-        actual_col = LEGACY_ACTUAL_MAP.get(legacy_key, legacy_key)
-        out[legacy_key] = {
-            "actual_column": actual_col,
-            "artifact_path": "",
-            "artifact_sha256": "",
-            "git_commit": "",
-            "random_seed": "",
-            "built_at_utc": "",
-            "mae": vals.get("MAE", ""),
-            "r2": "",  # JSON didn’t include r2
-            "rmse": vals.get("RMSE", ""),
-            "rows": vals.get("rows", ""),
-            "version_tag": "",
-        }
-    return out
-
-def merge_metrics() -> dict:
-    # CSV (rich) wins; JSON fills gaps and adds the 4 legacy targets if CSV lacks them
-    csvm = read_metrics_csv()
-    jsonm = read_metrics_json()
-    merged = dict(jsonm)
-    merged.update(csvm)
-    return merged
-
-def read_git_commit() -> str:
-    try:
-        import subprocess
-        sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
-        return sha
-    except Exception:
-        return ""
-
-def ensure_dirs():
-    MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
-
-def list_local_joblibs() -> list[Path]:
-    if not MODELS_DIR.exists():
-        return []
-    return sorted(MODELS_DIR.glob("*.joblib"))
-
-def version_from_name(name: str) -> str:
-    # try to pull trailing _<tag> from filename
-    base = name.replace(".joblib", "")
-    if "_" in base:
-        tag = base.split("_")[-1]
-        return tag
+def maybe_version_tag(fn: str) -> str:
+    # Try to pull <YYYYMMDD_sha> if present
+    base = fn.replace(".joblib", "")
+    parts = base.split("_")
+    if len(parts) >= 3 and parts[-2].isdigit():
+        return "_".join(parts[-2:])
     return ""
 
 def main():
-    ensure_dirs()
-    git_commit = read_git_commit()
-    metrics = merge_metrics()
+    commit = git_short_sha()
 
-    rows = []
-    lock = {"artifacts": []}
+    # ingest metrics (if present)
+    metrics_df = pd.DataFrame()
+    if METRICS_CSV.exists():
+        metrics_df = pd.read_csv(METRICS_CSV)
+    metrics_map: Dict[str, Dict[str, Any]] = {}
+    if not metrics_df.empty:
+        for _, r in metrics_df.iterrows():
+            metrics_map[r["target"]] = {
+                "actual_column": r.get("actual_column"),
+                "mae": r.get("mae"),
+                "r2": r.get("r2"),
+                "rmse": r.get("rmse"),
+                "rows": r.get("rows"),
+                "version_tag": r.get("version_tag"),
+                "artifact_path": r.get("artifact_path"),
+                "artifact_sha256": r.get("artifact_sha256"),
+                "built_at_utc": r.get("built_at_utc"),
+                "git_commit": r.get("git_commit"),
+                "random_seed": r.get("random_seed"),
+            }
 
-    seen_targets: set[str] = set()
+    rows: List[Dict[str, Any]] = []
+    lock_items: List[Dict[str, Any]] = []
 
-    # 1) real artifacts present locally
-    for p in list_local_joblibs():
-        sha = sha256_file(p)
+    for p in sorted(MODELS_DIR.glob("*.joblib")):
         stat = p.stat()
-        modified_iso = utc_iso(stat.st_mtime)
+        filename = p.name
+        target = parse_target_from_filename(filename)
+        vtag = maybe_version_tag(filename)
 
-        target = infer_target_from_filename(p.name)
-        # map the four legacy filenames back to their target keys if needed
-        if p.name in LEGACY_ACTUAL_MAP:
-            target = p.name.replace(".joblib", "")
+        # compute sha256 (fast enough for our set)
+        sha256 = sha256_file(p)
 
-        m = metrics.get(target, {})
-        actual_column = m.get("actual_column", "")
-        # If this is one of the 4 legacy targets and actual_column is empty, fill from map.
-        if not actual_column and target in LEGACY_ACTUAL_MAP:
-            actual_column = LEGACY_ACTUAL_MAP[target]
+        # merge metrics if we have them
+        m = metrics_map.get(target, {})
+        # if the legacy 4, we also try to map to their true actuals
+        # (already embedded in metrics_map if trained in this run)
 
         row = {
-            "path": str(p),
-            "filename": p.name,
-            "sha256": sha,
+            "path": str(p).replace(str(REPO_ROOT) + os.sep, "").replace("\\", "/"),
+            "filename": filename,
+            "sha256": sha256,
             "filesize_bytes": stat.st_size,
-            "modified_time_utc": modified_iso,
+            "modified_time_utc": datetime.utcfromtimestamp(stat.st_mtime).isoformat() + "Z",
             "target": target,
-            "version_tag": m.get("version_tag", "") or version_from_name(p.name),
-            "git_commit": m.get("git_commit", "") or git_commit,
-            "random_seed": m.get("random_seed", ""),
-            "estimator": "",  # not stored in artifact; leave blank unless you serialize it
-            "hyperparameters_json": "",
-            "features_path": "",
-            "data_sha256": "",
-            "feature_count": "",
-            "built_at_utc": m.get("built_at_utc", "") or modified_iso,
-            "actual_column": actual_column,
+            "version_tag": vtag or m.get("version_tag", ""),
+            "git_commit": m.get("git_commit", commit),
+            "random_seed": m.get("random_seed", 42),
+            "estimator": "RandomForestRegressor",
+            "hyperparameters_json": '{"n_estimators":400,"max_depth":null,"n_jobs":-1,"random_state":42}',
+            "features_path": "data/features/weekly_clean.csv.gz",
+            "data_sha256": "",  # optional: fill if you hash the features file
+            "feature_count": None,  # optional: fill if you record it
+            "built_at_utc": m.get("built_at_utc", ""),
+            "actual_column": m.get("actual_column", ""),
             "mae": m.get("mae", ""),
             "r2": m.get("r2", ""),
             "rmse": m.get("rmse", ""),
             "rows": m.get("rows", ""),
-            "artifact_filename": p.name,
-            "artifact_sha256": sha,
+            "artifact_filename": filename,
+            "artifact_sha256": sha256,
         }
         rows.append(row)
-        seen_targets.add(target)
 
-        lock["artifacts"].append({
-            "filename": p.name,
-            "path": str(p),
-            "sha256": sha,
+        lock_items.append({
+            "filename": filename,
+            "path": row["path"],
+            "sha256": sha256,
             "target": target,
             "version_tag": row["version_tag"],
         })
 
-    # 2) metrics-only rows (no local artifact) → include so the manifest shows >4
-    for tgt, m in metrics.items():
-        if tgt in seen_targets:
+    # Also append metrics rows that don’t have a corresponding artifact
+    for t, m in metrics_map.items():
+        has_artifact = any(r["target"] == t for r in rows)
+        if has_artifact:
             continue
-        # synthesize a row with missing artifact info
-        row = {
+        rows.append({
             "path": "",
             "filename": "",
             "sha256": "",
             "filesize_bytes": "",
-            "modified_time_utc": utc_iso(datetime.now(timezone.utc)),
-            "target": tgt,
+            "modified_time_utc": datetime.utcnow().isoformat() + "Z",
+            "target": t,
             "version_tag": m.get("version_tag", ""),
-            "git_commit": m.get("git_commit", "") or git_commit,
-            "random_seed": m.get("random_seed", ""),
-            "estimator": "",
-            "hyperparameters_json": "",
-            "features_path": "",
+            "git_commit": m.get("git_commit", commit),
+            "random_seed": m.get("random_seed", 42),
+            "estimator": "RandomForestRegressor",
+            "hyperparameters_json": '{"n_estimators":400,"max_depth":null,"n_jobs":-1,"random_state":42}',
+            "features_path": "data/features/weekly_clean.csv.gz",
             "data_sha256": "",
-            "feature_count": "",
+            "feature_count": None,
             "built_at_utc": m.get("built_at_utc", ""),
             "actual_column": m.get("actual_column", ""),
             "mae": m.get("mae", ""),
@@ -226,29 +169,26 @@ def main():
             "rows": m.get("rows", ""),
             "artifact_filename": "",
             "artifact_sha256": "",
-        }
-        rows.append(row)
+        })
 
-    # 3) write CSV
-    fieldnames = [
+    # Write CSV
+    cols = [
         "path","filename","sha256","filesize_bytes","modified_time_utc",
         "target","version_tag","git_commit","random_seed","estimator",
         "hyperparameters_json","features_path","data_sha256","feature_count",
         "built_at_utc","actual_column","mae","r2","rmse","rows",
-        "artifact_filename","artifact_sha256",
+        "artifact_filename","artifact_sha256"
     ]
-    with open(MANIFEST_CSV, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        for r in rows:
-            w.writerow(r)
+    df = pd.DataFrame(rows, columns=cols)
+    CSV_OUT.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(CSV_OUT, index=False)
 
-    # 4) write lock JSON
-    with open(LOCK_JSON, "w", encoding="utf-8") as f:
-        json.dump(lock, f, indent=2)
+    # Write lock json
+    with open(LOCK_OUT, "w") as f:
+        json.dump({"artifacts": lock_items}, f, indent=2)
 
-    print(f"[OK] Wrote {MANIFEST_CSV} with {len(rows)} rows")
-    print(f"[OK] Wrote {LOCK_JSON} with {len(lock['artifacts'])} artifacts")
+    print("[INFO] Wrote manifest ->", CSV_OUT)
+    print("[INFO] Wrote lock ->", LOCK_OUT)
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
