@@ -25,14 +25,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Parquet writer for rosters/weekly/depth if needed
           pip install pyarrow fastparquet || true
 
       - name: Pull core NFL datasets (weekly/pbp/rosters/depth)
         env:
           NFLVERSE_WEEKLY_URL_TPL: "https://github.com/nflverse/nflverse-data/releases/download/weekly/weekly_{year}.csv.gz"
           NFLVERSE_ROSTERS_URL_TPL: "https://github.com/nflverse/nflverse-data/releases/download/rosters/rosters_{year}.csv.gz"
-          NFLVERSE_DEPTH_URL_TPL:   "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_{year}.csv.gz"
+          NFLVERSE_DEPTH_URL_TPL:   "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts.csv.gz"
         run: |
           python scripts/01_pull_nflverse.py --start 2019 --dl-weekly --dl-rosters --dl-depth
 
