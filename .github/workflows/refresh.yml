@@ -28,19 +28,19 @@ jobs:
           packages: |
             any::nflreadr
 
-      - name: Fetch depth charts (write depth_charts.csv.gz)
+      # Write plain CSV then gzip with system tool to avoid truncated gzip files
+      - name: Fetch depth charts (write CSV then gzip)
         run: |
           Rscript - <<'RSCRIPT'
           dir.create("data/raw/nflverse", recursive = TRUE, showWarnings = FALSE)
           suppressPackageStartupMessages(library(nflreadr))
           dc <- nflreadr::load_depth_charts()
           if (nrow(dc) == 0) stop("No depth chart rows returned")
-          out_csv <- file.path("data/raw/nflverse","depth_charts.csv.gz")
-          con <- gzfile(out_csv, open = "wt")
-          on.exit(close(con), add = TRUE)
-          write.table(dc, con, sep = ",", row.names = FALSE, col.names = TRUE, qmethod = "double")
+          out_csv <- file.path("data/raw/nflverse","depth_charts.csv")
+          write.csv(dc, out_csv, row.names = FALSE)
           cat("Wrote:", out_csv, "\n")
           RSCRIPT
+          gzip -f data/raw/nflverse/depth_charts.csv
 
       # Python for PBP/weekly/rosters + canonicalize depth
       - name: Set up Python
