@@ -3,7 +3,7 @@ name: Weekly Data Refresh
 
 on:
   schedule:
-    - cron: "0 17 * * 2"   # Tuesdays 17:00 UTC
+    - cron: "0 17 * * 2"
   workflow_dispatch:
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ----- R step for depth charts via nflreadr (writes CSV then gzip to avoid truncation) -----
+      # R for depth charts via nflreadr
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
@@ -28,6 +28,7 @@ jobs:
           packages: |
             any::nflreadr
 
+      # Write plain CSV then gzip with system tool to avoid truncated gzip files
       - name: Fetch depth charts (write CSV then gzip)
         run: |
           Rscript - <<'RSCRIPT'
@@ -41,7 +42,7 @@ jobs:
           RSCRIPT
           gzip -f data/raw/nflverse/depth_charts.csv
 
-      # ----- Python setup -----
+      # Python for PBP/weekly/rosters + canonicalize depth + external feeds
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -51,9 +52,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyarrow fastparquet || true
+          pip install pyarrow fastparquet lxml || true
 
-      # ----- Core nflverse pulls (pbp/weekly/rosters + depth canonicalize) -----
+      # Core nflverse pulls (pbp/weekly/rosters/depth)
       - name: Pull core NFL datasets (pbp/weekly/rosters/depth)
         env:
           NFLVERSE_WEEKLY_URL_TPL: "https://github.com/nflverse/nflverse-data/releases/download/weekly/weekly_{year}.csv.gz"
@@ -62,17 +63,17 @@ jobs:
         run: |
           python scripts/01_pull_nflverse.py --start 2019 --dl-weekly --dl-rosters --dl-depth
 
-      # ----- WEATHER (newly added) -----
+      # WEATHER
       - name: Pull game weather (Open-Meteo)
         run: |
           python scripts/pull_weather_openmeteo.py
 
-      # ----- INJURIES / ACTIVES (newly added) -----
+      # INJURIES / ACTIVES
       - name: Pull injuries & actives
         run: |
           python scripts/pull_injuries_actives.py
 
-      # ----- ODDS API (newly added) -----
+      # ODDS API
       - name: Pull odds via Odds API
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
@@ -83,17 +84,14 @@ jobs:
         run: |
           python scripts/05_pull_odds_merge.py
 
-      # ----- Commit & push updated data -----
+      # Commit & push updated data
       - name: Commit & push updated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # nflverse core
-          git add -f data/raw/nflverse
-          # weather + injuries
+          git add -f data/raw/nflverse || true
           git add -f data/raw/weather || true
           git add -f data/raw/injuries || true
-          # odds outputs (raw/processed)
           git add -f data/odds || true
           git commit -m "chore(data): weekly refresh (nflverse + weather + injuries + odds) [skip ci]" || echo "No changes to commit"
           git push
