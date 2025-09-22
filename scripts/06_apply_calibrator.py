@@ -9,6 +9,7 @@ Will write:
   - prob_over_cal (calibrated)
   - prob_under_cal (1 - prob_over_cal)
 """
+import sys, pathlib; sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 import argparse
 from pathlib import Path
 import pandas as pd
