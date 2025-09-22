@@ -101,10 +101,14 @@ jobs:
       - name: Train calibrators (auto-select isotonic/sigmoid)
         run: |
           if [ -f scripts/05_train_calibrator.py ]; then
-            python scripts/05_train_calibrator.py \
-              --csv "data/props/history_props_with_outcomes.csv" \
-              --method auto \
-              --outdir "models/calibration"
+            if [ -f "data/props/history_props_with_outcomes.csv" ]; then
+              python scripts/05_train_calibrator.py \
+                --csv "data/props/history_props_with_outcomes.csv" \
+                --method auto \
+                --outdir "models/calibration"
+            else
+              echo "No historical props file; skipping calibration."
+            fi
           else
             echo "No scripts/05_train_calibrator.py; skipping."
           fi
@@ -112,10 +116,14 @@ jobs:
       - name: Apply calibrators to current props
         run: |
           if [ -f scripts/06_apply_calibrator.py ]; then
-            python scripts/06_apply_calibrator.py \
-              --csv_in "data/props/props_current.csv" \
-              --csv_out "data/props/props_current_calibrated.csv" \
-              --calib_dir "models/calibration"
+            if [ -f "data/props/props_current.csv" ]; then
+              python scripts/06_apply_calibrator.py \
+                --csv_in "data/props/props_current.csv" \
+                --csv_out "data/props/props_current_calibrated.csv" \
+                --calib_dir "models/calibration"
+            else
+              echo "No props_current.csv; skipping application of calibrators."
+            fi
           else
             echo "No scripts/06_apply_calibrator.py; skipping."
           fi
@@ -132,7 +140,6 @@ jobs:
       - name: Compute probability edges (optional)
         run: |
           if [ -f scripts/06_probability_and_edge.py ]; then
-            # If your script accepts args, add them here; otherwise it will use defaults
             python scripts/06_probability_and_edge.py || true
           else
             echo "No scripts/06_probability_and_edge.py; skipping."
