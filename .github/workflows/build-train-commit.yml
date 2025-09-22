@@ -3,9 +3,9 @@ name: build-train-commit
 on:
   # run manually from the Actions tab
   workflow_dispatch:
-  # run automatically every Friday 10:00 UTC (change cron if you prefer)
+  # run automatically every Wednesday 11:00 UTC ≈ 7:00 AM ET (DST-aware note: cron is UTC)
   schedule:
-    - cron: "0 10 * * FRI"
+    - cron: "0 11 * * WED"
 
 permissions:
   contents: write
@@ -54,6 +54,9 @@ jobs:
             echo "No scripts/02b_enrich_features.py; skipping."
           fi
 
+      # ============================
+      # Train models + manifest
+      # ============================
       - name: Train models
         run: python scripts/03_train_models.py
 
@@ -81,14 +84,84 @@ jobs:
           sed -n '1,25p' models/manifest/models_manifest.csv || true
           ls -lh models/pregame || true
 
+      # ============================
+      # Props generation (optional)
+      # ============================
+      - name: Generate props (optional)
+        run: |
+          if [ -f scripts/04_generate_props.py ]; then
+            python scripts/04_generate_props.py
+          else
+            echo "No scripts/04_generate_props.py; skipping."
+          fi
+
+      # ============================
+      # Probability calibration
+      # ============================
+      - name: Train calibrators (auto-select isotonic/sigmoid)
+        run: |
+          if [ -f scripts/05_train_calibrator.py ]; then
+            python scripts/05_train_calibrator.py \
+              --csv "data/props/history_props_with_outcomes.csv" \
+              --method auto \
+              --outdir "models/calibration"
+          else
+            echo "No scripts/05_train_calibrator.py; skipping."
+          fi
+
+      - name: Apply calibrators to current props
+        run: |
+          if [ -f scripts/06_apply_calibrator.py ]; then
+            python scripts/06_apply_calibrator.py \
+              --csv_in "data/props/props_current.csv" \
+              --csv_out "data/props/props_current_calibrated.csv" \
+              --calib_dir "models/calibration"
+          else
+            echo "No scripts/06_apply_calibrator.py; skipping."
+          fi
+
+      - name: Show calibration outputs
+        run: |
+          sed -n '1,25p' models/calibration/calibration_summary.csv || true
+          sed -n '1,25p' data/props/props_current_calibrated.csv || true
+          ls -lh models/calibration || true
+
+      # ============================
+      # Selection & Staking
+      # ============================
+      - name: Compute probability edges (optional)
+        run: |
+          if [ -f scripts/06_probability_and_edge.py ]; then
+            # If your script accepts args, add them here; otherwise it will use defaults
+            python scripts/06_probability_and_edge.py || true
+          else
+            echo "No scripts/06_probability_and_edge.py; skipping."
+          fi
+
+      - name: Select bets & staking (optional)
+        run: |
+          if [ -f scripts/07_select_bets.py ]; then
+            python scripts/07_select_bets.py
+          else
+            echo "No scripts/07_select_bets.py; skipping."
+          fi
+
+      - name: Show selection outputs
+        run: |
+          ls -lh output || true
+          ls -lh output/*best_bets* 2>/dev/null || true
+          sed -n '1,25p' output/*best_bets* 2>/dev/null || true
+
+      # ============================
+      # Git hygiene + commit light artifacts
+      # ============================
       - name: Ensure .gitignore excludes joblibs
         run: |
           if [ -f .gitignore ]; then
-            if ! grep -q "^models/pregame/.*\.joblib$" .gitignore; then
-              echo "models/pregame/*.joblib" >> .gitignore
-            fi
+            grep -q "^models/pregame/.*\.joblib$" .gitignore || echo "models/pregame/*.joblib" >> .gitignore
+            grep -q "^models/calibration/.*\.joblib$" .gitignore || echo "models/calibration/*.joblib" >> .gitignore
           else
-            echo "models/pregame/*.joblib" > .gitignore
+            printf "models/pregame/*.joblib\nmodels/calibration/*.joblib\n" > .gitignore
           fi
 
       - name: Commit lightweight outputs (manifest/metrics/logs only)
@@ -99,18 +172,41 @@ jobs:
           git add .gitignore models/manifest/* || true
           git add output/models/metrics_summary.csv || true
           git add output/logs/*.log || true
+          git add models/calibration/calibration_summary.csv || true
+          git add data/props/props_current_calibrated.csv || true
+          git add output/*best_bets* 2>/dev/null || true
           if ! git diff --cached --quiet; then
-            git commit -m "Pipeline ${{ github.run_id }}: manifest, metrics, logs"
+            git commit -m "Pipeline ${{ github.run_id }}: manifest, metrics, logs, calibration summary, calibrated props, best bets"
             git push
           else
             echo "No lightweight changes to commit."
           fi
 
+      # ============================
+      # Upload artifacts & releases
+      # ============================
       - name: Upload model artifacts (90-day retention)
         uses: actions/upload-artifact@v4
         with:
           name: models-pregame-${{ github.run_id }}
           path: models/pregame/*.joblib
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload calibration artifacts (90-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: models-calibration-${{ github.run_id }}
+          path: models/calibration/*.joblib
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload best-bets outputs (90-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: best-bets-${{ github.run_id }}
+          path: |
+            output/*best_bets*
           if-no-files-found: warn
           retention-days: 90
 
@@ -122,6 +218,7 @@ jobs:
           prerelease: true
           files: |
             models/pregame/*.joblib
+            models/calibration/*.joblib
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -134,6 +231,7 @@ jobs:
           prerelease: true
           files: |
             models/pregame/*.joblib
+            models/calibration/*.joblib
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
