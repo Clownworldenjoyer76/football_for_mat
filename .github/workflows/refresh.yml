@@ -84,7 +84,40 @@ jobs:
         run: |
           python scripts/05_pull_odds_merge.py
 
-      # Commit & push updated data
+      # =======================
+      # Warehouse ETL + Artifact
+      # =======================
+
+      - name: Ensure warehouse directory (and keep out of git)
+        run: |
+          mkdir -p data/warehouse
+          printf "*\n!.gitignore\n" > data/warehouse/.gitignore
+
+      # If you already have a warehouse ETL script, it will run; otherwise it will skip gracefully.
+      - name: Run warehouse ETL (if present)
+        run: |
+          if [ -f scripts/20_build_warehouse.py ]; then
+            echo "Running scripts/20_build_warehouse.py ..."
+            python scripts/20_build_warehouse.py
+          elif [ -f scripts/build_warehouse.py ]; then
+            echo "Running scripts/build_warehouse.py ..."
+            python scripts/build_warehouse.py
+          else
+            echo "No warehouse ETL script found; skipping transform step."
+          fi
+
+      - name: Upload warehouse artifacts (Parquet/CSV)
+        uses: actions/upload-artifact@v4
+        with:
+          name: warehouse-artifacts
+          path: |
+            data/warehouse/**/*.parquet
+            data/warehouse/**/*.csv
+            data/warehouse/*.parquet
+            data/warehouse/*.csv
+          if-no-files-found: warn
+
+      # Commit & push updated data (raw + odds outputs only; warehouse is artifacted, not committed)
       - name: Commit & push updated data
         run: |
           git config user.name "github-actions[bot]"
@@ -93,5 +126,6 @@ jobs:
           git add -f data/raw/weather || true
           git add -f data/raw/injuries || true
           git add -f data/odds || true
+          # do not add data/warehouse here — we publish it as an artifact
           git commit -m "chore(data): weekly refresh (nflverse + weather + injuries + odds) [skip ci]" || echo "No changes to commit"
           git push
