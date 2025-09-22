@@ -115,17 +115,17 @@ jobs:
 
       - name: Apply calibrators to current props
         run: |
-          if [ -f scripts/06_apply_calibrator.py ]; then
-            if [ -f "data/props/props_current.csv" ]; then
+          if [ -f scripts/06_apply_calibrator.py ] && [ -f "data/props/props_current.csv" ]; then
+            if ls models/calibration/*.joblib >/dev/null 2>&1; then
               python scripts/06_apply_calibrator.py \
                 --csv_in "data/props/props_current.csv" \
                 --csv_out "data/props/props_current_calibrated.csv" \
                 --calib_dir "models/calibration"
             else
-              echo "No props_current.csv; skipping application of calibrators."
+              echo "No calibrators found; skipping apply."
             fi
           else
-            echo "No scripts/06_apply_calibrator.py; skipping."
+            echo "Missing script or props_current.csv; skipping apply."
           fi
 
       - name: Show calibration outputs
