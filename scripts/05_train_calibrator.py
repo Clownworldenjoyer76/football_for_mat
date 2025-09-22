@@ -8,6 +8,7 @@ Input CSV must contain at least:
   - over_actual (int)    1 if actual result went over the prop line, else 0
 You can point to a single market via --market, or train one per market found.
 """
+import sys, pathlib; sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 import argparse
 from pathlib import Path
 import pandas as pd
