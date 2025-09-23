@@ -188,14 +188,23 @@ jobs:
           set -e
           git config user.name  "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
+
+          # Always add these if present
           git add .gitignore models/manifest/* || true
           git add output/models/metrics_summary.csv || true
           git add output/logs/*.log || true
-          git add data/props/props_current.csv || true
-          git add data/props/props_*.csv 2>/dev/null || true
-          git add data/props/props_current_calibrated.csv || true
-          git add models/calibration/calibration_summary.csv || true
-          git add output/*best_bets* 2>/dev/null || true
+
+          # Props: robustly add both current and per-market CSVs
+          [ -f data/props/props_current.csv ] && git add data/props/props_current.csv || true
+          find data/props -maxdepth 1 -type f -name 'props_*.csv' -print0 2>/dev/null | xargs -0 -r git add
+
+          # Calibration summary if present
+          [ -f models/calibration/calibration_summary.csv ] && git add models/calibration/calibration_summary.csv || true
+          [ -f data/props/props_current_calibrated.csv ] && git add data/props/props_current_calibrated.csv || true
+
+          # Best bets if produced
+          find output -maxdepth 1 -type f -name '*best_bets*' -print0 2>/dev/null | xargs -0 -r git add
+
           if ! git diff --cached --quiet; then
             git commit -m "Pipeline ${{ github.run_id }}: manifest, metrics, props, calibration summary, best bets"
             git push
