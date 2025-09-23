@@ -40,7 +40,7 @@ def process_market(pred_file: Path) -> pd.DataFrame:
         if {"y_true", "y_pred"}.issubset(df.columns):
             rmse = max(1.0, float(np.std(df["y_true"] - df["y_pred"])))
         else:
-            rmse = 10.0  # conservative default if we don't have residuals
+            rmse = 10.0  # conservative default if residuals unavailable
 
     # prop line rounded to nearest 0.5
     if "y_pred" not in df.columns:
