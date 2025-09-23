@@ -148,7 +148,11 @@ jobs:
       - name: Select bets & staking (optional)
         run: |
           if [ -f scripts/07_select_bets.py ]; then
-            python scripts/07_select_bets.py
+            if ls output/*edges*.csv >/dev/null 2>&1; then
+              python scripts/07_select_bets.py
+            else
+              echo "No *edges*.csv files found in output/; skipping selection & staking."
+            fi
           else
             echo "No scripts/07_select_bets.py; skipping."
           fi
