@@ -85,7 +85,6 @@ jobs:
           git config user.name  "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add data/props/history_props_with_outcomes.csv || true
-          # history_pending.csv is typically deleted by the script; stage removal if so
           git rm -f data/props/history_pending.csv 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "Finalize props outcomes: update history_props_with_outcomes.csv (run ${{ github.run_id }})"
