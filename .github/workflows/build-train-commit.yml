@@ -85,15 +85,23 @@ jobs:
           ls -lh models/pregame || true
 
       # ============================
-      # Props generation (optional)
+      # Props generation
       # ============================
-      - name: Generate props (optional)
+      - name: Generate props
         run: |
           if [ -f scripts/04_generate_props.py ]; then
             python scripts/04_generate_props.py
           else
             echo "No scripts/04_generate_props.py; skipping."
           fi
+
+      - name: Show props outputs
+        run: |
+          ls -lh data/props || true
+          sed -n '1,25p' data/props/props_current.csv 2>/dev/null || true
+          for f in data/props/props_*.csv; do
+            [ -f "$f" ] && echo "---- $f ----" && sed -n '1,5p' "$f"; 
+          done
 
       # ============================
       # Probability calibration
@@ -175,7 +183,7 @@ jobs:
             printf "models/pregame/*.joblib\nmodels/calibration/*.joblib\n" > .gitignore
           fi
 
-      - name: Commit lightweight outputs (manifest/metrics/logs only)
+      - name: Commit lightweight outputs (manifest/metrics/props/logs)
         run: |
           set -e
           git config user.name  "github-actions"
@@ -183,11 +191,13 @@ jobs:
           git add .gitignore models/manifest/* || true
           git add output/models/metrics_summary.csv || true
           git add output/logs/*.log || true
-          git add models/calibration/calibration_summary.csv || true
+          git add data/props/props_current.csv || true
+          git add data/props/props_*.csv 2>/dev/null || true
           git add data/props/props_current_calibrated.csv || true
+          git add models/calibration/calibration_summary.csv || true
           git add output/*best_bets* 2>/dev/null || true
           if ! git diff --cached --quiet; then
-            git commit -m "Pipeline ${{ github.run_id }}: manifest, metrics, logs, calibration summary, calibrated props, best bets"
+            git commit -m "Pipeline ${{ github.run_id }}: manifest, metrics, props, calibration summary, best bets"
             git push
           else
             echo "No lightweight changes to commit."
