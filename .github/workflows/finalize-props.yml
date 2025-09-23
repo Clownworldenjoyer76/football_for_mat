@@ -1,0 +1,103 @@
+name: finalize-props
+
+on:
+  # run manually from the Actions tab
+  workflow_dispatch:
+  # run automatically every Tuesday 11:00 UTC ≈ 7:00 AM ET (cron is UTC)
+  schedule:
+    - cron: "0 11 * * TUE"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-props-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  TZ: "UTC"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Show inputs (if present)
+        run: |
+          ls -lh data/props 2>/dev/null || true
+          ls -lh data/weekly 2>/dev/null || true
+          sed -n '1,20p' data/props/history_pending.csv 2>/dev/null || true
+          sed -n '1,20p' data/weekly/latest.csv 2>/dev/null || true
+
+      - name: Finalize props → stamp outcomes
+        run: |
+          set -e
+          if [ ! -f scripts/08_finalize_props_outcomes.py ]; then
+            echo "scripts/08_finalize_props_outcomes.py not found; nothing to do."
+            exit 0
+          fi
+          if [ ! -f data/props/history_pending.csv ]; then
+            echo "No data/props/history_pending.csv; nothing pending to finalize."
+            exit 0
+          fi
+          if [ ! -f data/weekly/latest.csv ]; then
+            echo "No data/weekly/latest.csv (weekly stats). Skipping finalize."
+            exit 0
+          fi
+          python scripts/08_finalize_props_outcomes.py \
+            --pending data/props/history_pending.csv \
+            --weekly  data/weekly/latest.csv \
+            --out     data/props/history_props_with_outcomes.csv \
+            --join    player_week
+
+      - name: Show outputs
+        run: |
+          ls -lh data/props || true
+          sed -n '1,25p' data/props/history_props_with_outcomes.csv 2>/dev/null || true
+
+      - name: Commit finalized history
+        run: |
+          set -e
+          git config user.name  "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add data/props/history_props_with_outcomes.csv || true
+          # history_pending.csv is typically deleted by the script; stage removal if so
+          git rm -f data/props/history_pending.csv 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "Finalize props outcomes: update history_props_with_outcomes.csv (run ${{ github.run_id }})"
+            git push
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Upload finalized history (artifact, 90-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-props-with-outcomes-${{ github.run_id }}
+          path: data/props/history_props_with_outcomes.csv
+          if-no-files-found: warn
+          retention-days: 90
