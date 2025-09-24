@@ -81,22 +81,28 @@ jobs:
         run: |
           python scripts/05_pull_odds_merge.py || true
 
-      # ---------- Build data/weekly/latest.csv from newest weekly file ----------
+      # ---------- Build data/weekly/latest.csv from canonical weekly_latest.csv.gz ----------
       - name: Build data/weekly/latest.csv
         run: |
           set -e
           mkdir -p data/weekly
-          latest="$(ls -t data/raw/nflverse/weekly_* 2>/dev/null | head -1 || true)"
-          if [ -z "$latest" ]; then
-            echo "No weekly_* file found under data/raw/nflverse; skipping latest.csv build."
+          if [ -f "data/raw/nflverse/weekly_latest.csv.gz" ]; then
+            zcat data/raw/nflverse/weekly_latest.csv.gz > data/weekly/latest.csv
+            echo "Wrote data/weekly/latest.csv from weekly_latest.csv.gz"
           else
-            case "$latest" in
-              *.csv.gz) zcat "$latest" > data/weekly/latest.csv ;;
-              *.csv)    cp "$latest"    data/weekly/latest.csv ;;
-              *)        echo "Unknown weekly file extension: $latest" ;;
-            esac
-            [ -f data/weekly/latest.csv ] && echo "Wrote data/weekly/latest.csv from $latest" && sed -n '1,10p' data/weekly/latest.csv || true
+            # Fallback: newest weekly_*.csv(.gz) if canonical not present
+            latest="$(ls -t data/raw/nflverse/weekly_* 2>/dev/null | head -1 || true)"
+            if [ -n "$latest" ]; then
+              case "$latest" in
+                *.csv.gz) zcat "$latest" > data/weekly/latest.csv ;;
+                *.csv)    cp "$latest"    data/weekly/latest.csv ;;
+              esac
+              echo "Wrote data/weekly/latest.csv from $latest"
+            else
+              echo "No weekly_latest.csv.gz or weekly_* file found; skipping latest.csv build."
+            fi
           fi
+          [ -f data/weekly/latest.csv ] && sed -n '1,10p' data/weekly/latest.csv || true
 
       # ---------- Commit & push ----------
       - name: Commit & push updated data
@@ -118,9 +124,6 @@ jobs:
           fi
 
           git commit -m "chore(data): weekly refresh (nflverse + weather + injuries + odds + weekly latest) [skip ci]"
-
-          # Rebase in case main moved since checkout
           git fetch origin
           git pull --rebase origin main || true
-
           git push
