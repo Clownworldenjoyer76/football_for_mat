@@ -81,36 +81,22 @@ jobs:
         run: |
           python scripts/05_pull_odds_merge.py || true
 
-      # ---------- NEW: build data/weekly/latest.csv robustly ----------
-      - name: Build data/weekly/latest.csv from newest weekly file
+      # ---------- Build data/weekly/latest.csv from newest weekly file ----------
+      - name: Build data/weekly/latest.csv
         run: |
           set -e
           mkdir -p data/weekly
-          # Prefer explicit output if your script supports it
-          if python - <<'PY'
-import os, sys, subprocess
-out = "data/weekly/latest.csv"
-# If latest.csv already exists from prior step, keep it
-sys.exit(0 if os.path.isfile(out) else 1)
-PY
-          then
-            echo "latest.csv already present from previous step."
+          latest="$(ls -t data/raw/nflverse/weekly_* 2>/dev/null | head -1 || true)"
+          if [ -z "$latest" ]; then
+            echo "No weekly_* file found under data/raw/nflverse; skipping latest.csv build."
           else
-            # Fallback: pick the newest weekly csv/csv.gz produced by pulls
-            latest=$(ls -t data/raw/nflverse/weekly_* 2>/dev/null | head -1 || true)
-            if [ -z "$latest" ]; then
-              echo "No weekly_* file found under data/raw/nflverse; skipping latest.csv build."
-              exit 0
-            fi
             case "$latest" in
               *.csv.gz) zcat "$latest" > data/weekly/latest.csv ;;
               *.csv)    cp "$latest"    data/weekly/latest.csv ;;
-              *)        echo "Unknown weekly file extension: $latest"; exit 0 ;;
+              *)        echo "Unknown weekly file extension: $latest" ;;
             esac
-            echo "Wrote data/weekly/latest.csv from $latest"
+            [ -f data/weekly/latest.csv ] && echo "Wrote data/weekly/latest.csv from $latest" && sed -n '1,10p' data/weekly/latest.csv || true
           fi
-          # Show a quick sample if present
-          [ -f data/weekly/latest.csv ] && sed -n '1,10p' data/weekly/latest.csv || true
 
       # ---------- Commit & push ----------
       - name: Commit & push updated data
@@ -126,7 +112,6 @@ PY
           git add -f data/odds                2>/dev/null || true
           [ -f data/weekly/latest.csv ] && git add -f data/weekly/latest.csv || true
 
-          # Create commit only if something staged
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
@@ -138,5 +123,4 @@ PY
           git fetch origin
           git pull --rebase origin main || true
 
-          # Push
           git push
