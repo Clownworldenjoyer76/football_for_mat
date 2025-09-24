@@ -53,38 +53,59 @@ jobs:
           sed -n '1,20p' data/props/history_pending.csv 2>/dev/null || true
           sed -n '1,20p' data/weekly/latest.csv 2>/dev/null || true
 
-      - name: Finalize props → stamp outcomes
+      - name: Finalize props → stamp outcomes (only if both inputs exist)
+        id: finalize
         run: |
           set -e
+          OUT="data/props/history_props_with_outcomes.csv"
+          PENDING="data/props/history_pending.csv"
+          WEEKLY="data/weekly/latest.csv"
+
+          if [ ! -f "$PENDING" ]; then
+            echo "No $PENDING; nothing pending to finalize."
+            echo "wrote_outcomes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ ! -f "$WEEKLY" ]; then
+            echo "No $WEEKLY (weekly stats). Keeping pending; skipping finalize."
+            echo "wrote_outcomes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           if [ ! -f scripts/08_finalize_props_outcomes.py ]; then
-            echo "scripts/08_finalize_props_outcomes.py not found; nothing to do."
+            echo "scripts/08_finalize_props_outcomes.py not found; skipping."
+            echo "wrote_outcomes=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          if [ ! -f data/props/history_pending.csv ]; then
-            echo "No data/props/history_pending.csv; nothing pending to finalize."
-            exit 0
-          fi
-          if [ ! -f data/weekly/latest.csv ]; then
-            echo "No data/weekly/latest.csv (weekly stats). Skipping finalize."
-            exit 0
-          fi
+
           python scripts/08_finalize_props_outcomes.py \
-            --pending data/props/history_pending.csv \
-            --weekly  data/weekly/latest.csv \
-            --out     data/props/history_props_with_outcomes.csv \
+            --pending "$PENDING" \
+            --weekly  "$WEEKLY" \
+            --out     "$OUT" \
             --join    player_week
+
+          if [ -f "$OUT" ]; then
+            echo "Wrote $OUT"
+            echo "wrote_outcomes=true" >> $GITHUB_OUTPUT
+          else
+            echo "Finalize script ran but $OUT not found; skipping cleanup."
+            echo "wrote_outcomes=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Show outputs
         run: |
-          ls -lh data/props || true
           sed -n '1,25p' data/props/history_props_with_outcomes.csv 2>/dev/null || true
+          ls -lh data/props || true
 
-      - name: Commit finalized history
+      - name: Commit finalized history (only if outcomes were written)
+        if: steps.finalize.outputs.wrote_outcomes == 'true'
         run: |
           set -e
           git config user.name  "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add data/props/history_props_with_outcomes.csv || true
+          # Remove pending only when outcomes exist
           git rm -f data/props/history_pending.csv 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "Finalize props outcomes: update history_props_with_outcomes.csv (run ${{ github.run_id }})"
@@ -94,6 +115,7 @@ jobs:
           fi
 
       - name: Upload finalized history (artifact, 90-day retention)
+        if: steps.finalize.outputs.wrote_outcomes == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: history-props-with-outcomes-${{ github.run_id }}
