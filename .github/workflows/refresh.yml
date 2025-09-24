@@ -6,17 +6,20 @@ on:
     - cron: "0 17 * * 2"   # 17:00 UTC = 12:00 PM ET (Tuesday)
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   refresh-data:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # R for depth charts via nflreadr
+      # ---------- R: depth charts via nflreadr ----------
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
@@ -28,8 +31,7 @@ jobs:
           packages: |
             any::nflreadr
 
-      # Write plain CSV then gzip with system tool to avoid truncated gzip files
-      - name: Fetch depth charts (write CSV then gzip)
+      - name: Fetch depth charts (CSV then gzip)
         run: |
           Rscript - <<'RSCRIPT'
           dir.create("data/raw/nflverse", recursive = TRUE, showWarnings = FALSE)
@@ -42,7 +44,7 @@ jobs:
           RSCRIPT
           gzip -f data/raw/nflverse/depth_charts.csv
 
-      # Python for PBP/weekly/rosters + canonicalize depth + external feeds
+      # ---------- Python pulls ----------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -51,54 +53,90 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pyarrow fastparquet lxml || true
 
-      # Core nflverse pulls (pbp/weekly/rosters/depth)
       - name: Pull core NFL datasets (pbp/weekly/rosters/depth)
         env:
           NFLVERSE_WEEKLY_URL_TPL: "https://github.com/nflverse/nflverse-data/releases/download/weekly/weekly_{year}.csv.gz"
           NFLVERSE_ROSTERS_URL_TPL: "https://github.com/nflverse/nflverse-data/releases/download/rosters/rosters_{year}.csv.gz"
-          NFLVERSE_DEPTH_URL_TPL: ""
         run: |
-          python scripts/01_pull_nflverse.py --start 2019 --dl-weekly --dl-rosters --dl-depth
+          python scripts/01_pull_nflverse.py --start 2019 --dl-weekly --dl-rosters --dl-depth || true
 
-      # WEATHER
       - name: Pull game weather (Open-Meteo)
         run: |
-          python scripts/pull_weather_openmeteo.py
+          python scripts/pull_weather_openmeteo.py || true
 
-      # INJURIES / ACTIVES
       - name: Pull injuries & actives
         run: |
-          python scripts/pull_injuries_actives.py
+          python scripts/pull_injuries_actives.py || true
 
-      # ODDS API
       - name: Pull odds via Odds API
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
-          python scripts/06_pull_odds_api.py
+          python scripts/06_pull_odds_api.py || true
 
       - name: Merge/process odds
         run: |
-          python scripts/05_pull_odds_merge.py
+          python scripts/05_pull_odds_merge.py || true
 
-      # NEW: Write weekly latest.csv for finalize-props
-      - name: Write weekly/latest.csv
+      # ---------- NEW: build data/weekly/latest.csv robustly ----------
+      - name: Build data/weekly/latest.csv from newest weekly file
         run: |
+          set -e
           mkdir -p data/weekly
-          python scripts/01_pull_nflverse.py --out data/weekly/latest.csv || echo "No weekly stats produced"
+          # Prefer explicit output if your script supports it
+          if python - <<'PY'
+import os, sys, subprocess
+out = "data/weekly/latest.csv"
+# If latest.csv already exists from prior step, keep it
+sys.exit(0 if os.path.isfile(out) else 1)
+PY
+          then
+            echo "latest.csv already present from previous step."
+          else
+            # Fallback: pick the newest weekly csv/csv.gz produced by pulls
+            latest=$(ls -t data/raw/nflverse/weekly_* 2>/dev/null | head -1 || true)
+            if [ -z "$latest" ]; then
+              echo "No weekly_* file found under data/raw/nflverse; skipping latest.csv build."
+              exit 0
+            fi
+            case "$latest" in
+              *.csv.gz) zcat "$latest" > data/weekly/latest.csv ;;
+              *.csv)    cp "$latest"    data/weekly/latest.csv ;;
+              *)        echo "Unknown weekly file extension: $latest"; exit 0 ;;
+            esac
+            echo "Wrote data/weekly/latest.csv from $latest"
+          fi
+          # Show a quick sample if present
+          [ -f data/weekly/latest.csv ] && sed -n '1,10p' data/weekly/latest.csv || true
 
-      # Commit & push updated data (including weekly/latest.csv)
+      # ---------- Commit & push ----------
       - name: Commit & push updated data
         run: |
-          git config user.name "github-actions[bot]"
+          set -e
+          git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f data/raw/nflverse || true
-          git add -f data/raw/weather || true
-          git add -f data/raw/injuries || true
-          git add -f data/odds || true
-          git add -f data/weekly/latest.csv || true
-          git commit -m "chore(data): weekly refresh (nflverse + weather + injuries + odds + weekly latest) [skip ci]" || echo "No changes to commit"
+
+          # Stage files (guard each so a missing path doesn't fail the job)
+          git add -f data/raw/nflverse        2>/dev/null || true
+          git add -f data/raw/weather         2>/dev/null || true
+          git add -f data/raw/injuries        2>/dev/null || true
+          git add -f data/odds                2>/dev/null || true
+          [ -f data/weekly/latest.csv ] && git add -f data/weekly/latest.csv || true
+
+          # Create commit only if something staged
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(data): weekly refresh (nflverse + weather + injuries + odds + weekly latest) [skip ci]"
+
+          # Rebase in case main moved since checkout
+          git fetch origin
+          git pull --rebase origin main || true
+
+          # Push
           git push
