@@ -3,7 +3,7 @@ name: Weekly Data Refresh
 
 on:
   schedule:
-    - cron: "0 17 * * 2"
+    - cron: "0 17 * * 2"   # 17:00 UTC = 12:00 PM ET (Tuesday)
   workflow_dispatch:
 
 jobs:
@@ -84,7 +84,13 @@ jobs:
         run: |
           python scripts/05_pull_odds_merge.py
 
-      # Commit & push updated data (no warehouse artifacts)
+      # NEW: Write weekly latest.csv for finalize-props
+      - name: Write weekly/latest.csv
+        run: |
+          mkdir -p data/weekly
+          python scripts/01_pull_nflverse.py --out data/weekly/latest.csv || echo "No weekly stats produced"
+
+      # Commit & push updated data (including weekly/latest.csv)
       - name: Commit & push updated data
         run: |
           git config user.name "github-actions[bot]"
@@ -93,5 +99,6 @@ jobs:
           git add -f data/raw/weather || true
           git add -f data/raw/injuries || true
           git add -f data/odds || true
-          git commit -m "chore(data): weekly refresh (nflverse + weather + injuries + odds) [skip ci]" || echo "No changes to commit"
+          git add -f data/weekly/latest.csv || true
+          git commit -m "chore(data): weekly refresh (nflverse + weather + injuries + odds + weekly latest) [skip ci]" || echo "No changes to commit"
           git push
