@@ -16,14 +16,13 @@ Usage examples:
 from __future__ import annotations
 
 import argparse
-import math
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
+import sys, pathlib as _pl
 
-# Allow `from scripts.lib...` when executed as a script
-import sys, pathlib as _pl; sys.path.append(str(_pl.Path(__file__).resolve().parents[1]))
+# allow `from scripts.lib...` when executed as a script
+sys.path.append(str(_pl.Path(__file__).resolve().parents[1]))
 
 from scripts.lib.calibration import (
     fit_calibrator,
@@ -44,7 +43,6 @@ def _coerce_bool01(x: pd.Series) -> pd.Series:
       - NaN stays NaN (caller decides drop/fill)
     """
     s = pd.to_numeric(x, errors="coerce")
-    # If all values are NaN (e.g., strings like "true"/"false"), try a string map
     if s.isna().all():
         lower = x.astype(str).str.strip().str.lower()
         map_ = {
@@ -52,9 +50,8 @@ def _coerce_bool01(x: pd.Series) -> pd.Series:
             "0": 0, "false": 0, "f": 0, "no": 0, "n": 0, "under": 0,
         }
         s = lower.map(map_).astype("float64")
-    # Anything nonzero -> 1.0, zeros -> 0.0
     s = s.fillna(np.nan)
-    s = (s > 0.5).astype("float64")  # keep as float for dropna; cast to int later
+    s = (s > 0.5).astype("float64")
     return s
 
 
@@ -62,20 +59,14 @@ def _sanitize(df: pd.DataFrame) -> pd.DataFrame:
     """Return a sanitized copy with numeric probs ∈ (0,1) and target in {0,1}."""
     out = df.copy()
 
-    # Coerce numerics and replace ±inf with NaN
     out["prob_over"] = pd.to_numeric(out["prob_over"], errors="coerce")
     out["prob_over"].replace([np.inf, -np.inf], np.nan, inplace=True)
 
     out["over_actual"] = _coerce_bool01(out["over_actual"])
     out["over_actual"].replace([np.inf, -np.inf], np.nan, inplace=True)
 
-    # Drop rows missing either column
     out = out.dropna(subset=["prob_over", "over_actual"])
-
-    # Clip probabilities to open interval (0,1) to avoid degenerate logloss
     out["prob_over"] = out["prob_over"].clip(EPS, 1.0 - EPS)
-
-    # Finally cast target to int
     out["over_actual"] = out["over_actual"].astype(int)
 
     return out
@@ -121,7 +112,6 @@ def main() -> None:
     if args.market:
         df = df[df["market"] == args.market].copy()
 
-    # Sanitize rows
     df = _sanitize(df)
 
     outdir = Path(args.outdir)
@@ -131,13 +121,12 @@ def main() -> None:
     markets = sorted(df["market"].dropna().unique().tolist())
 
     if not markets:
-        # Still write an empty summary so downstream steps can continue gracefully
         pd.DataFrame(
             columns=[
                 "market", "n", "method",
                 "brier_before", "brier_after",
                 "logloss_before", "logloss_after",
-                "artifact",
+                "artifact", "reason",
             ]
         ).to_csv(outdir / "calibration_summary.csv", index=False)
         print("No markets found after sanitization; wrote empty calibration_summary.csv")
@@ -148,10 +137,18 @@ def main() -> None:
         n = int(len(grp))
         if n < args.min_rows:
             print(f"Skipping {mk}: only {n} clean rows (< {args.min_rows})")
+            results.append({"market": mk, "n": n, "method": "", "brier_before": "", "brier_after": "", "logloss_before": "", "logloss_after": "", "artifact": "", "reason": "too_few_rows"})
             continue
 
         p_hat = grp["prob_over"].astype(float).to_numpy()
         y = grp["over_actual"].astype(int).to_numpy()
+
+        # --- Option 1: SKIP single-class markets (prevents sklearn error) ---
+        unique_classes = np.unique(y)
+        if unique_classes.size < 2:
+            print(f"Skipping {mk}: single-class outcomes (all {unique_classes[0]})")
+            results.append({"market": mk, "n": n, "method": "", "brier_before": "", "brier_after": "", "logloss_before": "", "logloss_after": "", "artifact": "", "reason": "single_class"})
+            continue
 
         # Choose/assign method
         method = args.method
@@ -177,16 +174,17 @@ def main() -> None:
                 "logloss_before": rep.logloss_before,
                 "logloss_after": rep.logloss_after,
                 "artifact": out_path.as_posix(),
+                "reason": "",
             }
         )
 
-    # Always write summary (even if empty after skipping)
     pd.DataFrame(results).to_csv(outdir / "calibration_summary.csv", index=False)
 
-    if results:
-        print(f"✓ Wrote calibrators to {outdir} for {len(results)} market(s).")
+    trained = [r for r in results if r.get("artifact")]
+    if trained:
+        print(f"✓ Wrote calibrators to {outdir} for {len(trained)} market(s).")
     else:
-        print(f"No calibrators trained (insufficient clean rows). Wrote empty summary at {outdir}/calibration_summary.csv")
+        print(f"No calibrators trained (too few rows or single-class). Wrote summary at {outdir}/calibration_summary.csv")
 
 
 if __name__ == "__main__":
