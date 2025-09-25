@@ -1,48 +1,193 @@
-
 #!/usr/bin/env python3
 """
-Train a probability calibrator for OVER outcomes given historical predictions.
-Input CSV must contain at least:
-  - market (str)         e.g. 'passing_yards'
-  - prob_over (float)    uncalibrated probability our pipeline produced at prediction time
-  - over_actual (int)    1 if actual result went over the prop line, else 0
-You can point to a single market via --market, or train one per market found.
-"""
-import sys, pathlib; sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
-import argparse
-from pathlib import Path
-import pandas as pd
-from scripts.lib.calibration import fit_calibrator, apply_calibrator, evaluate_calibration, cross_validated_method_choice, save_calibrator
+Train probability calibrators for OVER outcomes using historical props.
 
-def main():
+Input CSV must include at least:
+  - market (str)         e.g. 'passing_yards'
+  - prob_over (float)    uncalibrated probability our pipeline produced
+  - over_actual (int/float/bool)  1 if actual result went over the prop line, else 0
+
+Usage examples:
+  python scripts/05_train_calibrator.py
+  python scripts/05_train_calibrator.py --market qb_passing_yards --method isotonic
+  python scripts/05_train_calibrator.py --csv data/props/history_props_with_outcomes.csv --outdir models/calibration
+"""
+
+from __future__ import annotations
+
+import argparse
+import math
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+# Allow `from scripts.lib...` when executed as a script
+import sys, pathlib as _pl; sys.path.append(str(_pl.Path(__file__).resolve().parents[1]))
+
+from scripts.lib.calibration import (
+    fit_calibrator,
+    apply_calibrator,
+    evaluate_calibration,
+    cross_validated_method_choice,
+    save_calibrator,
+)
+
+MIN_ROWS_PER_MARKET = 50   # skip markets with fewer than this many clean rows
+EPS = 1e-6                 # clip probabilities away from 0/1 for stable losses
+
+
+def _coerce_bool01(x: pd.Series) -> pd.Series:
+    """
+    Coerce a series to {0,1}:
+      - accepts ints/floats/bools/strings ("0","1","true","false","yes","no")
+      - NaN stays NaN (caller decides drop/fill)
+    """
+    s = pd.to_numeric(x, errors="coerce")
+    # If all values are NaN (e.g., strings like "true"/"false"), try a string map
+    if s.isna().all():
+        lower = x.astype(str).str.strip().str.lower()
+        map_ = {
+            "1": 1, "true": 1, "t": 1, "yes": 1, "y": 1, "over": 1,
+            "0": 0, "false": 0, "f": 0, "no": 0, "n": 0, "under": 0,
+        }
+        s = lower.map(map_).astype("float64")
+    # Anything nonzero -> 1.0, zeros -> 0.0
+    s = s.fillna(np.nan)
+    s = (s > 0.5).astype("float64")  # keep as float for dropna; cast to int later
+    return s
+
+
+def _sanitize(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a sanitized copy with numeric probs ∈ (0,1) and target in {0,1}."""
+    out = df.copy()
+
+    # Coerce numerics and replace ±inf with NaN
+    out["prob_over"] = pd.to_numeric(out["prob_over"], errors="coerce")
+    out["prob_over"].replace([np.inf, -np.inf], np.nan, inplace=True)
+
+    out["over_actual"] = _coerce_bool01(out["over_actual"])
+    out["over_actual"].replace([np.inf, -np.inf], np.nan, inplace=True)
+
+    # Drop rows missing either column
+    out = out.dropna(subset=["prob_over", "over_actual"])
+
+    # Clip probabilities to open interval (0,1) to avoid degenerate logloss
+    out["prob_over"] = out["prob_over"].clip(EPS, 1.0 - EPS)
+
+    # Finally cast target to int
+    out["over_actual"] = out["over_actual"].astype(int)
+
+    return out
+
+
+def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", default="data/props/history_props_with_outcomes.csv", help="historical props file including actual outcomes")
-    ap.add_argument("--market", default=None, help="filter to a single market (optional)")
-    ap.add_argument("--method", default="auto", choices=["auto","isotonic","sigmoid"], help="calibration method")
-    ap.add_argument("--outdir", default="models/calibration", help="where to write calibrators")
+    ap.add_argument(
+        "--csv",
+        default="data/props/history_props_with_outcomes.csv",
+        help="Historical props file including actual outcomes.",
+    )
+    ap.add_argument("--market", default=None, help="Filter to a single market (optional)")
+    ap.add_argument(
+        "--method",
+        default="auto",
+        choices=["auto", "isotonic", "sigmoid"],
+        help="Calibration method (auto = choose via CV per market).",
+    )
+    ap.add_argument(
+        "--outdir",
+        default="models/calibration",
+        help="Where to write calibrator artifacts and summary CSV.",
+    )
+    ap.add_argument(
+        "--min_rows",
+        type=int,
+        default=MIN_ROWS_PER_MARKET,
+        help=f"Minimum clean rows per market (default {MIN_ROWS_PER_MARKET}).",
+    )
     args = ap.parse_args()
 
-    df = pd.read_csv(args.csv)
+    src = Path(args.csv)
+    if not src.exists():
+        raise SystemExit(f"ERROR: input CSV not found: {src}")
+
+    df = pd.read_csv(src)
+    required = {"market", "prob_over", "over_actual"}
+    missing = required - set(df.columns)
+    if missing:
+        raise SystemExit(f"ERROR: required columns missing from {src}: {sorted(missing)}")
+
     if args.market:
         df = df[df["market"] == args.market].copy()
-    assert {"market","prob_over","over_actual"}.issubset(df.columns)
 
-    outdir = Path(args.outdir); outdir.mkdir(parents=True, exist_ok=True)
+    # Sanitize rows
+    df = _sanitize(df)
+
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
     results = []
-    for mk, grp in df.groupby("market"):
-        p_hat = grp["prob_over"].astype(float).values
-        y = grp["over_actual"].astype(int).values
-        method = args.method if args.method != "auto" else cross_validated_method_choice(p_hat, y)
+    markets = sorted(df["market"].dropna().unique().tolist())
+
+    if not markets:
+        # Still write an empty summary so downstream steps can continue gracefully
+        pd.DataFrame(
+            columns=[
+                "market", "n", "method",
+                "brier_before", "brier_after",
+                "logloss_before", "logloss_after",
+                "artifact",
+            ]
+        ).to_csv(outdir / "calibration_summary.csv", index=False)
+        print("No markets found after sanitization; wrote empty calibration_summary.csv")
+        return
+
+    for mk in markets:
+        grp = df[df["market"] == mk]
+        n = int(len(grp))
+        if n < args.min_rows:
+            print(f"Skipping {mk}: only {n} clean rows (< {args.min_rows})")
+            continue
+
+        p_hat = grp["prob_over"].astype(float).to_numpy()
+        y = grp["over_actual"].astype(int).to_numpy()
+
+        # Choose/assign method
+        method = args.method
+        if method == "auto":
+            method = cross_validated_method_choice(p_hat, y)
+
+        # Fit & evaluate
         model = fit_calibrator(p_hat, y, method=method)
         p_cal = apply_calibrator(model, p_hat)
         rep = evaluate_calibration(p_hat, p_cal, y)
-        rep.method = method
-        # save
+
+        # Save artifact
         out_path = outdir / f"{mk}_{method}.joblib"
         save_calibrator(model, out_path)
-        results.append({"market": mk, "n": rep.n, "method": method, "brier_before": rep.brier_before, "brier_after": rep.brier_after, "logloss_before": rep.logloss_before, "logloss_after": rep.logloss_after, "artifact": out_path.as_posix()})
-    pd.DataFrame(results).to_csv(Path(args.outdir) / "calibration_summary.csv", index=False)
-    print("✓ Wrote calibrators to", outdir)
+
+        results.append(
+            {
+                "market": mk,
+                "n": rep.n,
+                "method": method,
+                "brier_before": rep.brier_before,
+                "brier_after": rep.brier_after,
+                "logloss_before": rep.logloss_before,
+                "logloss_after": rep.logloss_after,
+                "artifact": out_path.as_posix(),
+            }
+        )
+
+    # Always write summary (even if empty after skipping)
+    pd.DataFrame(results).to_csv(outdir / "calibration_summary.csv", index=False)
+
+    if results:
+        print(f"✓ Wrote calibrators to {outdir} for {len(results)} market(s).")
+    else:
+        print(f"No calibrators trained (insufficient clean rows). Wrote empty summary at {outdir}/calibration_summary.csv")
+
 
 if __name__ == "__main__":
     main()
