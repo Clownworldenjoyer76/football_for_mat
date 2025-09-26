@@ -40,7 +40,23 @@ jobs:
           ls -lh data/props/history_pending.csv 2>/dev/null || echo "no pending file"
           ls -lh data/weekly/latest.csv         2>/dev/null || echo "no weekly latest"
 
+      # ----- NEW: detect whether pending exists; write summary if not
+      - id: check_pending
+        name: Check for pending file
+        run: |
+          set -e
+          if [ -f "data/props/history_pending.csv" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Found data/props/history_pending.csv"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            mkdir -p output/summaries
+            msg="[$(date -u +%Y-%m-%dT%H:%M:%SZ)] finalize-props: no pending props file found (data/props/history_pending.csv). Skipping finalize."
+            echo "$msg" | tee "output/summaries/finalize_no_pending_${GITHUB_RUN_ID}.log"
+          fi
+
       - name: Finalize props → stamp outcomes
+        if: steps.check_pending.outputs.exists == 'true'
         run: |
           set -e
           python scripts/08_finalize_props_outcomes.py \
@@ -50,29 +66,27 @@ jobs:
             --join    player_week
 
       - name: Show outputs
+        if: steps.check_pending.outputs.exists == 'true'
         run: |
           sed -n '1,20p' data/props/history_props_with_outcomes.csv 2>/dev/null || true
           wc -l data/props/history_props_with_outcomes.csv 2>/dev/null || true
 
-      # ---- FIX: fetch + rebase (or merge) before pushing to main ----
+      # ---- fetch + rebase/merge before pushing (only if we actually finalized)
       - name: Commit finalized history (only if outcomes exist)
+        if: steps.check_pending.outputs.exists == 'true'
         run: |
           set -e
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Ensure we're up to date with remote before committing
           git fetch origin main
           git rebase origin/main || git merge --no-edit origin/main
 
-          # Stage only the relevant files
           if [ -f data/props/history_props_with_outcomes.csv ]; then
             git add -f data/props/history_props_with_outcomes.csv
           fi
-          # history_pending may have been removed by the script — reflect that
           git rm -f data/props/history_pending.csv 2>/dev/null || true
 
-          # Commit only if there are staged changes
           if git diff --cached --quiet; then
             echo "No finalized history changes to commit."
             exit 0
@@ -82,9 +96,20 @@ jobs:
           git push origin HEAD:main
 
       - name: Upload finalized history (artifact, 90-day retention)
+        if: steps.check_pending.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: history-props-with-outcomes-${{ github.run_id }}
           path: data/props/history_props_with_outcomes.csv
+          if-no-files-found: warn
+          retention-days: 90
+
+      # ----- Upload the summary log when we skipped due to no pending file
+      - name: Upload “no pending” summary (artifact)
+        if: steps.check_pending.outputs.exists != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: finalize-no-pending-${{ github.run_id }}
+          path: output/summaries/finalize_no_pending_${{ github.run_id }}.log
           if-no-files-found: warn
           retention-days: 90
