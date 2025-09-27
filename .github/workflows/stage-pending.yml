@@ -2,6 +2,10 @@ name: stage-pending
 
 on:
   workflow_dispatch:
+  schedule:
+    # Run before finalize windows so history_pending.csv exists
+    - cron: "30 8 * * 2"  # Tue 08:30 UTC (pre-MNF finalize)
+    - cron: "30 8 * * 5"  # Fri 08:30 UTC (pre-TNF finalize)
 
 permissions:
   contents: write
@@ -9,6 +13,9 @@ permissions:
 jobs:
   stage:
     runs-on: ubuntu-latest
+    env:
+      TZ: America/New_York
+
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v4
@@ -25,11 +32,24 @@ jobs:
           python -m pip install -U pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+      - name: Check for props_current.csv
+        id: check_current
+        run: |
+          if [ -f "data/props/props_current.csv" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Found data/props/props_current.csv"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No data/props/props_current.csv; will skip staging."
+          fi
+
       - name: Create history_pending.csv from props_current.csv
+        if: steps.check_current.outputs.exists == 'true'
         run: |
           python scripts/08a_stage_pending_from_current.py
 
-      - name: Commit pending
+      - name: Commit pending (if produced)
+        if: steps.check_current.outputs.exists == 'true'
         run: |
           set -e
           git config user.name  "github-actions[bot]"
@@ -43,3 +63,28 @@ jobs:
           fi
           git commit -m "Stage pending props from props_current (run $GITHUB_RUN_ID)"
           git push origin HEAD:main
+
+      - name: Upload pending (artifact)
+        if: steps.check_current.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-pending-${{ github.run_id }}
+          path: data/props/history_pending.csv
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Note skipped staging
+        if: steps.check_current.outputs.exists != 'true'
+        run: |
+          mkdir -p output/summaries
+          echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] stage-pending: skipped (no props_current.csv)" \
+            | tee "output/summaries/stage_pending_skipped_${GITHUB_RUN_ID}.log"
+
+      - name: Upload skip log (artifact)
+        if: steps.check_current.outputs.exists != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-pending-skip-${{ github.run_id }}
+          path: output/summaries/stage_pending_skipped_${{ github.run_id }}.log
+          if-no-files-found: warn
+          retention-days: 7
