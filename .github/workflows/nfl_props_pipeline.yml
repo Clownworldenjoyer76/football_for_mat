@@ -46,7 +46,7 @@ jobs:
             echo "No scripts/02a_debug_features.py; skipping."
           fi
 
-      - name: Step 02.6 - Enrich features
+      - name: Step 02.6 - Enrich features (optional)
         run: |
           if [ -f scripts/02b_enrich_features.py ]; then
             python scripts/02b_enrich_features.py
@@ -118,15 +118,42 @@ jobs:
           echo "--- data/props listing ---"
           ls -lh data/props || true
 
+      - name: Stamp run timestamp into props CSVs (ensures diff for commit)
+        run: |
+          python - <<'PY'
+          import os, glob, pandas as pd
+          from datetime import datetime, timezone
+          ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          paths = sorted(glob.glob("data/props/props_*.csv")) + (["data/props/props_current.csv"] if os.path.exists("data/props/props_current.csv") else [])
+          changed = 0
+          for p in paths:
+            try:
+              df = pd.read_csv(p)
+              df["run_ts_utc"] = ts
+              df.to_csv(p, index=False)
+              changed += 1
+              print(f"Stamped run_ts_utc in {p} (rows={len(df)})")
+            except Exception as e:
+              print(f"WARNING: could not stamp {p}: {e}")
+          if changed == 0:
+            raise SystemExit("No props CSVs found to stamp; nothing to commit.")
+          PY
+
       - name: Commit props outputs (props_current + per-market)
         run: |
           set -e
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          echo "=== git status BEFORE staging ==="
+          git status --porcelain || true
+
           # 1) Stage props files first
           git add -f data/props/props_current.csv 2>/dev/null || true
           find data/props -maxdepth 1 -type f -name 'props_*.csv' -print0 2>/dev/null | xargs -0 -r git add
+
+          echo "=== git status AFTER staging ==="
+          git status --porcelain || true
 
           # 2) If nothing changed, bail early
           if git diff --cached --quiet; then
@@ -137,10 +164,20 @@ jobs:
           # 3) Commit locally
           git commit -m "[props] update props_current and per-market (run $GITHUB_RUN_ID)"
 
-          # 4) Rebase with autostash, then push
+          # 4) Rebase with autostash, then push (with fallback)
           git fetch origin main || true
-          git pull --rebase --autostash origin main || true
-          git push origin HEAD:main
+          if ! git pull --rebase --autostash origin main; then
+            echo "Rebase failed; attempting merge fallback"
+            git pull --no-rebase --no-edit origin main || true
+          fi
+
+          # 5) Push (with one retry if needed)
+          if ! git push origin HEAD:main; then
+            echo "Initial push failed; retrying after fetch/rebase"
+            git fetch origin main || true
+            git pull --rebase --autostash origin main || true
+            git push origin HEAD:main
+          fi
 
       - name: Upload props artifacts (for reference)
         uses: actions/upload-artifact@v4
