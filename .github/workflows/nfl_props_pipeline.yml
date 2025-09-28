@@ -38,8 +38,13 @@ jobs:
       - name: Step 02 - Build features
         run: python scripts/02_build_features.py
 
-      - name: Step 02.5 - Debug features
-        run: python scripts/02a_debug_features.py
+      - name: Step 02.5 - Debug features (optional)
+        run: |
+          if [ -f scripts/02a_debug_features.py ]; then
+            python scripts/02a_debug_features.py
+          else
+            echo "No scripts/02a_debug_features.py; skipping."
+          fi
 
       - name: Step 02.6 - Enrich features
         run: python scripts/02b_enrich_features.py
@@ -56,7 +61,7 @@ jobs:
       - name: Commit updated models, metrics, and manifest
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           git lfs track "*.joblib"
 
@@ -80,3 +85,7 @@ jobs:
             models/manifest/models_manifest.lock.json
             output/models/metrics_summary.csv
             output/logs/features_columns.txt
+
+      # --- Props generation ---
+      - name: Step 04 - Generate props
+        run: python scripts/04_generate_props.py
