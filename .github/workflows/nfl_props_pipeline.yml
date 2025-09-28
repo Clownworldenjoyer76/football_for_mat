@@ -57,24 +57,24 @@ jobs:
       - name: Step 03.5 - Build models manifest
         run: python scripts/build_models_manifest.py models/pregame output/logs/features_columns.txt
 
-      # --- Commit results back ---
+      # --- Commit results (models/manifest/logs) ---
       - name: Commit updated models, metrics, and manifest
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git lfs track "*.joblib"
+          git lfs track "*.joblib" || true
 
-          git add models/pregame/*.joblib
-          git add models/manifest/models_manifest.csv
-          git add models/manifest/models_manifest.lock.json || true
-          git add output/models/metrics_summary.csv
-          git add output/logs/features_columns.txt
+          git add models/pregame/*.joblib 2>/dev/null || true
+          git add models/manifest/models_manifest.csv 2>/dev/null || true
+          git add models/manifest/models_manifest.lock.json 2>/dev/null || true
+          git add output/models/metrics_summary.csv 2>/dev/null || true
+          git add output/logs/features_columns.txt 2>/dev/null || true
 
-          git commit -m "[skip ci] Update models, manifest and metrics" || echo "No changes to commit"
-          git push
+          git commit -m "[skip ci] Update models, manifest and metrics" || echo "No changes to commit (models/manifest)."
+          git push || true
 
-      # --- Upload artifacts for inspection ---
+      # --- Upload artifacts for inspection (models/logs) ---
       - name: Upload models and logs
         uses: actions/upload-artifact@v4
         with:
@@ -85,7 +85,47 @@ jobs:
             models/manifest/models_manifest.lock.json
             output/models/metrics_summary.csv
             output/logs/features_columns.txt
+          if-no-files-found: warn
 
       # --- Props generation ---
       - name: Step 04 - Generate props
-        run: python scripts/04_generate_props.py
+        run: |
+          set -e
+          if [ -f scripts/04_generate_props.py ]; then
+            python scripts/04_generate_props.py
+          else
+            echo "ERROR: scripts/04_generate_props.py missing"; exit 1
+          fi
+
+      - name: Verify props generated (fail loud if missing)
+        run: |
+          set -e
+          test -s data/props/props_current.csv || (echo "ERROR: data/props/props_current.csv not found/empty after generation" && exit 1)
+          echo "--- props_current.csv (head) ---"
+          sed -n '1,20p' data/props/props_current.csv || true
+          echo "--- data/props listing ---"
+          ls -lh data/props || true
+
+      - name: Commit props outputs (props_current + per-market)
+        run: |
+          set -e
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main || true
+
+          git add -f data/props/props_current.csv 2>/dev/null || true
+          find data/props -maxdepth 1 -type f -name 'props_*.csv' -print0 2>/dev/null | xargs -0 -r git add
+
+          if git diff --cached --quiet; then
+            echo "No props changes to commit."
+          else
+            git commit -m "[props] update props_current and per-market (run $GITHUB_RUN_ID)"
+            git push
+          fi
+
+      - name: Upload props artifacts (for reference)
+        uses: actions/upload-artifact@v4
+        with:
+          name: props-${{ github.run_id }}
+          path: data/props/*.csv
+          if-no-files-found: warn
