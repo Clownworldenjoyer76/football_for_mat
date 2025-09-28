@@ -47,7 +47,12 @@ jobs:
           fi
 
       - name: Step 02.6 - Enrich features
-        run: python scripts/02b_enrich_features.py
+        run: |
+          if [ -f scripts/02b_enrich_features.py ]; then
+            python scripts/02b_enrich_features.py
+          else
+            echo "No scripts/02b_enrich_features.py; skipping."
+          fi
 
       # --- Model training ---
       - name: Step 03 - Train models
@@ -60,8 +65,9 @@ jobs:
       # --- Commit results (models/manifest/logs) ---
       - name: Commit updated models, metrics, and manifest
         run: |
+          set -e
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           git lfs track "*.joblib" || true
 
@@ -71,8 +77,14 @@ jobs:
           git add output/models/metrics_summary.csv 2>/dev/null || true
           git add output/logs/features_columns.txt 2>/dev/null || true
 
-          git commit -m "[skip ci] Update models, manifest and metrics" || echo "No changes to commit (models/manifest)."
-          git push || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit (models/manifest/logs)."
+          else
+            git commit -m "[skip ci] Update models, manifest and metrics"
+            git fetch origin main || true
+            git pull --rebase --autostash origin main || true
+            git push origin HEAD:main
+          fi
 
       # --- Upload artifacts for inspection (models/logs) ---
       - name: Upload models and logs
@@ -111,17 +123,24 @@ jobs:
           set -e
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main || true
 
+          # 1) Stage props files first
           git add -f data/props/props_current.csv 2>/dev/null || true
           find data/props -maxdepth 1 -type f -name 'props_*.csv' -print0 2>/dev/null | xargs -0 -r git add
 
+          # 2) If nothing changed, bail early
           if git diff --cached --quiet; then
             echo "No props changes to commit."
-          else
-            git commit -m "[props] update props_current and per-market (run $GITHUB_RUN_ID)"
-            git push
+            exit 0
           fi
+
+          # 3) Commit locally
+          git commit -m "[props] update props_current and per-market (run $GITHUB_RUN_ID)"
+
+          # 4) Rebase with autostash, then push
+          git fetch origin main || true
+          git pull --rebase --autostash origin main || true
+          git push origin HEAD:main
 
       - name: Upload props artifacts (for reference)
         uses: actions/upload-artifact@v4
