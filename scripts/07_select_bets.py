@@ -6,9 +6,10 @@ Selects "best bets" from calibrated props.
 
 Logic:
 - Load props_current_calibrated.csv
+- Restrict to latest available week
 - Compute edge = |prob_over_cal - 0.5|
 - Filter rows with edge >= threshold (default 0.05)
-- Assign stake size (flat 1 unit for now)
+- Assign pick direction and stake
 - Save to output/best_bets.csv
 """
 
@@ -30,6 +31,14 @@ def main():
     df = pd.read_csv(INPUT)
     if "prob_over_cal" not in df.columns or "prob_under_cal" not in df.columns:
         raise ValueError("Calibrated probabilities missing from input.")
+
+    if "week" not in df.columns:
+        raise ValueError("No 'week' column in input; cannot filter to current week.")
+
+    # Restrict to latest week
+    current_week = df["week"].max()
+    df = df[df["week"] == current_week].copy()
+    print(f"✓ Filtering to latest week = {current_week}, {len(df)} rows remain")
 
     # Compute edge: distance from 0.5
     df["edge"] = (df["prob_over_cal"] - 0.5).abs()
@@ -59,7 +68,7 @@ def main():
     best_out = best[existing].reset_index(drop=True)
 
     best_out.to_csv(OUTPUT, index=False)
-    print(f"✓ Wrote {OUTPUT} with {len(best_out)} rows (edge ≥ {EDGE_THRESHOLD})")
+    print(f"✓ Wrote {OUTPUT} with {len(best_out)} rows (edge ≥ {EDGE_THRESHOLD}, week={current_week})")
 
 if __name__ == "__main__":
     main()
