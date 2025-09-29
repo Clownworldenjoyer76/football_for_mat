@@ -1,32 +1,52 @@
-
 #!/usr/bin/env python3
-import sys, pathlib
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+"""
+06_probability_and_edge.py
 
-import numpy as np
+Computes probability edges from calibrated props.
+
+Logic:
+- Load props_current_calibrated.csv
+- Compute edge = prob_over_cal - 0.5
+- Save:
+    - output/edges_summary.csv (all markets combined)
+    - output/edges_<market>.csv (one file per market)
+"""
+
 import pandas as pd
-from scipy.stats import norm
-from utils.paths import DATA_PRED, OUTPUT_DIR
-from utils.odds import implied_prob, remove_vig_2way
+from pathlib import Path
+from datetime import datetime, timezone
 
-def p_over(line, mu, sigma):
-    return 1 - norm.cdf(line, loc=mu, scale=sigma)
+INPUT = Path("data/props/props_current_calibrated.csv")
+OUTDIR = Path("output")
+OUTDIR.mkdir(parents=True, exist_ok=True)
+
+SUMMARY_OUT = OUTDIR / "edges_summary.csv"
 
 def main():
-    df = pd.read_csv(DATA_PRED / 'wr_receptions_with_odds.csv')
-    df['p_over_model'] = p_over(df['line'], df['mu'], df['sigma'])
+    if not INPUT.exists():
+        raise FileNotFoundError(f"Missing input file: {INPUT}")
 
-    df['p_over_mkt_raw'] = df['over_odds'].apply(implied_prob)
-    df['p_under_mkt_raw'] = df['under_odds'].apply(implied_prob)
-    pv = df.apply(lambda r: remove_vig_2way(r['p_over_mkt_raw'], r['p_under_mkt_raw']), axis=1, result_type='expand')
-    df['p_over_mkt'], df['p_under_mkt'] = pv[0], pv[1]
+    df = pd.read_csv(INPUT)
+    if "prob_over_cal" not in df.columns or "prob_under_cal" not in df.columns:
+        raise ValueError("Input file missing calibrated probability columns.")
 
-    df['edge_over'] = df['p_over_model'] - df['p_over_mkt']
-    out = df.sort_values('edge_over', ascending=False)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    out.to_csv(OUTPUT_DIR / 'receptions_edges.csv', index=False)
-    print('edges → output/receptions_edges.csv')
+    # Compute edge relative to 50/50 fair line
+    df["edge"] = df["prob_over_cal"] - 0.5
+    df["pick"] = df["edge"].apply(lambda x: "over" if x > 0 else "under")
 
-if __name__ == '__main__':
+    # Add run timestamp
+    df["run_ts_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Save combined summary
+    df.to_csv(SUMMARY_OUT, index=False)
+    print(f"✓ Wrote {SUMMARY_OUT} with {len(df)} rows")
+
+    # Save per-market files
+    if "market" in df.columns:
+        for market, g in df.groupby("market"):
+            out_path = OUTDIR / f"edges_{market}.csv"
+            g.to_csv(out_path, index=False)
+            print(f"✓ Wrote {out_path} ({len(g)} rows)")
+
+if __name__ == "__main__":
     main()
