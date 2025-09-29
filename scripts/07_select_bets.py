@@ -1,20 +1,65 @@
-
 #!/usr/bin/env python3
-import sys, pathlib
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+"""
+07_select_bets.py
+
+Selects "best bets" from calibrated props.
+
+Logic:
+- Load props_current_calibrated.csv
+- Compute edge = |prob_over_cal - 0.5|
+- Filter rows with edge >= threshold (default 0.05)
+- Assign stake size (flat 1 unit for now)
+- Save to output/best_bets.csv
+"""
 
 import pandas as pd
-from utils.paths import OUTPUT_DIR
+from pathlib import Path
+from datetime import datetime, timezone
 
-EDGE_THRESHOLD = 0.05
+# Config
+INPUT = Path("data/props/props_current_calibrated.csv")
+OUTDIR = Path("output")
+OUTDIR.mkdir(parents=True, exist_ok=True)
+OUTPUT = OUTDIR / "best_bets.csv"
+EDGE_THRESHOLD = 0.05  # 5% edge
 
 def main():
-    df = pd.read_csv(OUTPUT_DIR / 'receptions_edges.csv')
-    best = df[df['edge_over'] >= EDGE_THRESHOLD].copy()
-    best = best.sort_values('edge_over', ascending=False)
-    best.to_csv(OUTPUT_DIR / 'best_bets_receptions.csv', index=False)
-    print(f'{len(best)} bets → output/best_bets_receptions.csv')
+    if not INPUT.exists():
+        raise FileNotFoundError(f"Missing input file: {INPUT}")
 
-if __name__ == '__main__':
+    df = pd.read_csv(INPUT)
+    if "prob_over_cal" not in df.columns or "prob_under_cal" not in df.columns:
+        raise ValueError("Calibrated probabilities missing from input.")
+
+    # Compute edge: distance from 0.5
+    df["edge"] = (df["prob_over_cal"] - 0.5).abs()
+
+    # Filter by threshold
+    best = df[df["edge"] >= EDGE_THRESHOLD].copy()
+
+    # Decide pick direction (over/under)
+    best["pick"] = best.apply(
+        lambda r: "over" if r["prob_over_cal"] > 0.5 else "under", axis=1
+    )
+
+    # Flat staking plan
+    best["stake_units"] = 1.0
+
+    # Add run timestamp
+    best["run_ts_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Select columns for output
+    keep_cols = [
+        "player_id", "player_name", "recent_team", "opponent_team",
+        "season", "week", "market", "line",
+        "prob_over_cal", "prob_under_cal",
+        "edge", "pick", "stake_units", "run_ts_utc"
+    ]
+    existing = [c for c in keep_cols if c in best.columns]
+    best_out = best[existing].reset_index(drop=True)
+
+    best_out.to_csv(OUTPUT, index=False)
+    print(f"✓ Wrote {OUTPUT} with {len(best_out)} rows (edge ≥ {EDGE_THRESHOLD})")
+
+if __name__ == "__main__":
     main()
