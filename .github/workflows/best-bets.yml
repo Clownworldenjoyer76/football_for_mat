@@ -3,7 +3,7 @@ name: Best Bets (Selection & Staking)
 on:
   workflow_dispatch:
   schedule:
-    # Optional: daily 12:00 UTC; adjust or remove as you like
+    # Optional: daily 12:00 UTC; adjust or remove as needed
     - cron: "0 12 * * *"
 
 permissions:
@@ -31,7 +31,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Common libs used by downstream scripts
           pip install pandas numpy pyarrow fastparquet || true
 
       # ============================
@@ -41,29 +40,31 @@ jobs:
         run: |
           set -e
           if [ ! -s "data/props/props_current_calibrated.csv" ]; then
-            echo "ERROR: data/props/props_current_calibrated.csv missing or empty. Run build-train-commit (calibrate/apply) first."; exit 1
+            echo "ERROR: data/props/props_current_calibrated.csv missing or empty. Run build-train-commit first."; exit 1
           fi
           echo "Found calibrated props:"
           sed -n '1,10p' data/props/props_current_calibrated.csv || true
 
-      - name: Verify odds (optional)
-        run: |
-          # Not fatal — just informative; your selection script may use odds/lines from data/odds/*
-          ls -lh data/odds 2>/dev/null || echo "No data/odds directory found — continuing."
-
       # ============================
-      # Edge computation (optional)
+      # Edge computation
       # ============================
-      - name: Compute probability edges (optional)
+      - name: Compute probability edges
         run: |
           set -e
           if [ -f scripts/06_probability_and_edge.py ]; then
             python scripts/06_probability_and_edge.py
           else
-            echo "No scripts/06_probability_and_edge.py; skipping edges computation."
+            echo "ERROR: scripts/06_probability_and_edge.py missing"; exit 1
           fi
-          ls -lh output 2>/dev/null || true
-          ls -lh output/*edges* 2>/dev/null || true
+
+      - name: Verify edges outputs
+        run: |
+          set -e
+          if [ ! -s "output/edges_summary.csv" ]; then
+            echo "ERROR: output/edges_summary.csv missing"; exit 1
+          fi
+          echo "--- edges_summary.csv (head) ---"
+          sed -n '1,20p' output/edges_summary.csv || true
 
       # ============================
       # Selection & Staking
@@ -72,17 +73,14 @@ jobs:
         run: |
           set -e
           if [ -f scripts/07_select_bets.py ]; then
-            # If your selector expects edges, ensure they exist or let the script compute internally.
             python scripts/07_select_bets.py
           else
-            echo "ERROR: scripts/07_select_bets.py missing — cannot produce best bets."; exit 1
+            echo "ERROR: scripts/07_select_bets.py missing"; exit 1
           fi
 
       - name: Verify best-bets outputs
         run: |
           set -e
-          ls -lh output || true
-          # Require at least one "best_bets" file
           if ! ls output/*best_bets* >/dev/null 2>&1; then
             echo "ERROR: No best-bets outputs produced in output/"; exit 1
           fi
@@ -92,54 +90,48 @@ jobs:
           done
 
       # ============================
-      # Stamp run timestamp (ensures commit diff)
+      # Stamp run timestamp
       # ============================
-      - name: Stamp run_ts_utc in best-bets outputs
+      - name: Stamp run_ts_utc in outputs
         run: |
           python - <<'PY'
           import glob, pandas as pd
           from datetime import datetime, timezone
           ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-          paths = sorted(glob.glob("output/*best_bets*"))
+          paths = sorted(glob.glob("output/edges*.csv") + glob.glob("output/*best_bets*"))
           changed = 0
           for p in paths:
             try:
               df = pd.read_csv(p)
-            except Exception:
-              # If not CSV, try to append a line (e.g., JSON/NDJSON/TSV)
-              with open(p, "a", encoding="utf-8") as fh:
-                fh.write(f"\n# run_ts_utc={ts}\n")
-              print(f"Stamped (text) {p}")
+              df["run_ts_utc"] = ts
+              df.to_csv(p, index=False)
+              print(f"Stamped run_ts_utc in {p} (rows={len(df)})")
               changed += 1
-              continue
-            df["run_ts_utc"] = ts
-            df.to_csv(p, index=False)
-            print(f"Stamped (csv) {p} rows={len(df)}")
-            changed += 1
+            except Exception as e:
+              print(f"WARNING: could not stamp {p}: {e}")
           if changed == 0:
-            raise SystemExit("No best-bets outputs found to stamp.")
+            raise SystemExit("No outputs found to stamp.")
           PY
 
       # ============================
       # Commit outputs
       # ============================
-      - name: Commit best-bets outputs
+      - name: Commit edges + best-bets outputs
         run: |
           set -e
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage only best-bets outputs (and optional summary/edges if desired)
+          # Stage edges + best-bets files
+          find output -maxdepth 1 -type f -name 'edges*.csv' -print0 2>/dev/null | xargs -0 -r git add
           find output -maxdepth 1 -type f -name '*best_bets*' -print0 2>/dev/null | xargs -0 -r git add
-          # Optionally also commit edges:
-          # find output -maxdepth 1 -type f -name '*edges*' -print0 2>/dev/null | xargs -0 -r git add
 
           if git diff --cached --quiet; then
-            echo "No best-bets changes to commit."
+            echo "No edges/best-bets changes to commit."
             exit 0
           fi
 
-          git commit -m "best-bets: update selections/staking (run $GITHUB_RUN_ID)"
+          git commit -m "best-bets: update edges + selections/staking (run $GITHUB_RUN_ID)"
           git fetch origin main || true
           git pull --rebase --autostash origin main || true
           git push origin HEAD:main
@@ -147,11 +139,12 @@ jobs:
       # ============================
       # Upload artifacts
       # ============================
-      - name: Upload best-bets artifacts (90-day retention)
+      - name: Upload edges + best-bets artifacts (90-day retention)
         uses: actions/upload-artifact@v4
         with:
           name: best-bets-${{ github.run_id }}
           path: |
+            output/edges*.csv
             output/*best_bets*
           if-no-files-found: warn
           retention-days: 90
