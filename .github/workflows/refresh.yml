@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       season:
-        description: "Season to refresh (e.g., 2025). If empty, uses default below."
+        description: "Season to refresh (e.g., 2025)"
         required: false
         default: "2025"
 
@@ -17,7 +17,6 @@ jobs:
   refresh-data:
     runs-on: ubuntu-latest
     env:
-      # Expose a SEASON env that scripts can read (defaults to 2025 unless overridden on dispatch)
       SEASON: ${{ inputs.season || '2025' }}
 
     steps:
@@ -61,10 +60,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # keep your originals:
           pip install pyarrow fastparquet lxml || true
-          # add nfl_data_py so we can build weekly/latest.csv for a specific season if needed
-          pip install nfl_data_py || true
 
       - name: Pull core NFL datasets (pbp/weekly/rosters/depth)
         env:
@@ -91,84 +87,27 @@ jobs:
         run: |
           python scripts/05_pull_odds_merge.py || true
 
-      # ---------- Build data/weekly/latest.csv from canonical weekly_latest.csv.gz (original behavior) ----------
-      - name: Build data/weekly/latest.csv (from nflverse cache if available)
+      # ---------- Build data/weekly/latest.csv using local nflverse weekly_<season>.csv.gz ----------
+      - name: Build data/weekly/latest.csv for requested season
         run: |
           set -e
           mkdir -p data/weekly
-          if [ -f "data/raw/nflverse/weekly_latest.csv.gz" ]; then
-            zcat data/raw/nflverse/weekly_latest.csv.gz > data/weekly/latest.csv
-            echo "Wrote data/weekly/latest.csv from weekly_latest.csv.gz"
-          else
-            # Fallback: newest weekly_*.csv(.gz) if canonical not present
-            latest="$(ls -t data/raw/nflverse/weekly_* 2>/dev/null | head -1 || true)"
-            if [ -n "$latest" ]; then
-              case "$latest" in
-                *.csv.gz) zcat "$latest" > data/weekly/latest.csv ;;
-                *.csv)    cp "$latest"    data/weekly/latest.csv ;;
-              esac
-              echo "Wrote data/weekly/latest.csv from $latest"
-            else
-              echo "No weekly_latest.csv.gz or weekly_* file found; skipping latest.csv build."
-            fi
+          SRC="data/raw/nflverse/weekly_${SEASON}.csv.gz"
+          if [ ! -f "$SRC" ]; then
+            echo "ERROR: $SRC not found. Did the nflverse weekly pull succeed?"
+            ls -lh data/raw/nflverse || true
+            exit 1
           fi
-          [ -f data/weekly/latest.csv ] && sed -n '1,10p' data/weekly/latest.csv || true
-
-      # ---------- Verify season coverage; if not >= SEASON, rebuild explicitly for requested season ----------
-      - name: Verify season coverage in data/weekly/latest.csv
-        id: verify_weekly
-        run: |
-          set -e
-          if [ ! -s data/weekly/latest.csv ]; then
-            echo "has_weekly=false" >> "$GITHUB_OUTPUT"
-            echo "No data/weekly/latest.csv present yet."
-            exit 0
-          fi
-          echo "has_weekly=true" >> "$GITHUB_OUTPUT"
-          python - <<'PY'
-          import os, pandas as pd
-          p = "data/weekly/latest.csv"
-          df = pd.read_csv(p)
-          if "season" not in df.columns:
-            print("SEASON_CHECK=missing", flush=True)
-          else:
-            print("SEASON_CHECK=ok", flush=True)
-            print("MIN_SEASON=", int(df["season"].min()), sep="", flush=True)
-            print("MAX_SEASON=", int(df["season"].max()), sep="", flush=True)
-          PY
-
-      - name: Rebuild weekly/latest.csv for requested season (fallback)
-        if: steps.verify_weekly.outputs.has_weekly == 'false'
-        run: |
-          echo "No weekly/latest.csv available — building explicitly for season ${SEASON}"
-          python scripts/10_build_weekly_latest.py --season "${SEASON}"
-
-      - name: Enforce requested season in weekly/latest.csv (only if older season found)
-        run: |
-          set -e
-          want="${SEASON}"
-          have="0"
-          if [ -s data/weekly/latest.csv ]; then
-            have="$(python - <<'PY'
-          import pandas as pd
-          df = pd.read_csv("data/weekly/latest.csv")
-          print(int(df["season"].max()) if "season" in df.columns and len(df)>0 else 0)
-          PY
-          )"
-          fi
-          if [ "$have" -lt "$want" ]; then
-            echo "Detected max(season)=$have < requested $want — rebuilding for ${SEASON}"
-            python scripts/10_build_weekly_latest.py --season "${SEASON}"
-          else
-            echo "weekly/latest.csv already covers season ${have} (>= ${want}); keeping as-is."
-          fi
+          zcat "$SRC" > data/weekly/latest.csv
+          echo "✓ Wrote data/weekly/latest.csv from $SRC"
+          head -20 data/weekly/latest.csv || true
 
       # ---------- Commit & push ----------
       - name: Commit & push updated data
         run: |
           set -e
           git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Stage files (guard each so a missing path doesn't fail the job)
           git add -f data/raw/nflverse        2>/dev/null || true
@@ -182,7 +121,7 @@ jobs:
             exit 0
           fi
 
-          git commit -m "chore(data): weekly refresh (nflverse + weather + injuries + odds + weekly latest for season ${SEASON}) [skip ci]"
+          git commit -m "chore(data): weekly refresh (season ${SEASON}) [skip ci]"
           git fetch origin
           git pull --rebase origin main || true
           git push
