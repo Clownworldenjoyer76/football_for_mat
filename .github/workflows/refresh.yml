@@ -87,17 +87,29 @@ jobs:
         run: |
           python scripts/05_pull_odds_merge.py || true
 
-      # ---------- Build data/weekly/latest.csv using local nflverse weekly_<season>.csv.gz ----------
-      - name: Build data/weekly/latest.csv for requested season
+      # ---------- Build data/weekly/latest.csv using local nflverse pulls ----------
+      - name: Build data/weekly/latest.csv (prefer weekly_latest.csv.gz)
         run: |
           set -e
           mkdir -p data/weekly
-          SRC="data/raw/nflverse/weekly_${SEASON}.csv.gz"
-          if [ ! -f "$SRC" ]; then
-            echo "ERROR: $SRC not found. Did the nflverse weekly pull succeed?"
+          SEASON="${{ env.SEASON }}"
+          CAND1="data/raw/nflverse/weekly_${SEASON}.csv.gz"
+          CAND2="data/raw/nflverse/weekly_latest.csv.gz"
+          CAND3="$(ls -t data/raw/nflverse/weekly_*.csv.gz 2>/dev/null | head -1 || true)"
+          SRC=""
+          if [ -f "$CAND1" ]; then
+            SRC="$CAND1"
+          elif [ -f "$CAND2" ]; then
+            SRC="$CAND2"
+          elif [ -n "$CAND3" ]; then
+            SRC="$CAND3"
+          else
+            echo "ERROR: No local weekly CSV found (weekly_${SEASON}.csv.gz / weekly_latest.csv.gz)."
+            echo "Directory listing:"
             ls -lh data/raw/nflverse || true
             exit 1
           fi
+          echo "Using source: $SRC"
           zcat "$SRC" > data/weekly/latest.csv
           echo "✓ Wrote data/weekly/latest.csv from $SRC"
           head -20 data/weekly/latest.csv || true
