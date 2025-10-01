@@ -65,54 +65,54 @@ jobs:
       - name: Pull core NFL datasets (pbp/weekly/rosters/depth)
         env:
           NFLVERSE_WEEKLY_URL_TPL: "https://github.com/nflverse/nflverse-data/releases/download/weekly/weekly_{year}.csv.gz"
-          NFLVERSE_ROSTERS_URL_TPL: "https://github.com/nflverse/nflverse-data/releases/download/rosters/rosters_{year}.csv.gz"
+          NFLVERSE_WEEKLY_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/weekly/weekly_latest.csv.gz"
+          NFLVERSE_ROSTERS_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/rosters/rosters_latest.csv.gz"
+          NFLVERSE_DEPTH_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/depth/depth_latest.csv.gz"
+          NFLVERSE_PBP_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_latest.csv.gz"
+          NFLVERSE_SCHEDULES_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/schedules/schedules_latest.csv.gz"
+          NFLVERSE_MANIFEST_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/manifest/manifest_latest.csv.gz"
         run: |
-          python scripts/01_pull_nflverse.py --start 2019 --dl-weekly --dl-rosters --dl-depth || true
+          set -e
+          SEASON="${{ env.SEASON }}"
+          # Pull all the "latest" files you already use, plus the *explicit* weekly_<SEASON>.csv.gz
+          python scripts/01_pull_nflverse.py --season "$SEASON" --dl-weekly --dl-rosters --dl-depth --dl-pbp
 
-      - name: Pull game weather (Open-Meteo)
-        run: |
-          python scripts/pull_weather_openmeteo.py || true
-
-      - name: Pull injuries & actives
-        run: |
-          python scripts/pull_injuries_actives.py || true
-
-      - name: Pull odds via Odds API
-        env:
-          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-        run: |
-          python scripts/06_pull_odds_api.py || true
-
-      - name: Merge/process odds
-        run: |
-          python scripts/05_pull_odds_merge.py || true
-
-      # ---------- Build data/weekly/latest.csv using local nflverse pulls ----------
-      - name: Build data/weekly/latest.csv (prefer weekly_latest.csv.gz)
+      # ---------- Build data/weekly/latest.csv from the season-specific file (hard requirement) ----------
+      - name: Build data/weekly/latest.csv for requested season
         run: |
           set -e
           mkdir -p data/weekly
           SEASON="${{ env.SEASON }}"
-          CAND1="data/raw/nflverse/weekly_${SEASON}.csv.gz"
-          CAND2="data/raw/nflverse/weekly_latest.csv.gz"
-          CAND3="$(ls -t data/raw/nflverse/weekly_*.csv.gz 2>/dev/null | head -1 || true)"
-          SRC=""
-          if [ -f "$CAND1" ]; then
-            SRC="$CAND1"
-          elif [ -f "$CAND2" ]; then
-            SRC="$CAND2"
-          elif [ -n "$CAND3" ]; then
-            SRC="$CAND3"
-          else
-            echo "ERROR: No local weekly CSV found (weekly_${SEASON}.csv.gz / weekly_latest.csv.gz)."
-            echo "Directory listing:"
+          SRC="data/raw/nflverse/weekly_${SEASON}.csv.gz"
+          if [ ! -f "$SRC" ]; then
+            echo "ERROR: $SRC not found. The weekly file for season $SEASON did not download."
+            echo "Directory listing of data/raw/nflverse:"
             ls -lh data/raw/nflverse || true
             exit 1
           fi
-          echo "Using source: $SRC"
           zcat "$SRC" > data/weekly/latest.csv
           echo "✓ Wrote data/weekly/latest.csv from $SRC"
           head -20 data/weekly/latest.csv || true
+
+      # ---------- Verify the season actually matches ----------
+      - name: Verify season/week coverage in weekly/latest.csv
+        run: |
+          set -e
+          python - <<'PY'
+          import pandas as pd, sys, os
+          want = int(os.getenv("SEASON", "2025"))
+          df = pd.read_csv("data/weekly/latest.csv")
+          if "season" not in df.columns:
+              print("ERROR: 'season' column missing in weekly/latest.csv", file=sys.stderr)
+              sys.exit(1)
+          mx = int(df["season"].max())
+          mn = int(df["season"].min())
+          print("min season:", mn, "max season:", mx)
+          if mx != want:
+              print(f"ERROR: weekly/latest.csv max(season)={mx} != requested {want}", file=sys.stderr)
+              sys.exit(1)
+          print("OK: weekly/latest.csv covers requested season", want)
+          PY
 
       # ---------- Commit & push ----------
       - name: Commit & push updated data
@@ -126,7 +126,7 @@ jobs:
           git add -f data/raw/weather         2>/dev/null || true
           git add -f data/raw/injuries        2>/dev/null || true
           git add -f data/odds                2>/dev/null || true
-          [ -f data/weekly/latest.csv ] && git add -f data/weekly/latest.csv || true
+          git add -f data/weekly/latest.csv   2>/dev/null || true
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
