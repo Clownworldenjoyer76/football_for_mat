@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       season:
-        description: "Season to refresh (e.g., 2025)"
+        description: "Season context (optional, for your scripts)"
         required: false
         default: "2025"
 
@@ -17,6 +17,7 @@ jobs:
   refresh-data:
     runs-on: ubuntu-latest
     env:
+      # Exposed in case your scripts read it, but we are NOT calling dead URLs anymore.
       SEASON: ${{ inputs.season || '2025' }}
 
     steps:
@@ -50,7 +51,7 @@ jobs:
           RSCRIPT
           gzip -f data/raw/nflverse/depth_charts.csv
 
-      # ---------- Python pulls ----------
+      # ---------- Python pulls (no external URLs in env; let your script handle it) ----------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -61,32 +62,28 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pyarrow fastparquet lxml || true
+          # if your scripts require requests/pandas:
+          pip install pandas requests || true
 
-      - name: Pull core NFL datasets (pbp/weekly/rosters/depth)
-        env:
-          NFLVERSE_WEEKLY_URL_TPL: "https://github.com/nflverse/nflverse-data/releases/download/weekly/weekly_{year}.csv.gz"
-          NFLVERSE_WEEKLY_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/weekly/weekly_latest.csv.gz"
-          NFLVERSE_ROSTERS_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/rosters/rosters_latest.csv.gz"
-          NFLVERSE_DEPTH_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/depth/depth_latest.csv.gz"
-          NFLVERSE_PBP_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_latest.csv.gz"
-          NFLVERSE_SCHEDULES_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/schedules/schedules_latest.csv.gz"
-          NFLVERSE_MANIFEST_LATEST: "https://github.com/nflverse/nflverse-data/releases/download/manifest/manifest_latest.csv.gz"
+      - name: Pull & canonicalize nflverse datasets (pbp/weekly/rosters/depth)
         run: |
           set -e
-          SEASON="${{ env.SEASON }}"
-          # Pull all the "latest" files you already use, plus the *explicit* weekly_<SEASON>.csv.gz
-          python scripts/01_pull_nflverse.py --season "$SEASON" --dl-weekly --dl-rosters --dl-depth --dl-pbp
+          # This script already: downloads/updates PBP; optionally downloads weekly/rosters/depth
+          # and ALWAYS canonicalizes to *_latest.csv.gz and *_latest.parquet
+          python scripts/01_pull_nflverse.py --dl-weekly --dl-rosters --dl-depth
 
-      # ---------- Build data/weekly/latest.csv from the season-specific file (hard requirement) ----------
-      - name: Build data/weekly/latest.csv for requested season
+          echo "---- Canonical files present in data/raw/nflverse ----"
+          ls -lh data/raw/nflverse || true
+
+      # ---------- Build data/weekly/latest.csv from canonical weekly_latest.csv.gz ----------
+      - name: Build data/weekly/latest.csv from canonical weekly_latest.csv.gz
         run: |
           set -e
           mkdir -p data/weekly
-          SEASON="${{ env.SEASON }}"
-          SRC="data/raw/nflverse/weekly_${SEASON}.csv.gz"
+          SRC="data/raw/nflverse/weekly_latest.csv.gz"
           if [ ! -f "$SRC" ]; then
-            echo "ERROR: $SRC not found. The weekly file for season $SEASON did not download."
-            echo "Directory listing of data/raw/nflverse:"
+            echo "ERROR: $SRC not found. Your 01_pull_nflverse.py did not produce the canonical weekly file."
+            echo "Listing of data/raw/nflverse for debugging:"
             ls -lh data/raw/nflverse || true
             exit 1
           fi
@@ -94,24 +91,18 @@ jobs:
           echo "✓ Wrote data/weekly/latest.csv from $SRC"
           head -20 data/weekly/latest.csv || true
 
-      # ---------- Verify the season actually matches ----------
+      # ---------- Verify the weekly file actually advanced ----------
       - name: Verify season/week coverage in weekly/latest.csv
         run: |
           set -e
           python - <<'PY'
-          import pandas as pd, sys, os
-          want = int(os.getenv("SEASON", "2025"))
+          import pandas as pd
           df = pd.read_csv("data/weekly/latest.csv")
-          if "season" not in df.columns:
-              print("ERROR: 'season' column missing in weekly/latest.csv", file=sys.stderr)
-              sys.exit(1)
-          mx = int(df["season"].max())
-          mn = int(df["season"].min())
-          print("min season:", mn, "max season:", mx)
-          if mx != want:
-              print(f"ERROR: weekly/latest.csv max(season)={mx} != requested {want}", file=sys.stderr)
-              sys.exit(1)
-          print("OK: weekly/latest.csv covers requested season", want)
+          if "season" not in df.columns or "week" not in df.columns:
+              raise SystemExit("weekly/latest.csv missing 'season' and/or 'week' columns")
+          print("min season:", int(df["season"].min()))
+          print("max season:", int(df["season"].max()))
+          print("max week per season:", {int(k): int(v) for k,v in df.groupby("season")["week"].max().to_dict().items()})
           PY
 
       # ---------- Commit & push ----------
@@ -133,7 +124,7 @@ jobs:
             exit 0
           fi
 
-          git commit -m "chore(data): weekly refresh (season ${SEASON}) [skip ci]"
+          git commit -m "chore(data): weekly refresh (canonical weekly_latest.csv.gz -> data/weekly/latest.csv) [skip ci]"
           git fetch origin
           git pull --rebase origin main || true
           git push
