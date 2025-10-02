@@ -17,6 +17,7 @@ concurrency:
 env:
   PYTHONUTF8: "1"
   TZ: "UTC"
+  TARGET_SEASON: "2025"
 
 jobs:
   run:
@@ -95,6 +96,27 @@ jobs:
             echo "No scripts/04_generate_props.py; skipping."
           fi
 
+      - name: Season guard on props_current.csv (must be 2025)
+        run: |
+          set -e
+          P="data/props/props_current.csv"
+          if [ ! -s "$P" ]; then
+            echo "ERROR: $P missing or empty after generation"; exit 1
+          fi
+          python - <<'PY'
+          import os, pandas as pd, sys
+          want = int(os.getenv("TARGET_SEASON","2025"))
+          p = "data/props/props_current.csv"
+          df = pd.read_csv(p)
+          if "season" not in df.columns:
+              print("ERROR: props_current.csv missing 'season' column", file=sys.stderr); sys.exit(1)
+          mx = int(df["season"].max())
+          print("props_current.csv max(season)=", mx)
+          if mx != want:
+              print(f"ERROR: props_current.csv is season {mx}, not {want}. Re-run Weekly Data Refresh for {want}.", file=sys.stderr)
+              sys.exit(1)
+          PY
+
       - name: Show props outputs
         run: |
           ls -lh data/props || true
@@ -159,18 +181,25 @@ jobs:
           fi
           sed -n '1,20p' data/props/props_current_calibrated.csv || true
 
-      - name: Stamp run timestamp into props_current_calibrated.csv
+      - name: Season guard on props_current_calibrated.csv (must be 2025)
         run: |
+          set -e
+          P="data/props/props_current_calibrated.csv"
+          if [ ! -s "$P" ]; then
+            echo "ERROR: $P not found after apply."; exit 1
+          fi
           python - <<'PY'
-          import os, pandas as pd
-          from datetime import datetime, timezone
+          import os, pandas as pd, sys
+          want = int(os.getenv("TARGET_SEASON","2025"))
           p = "data/props/props_current_calibrated.csv"
-          if not os.path.exists(p):
-              raise SystemExit("ERROR: props_current_calibrated.csv not found after apply.")
           df = pd.read_csv(p)
-          df["run_ts_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-          df.to_csv(p, index=False)
-          print("Stamped run_ts_utc in props_current_calibrated.csv")
+          if "season" not in df.columns:
+              print("ERROR: props_current_calibrated.csv missing 'season' column", file=sys.stderr); sys.exit(1)
+          mx = int(df["season"].max())
+          print("props_current_calibrated.csv max(season)=", mx)
+          if mx != want:
+              print(f"ERROR: Calibrated props are season {mx}, not {want}. Ensure Weekly Data Refresh wrote {want} weekly and regen props.", file=sys.stderr)
+              sys.exit(1)
           PY
 
       - name: Show calibration outputs
@@ -207,7 +236,7 @@ jobs:
           git add data/props/props_current_calibrated.csv    2>/dev/null || true
 
           if ! git diff --cached --quiet; then
-            git commit -m "Pipeline ${{ github.run_id }}: calibration summary + calibrated props + manifest/metrics/logs"
+            git commit -m "Pipeline ${{ github.run_id }}: calibration summary + calibrated props + manifest/metrics/logs (season ${TARGET_SEASON})"
             git fetch origin main || true
             git pull --rebase --autostash origin main || true
             git push
