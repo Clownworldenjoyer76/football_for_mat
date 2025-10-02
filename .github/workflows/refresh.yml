@@ -1,4 +1,4 @@
-name: Weekly Data Refresh (2025-locked)
+name: Weekly Data Refresh (2025-locked, robust)
 
 on:
   schedule:
@@ -17,7 +17,6 @@ jobs:
   refresh-data:
     runs-on: ubuntu-latest
     env:
-      # If dispatched with an input, use it; otherwise force 2025.
       TARGET_SEASON: ${{ github.event_name == 'workflow_dispatch' && inputs.season || '2025' }}
       PYTHONUTF8: "1"
       TZ: "UTC"
@@ -28,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ---------- R: pull weekly for TARGET_SEASON via nflreadr ----------
+      # -------- R: pull weekly for TARGET_SEASON via nflreadr (authoritative) --------
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
@@ -39,8 +38,8 @@ jobs:
         with:
           packages: |
             any::nflreadr
-            any::dplyr
             any::readr
+            any::dplyr
 
       - name: Fetch weekly player stats for TARGET_SEASON
         run: |
@@ -48,8 +47,8 @@ jobs:
           Rscript - <<'RSCRIPT'
           suppressPackageStartupMessages({
             library(nflreadr)
-            library(dplyr)
             library(readr)
+            library(dplyr)
           })
           dir.create("data/raw/nflverse", recursive = TRUE, showWarnings = FALSE)
           seas <- as.integer(Sys.getenv("TARGET_SEASON", "2025"))
@@ -62,39 +61,18 @@ jobs:
           gzip -f data/raw/nflverse/weekly_latest.csv
           ls -lh data/raw/nflverse/weekly_latest.csv.gz
 
-      # ---------- Python: optional repo-specific weekly builder ----------
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Python deps
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pandas pyarrow fastparquet || true
-
-      - name: Build data/weekly/latest.csv (prefer repo script if present)
+      # -------- Build canonical weekly/latest.csv from nflreadr output (no repo script) --------
+      - name: Build data/weekly/latest.csv
         run: |
           set -e
           mkdir -p data/weekly
-
-          if [ -f scripts/10_build_weekly_latest.py ]; then
-            echo "Using scripts/10_build_weekly_latest.py --season ${TARGET_SEASON}"
-            python scripts/10_build_weekly_latest.py --season "${TARGET_SEASON}"
-            SRC="data/weekly/latest.csv"
-            [ -s "$SRC" ] || { echo "ERROR: $SRC not produced by 10_build_weekly_latest.py"; exit 1; }
-          else
-            echo "Repo builder not found; falling back to nflreadr weekly_latest.csv.gz"
-            SRC="data/raw/nflverse/weekly_latest.csv.gz"
-            [ -s "$SRC" ] || { echo "ERROR: $SRC not found after nflreadr fetch"; exit 1; }
-            zcat "$SRC" > data/weekly/latest.csv
-          fi
-
-          echo "✓ Ensured data/weekly/latest.csv exists"
+          SRC="data/raw/nflverse/weekly_latest.csv.gz"
+          [ -s "$SRC" ] || { echo "ERROR: $SRC not found"; exit 1; }
+          zcat "$SRC" > data/weekly/latest.csv
+          echo "✓ Wrote data/weekly/latest.csv"
           sed -n '1,20p' data/weekly/latest.csv || true
 
-      # ---------- Verify season/week coverage (HARD-FAIL if not 2025) ----------
+      # -------- Verify season/week coverage (HARD-FAIL if not TARGET_SEASON) --------
       - name: Verify data/weekly/latest.csv is for TARGET_SEASON
         run: |
           set -e
@@ -115,12 +93,12 @@ jobs:
               print(f"ERROR: {p} max(season)={mx} != {want}.", file=sys.stderr); sys.exit(1)
           PY
 
-      # ---------- Commit & push (force-add data paths) ----------
+      # -------- Commit & push --------
       - name: Commit & push updated data
         run: |
           set -e
           git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -f data/raw/nflverse/weekly_latest.csv.gz 2>/dev/null || true
           git add -f data/weekly/latest.csv                  2>/dev/null || true
