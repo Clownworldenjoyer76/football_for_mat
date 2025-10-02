@@ -72,10 +72,10 @@ jobs:
       - name: Select bets & staking
         run: |
           set -e
-          if [ -f scripts/07_select_bets.py ]; then
-            python scripts/07_select_bets.py
+          if [ -f scripts/07_select_bets_v2.py ]; then
+            python scripts/07_select_bets_v2.py
           else
-            echo "ERROR: scripts/07_select_bets.py missing"; exit 1
+            echo "ERROR: scripts/07_select_bets_v2.py missing"; exit 1
           fi
 
       - name: Verify best-bets outputs
