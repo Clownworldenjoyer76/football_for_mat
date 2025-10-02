@@ -15,6 +15,7 @@ jobs:
     env:
       TZ: America/New_York
       PYTHONUTF8: "1"
+      TARGET_SEASON: "2025"
 
     steps:
       - name: Checkout
@@ -34,16 +35,28 @@ jobs:
           pip install pandas numpy pyarrow fastparquet || true
 
       # ============================
-      # Input verification
+      # Input verification + season guard
       # ============================
-      - name: Verify calibrated props present
+      - name: Verify calibrated props present and season=2025
         run: |
           set -e
-          if [ ! -s "data/props/props_current_calibrated.csv" ]; then
-            echo "ERROR: data/props/props_current_calibrated.csv missing or empty. Run build-train-commit first."; exit 1
+          P="data/props/props_current_calibrated.csv"
+          if [ ! -s "$P" ]; then
+            echo "ERROR: $P missing or empty. Run refresh (season 2025) + build-train-commit first."; exit 1
           fi
-          echo "Found calibrated props:"
-          sed -n '1,10p' data/props/props_current_calibrated.csv || true
+          python - <<'PY'
+          import os, pandas as pd, sys
+          want = int(os.getenv("TARGET_SEASON","2025"))
+          p = "data/props/props_current_calibrated.csv"
+          df = pd.read_csv(p)
+          if "season" not in df.columns:
+              print("ERROR: props_current_calibrated.csv missing 'season' column", file=sys.stderr); sys.exit(1)
+          mx = int(df["season"].max())
+          print("props_current_calibrated.csv max(season)=", mx)
+          if mx != want:
+              print(f"ERROR: Calibrated props are for season {mx}, not {want}. Run Weekly Data Refresh (season {want}) then build-train-commit.", file=sys.stderr)
+              sys.exit(1)
+          PY
 
       # ============================
       # Edge computation
@@ -69,11 +82,11 @@ jobs:
       # ============================
       # Selection & Staking
       # ============================
-      - name: Select bets & staking
+      - name: Select bets & staking (season 2025)
         run: |
           set -e
           if [ -f scripts/07_select_bets_v2.py ]; then
-            python scripts/07_select_bets_v2.py
+            python scripts/07_select_bets_v2.py --season "${TARGET_SEASON}"
           else
             echo "ERROR: scripts/07_select_bets_v2.py missing"; exit 1
           fi
@@ -131,7 +144,7 @@ jobs:
             exit 0
           fi
 
-          git commit -m "best-bets: update edges + selections/staking (run $GITHUB_RUN_ID)"
+          git commit -m "best-bets: update edges + selections/staking (season ${TARGET_SEASON}, run $GITHUB_RUN_ID)"
           git fetch origin main || true
           git pull --rebase --autostash origin main || true
           git push origin HEAD:main
