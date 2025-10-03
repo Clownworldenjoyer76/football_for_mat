@@ -34,6 +34,8 @@ jobs:
 
       - name: Fetch odds / props
         run: python scripts/01_fetch_odds.py
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
 
       - name: Step 01 - Canonicalize raw data
         run: python scripts/01_canonicalize_raw.py
@@ -63,10 +65,14 @@ jobs:
       - name: Step 03.5 - Build models manifest
         run: python scripts/build_models_manifest.py models/pregame output/logs/features_columns.txt
 
-      - name: Commit updated models, metrics, and manifest
+      - name: Configure git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Commit updated models, metrics, and manifest
+        run: |
           git add models/ manifest output/ -f || true
           git commit -m "[skip ci] Update models, manifest and metrics" || true
           git push || true
@@ -95,7 +101,7 @@ jobs:
 
       - name: Commit props outputs
         run: |
-          git add data/props/props_current*.csv -f
+          git add data/props/props_current*.csv -f || true
           git commit -m "[props] update props_current" || true
           git push || true
 
