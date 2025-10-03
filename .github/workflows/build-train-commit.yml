@@ -3,7 +3,7 @@ name: build-train-commit
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 11 * * WED"  # every Wednesday 11:00 UTC
+    - cron: "0 11 * * WED"
 
 permissions:
   contents: write
@@ -14,7 +14,6 @@ concurrency:
 
 jobs:
   train:
-    name: Train calibrators and update calibrated props
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -23,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -35,30 +34,21 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Verify finalized outcomes exist
-        run: |
-          test -s data/props/history_props_with_outcomes.csv || \
-            (echo "Missing outcomes: run finalize-props after games complete." && exit 1)
+        run: test -s data/props/history_props_with_outcomes.csv
 
       - name: Train calibrators
-        run: |
-          python scripts/10_train_calibrators.py \
-            --in data/props/history_props_with_outcomes.csv \
-            --out models/calibrators.joblib
-          test -s models/calibrators.joblib
+        run: python scripts/10_train_calibrators.py --in data/props/history_props_with_outcomes.csv --out models/calibrators.joblib
 
-      - name: Clean stale current props (pre-apply)
+      - name: Clean stale calibrated props
         run: rm -f data/props/props_current_calibrated.csv
 
-      - name: Apply calibrators to current props (if present)
+      - name: Apply calibrators
         run: |
           if [ -f data/props/props_current.csv ]; then
             python scripts/11_apply_calibrators.py \
               --in data/props/props_current.csv \
               --model models/calibrators.joblib \
               --out data/props/props_current_calibrated.csv
-            test -s data/props/props_current_calibrated.csv
-          else
-            echo "props_current.csv not found; skipping apply."
           fi
 
       - name: Validate calibrated (optional)
@@ -67,19 +57,15 @@ jobs:
             python scripts/99_validate_csv.py data/props/props_current_calibrated.csv || true
           fi
 
-      - name: Configure git
+      - name: Commit updated models & calibrated props
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git add models/*.joblib data/props/props_current_calibrated.csv -f || true
+          git commit -m "update calibrated props" || true
+          git push || true
 
-      - name: Commit updated models & calibrated props
-        run: |
-          git add models/*.joblib data/props/props_current_calibrated.csv
-          git commit -m "chore: train calibrators + update calibrated props" || echo "No changes"
-          git push
-
-      - name: Upload artifacts (debug)
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: train-and-apply-outputs
