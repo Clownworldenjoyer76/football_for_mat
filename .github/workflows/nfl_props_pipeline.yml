@@ -65,19 +65,23 @@ jobs:
       - name: Step 03.5 - Build models manifest
         run: python scripts/build_models_manifest.py models/pregame output/logs/features_columns.txt
 
+      - name: Step 03.9 - Generate predictions for current season
+        run: |
+          python scripts/04_predict.py --season "${TARGET_SEASON}"
+
       - name: Configure git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Commit updated models, metrics, and manifest
+      - name: Commit models, manifest, features, predictions
         run: |
-          git add models/ manifest output/ -f || true
-          git commit -m "[skip ci] Update models, manifest and metrics" || true
+          git add models/ manifest output/ data/predictions/ -f || true
+          git commit -m "[ci] update models/manifest/predictions" || true
           git push || true
 
-      - name: Upload models and logs
+      - name: Upload models/logs (debug)
         uses: actions/upload-artifact@v4
         with:
           name: models-and-logs
@@ -89,12 +93,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Step 04 - Generate props
-        run: |
-          if [ -f scripts/04_generate_props.py ]; then
-            python scripts/04_generate_props.py
-          else
-            echo "ERROR: scripts/04_generate_props.py missing"; exit 1
-          fi
+        run: python scripts/04_generate_props.py
 
       - name: Verify props generated
         run: test -s data/props/props_current.csv
