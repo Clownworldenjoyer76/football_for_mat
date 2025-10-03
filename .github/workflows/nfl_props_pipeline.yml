@@ -1,187 +1,125 @@
 name: NFL Props Pipeline
-
-on:
-  workflow_dispatch:
+true:
+  workflow_dispatch: null
   schedule:
-    - cron: "0 6 * * *"  # daily 6AM UTC run
-
+  - cron: 0 6 * * *
 permissions:
   contents: write
-
 jobs:
   build-train-commit:
     runs-on: ubuntu-latest
     env:
       TZ: America/New_York
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          lfs: true
-          fetch-depth: 0
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+        fetch-depth: 0
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: 'python -m pip install --upgrade pip
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+        pip install -r requirements.txt
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        '
+    - name: Step 01 - Canonicalize raw data
+      run: python scripts/01_canonicalize_raw.py
+    - name: Step 02 - Build features
+      run: python scripts/02_build_features.py
+    - name: Step 02.5 - Debug features (optional)
+      run: "if [ -f scripts/02a_debug_features.py ]; then\n  python scripts/02a_debug_features.py\n\
+        else\n  echo \"No scripts/02a_debug_features.py; skipping.\"\nfi\n"
+    - name: Step 02.6 - Enrich features (optional)
+      run: "if [ -f scripts/02b_enrich_features.py ]; then\n  python scripts/02b_enrich_features.py\n\
+        else\n  echo \"No scripts/02b_enrich_features.py; skipping.\"\nfi\n"
+    - name: Step 03 - Train models
+      run: python scripts/03_train_models.py
+    - name: Step 03.5 - Build models manifest
+      run: python scripts/build_models_manifest.py models/pregame output/logs/features_columns.txt
+    - name: Commit updated models, metrics, and manifest
+      run: "set -e\ngit config --global user.name \"github-actions[bot]\"\ngit config\
+        \ --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n\
+        git lfs track \"*.joblib\" || true\n\ngit add models/pregame/*.joblib 2>/dev/null\
+        \ || true\ngit add models/manifest/models_manifest.csv 2>/dev/null || true\n\
+        git add models/manifest/models_manifest.lock.json 2>/dev/null || true\ngit\
+        \ add output/models/metrics_summary.csv 2>/dev/null || true\ngit add output/logs/features_columns.txt\
+        \ 2>/dev/null || true\n\nif git diff --cached --quiet; then\n  echo \"No changes\
+        \ to commit (models/manifest/logs).\"\nelse\n  git commit -m \"[skip ci] Update\
+        \ models, manifest and metrics\"\n  git fetch origin main || true\n  git pull\
+        \ --rebase --autostash origin main || true\n  git push origin HEAD:main\n\
+        fi\n"
+    - name: Upload models and logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: models-and-logs
+        path: 'models/pregame/*.joblib
 
-      # --- Data prep ---
-      - name: Step 01 - Canonicalize raw data
-        run: python scripts/01_canonicalize_raw.py
+          models/manifest/models_manifest.csv
 
-      - name: Step 02 - Build features
-        run: python scripts/02_build_features.py
+          models/manifest/models_manifest.lock.json
 
-      - name: Step 02.5 - Debug features (optional)
-        run: |
-          if [ -f scripts/02a_debug_features.py ]; then
-            python scripts/02a_debug_features.py
-          else
-            echo "No scripts/02a_debug_features.py; skipping."
-          fi
+          output/models/metrics_summary.csv
 
-      - name: Step 02.6 - Enrich features (optional)
-        run: |
-          if [ -f scripts/02b_enrich_features.py ]; then
-            python scripts/02b_enrich_features.py
-          else
-            echo "No scripts/02b_enrich_features.py; skipping."
-          fi
+          output/logs/features_columns.txt
 
-      # --- Model training ---
-      - name: Step 03 - Train models
-        run: python scripts/03_train_models.py
+          '
+        if-no-files-found: warn
+    - name: Step 04 - Generate props
+      run: "set -e\nif [ -f scripts/04_generate_props.py ]; then\n  python scripts/04_generate_props.py\n\
+        else\n  echo \"ERROR: scripts/04_generate_props.py missing\"; exit 1\nfi\n"
+    - name: Verify props generated (fail loud if missing)
+      run: 'set -e
 
-      # --- Manifest build ---
-      - name: Step 03.5 - Build models manifest
-        run: python scripts/build_models_manifest.py models/pregame output/logs/features_columns.txt
+        test -s data/props/props_current.csv || (echo "ERROR: data/props/props_current.csv
+        not found/empty after generation" && exit 1)
 
-      # --- Commit results (models/manifest/logs) ---
-      - name: Commit updated models, metrics, and manifest
-        run: |
-          set -e
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        echo "--- props_current.csv (head) ---"
 
-          git lfs track "*.joblib" || true
+        sed -n ''1,20p'' data/props/props_current.csv || true
 
-          git add models/pregame/*.joblib 2>/dev/null || true
-          git add models/manifest/models_manifest.csv 2>/dev/null || true
-          git add models/manifest/models_manifest.lock.json 2>/dev/null || true
-          git add output/models/metrics_summary.csv 2>/dev/null || true
-          git add output/logs/features_columns.txt 2>/dev/null || true
+        echo "--- data/props listing ---"
 
-          if git diff --cached --quiet; then
-            echo "No changes to commit (models/manifest/logs)."
-          else
-            git commit -m "[skip ci] Update models, manifest and metrics"
-            git fetch origin main || true
-            git pull --rebase --autostash origin main || true
-            git push origin HEAD:main
-          fi
+        ls -lh data/props || true
 
-      # --- Upload artifacts for inspection (models/logs) ---
-      - name: Upload models and logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: models-and-logs
-          path: |
-            models/pregame/*.joblib
-            models/manifest/models_manifest.csv
-            models/manifest/models_manifest.lock.json
-            output/models/metrics_summary.csv
-            output/logs/features_columns.txt
-          if-no-files-found: warn
-
-      # --- Props generation ---
-      - name: Step 04 - Generate props
-        run: |
-          set -e
-          if [ -f scripts/04_generate_props.py ]; then
-            python scripts/04_generate_props.py
-          else
-            echo "ERROR: scripts/04_generate_props.py missing"; exit 1
-          fi
-
-      - name: Verify props generated (fail loud if missing)
-        run: |
-          set -e
-          test -s data/props/props_current.csv || (echo "ERROR: data/props/props_current.csv not found/empty after generation" && exit 1)
-          echo "--- props_current.csv (head) ---"
-          sed -n '1,20p' data/props/props_current.csv || true
-          echo "--- data/props listing ---"
-          ls -lh data/props || true
-
-      - name: Stamp run timestamp into props CSVs (ensures diff for commit)
-        run: |
-          python - <<'PY'
-          import os, glob, pandas as pd
-          from datetime import datetime, timezone
-          ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-          paths = sorted(glob.glob("data/props/props_*.csv")) + (["data/props/props_current.csv"] if os.path.exists("data/props/props_current.csv") else [])
-          changed = 0
-          for p in paths:
-            try:
-              df = pd.read_csv(p)
-              df["run_ts_utc"] = ts
-              df.to_csv(p, index=False)
-              changed += 1
-              print(f"Stamped run_ts_utc in {p} (rows={len(df)})")
-            except Exception as e:
-              print(f"WARNING: could not stamp {p}: {e}")
-          if changed == 0:
-            raise SystemExit("No props CSVs found to stamp; nothing to commit.")
-          PY
-
-      - name: Commit props outputs (props_current + per-market)
-        run: |
-          set -e
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          echo "=== git status BEFORE staging ==="
-          git status --porcelain || true
-
-          # 1) Stage props files first
-          git add -f data/props/props_current.csv 2>/dev/null || true
-          find data/props -maxdepth 1 -type f -name 'props_*.csv' -print0 2>/dev/null | xargs -0 -r git add
-
-          echo "=== git status AFTER staging ==="
-          git status --porcelain || true
-
-          # 2) If nothing changed, bail early
-          if git diff --cached --quiet; then
-            echo "No props changes to commit."
-            exit 0
-          fi
-
-          # 3) Commit locally
-          git commit -m "[props] update props_current and per-market (run $GITHUB_RUN_ID)"
-
-          # 4) Rebase with autostash, then push (with fallback)
-          git fetch origin main || true
-          if ! git pull --rebase --autostash origin main; then
-            echo "Rebase failed; attempting merge fallback"
-            git pull --no-rebase --no-edit origin main || true
-          fi
-
-          # 5) Push (with one retry if needed)
-          if ! git push origin HEAD:main; then
-            echo "Initial push failed; retrying after fetch/rebase"
-            git fetch origin main || true
-            git pull --rebase --autostash origin main || true
-            git push origin HEAD:main
-          fi
-
-      - name: Upload props artifacts (for reference)
-        uses: actions/upload-artifact@v4
-        with:
-          name: props-${{ github.run_id }}
-          path: data/props/*.csv
-          if-no-files-found: warn
+        '
+    - name: Stamp run timestamp into props CSVs (ensures diff for commit)
+      run: "python - <<'PY'\nimport os, glob, pandas as pd\nfrom datetime import datetime,\
+        \ timezone\nts = datetime.now(timezone.utc).strftime(\"%Y-%m-%dT%H:%M:%SZ\"\
+        )\npaths = sorted(glob.glob(\"data/props/props_*.csv\")) + ([\"data/props/props_current.csv\"\
+        ] if os.path.exists(\"data/props/props_current.csv\") else [])\nchanged =\
+        \ 0\nfor p in paths:\n  try:\n    df = pd.read_csv(p)\n    df[\"run_ts_utc\"\
+        ] = ts\n    df.to_csv(p, index=False)\n    changed += 1\n    print(f\"Stamped\
+        \ run_ts_utc in {p} (rows={len(df)})\")\n  except Exception as e:\n    print(f\"\
+        WARNING: could not stamp {p}: {e}\")\nif changed == 0:\n  raise SystemExit(\"\
+        No props CSVs found to stamp; nothing to commit.\")\nPY\n"
+    - name: Commit props outputs (props_current + per-market)
+      run: "set -e\ngit config user.name  \"github-actions[bot]\"\ngit config user.email\
+        \ \"41898282+github-actions[bot]@users.noreply.github.com\"\n\necho \"===\
+        \ git status BEFORE staging ===\"\ngit status --porcelain || true\n\n# 1)\
+        \ Stage props files first\ngit add -f data/props/props_current.csv 2>/dev/null\
+        \ || true\nfind data/props -maxdepth 1 -type f -name 'props_*.csv' -print0\
+        \ 2>/dev/null | xargs -0 -r git add\n\necho \"=== git status AFTER staging\
+        \ ===\"\ngit status --porcelain || true\n\n# 2) If nothing changed, bail early\n\
+        if git diff --cached --quiet; then\n  echo \"No props changes to commit.\"\
+        \n  exit 0\nfi\n\n# 3) Commit locally\ngit commit -m \"[props] update props_current\
+        \ and per-market (run $GITHUB_RUN_ID)\"\n\n# 4) Rebase with autostash, then\
+        \ push (with fallback)\ngit fetch origin main || true\nif ! git pull --rebase\
+        \ --autostash origin main; then\n  echo \"Rebase failed; attempting merge\
+        \ fallback\"\n  git pull --no-rebase --no-edit origin main || true\nfi\n\n\
+        # 5) Push (with one retry if needed)\nif ! git push origin HEAD:main; then\n\
+        \  echo \"Initial push failed; retrying after fetch/rebase\"\n  git fetch\
+        \ origin main || true\n  git pull --rebase --autostash origin main || true\n\
+        \  git push origin HEAD:main\nfi\n"
+    - name: Upload props artifacts (for reference)
+      uses: actions/upload-artifact@v4
+      with:
+        name: props-${{ github.run_id }}
+        path: data/props/*.csv
+        if-no-files-found: warn
+  props:
+    env:
+      TARGET_SEASON: '2025'
