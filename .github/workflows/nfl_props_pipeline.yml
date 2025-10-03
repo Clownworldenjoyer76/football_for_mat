@@ -3,14 +3,10 @@ name: NFL Props Pipeline
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 6 * * *"  # (UTC)
+    - cron: "0 6 * * *"  # daily 06:00 UTC
 
 permissions:
   contents: write
-
-concurrency:
-  group: nfl-props-pipeline-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   props:
@@ -35,15 +31,13 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Ensure data dirs
-        run: |
-          mkdir -p data/props data/logs
+        run: mkdir -p data/props data/logs
 
       - name: Clean stale current props
         run: rm -f data/props/props_current.csv
 
       - name: Fetch odds / props
-        run: |
-          python scripts/01_fetch_odds_props.py --out data/props/props_raw.csv
+        run: python scripts/01_fetch_odds_props.py --out data/props/props_raw.csv
 
       - name: Build current props
         run: |
