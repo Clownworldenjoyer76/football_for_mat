@@ -1,199 +1,244 @@
 #!/usr/bin/env python3
-# /scripts/02b_enrich_features.py
-# Enrich weekly_clean.csv.gz with additional columns used as model targets.
-# - Adds/derives: pass_attempts, rush_attempts, qb_sacks_taken
-# - Adds longs if present: rushing_long, longest_reception
-# - Adds kicker stats when source columns exist: field_goals_made/attempted,
-#   longest_field_goal, kicking_points
-# - Adds defensive stats if present: tackles_combined, tackles_assists,
-#   interceptions_def, passes_defended
-# - Adds team/game points if possible: team_points_for, game_total_points
-# Writes in-place to data/features/weekly_clean.csv.gz and logs to output/logs/step02b_enrich.log
+# -*- coding: utf-8 -*-
+
+"""
+02b_enrich_features.py
+Optional feature enrichment pass.
+
+- Loads:  data/features/weekly_clean.csv.gz
+- Adds/normalizes commonly referenced columns used by models/props:
+    pass_attempts, rush_attempts,
+    qb_sacks_taken,
+    rushing_long, longest_reception,
+    field_goals_made, field_goals_attempted, longest_field_goal,
+    extra_points_made (xpm)
+
+All operations are defensive:
+- Works whether inputs are Series or scalars
+- Never calls .fillna() on scalars
+- Missing sources become 0 with a warning
+- Overwrites weekly_clean.csv.gz in-place
+
+Outputs:
+- data/features/weekly_clean.csv.gz  (overwritten)
+- Prints a short log of what was added/normalized
+"""
 
 from __future__ import annotations
+
 import sys
 from pathlib import Path
-import pandas as pd
+from typing import Iterable, Optional, Tuple, Union
+
 import numpy as np
+import pandas as pd
 
-ROOT = Path('.')
-FEAT = ROOT / 'data' / 'features' / 'weekly_clean.csv.gz'
-LOG  = ROOT / 'output' / 'logs' / 'step02b_enrich.log'
-LOG.parent.mkdir(parents=True, exist_ok=True)
+FEATURES_PATH = Path("data/features/weekly_clean.csv.gz")
 
-def log(msg: str):
-    print(msg)
-    with LOG.open('a', encoding='utf-8') as f:
-        f.write(msg + "\n")
 
-def find_col(df: pd.DataFrame, candidates: list[str]):
-    for c in candidates:
-        if c in df.columns:
-            return c
+# ----------------------------- helpers -----------------------------
+
+def to_num(obj) -> Union[pd.Series, float, int]:
+    """
+    Convert obj to numeric.
+    - If obj is a pandas Series: returns a numeric Series (NaNs for non-numeric)
+    - If obj is scalar-like: returns a numeric scalar (NaN if not convertible)
+    """
+    if isinstance(obj, pd.Series):
+        return pd.to_numeric(obj, errors="coerce")
+    try:
+        # scalar / array-like
+        arr = pd.to_numeric(obj, errors="coerce")
+        # if it's a 0-dim numpy or python scalar, keep scalar
+        if np.ndim(arr) == 0:
+            return arr.item() if hasattr(arr, "item") else arr
+        # otherwise return as Series
+        return pd.Series(arr)
+    except Exception:
+        return np.nan
+
+
+def fillna_safe(obj, value=0):
+    """
+    Fill NaNs only if obj supports .fillna; otherwise:
+    - if scalar NaN -> return 'value'
+    - else return obj unchanged
+    """
+    if hasattr(obj, "fillna"):
+        return obj.fillna(value)
+    # scalar path
+    if obj is None:
+        return value
+    try:
+        if np.isnan(obj):
+            return value
+    except Exception:
+        pass
+    return obj
+
+
+def get_first_existing(df: pd.DataFrame, names: Iterable[str]) -> Optional[pd.Series]:
+    """Return the first column present in df from 'names', else None."""
+    for n in names:
+        if n in df.columns:
+            return df[n]
     return None
 
-def ensure_col(df: pd.DataFrame, name: str, values):
-    if name in df.columns:
-        log(f"[KEEP] {name} already exists; not overwriting.")
-        return df[name]
-    df[name] = values
-    log(f"[ADD]  {name} created.")
-    return df[name]
 
-def looks_like_qb_row(row: pd.Series) -> bool:
-    return (row.get('completions', 0) > 0) or (row.get('passing_yards', 0) > 0)
+def add_or_normalize(df: pd.DataFrame,
+                     out_col: str,
+                     candidates: Iterable[str],
+                     expr: Optional[str] = None,
+                     required: Tuple[str, ...] = (),
+                     warn_if_missing: bool = True) -> Tuple[pd.DataFrame, bool]:
+    """
+    Create/normalize a column.
 
-def looks_like_rush_row(row: pd.Series) -> bool:
-    return (row.get('rushing_yards', 0) > 0) and not looks_like_qb_row(row)
+    - If out_col exists: ensure numeric; done.
+    - Else if expr is provided: evaluate using required columns (if any present), else warn/create zeros.
+    - Else: use the first available candidate column, numeric; else zeros.
+
+    Returns (df, created_flag)
+    """
+    created = False
+
+    if out_col in df.columns:
+        # normalize to numeric
+        df[out_col] = fillna_safe(to_num(df[out_col]), 0)
+        return df, created
+
+    if expr:
+        # check prerequisites
+        if all(req in df.columns for req in required):
+            try:
+                # evaluate expression in a safe local namespace with numeric coercion
+                local = {col: fillna_safe(to_num(df[col]), 0) for col in required}
+                df[out_col] = eval(expr, {}, local)
+                df[out_col] = fillna_safe(to_num(df[out_col]), 0)
+                print(f"[ADD]  {out_col} created.")
+                created = True
+                return df, created
+            except Exception as e:
+                if warn_if_missing:
+                    print(f"[WARN] {out_col} expression failed ({e}); placeholder created.", file=sys.stderr)
+
+    # fallback: first existing candidate
+    src = get_first_existing(df, candidates)
+    if src is not None:
+        df[out_col] = fillna_safe(to_num(src), 0)
+        print(f"[ADD]  {out_col} created.")
+        created = True
+    else:
+        df[out_col] = 0
+        if warn_if_missing:
+            print(f"[WARN] {out_col} missing; placeholder created.", file=sys.stderr)
+        else:
+            print(f"[ADD]  {out_col} created (zeros).")
+        created = True
+
+    return df, created
+
+
+# ----------------------------- main -----------------------------
 
 def main():
-    if not FEAT.exists():
-        log(f"[FATAL] Features not found: {FEAT}")
-        sys.exit(2)
+    if not FEATURES_PATH.exists():
+        print(f"ERROR: {FEATURES_PATH} not found. Run 02_build_features.py first.", file=sys.stderr)
+        sys.exit(1)
 
-    df = pd.read_csv(FEAT, low_memory=False)
-    created, passthru, placeholders = [], [], []
+    df = pd.read_csv(FEATURES_PATH, low_memory=False)
 
-    # ---- Attempts (separate pass vs. rush) ----
-    src_pass = find_col(df, ['pass_attempts', 'attempts_pass', 'attempts_passing'])
-    if src_pass:
-        ensure_col(df, 'pass_attempts', df[src_pass])
-        passthru.append(f"pass_attempts <- {src_pass}")
-    else:
-        generic_attempts = find_col(df, ['attempts', 'att'])
-        if generic_attempts is not None:
-            vals = df.apply(lambda r: r[generic_attempts] if looks_like_qb_row(r) else np.nan, axis=1)
-            ensure_col(df, 'pass_attempts', vals)
-            created.append("pass_attempts (from generic attempts + QB heuristic)")
-        else:
-            ensure_col(df, 'pass_attempts', np.nan)
-            placeholders.append('pass_attempts')
-            log("[WARN] pass_attempts not derivable (no attempts). Placeholder created.")
+    # Normalize IDs/types early
+    for c in ("season", "week"):
+        if c in df.columns:
+            df[c] = fillna_safe(to_num(df[c]), 0).astype(int)
 
-    src_rush = find_col(df, ['rush_attempts', 'rushing_attempts', 'carries'])
-    if src_rush:
-        ensure_col(df, 'rush_attempts', df[src_rush])
-        passthru.append(f"rush_attempts <- {src_rush}")
-    else:
-        generic_attempts = find_col(df, ['attempts', 'att'])
-        if generic_attempts is not None:
-            vals = df.apply(lambda r: r[generic_attempts] if looks_like_rush_row(r) else np.nan, axis=1)
-            ensure_col(df, 'rush_attempts', vals)
-            created.append("rush_attempts (from generic attempts + rush heuristic)")
-        else:
-            ensure_col(df, 'rush_attempts', np.nan)
-            placeholders.append('rush_attempts')
-            log("[WARN] rush_attempts not derivable (no attempts). Placeholder created.")
+    # --------- passing / rushing attempts ----------
+    # pass_attempts: prefer pass_attempts / attempts / pass_att; else derive from comps + incomps
+    df, _ = add_or_normalize(
+        df,
+        out_col="pass_attempts",
+        candidates=("pass_attempts", "attempts", "pass_att", "passing_attempts"),
+        expr="completions + incompletions",
+        required=("completions", "incompletions"),
+        warn_if_missing=True,
+    )
 
-    # ---- QB sacks taken ----
-    if 'qb_sacks_taken' in df.columns:
-        log("[KEEP] qb_sacks_taken exists.")
-        passthru.append("qb_sacks_taken")
-    else:
-        src_taken = find_col(df, ['sacks_taken', 'qb_sacks', 'sacked'])
-        if src_taken:
-            ensure_col(df, 'qb_sacks_taken', df[src_taken])
-            passthru.append(f"qb_sacks_taken <- {src_taken}")
-        else:
-            src_def_sacks = find_col(df, ['sacks'])
-            if src_def_sacks:
-                vals = df.apply(lambda r: r[src_def_sacks] if looks_like_qb_row(r) else 0, axis=1)
-                ensure_col(df, 'qb_sacks_taken', vals)
-                created.append("qb_sacks_taken (from sacks for QB-like rows)")
-            else:
-                ensure_col(df, 'qb_sacks_taken', np.nan)
-                placeholders.append('qb_sacks_taken')
-                log("[WARN] qb_sacks_taken not derivable (no sacks). Placeholder created.")
+    # rush_attempts: prefer rush_attempts / rushing_attempts / carries
+    df, _ = add_or_normalize(
+        df,
+        out_col="rush_attempts",
+        candidates=("rush_attempts", "rushing_attempts", "carries", "rush_att"),
+        warn_if_missing=True,
+    )
 
-    # ---- Long plays ----
-    long_rush_src = find_col(df, ['rushing_long', 'long_rush', 'rush_long'])
-    if long_rush_src:
-        ensure_col(df, 'rushing_long', df[long_rush_src])
-        passthru.append(f"rushing_long <- {long_rush_src}")
-    else:
-        ensure_col(df, 'rushing_long', np.nan)
-        placeholders.append('rushing_long')
-        log("[WARN] rushing_long missing; placeholder.")
+    # --------- QB sacks taken ----------
+    # Many sources lack a per-player 'qb_sacks_taken'; default to 0 if not derivable.
+    df, created = add_or_normalize(
+        df,
+        out_col="qb_sacks_taken",
+        candidates=("qb_sacks_taken", "sacks_taken", "qb_sacked"),
+        warn_if_missing=True,
+    )
+    if created and "qb_sacks_taken" in df.columns and df["qb_sacks_taken"].sum() == 0:
+        print("[WARN] qb_sacks_taken not derivable (no sacks). Placeholder created.", file=sys.stderr)
 
-    long_rec_src = find_col(df, ['longest_reception', 'rec_long', 'long_rec', 'receiving_long'])
-    if long_rec_src:
-        ensure_col(df, 'longest_reception', df[long_rec_src])
-        passthru.append(f"longest_reception <- {long_rec_src}")
-    else:
-        ensure_col(df, 'longest_reception', np.nan)
-        placeholders.append('longest_reception')
-        log("[WARN] longest_reception missing; placeholder.")
+    # --------- Longest plays ----------
+    df, _ = add_or_normalize(
+        df,
+        out_col="rushing_long",
+        candidates=("rushing_long", "long_rush", "rush_long"),
+        warn_if_missing=True,
+    )
+    df, _ = add_or_normalize(
+        df,
+        out_col="longest_reception",
+        candidates=("longest_reception", "rec_long", "long_rec", "receiving_long"),
+        warn_if_missing=True,
+    )
 
-    # ---- Kickers ----
-    fgm_src = find_col(df, ['field_goals_made', 'fg_made', 'fgm'])
-    fga_src = find_col(df, ['field_goals_attempted', 'fg_attempts', 'fga'])
-    xpm_src = find_col(df, ['xp_made', 'xpm'])
-    fgl_src = find_col(df, ['longest_field_goal', 'fg_long', 'fg_longest'])
+    # --------- Kicking ----------
+    df, _ = add_or_normalize(
+        df,
+        out_col="field_goals_made",
+        candidates=("field_goals_made", "fgm"),
+        warn_if_missing=True,
+    )
+    df, _ = add_or_normalize(
+        df,
+        out_col="field_goals_attempted",
+        candidates=("field_goals_attempted", "fga"),
+        warn_if_missing=True,
+    )
+    df, _ = add_or_normalize(
+        df,
+        out_col="longest_field_goal",
+        candidates=("longest_field_goal", "fg_long"),
+        warn_if_missing=True,
+    )
+    # Extra points made (xpm)
+    df, _ = add_or_normalize(
+        df,
+        out_col="extra_points_made",
+        candidates=("extra_points_made", "xpm", "xp_made"),
+        warn_if_missing=True,
+    )
 
-    if fgm_src: ensure_col(df, 'field_goals_made', df[fgm_src]); passthru.append(f"field_goals_made <- {fgm_src}")
-    else: ensure_col(df, 'field_goals_made', np.nan); placeholders.append('field_goals_made')
+    # --------- Sanity: coerce all added numeric columns ---------
+    force_numeric = [
+        "pass_attempts", "rush_attempts",
+        "qb_sacks_taken",
+        "rushing_long", "longest_reception",
+        "field_goals_made", "field_goals_attempted", "longest_field_goal",
+        "extra_points_made",
+    ]
+    for c in force_numeric:
+        if c in df.columns:
+            df[c] = fillna_safe(to_num(df[c]), 0)
 
-    if fga_src: ensure_col(df, 'field_goals_attempted', df[fga_src]); passthru.append(f"field_goals_attempted <- {fga_src}")
-    else: ensure_col(df, 'field_goals_attempted', np.nan); placeholders.append('field_goals_attempted')
+    # --------- Write back ---------
+    df.to_csv(FEATURES_PATH, index=False, compression="gzip")
+    print(f"[OK]  Enrichment complete. Wrote {FEATURES_PATH}  rows={len(df)}")
 
-    if fgl_src: ensure_col(df, 'longest_field_goal', df[fgl_src]); passthru.append(f"longest_field_goal <- {fgl_src}")
-    else: ensure_col(df, 'longest_field_goal', np.nan); placeholders.append('longest_field_goal')
-
-    if 'kicking_points' not in df.columns:
-        if fgm_src or xpm_src:
-            fgm_vals = df[fgm_src] if fgm_src else 0
-            xpm_vals = df[xpm_src] if xpm_src else 0
-            ensure_col(df, 'kicking_points',
-                       3 * pd.to_numeric(fgm_vals, errors='coerce').fillna(0) +
-                       pd.to_numeric(xpm_vals, errors='coerce').fillna(0))
-            created.append("kicking_points (3*FGM + XP_made)")
-        else:
-            ensure_col(df, 'kicking_points', np.nan)
-            placeholders.append('kicking_points')
-
-    # ---- Defense ----
-    for name, cands in {
-        'tackles_combined': ['tackles_combined', 'tackles_total', 'total_tackles'],
-        'tackles_assists' : ['tackles_assists', 'assist_tackles', 'tackles_ast'],
-        'interceptions_def': ['interceptions_def', 'def_interceptions', 'interceptions_defense'],
-        'passes_defended' : ['passes_defended', 'pass_deflections', 'pd'],
-    }.items():
-        src = find_col(df, cands)
-        if src:
-            ensure_col(df, name, df[src]); passthru.append(f"{name} <- {src}")
-        else:
-            ensure_col(df, name, np.nan); placeholders.append(name)
-
-    # ---- Team/Game points ----
-    team_src = find_col(df, ['team_points_for', 'points_for', 'team_points'])
-    if team_src:
-        ensure_col(df, 'team_points_for', df[team_src]); passthru.append(f"team_points_for <- {team_src}")
-    else:
-        ensure_col(df, 'team_points_for', np.nan); placeholders.append('team_points_for')
-
-    if 'game_total_points' in df.columns:
-        log("[KEEP] game_total_points exists.")
-        passthru.append("game_total_points")
-    else:
-        if 'team_points_for' in df.columns and df['team_points_for'].notna().any() and 'game_id' in df.columns:
-            totals = df[['game_id', 'team_points_for']].groupby('game_id', as_index=False)['team_points_for'].sum()
-            totals.rename(columns={'team_points_for':'game_total_points'}, inplace=True)
-            df = df.merge(totals, on='game_id', how='left')
-            log("[ADD]  game_total_points derived by summing team_points_for per game_id.")
-            created.append("game_total_points (from team_points_for)")
-        else:
-            ensure_col(df, 'game_total_points', np.nan)
-            placeholders.append('game_total_points')
-            log("[WARN] game_total_points not derivable. Placeholder created.")
-
-    # Save
-    df.to_csv(FEAT, index=False)
-    log(f"[OK] Wrote enriched features -> {FEAT}")
-
-    log("---- SUMMARY ----")
-    for c in created: log(f"[MADE] {c}")
-    for c in passthru: log(f"[PASS] {c}")
-    for c in placeholders: log(f"[TODO] {c}")
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
