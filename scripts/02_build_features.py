@@ -4,7 +4,12 @@ Step 02 — Build features
 
 What this does
 --------------
-- Loads weekly_all.* from data/features/
+Primary source:
+- If present, reads data/weekly/latest.csv (preferred) and filters to TARGET_SEASON
+Fallback sources:
+- Loads weekly_all.* from data/features/ (parquet/csv/csv.gz)
+
+Then it:
 - Cleans & standardizes core columns (team/opponent, season/week, is_home)
 - Merges injuries from CSV (no scraping) and adds an injury_flag
 - Merges weather (season/week averages) if available
@@ -13,14 +18,23 @@ What this does
     data/features/weekly_clean.csv.gz
     data/features/manifest.csv
     data/features/_build_features_summary.txt
+
+A season guard at the end ensures max(season) == TARGET_SEASON (default 2025)
+when using the preferred weekly source.
 """
 
 from pathlib import Path
 from typing import List, Tuple, Optional
+import os
+import sys
 import pandas as pd
 import numpy as np
 
-# ---------------- Paths ----------------
+# ---------------- Config / Paths ----------------
+TARGET_SEASON = int(os.getenv("TARGET_SEASON", "2025"))
+
+PREFERRED_WEEKLY = Path("data/weekly/latest.csv")
+
 SRC_CANDIDATES: List[Tuple[str, str]] = [
     ("parquet", "data/features/weekly_all.parquet"),
     ("csv",     "data/features/weekly_all.csv.gz"),
@@ -36,7 +50,6 @@ OUT_SUM = OUT_DIR / "_build_features_summary.txt"
 INJURY_FILE = Path("data/raw/injuries/injury_reports_latest.csv")
 WEATHER_FILE = Path("data/raw/weather/game_weather_latest.csv")
 
-# ---------------- Config ----------------
 TEAM_MAP = [("recent_team", "team")]
 OPP_MAP  = [("opponent_team", "opponent")]
 
@@ -44,11 +57,22 @@ KEEP_BASE = [
     "player_id", "player_name", "player_display_name",
     "position", "position_group",
     "team", "opponent",
-    "season", "week", "season_type"
+    "season", "week", "season_type",
+    "game_id", "home_away"
 ]
 
 # ---------------- Loaders ----------------
-def load_source() -> Tuple[pd.DataFrame, Path]:
+def load_source() -> Tuple[pd.DataFrame, Path, bool]:
+    """
+    Returns (df, src_path, from_preferred_weekly_flag)
+    """
+    if PREFERRED_WEEKLY.exists():
+        try:
+            df = pd.read_csv(PREFERRED_WEEKLY, low_memory=False)
+            return df, PREFERRED_WEEKLY, True
+        except Exception as e:
+            print(f"WARNING: could not read {PREFERRED_WEEKLY}: {e}", file=sys.stderr)
+
     for kind, p in SRC_CANDIDATES:
         fp = Path(p)
         if fp.exists():
@@ -56,10 +80,12 @@ def load_source() -> Tuple[pd.DataFrame, Path]:
                 df = pd.read_parquet(fp)
             else:
                 df = pd.read_csv(fp, low_memory=False)
-            return df, fp
+            return df, fp, False
+
     raise SystemExit(
-        "No weekly_all file found. Looked for: "
-        + ", ".join([p for _, p in SRC_CANDIDATES])
+        "No weekly source found. Looked for:\n"
+        f"  - {PREFERRED_WEEKLY}\n  - "
+        + "\n  - ".join([p for _, p in SRC_CANDIDATES])
     )
 
 def load_injuries() -> Optional[pd.DataFrame]:
@@ -82,7 +108,6 @@ def load_weather() -> Optional[pd.DataFrame]:
 def standardize_cols(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    # Rename team/opponent variants if needed
     for src, dst in TEAM_MAP:
         if src in df.columns and dst not in df.columns:
             df.rename(columns={src: dst}, inplace=True)
@@ -102,7 +127,7 @@ def standardize_cols(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def select_numeric(df: pd.DataFrame) -> List[str]:
-    base_set = set(KEEP_BASE + ["home_away", "is_home"])
+    base_set = set(KEEP_BASE + ["is_home"])
     num_cols: List[str] = []
     for c, dt in df.dtypes.items():
         if c in base_set:
@@ -126,7 +151,6 @@ def merge_injuries(df: pd.DataFrame, injuries: Optional[pd.DataFrame]) -> pd.Dat
     inj = injuries.copy()
     inj["NAME"] = inj["NAME"].astype(str).str.upper().str.strip()
 
-    # Choose best available name column to match
     name_col = "player_display_name" if "player_display_name" in df.columns else (
                "player_name" if "player_name" in df.columns else None)
     if name_col is None:
@@ -146,8 +170,6 @@ def merge_weather(df: pd.DataFrame, weather: Optional[pd.DataFrame]) -> pd.DataF
         return df
 
     w = weather.copy()
-
-    # Determine which columns exist; aggregate only those
     agg_cols = {}
     for col in ["temperature_2m", "windspeed_10m", "precipitation", "cloudcover"]:
         if col in w.columns:
@@ -178,7 +200,6 @@ def add_rolling(df: pd.DataFrame, numeric_cols: List[str]) -> pd.DataFrame:
                   .transform(lambda s: pd.to_numeric(s, errors="coerce").rolling(window=3, min_periods=1).mean())
             )
         except Exception:
-            # If a column is all non-numeric/NaN, skip its rolling
             pass
     return df
 
@@ -199,18 +220,15 @@ def write_summary(df_out: pd.DataFrame,
         lines.append(f"injury_flag_1_rows: {int((df_out['injury_flag'] == 1).sum())}")
     lines.append("")
 
-    # base columns kept
     base_kept = [c for c in KEEP_BASE if c in df_out.columns]
     lines.append("base_kept: " + (", ".join(base_kept) if base_kept else "(none)"))
 
-    # numeric count + sample
     lines.append(f"numeric_cols_count: {len(numeric_cols)}")
     if numeric_cols:
         sample = numeric_cols[:30]
         lines.append("numeric_cols_sample: " + ", ".join(sample))
     lines.append("")
 
-    # quick tallies
     if "season" in df_out.columns:
         season_counts = df_out["season"].value_counts().sort_index().to_dict()
         lines.append(f"by_season_rows: {season_counts}")
@@ -230,9 +248,13 @@ def write_summary(df_out: pd.DataFrame,
 
 # ---------------- Main ----------------
 def main():
-    # Load source
-    df, src_path = load_source()
+    # Load source (prefer weekly/latest.csv)
+    df, src_path, from_weekly = load_source()
     df = standardize_cols(df)
+
+    # If we came from the preferred weekly file, hard-filter to TARGET_SEASON
+    if from_weekly and "season" in df.columns:
+        df = df[pd.to_numeric(df["season"], errors="coerce") == TARGET_SEASON].copy()
 
     # Determine bases / numeric
     base = [c for c in KEEP_BASE if c in df.columns]
@@ -244,9 +266,9 @@ def main():
 
     # season/week to int if present
     if "season" in df.columns:
-        df["season"] = df["season"].fillna(0).astype(int)
+        df["season"] = pd.to_numeric(df["season"], errors="coerce").fillna(0).astype(int)
     if "week" in df.columns:
-        df["week"] = df["week"].fillna(0).astype(int)
+        df["week"] = pd.to_numeric(df["week"], errors="coerce").fillna(0).astype(int)
 
     # Injuries (CSV only; no scraping)
     inj_df = load_injuries()
@@ -272,8 +294,16 @@ def main():
 
     df_out = df[out_cols].copy()
 
+    # Season guard (only when we used preferred weekly)
+    if from_weekly and "season" in df_out.columns and len(df_out):
+        mx = int(pd.to_numeric(df_out["season"], errors="coerce").max())
+        if mx != TARGET_SEASON:
+            print(f"ERROR: weekly_clean max(season)={mx} != {TARGET_SEASON}. "
+                  f"Check data/weekly/latest.csv.", file=sys.stderr)
+            sys.exit(1)
+
     # Write data
-    df_out.to_csv(OUT_CSV, index=False)
+    df_out.to_csv(OUT_CSV, index=False, compression="gzip")
 
     # Write manifest
     manifest = pd.DataFrame({
