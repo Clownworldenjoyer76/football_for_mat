@@ -1,143 +1,110 @@
 #!/usr/bin/env python3
-"""
-Generates current-season prediction CSVs required by scripts/04_generate_props.py.
+# scripts/04_predict.py
 
-Writes (all to data/predictions/):
-  - qb_passing_yards.csv
-  - rb_rushing_yards.csv
-  - wr_rec_yards.csv
-  - wrte_receptions.csv
-
-Behavior:
-- Uses TARGET_SEASON env or --season arg (default: current year).
-- If trained models are present (models/calibrators.joblib or team models), you can extend
-  the `predict_value` function to load and apply them.
-- If no models are found, it falls back to a baseline derived from props/odds if available,
-  otherwise a simple heuristic. The goal is to ensure 2025 rows exist so the pipeline runs.
-
-Columns expected by downstream:
-  season, week, game_id, player_id, player_name, team, opponent, market, pred
-"""
-
-import argparse, os, sys, json
+import os
 from pathlib import Path
-from datetime import datetime
+import argparse
+import sys
 import pandas as pd
+from joblib import load as joblib_load
 
-DATA_DIR = Path("data")
-PRED_DIR = DATA_DIR / "predictions"
-PROPS_DIR = DATA_DIR / "props"
+TARGETS = {
+    # out_csv                  model_filename              features_csv (expected)
+    "qb_passing_yards.csv":    ("qb_passing_yards.joblib",   "qb_passing_yards.csv"),
+    "rb_rushing_yards.csv":    ("rb_rushing_yards.joblib",   "rb_rushing_yards.csv"),
+    "wr_rec_yards.csv":        ("wr_rec_yards.joblib",       "wr_rec_yards.csv"),
+    "wrte_receptions.csv":     ("wrte_receptions.joblib",    "wrte_receptions.csv"),
+}
 
-# ---- helpers ----------------------------------------------------------------
+MODELS_DIR = Path("models/pregame")
+FEATS_DIR  = Path("data/features")
+OUT_DIR    = Path("data/predictions")
 
-def season_default():
-    # prefer env, else current year
-    s = os.getenv("TARGET_SEASON")
-    if s and s.isdigit():
-        return int(s)
-    return datetime.utcnow().year
+REQ_COLS_MIN = ["season","week","game_id","player_id","player_name","team","opponent"]
+# Any additional feature columns are fed to the model.
 
-def load_props_current():
-    # optional: use props lines as weak baseline
-    f = PROPS_DIR / "props_current.csv"
-    if f.exists():
-        try:
-            return pd.read_csv(f)
-        except Exception:
-            return None
-    return None
+def die(msg: str) -> None:
+    print(f"[predict:ERROR] {msg}", file=sys.stderr)
+    sys.exit(1)
 
-def predict_value(row, market, fallback_mean):
-    # Placeholder prediction logic:
-    # 1) If props line exists for this player/market, use it as the prediction.
-    # 2) Else, fallback to a simple heuristic constant per market.
-    line_col = "line"
-    if line_col in row and pd.notnull(row[line_col]):
-        try:
-            return float(row[line_col])
-        except Exception:
-            pass
-    return float(fallback_mean)
+def warn(msg: str) -> None:
+    print(f"[predict:WARN] {msg}")
 
-def normalize_cols(df, season, market):
-    # Ensure required columns exist; fill missing with sensible defaults
-    need = ["season","week","game_id","player_id","player_name","team","opponent","market","pred"]
-    base = {k: None for k in need}
-    base["season"] = season
-    base["market"] = market
-    for col in base:
-        if col not in df.columns:
-            df[col] = base[col]
-    # Order columns
-    return df[need]
+def info(msg: str) -> None:
+    print(f"[predict] {msg}")
 
-def write_csv(df, out_path):
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out_path, index=False)
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument("--season", type=int, default=int(os.getenv("TARGET_SEASON", "0")) or None)
+    return p.parse_args()
 
-# ---- main per-market builders -----------------------------------------------
-
-def build_from_props(props_df, season, market, player_pos_filter=None, fallback_mean=50.0):
-    df = props_df.copy()
-    # Keep same-season rows if present; otherwise we’ll overwrite season below
-    df["season"] = season
-    # Filter by market name if column exists
-    if "market" in df.columns:
-        mask = df["market"].str.contains(market, case=False, na=False)
-        df = df[mask].copy()
-    # Minimal player columns
-    if "player_name" not in df.columns:
-        df["player_name"] = df.get("name") if "name" in df.columns else None
-    if "team" not in df.columns:
-        df["team"] = df.get("team_abbr") if "team_abbr" in df.columns else None
-    if "opponent" not in df.columns:
-        df["opponent"] = df.get("opp_abbr") if "opp_abbr" in df.columns else None
-    if "week" not in df.columns:
-        df["week"] = df.get("week_number") if "week_number" in df.columns else None
-    if "game_id" not in df.columns:
-        df["game_id"] = df.get("game_id")
-
-    # Predict column
-    df["pred"] = df.apply(lambda r: predict_value(r, market, fallback_mean), axis=1)
-    df = normalize_cols(df, season, market)
-    return df
-
-def build_baseline(season, market):
-    # Create a tiny baseline frame to keep pipeline moving even if no props found
-    # (Downstream will still validate/clip later.)
-    return normalize_cols(pd.DataFrame([], columns=[]), season, market)
-
-# ---- CLI --------------------------------------------------------------------
+def ensure_cols(df: pd.DataFrame, cols: list[str]) -> None:
+    missing = [c for c in cols if c not in df.columns]
+    if missing:
+        die(f"Missing required columns in features: {missing}")
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--season", type=int, default=season_default())
-    args = parser.parse_args()
-    season = int(args.season)
+    args = parse_args()
+    if args.season is None:
+        die("Season not provided. Set env TARGET_SEASON or pass --season.")
 
-    props = load_props_current()
-
-    outputs = {
-        "qb_passing_yards.csv": ("passing yards", 245.0),
-        "rb_rushing_yards.csv": ("rushing yards", 62.0),
-        "wr_rec_yards.csv": ("receiving yards", 58.0),
-        "wrte_receptions.csv": ("receptions", 4.5),
-    }
-
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     wrote_any = False
-    for fname, (market_key, fallback_mean) in outputs.items():
-        if props is not None and not props.empty:
-            df = build_from_props(props, season, market_key, fallback_mean=fallback_mean)
-        else:
-            df = build_baseline(season, market_key)
-        out_path = PRED_DIR / fname
-        write_csv(df, out_path)
-        wrote_any = wrote_any or (len(df) > 0)
 
-    print(f"[predict] season={season}; wrote files to {PRED_DIR.resolve()}")
+    for out_csv, (model_fname, feats_fname) in TARGETS.items():
+        model_path = MODELS_DIR / model_fname
+        feats_path = FEATS_DIR  / feats_fname
+        out_path   = OUT_DIR    / out_csv
+
+        if not model_path.exists():
+            warn(f"Model not found: {model_path}. Skipping {out_csv}.")
+            continue
+        if not feats_path.exists():
+            warn(f"Features not found: {feats_path}. Skipping {out_csv}.")
+            continue
+
+        info(f"Loading model: {model_path.name}")
+        model = joblib_load(model_path)
+
+        info(f"Loading features: {feats_path.name}")
+        feats = pd.read_csv(feats_path)
+
+        # Basic metadata check
+        ensure_cols(feats, REQ_COLS_MIN)
+        # Use all non-metadata columns as features for prediction
+        meta_cols = set(REQ_COLS_MIN)
+        X_cols = [c for c in feats.columns if c not in meta_cols]
+        if not X_cols:
+            die(f"No feature columns found in {feats_fname} (only metadata present).")
+
+        # Predict
+        try:
+            preds = model.predict(feats[X_cols])
+        except Exception as e:
+            die(f"Model.predict failed for {model_fname} on {feats_fname}: {e}")
+
+        # Assemble output
+        out = feats.copy()
+        out["season"] = int(args.season)  # force current season
+        out["pred"] = preds
+
+        # Add required fields if missing
+        required_for_props = ["season","week","game_id","player_id","player_name","team","opponent","pred"]
+        for c in required_for_props:
+            if c not in out.columns:
+                out[c] = None
+
+        # Trim/output columns
+        out = out[required_for_props]
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out.to_csv(out_path, index=False)
+        wrote_any = True
+        info(f"Wrote {out_path} rows={len(out)}")
+
     if not wrote_any:
-        # Still succeed so pipeline can continue; downstream has its own checks.
-        print("[predict] No rows generated (no props found) — baseline csvs created.")
+        die("No predictions were written (missing models and/or features).")
+
+    info(f"Done. Season={args.season}. Files in {OUT_DIR}")
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
