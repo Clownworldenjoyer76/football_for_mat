@@ -46,6 +46,18 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pandas numpy joblib scikit-learn scipy pyarrow fastparquet
 
+      # ============================
+      # Build (fresh) features for TARGET_SEASON from data/weekly/latest.csv
+      # ============================
+      - name: Build features (TARGET_SEASON)
+        run: |
+          python scripts/02_build_features.py
+          echo "---- features manifest ----"
+          sed -n '1,10p' data/features/manifest.csv || true
+          echo "---- features summary ----"
+          sed -n '1,40p' data/features/_build_features_summary.txt || true
+
+      # Optional enrichment AFTER base features exist
       - name: Enrich features (optional)
         run: |
           if [ -f scripts/02b_enrich_features.py ]; then
@@ -85,7 +97,7 @@ jobs:
           ls -lh models/pregame || true
 
       # ============================
-      # NEW: Generate predictions for TARGET_SEASON
+      # Generate predictions for TARGET_SEASON
       # ============================
       - name: Generate pregame predictions
         run: |
@@ -118,10 +130,10 @@ jobs:
           df = pd.read_csv(p)
           if "season" not in df.columns:
               print("ERROR: props_current.csv missing 'season' column", file=sys.stderr); sys.exit(1)
-          mx = int(df["season"].max())
+          mx = int(pd.to_numeric(df["season"], errors="coerce").max())
           print("props_current.csv max(season)=", mx)
           if mx != want:
-              print(f"ERROR: props_current.csv is season {mx}, not {want}. Re-run Weekly Data Refresh for {want}.", file=sys.stderr)
+              print(f"ERROR: props_current.csv is season {mx}, not {want}.", file=sys.stderr)
               sys.exit(1)
           PY
 
