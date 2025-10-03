@@ -96,22 +96,42 @@ jobs:
       # ============================
       # Props generation
       # ============================
-      - name: Generate props
-        run: python scripts/04_generate_props.py
+      - name: Generate props (optional)
+        run: |
+          if [ -f scripts/04_generate_props.py ]; then
+            python scripts/04_generate_props.py
+          else
+            echo "No scripts/04_generate_props.py; skipping."
+          fi
 
       - name: Season guard on props_current.csv (must be 2025)
         run: |
           set -e
+          P="data/props/props_current.csv"
+          if [ ! -s "$P" ]; then
+            echo "ERROR: $P missing or empty after generation"; exit 1
+          fi
           python - <<'PY'
           import os, pandas as pd, sys
           want = int(os.getenv("TARGET_SEASON","2025"))
           p = "data/props/props_current.csv"
           df = pd.read_csv(p)
-          mx = int(pd.to_numeric(df["season"], errors="coerce").max())
+          if "season" not in df.columns:
+              print("ERROR: props_current.csv missing 'season' column", file=sys.stderr); sys.exit(1)
+          mx = int(df["season"].max())
           print("props_current.csv max(season)=", mx)
           if mx != want:
-              print(f"ERROR: props_current.csv season {mx} != {want}", file=sys.stderr); sys.exit(1)
+              print(f"ERROR: props_current.csv is season {mx}, not {want}. Re-run Weekly Data Refresh for {want}.", file=sys.stderr)
+              sys.exit(1)
           PY
+
+      - name: Show props outputs
+        run: |
+          ls -lh data/props || true
+          sed -n '1,20p' data/props/props_current.csv 2>/dev/null || true
+          for f in data/props/props_*.csv; do
+            [ -f "$f" ] && echo "---- $f ----" && sed -n '1,5p' "$f";
+          done
 
       # ============================
       # Probability calibration
@@ -143,6 +163,10 @@ jobs:
       - name: Season guard on props_current_calibrated.csv (must be 2025)
         run: |
           set -e
+          P="data/props/props_current_calibrated.csv"
+          if [ ! -s "$P" ]; then
+            echo "ERROR: $P not found after apply."; exit 1
+          fi
           python - <<'PY'
           import os, pandas as pd, sys
           want = int(os.getenv("TARGET_SEASON","2025"))
@@ -151,11 +175,11 @@ jobs:
           mx = int(pd.to_numeric(df["season"], errors="coerce").max())
           print("props_current_calibrated.csv max(season)=", mx)
           if mx != want:
-            print(f"ERROR: props_current_calibrated.csv season {mx} != {want}", file=sys.stderr); sys.exit(1)
+            print(f"ERROR: props_current_calibrated.csv season {mx} != {want}.", file=sys.stderr); sys.exit(1)
           PY
 
       # ============================
-      # Commit and upload (unchanged below)
+      # Commit + upload
       # ============================
       - name: Ensure .gitignore excludes joblibs
         run: |
