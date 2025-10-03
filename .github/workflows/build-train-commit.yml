@@ -26,6 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -95,6 +96,16 @@ jobs:
           sed -n '1,25p' output/models/metrics_summary.csv || true
           sed -n '1,25p' models/manifest/models_manifest.csv || true
           ls -lh models/pregame || true
+
+      # ============================
+      # Guard against stale legacy stubs
+      # ============================
+      - name: Remove legacy joblib stubs (prefer fresh timestamped models)
+        run: |
+          rm -f models/pregame/qb_passing_yards.joblib \
+                models/pregame/rb_rushing_yards.joblib \
+                models/pregame/wr_rec_yards.joblib \
+                models/pregame/wrte_receptions.joblib || true
 
       # ============================
       # Generate predictions for TARGET_SEASON
@@ -217,7 +228,7 @@ jobs:
             git fetch origin main || true
             git pull --rebase --autostash origin main || true
             git push
-          else
+          else:
             echo "No lightweight changes to commit."
           fi
 
