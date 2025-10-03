@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   props:
-    name: Build current & calibrated props
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -19,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -30,54 +29,79 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Ensure data dirs
-        run: mkdir -p data/props data/logs
-
       - name: Clean stale current props
         run: rm -f data/props/props_current.csv
 
       - name: Fetch odds / props
-        run: python scripts/01_fetch_odds_props.py --out data/props/props_raw.csv
+        run: python scripts/01_fetch_odds.py
 
-      - name: Build current props
-        run: |
-          python scripts/02_build_props_current.py \
-            --in data/props/props_raw.csv \
-            --out data/props/props_current.csv
-          test -s data/props/props_current.csv
+      - name: Step 01 - Canonicalize raw data
+        run: python scripts/01_canonicalize_raw.py
 
-      - name: Calibrate props (if model available)
+      - name: Step 02 - Build features
+        run: python scripts/02_build_features.py
+
+      - name: Step 02.5 - Debug features (optional)
         run: |
-          if [ -f models/calibrators.joblib ]; then
-            python scripts/03_calibrate_props.py \
-              --in data/props/props_current.csv \
-              --out data/props/props_current_calibrated.csv
+          if [ -f scripts/02a_debug_features.py ]; then
+            python scripts/02a_debug_features.py
           else
-            echo "No calibrators found; skipping calibration."
+            echo "No scripts/02a_debug_features.py; skipping."
           fi
 
-      - name: Validate calibrated (optional)
+      - name: Step 02.6 - Enrich features (optional)
         run: |
-          if [ -f data/props/props_current_calibrated.csv ]; then
-            python scripts/99_validate_csv.py data/props/props_current_calibrated.csv || true
+          if [ -f scripts/02b_enrich_features.py ]; then
+            python scripts/02b_enrich_features.py
+          else
+            echo "No scripts/02b_enrich_features.py; skipping."
           fi
 
-      - name: Configure git
+      - name: Step 03 - Train models
+        run: python scripts/03_train_models.py
+
+      - name: Step 03.5 - Build models manifest
+        run: python scripts/build_models_manifest.py models/pregame output/logs/features_columns.txt
+
+      - name: Commit updated models, metrics, and manifest
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git add models/ manifest output/ -f || true
+          git commit -m "[skip ci] Update models, manifest and metrics" || true
+          git push || true
 
-      - name: Commit updated props
-        run: |
-          git add data/props/props_current*.csv
-          git commit -m "chore: update current props (pipeline)" || echo "No changes"
-          git push
-
-      - name: Upload artifacts (debug)
+      - name: Upload models and logs
         uses: actions/upload-artifact@v4
         with:
-          name: props-pipeline-outputs
+          name: models-and-logs
+          path: |
+            models/pregame/*.joblib
+            models/manifest/*
+            output/models/metrics_summary.csv
+            output/logs/features_columns.txt
+          if-no-files-found: warn
+
+      - name: Step 04 - Generate props
+        run: |
+          if [ -f scripts/04_generate_props.py ]; then
+            python scripts/04_generate_props.py
+          else
+            echo "ERROR: scripts/04_generate_props.py missing"; exit 1
+          fi
+
+      - name: Verify props generated
+        run: test -s data/props/props_current.csv
+
+      - name: Commit props outputs
+        run: |
+          git add data/props/props_current*.csv -f
+          git commit -m "[props] update props_current" || true
+          git push || true
+
+      - name: Upload props artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: props-${{ github.run_id }}
           path: data/props/*.csv
           if-no-files-found: warn
-          retention-days: 14
