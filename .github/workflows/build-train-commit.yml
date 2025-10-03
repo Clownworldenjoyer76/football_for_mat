@@ -1,9 +1,7 @@
 name: build-train-commit
 
 on:
-  # run manually from the Actions tab
   workflow_dispatch:
-  # run automatically every Wednesday 11:00 UTC ≈ 7:00 AM ET (DST-aware note: cron is UTC)
   schedule:
     - cron: "0 11 * * WED"
 
@@ -46,6 +44,7 @@ jobs:
         run: |
           python -m pip install -U pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pandas numpy joblib scikit-learn scipy pyarrow fastparquet
 
       - name: Enrich features (optional)
         run: |
@@ -86,47 +85,36 @@ jobs:
           ls -lh models/pregame || true
 
       # ============================
-      # Props generation (optional)
+      # NEW: Generate predictions for TARGET_SEASON
       # ============================
-      - name: Generate props (optional)
+      - name: Generate pregame predictions
         run: |
-          if [ -f scripts/04_generate_props.py ]; then
-            python scripts/04_generate_props.py
-          else
-            echo "No scripts/04_generate_props.py; skipping."
-          fi
+          python scripts/04_predict_pregame.py --season ${TARGET_SEASON}
+          echo "---- predictions written ----"
+          ls -lh data/predictions/pregame || true
+
+      # ============================
+      # Props generation
+      # ============================
+      - name: Generate props
+        run: python scripts/04_generate_props.py
 
       - name: Season guard on props_current.csv (must be 2025)
         run: |
           set -e
-          P="data/props/props_current.csv"
-          if [ ! -s "$P" ]; then
-            echo "ERROR: $P missing or empty after generation"; exit 1
-          fi
           python - <<'PY'
           import os, pandas as pd, sys
           want = int(os.getenv("TARGET_SEASON","2025"))
           p = "data/props/props_current.csv"
           df = pd.read_csv(p)
-          if "season" not in df.columns:
-              print("ERROR: props_current.csv missing 'season' column", file=sys.stderr); sys.exit(1)
-          mx = int(df["season"].max())
+          mx = int(pd.to_numeric(df["season"], errors="coerce").max())
           print("props_current.csv max(season)=", mx)
           if mx != want:
-              print(f"ERROR: props_current.csv is season {mx}, not {want}. Re-run Weekly Data Refresh for {want}.", file=sys.stderr)
-              sys.exit(1)
+              print(f"ERROR: props_current.csv season {mx} != {want}", file=sys.stderr); sys.exit(1)
           PY
 
-      - name: Show props outputs
-        run: |
-          ls -lh data/props || true
-          sed -n '1,20p' data/props/props_current.csv 2>/dev/null || true
-          for f in data/props/props_*.csv; do
-            [ -f "$f" ] && echo "---- $f ----" && sed -n '1,5p' "$f";
-          done
-
       # ============================
-      # Probability calibration (HARD-FAIL if inputs missing)
+      # Probability calibration
       # ============================
       - name: Verify historical outcomes present
         run: |
@@ -135,81 +123,39 @@ jobs:
             echo "ERROR: data/props/history_props_with_outcomes.csv missing or empty. Run finalize-props first."; exit 1
           fi
 
-      - name: Train calibrators (auto-select isotonic/sigmoid) — must produce joblibs
+      - name: Train calibrators
         run: |
           set -e
-          if [ -f scripts/05_train_calibrator.py ]; then
-            python scripts/05_train_calibrator.py \
-              --csv "data/props/history_props_with_outcomes.csv" \
-              --method auto \
-              --outdir "models/calibration"
-          else
-            echo "ERROR: scripts/05_train_calibrator.py missing"; exit 1
-          fi
-          ls -lh models/calibration || true
-          # Require at least one joblib written this run
+          python scripts/05_train_calibrator.py \
+            --csv "data/props/history_props_with_outcomes.csv" \
+            --method auto \
+            --outdir "models/calibration"
+          ls -lh models/calibration
           ls models/calibration/*.joblib >/dev/null 2>&1 || (echo "ERROR: No calibrator joblibs produced"; exit 1)
 
-      - name: Stamp run timestamp into calibration_summary.csv
+      - name: Apply calibrators
         run: |
-          python - <<'PY'
-          import os, pandas as pd
-          from datetime import datetime, timezone
-          p = "models/calibration/calibration_summary.csv"
-          if not os.path.exists(p):
-              raise SystemExit("ERROR: calibration_summary.csv not found after training.")
-          df = pd.read_csv(p)
-          df["run_ts_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-          df.to_csv(p, index=False)
-          print("Stamped run_ts_utc in calibration_summary.csv")
-          PY
-
-      - name: Apply calibrators to current props (must find joblibs)
-        run: |
-          set -e
-          if [ ! -s "data/props/props_current.csv" ]; then
-            echo "ERROR: data/props/props_current.csv missing or empty. Generate props first."; exit 1
-          fi
-          ls models/calibration/*.joblib >/dev/null 2>&1 || (echo "ERROR: No calibrators to apply (models/calibration/*.joblib missing)"; exit 1)
-          if [ -f scripts/06_apply_calibrator.py ]; then
-            python scripts/06_apply_calibrator.py \
-              --csv_in "data/props/props_current.csv" \
-              --csv_out "data/props/props_current_calibrated.csv" \
-              --calib_dir "models/calibration"
-          else
-            echo "ERROR: scripts/06_apply_calibrator.py missing"; exit 1
-          fi
-          sed -n '1,20p' data/props/props_current_calibrated.csv || true
+          python scripts/06_apply_calibrator.py \
+            --csv_in "data/props/props_current.csv" \
+            --csv_out "data/props/props_current_calibrated.csv" \
+            --calib_dir "models/calibration"
 
       - name: Season guard on props_current_calibrated.csv (must be 2025)
         run: |
           set -e
-          P="data/props/props_current_calibrated.csv"
-          if [ ! -s "$P" ]; then
-            echo "ERROR: $P not found after apply."; exit 1
-          fi
           python - <<'PY'
           import os, pandas as pd, sys
           want = int(os.getenv("TARGET_SEASON","2025"))
           p = "data/props/props_current_calibrated.csv"
           df = pd.read_csv(p)
-          if "season" not in df.columns:
-              print("ERROR: props_current_calibrated.csv missing 'season' column", file=sys.stderr); sys.exit(1)
-          mx = int(df["season"].max())
+          mx = int(pd.to_numeric(df["season"], errors="coerce").max())
           print("props_current_calibrated.csv max(season)=", mx)
           if mx != want:
-              print(f"ERROR: Calibrated props are season {mx}, not {want}. Ensure Weekly Data Refresh wrote {want} weekly and regen props.", file=sys.stderr)
-              sys.exit(1)
+            print(f"ERROR: props_current_calibrated.csv season {mx} != {want}", file=sys.stderr); sys.exit(1)
           PY
 
-      - name: Show calibration outputs
-        run: |
-          sed -n '1,25p' models/calibration/calibration_summary.csv || true
-          sed -n '1,25p' data/props/props_current_calibrated.csv || true
-          ls -lh models/calibration || true
-
       # ============================
-      # Git hygiene + commit lightweight artifacts
+      # Commit and upload (unchanged below)
       # ============================
       - name: Ensure .gitignore excludes joblibs
         run: |
@@ -225,16 +171,11 @@ jobs:
           set -e
           git config user.name  "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-
-          # Always add these if present
           git add .gitignore models/manifest/*               2>/dev/null || true
           git add output/models/metrics_summary.csv          2>/dev/null || true
           git add output/logs/*.log                          2>/dev/null || true
-
-          # Calibration summary + calibrated props
           git add models/calibration/calibration_summary.csv 2>/dev/null || true
           git add data/props/props_current_calibrated.csv    2>/dev/null || true
-
           if ! git diff --cached --quiet; then
             git commit -m "Pipeline ${{ github.run_id }}: calibration summary + calibrated props + manifest/metrics/logs (season ${TARGET_SEASON})"
             git fetch origin main || true
@@ -244,30 +185,14 @@ jobs:
             echo "No lightweight changes to commit."
           fi
 
-      # ============================
-      # Upload artifacts & releases
-      # ============================
-      - name: Upload model artifacts (90-day retention)
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: models-pregame-${{ github.run_id }}
-          path: models/pregame/*.joblib
-          if-no-files-found: warn
-          retention-days: 90
-
-      - name: Upload calibration artifacts (90-day retention)
-        uses: actions/upload-artifact@v4
-        with:
-          name: models-calibration-${{ github.run_id }}
-          path: models/calibration/*.joblib
-          if-no-files-found: warn
-          retention-days: 90
-
-      - name: Upload best-bets outputs (if any)
-        uses: actions/upload-artifact@v4
-        with:
-          name: best-bets-${{ github.run_id }}
+          name: build-train-commit-${{ github.run_id }}
           path: |
-            output/*best_bets*
+            models/pregame/*.joblib
+            models/calibration/*.joblib
+            data/props/props_current.csv
+            data/props/props_current_calibrated.csv
           if-no-files-found: warn
           retention-days: 90
