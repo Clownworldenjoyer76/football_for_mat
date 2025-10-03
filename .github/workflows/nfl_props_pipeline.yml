@@ -65,9 +65,8 @@ jobs:
       - name: Step 03.5 - Build models manifest
         run: python scripts/build_models_manifest.py models/pregame output/logs/features_columns.txt
 
-      - name: Step 03.9 - Generate predictions for current season
-        run: |
-          python scripts/04_predict.py --season "${TARGET_SEASON}"
+      - name: Step 03.9 - Generate predictions
+        run: python scripts/04_predict.py --season "${TARGET_SEASON}"
 
       - name: Configure git
         run: |
