@@ -29,9 +29,6 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Clean stale current props
-        run: rm -f data/props/props_current.csv
-
       - name: Fetch odds / props
         run: python scripts/01_fetch_odds.py
         env:
