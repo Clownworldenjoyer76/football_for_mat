@@ -1,66 +1,64 @@
-# Full file: /mnt/data/football_for_mat-main/.github/workflows/odds_fetch.yml
 name: Odds Fetch (API)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
   schedule:
-    # Tuesdays 05:00 America/New_York.
-    # GitHub cron uses UTC; include both offsets to cover DST transitions.
-    - cron: "0 9 * * 2"   # 09:00 UTC ≈ 05:00 EDT
-    - cron: "0 10 * * 2"  # 10:00 UTC ≈ 05:00 EST
+    - cron: "*/30 * * * *"  # every 30 minutes (UTC)
 
 permissions:
   contents: write
 
 jobs:
-  fetch-odds:
+  fetch-and-build-props-current:
     runs-on: ubuntu-latest
-    env:
-      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-      PYTHONUNBUFFERED: "1"
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # required for pushing commits
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Fetch odds (API)
+      - name: Ensure data dirs
         run: |
-          python scripts/01_fetch_odds.py --sport americanfootball_nfl --regions us --markets h2h,spreads,totals --books draftkings,fanduel,betmgm
+          mkdir -p data/props data/logs
 
-      - name: Commit odds data
+      - name: Fetch raw odds/props
+        run: python scripts/01_fetch_odds.py
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+
+      - name: Canonicalize raw props feed
+        run: python scripts/01_canonicalize_raw.py
+
+      - name: Verify props_current.csv exists
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f data/odds/raw/*.json || true
-          git add -f data/odds/processed/*.csv || true
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: add odds data ($(date -u +'%Y-%m-%dT%H:%M:%SZ'))"
-            git push
-          else
-            echo "No changes to commit."
-          fi
+          test -s data/props/props_current.csv || (echo "props_current.csv missing after canonicalize" && exit 1)
 
-      - name: Upload processed CSV (artifact)
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Commit refreshed props_current
+        run: |
+          git add data/props/props_current.csv -f
+          git commit -m "[fetch] refresh props_current" || echo "No changes to commit"
+          git push || true
+
+      - name: Upload artifact (debug)
         uses: actions/upload-artifact@v4
         with:
-          name: odds-processed
-          path: data/odds/processed/*.csv
-          if-no-files-found: warn
-
-      - name: Upload raw JSON (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: odds-raw
-          path: data/odds/raw/*.json
-          if-no-files-found: warn
+          name: props-current-${{ github.run_id }}
+          path: data/props/props_current.csv
+          if-no-files-found: error
+          retention-days: 3
