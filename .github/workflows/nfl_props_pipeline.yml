@@ -40,6 +40,16 @@ jobs:
       - name: Step 01 - Canonicalize raw data
         run: python scripts/01_canonicalize_raw.py
 
+      - name: Build current props
+        run: |
+          if [ -f scripts/02_build_props_current.py ]; then
+            python scripts/02_build_props_current.py
+          else
+            echo "ERROR: scripts/02_build_props_current.py missing"; exit 1
+          fi
+      - name: Verify current props exist
+        run: test -s data/props/props_current.csv
+
       - name: Step 02 - Build features
         run: python scripts/02_build_features.py
 
