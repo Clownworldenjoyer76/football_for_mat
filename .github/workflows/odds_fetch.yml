@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 30
     env:
       TARGET_SEASON: '2025'
-      SEASON: '2025'            # some scripts read SEASON instead
+      SEASON: '2025'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,23 +46,8 @@ jobs:
           SEASON: ${{ env.SEASON }}
         run: python scripts/01_canonicalize_raw.py
 
-      - name: Show props_current summary (debug)
-        run: |
-          set -e
-          if [ ! -s data/props/props_current.csv ]; then
-            echo "props_current.csv is missing or empty"; exit 1
-          fi
-          echo "== file path =="; ls -lh data/props/props_current.csv
-          echo "== head =="
-          head -n 5 data/props/props_current.csv || true
-          echo "== seasons present =="
-          python - <<'PY'
-          import pandas as pd
-          df = pd.read_csv("data/props/props_current.csv")
-          print(sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int))))
-          print("rows:", len(df))
-          print("sample markets:", sorted(df.get("market", pd.Series([])).astype(str).unique())[:8])
-          PY
+      - name: Verify props_current.csv exists
+        run: test -s data/props/props_current.csv
 
       - name: Guard: must contain TARGET_SEASON
         run: |
@@ -75,13 +60,16 @@ jobs:
               sys.exit("ERROR: TARGET_SEASON 2025 not found in props_current.csv")
           PY
 
-      - name: Commit refreshed props_current (only if changed)
+      - name: Configure git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Commit refreshed props_current (only if changed)
+        run: |
           git add data/props/props_current.csv -f
-          git diff --cached --quiet && echo "No changes to commit" || git commit -m "[fetch] refresh props_current (season $TARGET_SEASON)"
+          git diff --cached --quiet && echo "No changes" || git commit -m "[fetch] refresh props_current (season $TARGET_SEASON)"
           git push || true
 
       - name: Upload artifact (debug)
