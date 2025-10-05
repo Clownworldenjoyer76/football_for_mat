@@ -2,92 +2,90 @@
 """
 01_canonicalize_raw.py
 
-Checklist ID 28: Canonicalize raw data.
+Goal for this repo: make sure data/props/props_current.csv exists
+and is stamped with the TARGET_SEASON so downstream steps (features/pipeline)
+see season=2025.
 
-- Loads raw prediction CSVs from data/predictions/
-- Standardizes column names and dtypes
-- Writes canonicalized CSVs to data/processed/props/
+Behavior:
+1) If data/props/props_current.csv exists, overwrite/ensure its `season`
+   column equals TARGET_SEASON and save in place.
+2) Otherwise, build it from the latest data/odds/processed/odds_*.csv,
+   ensure a `season` column set to TARGET_SEASON, and write to
+   data/props/props_current.csv.
+
+Environment:
+- TARGET_SEASON (preferred) or SEASON (fallback)
 """
 
 import os
 import sys
-import pandas as pd
 from pathlib import Path
+import pandas as pd
+from typing import Optional
 
-RAW_DIR = Path("data/predictions")
-OUT_DIR = Path("data/processed/props")
+PROPS_CUR = Path("data/props/props_current.csv")
+ODDS_PROC_DIR = Path("data/odds/processed")
 
-# Standard schema we want to enforce
-STANDARD_COLS = [
-    "player_id", "player_name", "team", "opponent",
-    "season", "week", "stat_type", "line", "projection"
-]
+def _get_target_season() -> int:
+    s = (os.getenv("TARGET_SEASON") or os.getenv("SEASON") or "").strip()
+    if not s.isdigit():
+        print("ERROR: TARGET_SEASON/SEASON must be set (e.g., 2025).", file=sys.stderr)
+        sys.exit(2)
+    return int(s)
 
-def ensure_dirs():
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+def _latest_processed_odds() -> Optional[Path]:
+    if not ODDS_PROC_DIR.exists():
+        return None
+    candidates = sorted(ODDS_PROC_DIR.glob("odds_*.csv"))
+    return candidates[-1] if candidates else None
 
-def canonicalize_df(df: pd.DataFrame, source_file: str) -> pd.DataFrame:
-    """
-    Bring df into alignment with STANDARD_COLS.
-    """
-    # Lowercase all columns
-    df = df.rename(columns={c: c.lower() for c in df.columns})
-
-    # Map common variants
-    col_map = {
-        "player": "player_name",
-        "team_abbr": "team",
-        "opp": "opponent",
-        "stat": "stat_type",
-        "prop": "line",
-        "pred": "projection",
-        "proj": "projection",
-    }
-    df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
-
-    # Ensure all standard cols exist
-    for col in STANDARD_COLS:
-        if col not in df.columns:
-            df[col] = None
-
-    # Enforce types
-    if "season" in df.columns:
-        df["season"] = pd.to_numeric(df["season"], errors="coerce").astype("Int64")
-    if "week" in df.columns:
-        df["week"] = pd.to_numeric(df["week"], errors="coerce").astype("Int64")
-    if "line" in df.columns:
-        df["line"] = pd.to_numeric(df["line"], errors="coerce")
-    if "projection" in df.columns:
-        df["projection"] = pd.to_numeric(df["projection"], errors="coerce")
-
-    # Subset + order
-    df = df[STANDARD_COLS]
-
-    # Drop empty rows
-    df = df.dropna(how="all")
-
+def _ensure_season_column(df: pd.DataFrame, season: int) -> pd.DataFrame:
+    # Create/overwrite `season`
+    df = df.copy()
+    df["season"] = season
     return df
 
-def main():
-    ensure_dirs()
-    if not RAW_DIR.exists():
-        print(f"[WARN] {RAW_DIR} does not exist")
-        sys.exit(0)
+def _save_csv(path: Path, df: pd.DataFrame) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=False)
 
-    files = list(RAW_DIR.glob("*.csv"))
-    if not files:
-        print(f"[WARN] No CSV files found in {RAW_DIR}")
-        sys.exit(0)
+def main() -> int:
+    season = _get_target_season()
+    print(f"[canon] TARGET_SEASON={season}")
 
-    for f in files:
+    # Case 1: props_current.csv already exists -> just stamp season and save
+    if PROPS_CUR.exists():
         try:
-            raw = pd.read_csv(f)
-            clean = canonicalize_df(raw, f.name)
-            out_path = OUT_DIR / f.name
-            clean.to_csv(out_path, index=False)
-            print(f"[OK] Canonicalized {f} → {out_path} ({len(clean)} rows)")
+            df = pd.read_csv(PROPS_CUR)
         except Exception as e:
-            print(f"[ERROR] Failed to process {f}: {e}")
+            print(f"[canon:ERROR] Could not read {PROPS_CUR}: {e}", file=sys.stderr)
+            return 1
+
+        df = _ensure_season_column(df, season)
+        _save_csv(PROPS_CUR, df)
+
+        seasons_present = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int).tolist()))
+        print(f"[canon] Updated existing props_current.csv, seasons present: {seasons_present}, rows={len(df)}")
+        return 0
+
+    # Case 2: build from latest processed odds CSV
+    latest = _latest_processed_odds()
+    if latest is None:
+        print(f"[canon:ERROR] {PROPS_CUR} not found and no processed odds in {ODDS_PROC_DIR}.", file=sys.stderr)
+        return 1
+
+    try:
+        df = pd.read_csv(latest)
+    except Exception as e:
+        print(f"[canon:ERROR] Could not read {latest}: {e}", file=sys.stderr)
+        return 1
+
+    df = _ensure_season_column(df, season)
+    _save_csv(PROPS_CUR, df)
+
+    seasons_present = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int).tolist()))
+    print(f"[canon] Built props_current.csv from {latest.name}, seasons present: {seasons_present}, rows={len(df)}")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
