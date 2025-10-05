@@ -12,6 +12,8 @@ jobs:
   fetch-and-build-props-current:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      TARGET_SEASON: '2025'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,20 +30,34 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Ensure data dirs
-        run: |
-          mkdir -p data/props data/logs
+        run: mkdir -p data/props data/logs
 
       - name: Fetch raw odds/props
         run: python scripts/01_fetch_odds.py
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          TARGET_SEASON: ${{ env.TARGET_SEASON }}
 
       - name: Canonicalize raw props feed
         run: python scripts/01_canonicalize_raw.py
+        env:
+          TARGET_SEASON: ${{ env.TARGET_SEASON }}
 
       - name: Verify props_current.csv exists
         run: |
           test -s data/props/props_current.csv || (echo "props_current.csv missing after canonicalize" && exit 1)
+
+      - name: Guard: props_current must be TARGET_SEASON
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          df = pd.read_csv("data/props/props_current.csv")
+          seasons = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int)))
+          print("Seasons present in props_current.csv:", seasons)
+          target = 2025
+          if target not in seasons:
+              raise SystemExit(f"ERROR: TARGET_SEASON {target} not found in props_current.csv")
+          PY
 
       - name: Configure git
         run: |
@@ -52,7 +68,7 @@ jobs:
       - name: Commit refreshed props_current
         run: |
           git add data/props/props_current.csv -f
-          git commit -m "[fetch] refresh props_current" || echo "No changes to commit"
+          git commit -m "[fetch] refresh props_current (season $TARGET_SEASON)" || echo "No changes to commit"
           git push || true
 
       - name: Upload artifact (debug)
