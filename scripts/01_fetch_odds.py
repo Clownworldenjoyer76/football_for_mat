@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Full script: /mnt/data/football_for_mat-main/scripts/01_fetch_odds.py
-
 Fetch NFL odds from The Odds API and normalize to CSV.
 
 Inputs:
-  - Environment var: ODDS_API_KEY
+  - Environment vars: ODDS_API_KEY, TARGET_SEASON (or SEASON)
   - CLI args: --sport, --regions, --markets, --books, --odds-format, --date-format, --sleep, --dry-run
 
 Outputs:
@@ -45,6 +43,15 @@ PROC_DIR.mkdir(parents=True, exist_ok=True)
 
 def now_stamp() -> str:
     return dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+
+
+def get_target_season() -> int:
+    # Accept either TARGET_SEASON or SEASON; prefer TARGET_SEASON
+    s = (os.getenv("TARGET_SEASON") or os.getenv("SEASON") or "").strip()
+    if not s.isdigit():
+        print("ERROR: TARGET_SEASON/SEASON must be set to a year (e.g., 2025).", file=sys.stderr)
+        sys.exit(2)
+    return int(s)
 
 
 def write_json(path: Path, obj: Any) -> None:
@@ -86,7 +93,7 @@ def fetch_odds(api_key: str,
     return resp.json()
 
 
-def normalize(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def normalize(data: List[Dict[str, Any]], season: int) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for ev in data:
         game_id = ev.get("id", "")
@@ -105,6 +112,7 @@ def normalize(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     price = outcome.get("price", None)
                     point = outcome.get("point", None)
                     rows.append({
+                        "season": season,                     # <-- tag season explicitly
                         "game_id": game_id,
                         "sport_key": sport_key,
                         "commence_time_utc": commence_time,
@@ -138,14 +146,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("ERROR: Missing environment variable ODDS_API_KEY", file=sys.stderr)
         return 2
 
+    season = get_target_season()
     ts = now_stamp()
+    print(f"[fetch] Target season: {season}")
 
     if args.dry_run:
         sample = [
             {
                 "id": "sample123",
                 "sport_key": args.sport,
-                "commence_time": "2025-09-10T00:20:00Z",
+                "commence_time": f"{season}-09-10T00:20:00Z",
                 "home_team": "Philadelphia Eagles",
                 "away_team": "Dallas Cowboys",
                 "bookmakers": [
@@ -173,8 +183,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         ]
         raw_path = RAW_DIR / f"odds_raw_{ts}.json"
         write_json(raw_path, sample)
-        rows = normalize(sample)
+        rows = normalize(sample, season)
         fields = [
+            "season",
             "game_id","sport_key","commence_time_utc","home_team","away_team",
             "book","book_title","market","runner","price_american","point","last_update"
         ]
@@ -202,8 +213,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     raw_path = RAW_DIR / f"odds_raw_{ts}.json"
     write_json(raw_path, data)
 
-    rows = normalize(data)
+    rows = normalize(data, season)
     fields = [
+        "season",
         "game_id","sport_key","commence_time_utc","home_team","away_team",
         "book","book_title","market","runner","price_american","point","last_update"
     ]
@@ -212,6 +224,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     print(f"Wrote raw JSON: {raw_path}")
     print(f"Wrote CSV:      {csv_path}")
+    print(f"[fetch] Season stamped on rows: {season}")
     return 0
 
 
