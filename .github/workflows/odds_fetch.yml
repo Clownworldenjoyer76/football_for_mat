@@ -49,7 +49,7 @@ jobs:
       - name: Verify props_current.csv exists
         run: test -s data/props/props_current.csv
 
-      - name: Guard: must contain TARGET_SEASON
+      - name: Guard - must contain TARGET_SEASON
         run: |
           python - <<'PY'
           import pandas as pd, sys
