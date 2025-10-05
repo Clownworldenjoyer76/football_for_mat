@@ -3,13 +3,13 @@ name: Odds Fetch (API)
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/30 * * * *"  # every 30 minutes (UTC)
+    - cron: "*/30 * * * *"  # every 30 minutes UTC
 
 permissions:
   contents: write
 
 jobs:
-  fetch-and-build-props-current:
+  fetch_and_build_props_current:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -33,30 +33,28 @@ jobs:
         run: mkdir -p data/props data/logs
 
       - name: Fetch raw odds/props
-        run: python scripts/01_fetch_odds.py
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           TARGET_SEASON: ${{ env.TARGET_SEASON }}
+        run: python scripts/01_fetch_odds.py
 
       - name: Canonicalize raw props feed
-        run: python scripts/01_canonicalize_raw.py
         env:
           TARGET_SEASON: ${{ env.TARGET_SEASON }}
+        run: python scripts/01_canonicalize_raw.py
 
       - name: Verify props_current.csv exists
-        run: |
-          test -s data/props/props_current.csv || (echo "props_current.csv missing after canonicalize" && exit 1)
+        run: test -s data/props/props_current.csv
 
-      - name: Guard: props_current must be TARGET_SEASON
+      - name: Guard: props_current must contain TARGET_SEASON
         run: |
           python - <<'PY'
           import pandas as pd
           df = pd.read_csv("data/props/props_current.csv")
           seasons = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int)))
-          print("Seasons present in props_current.csv:", seasons)
-          target = 2025
-          if target not in seasons:
-              raise SystemExit(f"ERROR: TARGET_SEASON {target} not found in props_current.csv")
+          print("Seasons present:", seasons)
+          if 2025 not in seasons:
+              raise SystemExit("ERROR: TARGET_SEASON 2025 not found in props_current.csv")
           PY
 
       - name: Configure git
