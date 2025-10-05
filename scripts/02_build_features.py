@@ -1,47 +1,56 @@
 #!/usr/bin/env python3
-# scripts/02_build_features.py  (market alias aware, still strict)
+# scripts/02_build_features.py  (STRICT; exact snake_case markets; requires TARGET_SEASON rows)
 
-import os, sys
+import os
+import sys
 from pathlib import Path
-import argparse
 import pandas as pd
 
 PROPS_CUR = Path("data/props/props_current.csv")
 WEEKLY_LATEST = Path("data/weekly/latest.csv")
 OUT_DIR = Path("data/features")
 
-# Each tuple: (aliases, out_filename, allowed_positions)
+# Exact market names present in props_current.csv
 MARKETS = [
-    (["passing yards","pass yards","player_pass_yards","player_passing_yards"], "qb_passing_yards.csv", {"QB"}),
-    (["rushing yards","rush yards","player_rush_yards","player_rushing_yards"], "rb_rushing_yards.csv", {"RB"}),
-    (["receiving yards","rec yards","player_rec_yards","player_receiving_yards"], "wr_rec_yards.csv", {"WR"}),
-    (["receptions","player_receptions","player_receptions_total"], "wrte_receptions.csv", {"WR","TE"}),
+    ("qb_passing_yards", "qb_passing_yards.csv", {"QB"}),
+    ("rb_rushing_yards", "rb_rushing_yards.csv", {"RB"}),
+    ("wr_rec_yards",     "wr_rec_yards.csv",     {"WR"}),
+    ("wrte_receptions",  "wrte_receptions.csv",  {"WR","TE"}),
 ]
 
 REQ_META = ["season","week","game_id","player_id","player_name","team","opponent"]
-CANDIDATE_ID_COLS = ["player_id","playerId","id"]
+CANDIDATE_ID_COLS   = ["player_id","playerId","id"]
 CANDIDATE_NAME_COLS = ["player_name","player","name","playerFullName"]
-CANDIDATE_TEAM_COLS = ["team","team_abbr","teamAbbr","team_short","team_id"]
-CANDIDATE_OPP_COLS  = ["opponent","opp","opp_abbr","opponent_abbr","oppAbbr"]
+CANDIDATE_TEAM_COLS = ["team","recent_team","team_abbr","teamAbbr","team_short","team_id"]
+CANDIDATE_OPP_COLS  = ["opponent","opponent_team","opp","opp_abbr","opponent_abbr","oppAbbr"]
 CANDIDATE_WEEK_COLS = ["week","week_number","weekNumber"]
 CANDIDATE_GAME_COLS = ["game_id","gameId","gsis_id","gameIdStr"]
 CANDIDATE_POS_COLS  = ["position","pos","player_position"]
 
-def die(msg): print(f"[features:ERROR] {msg}", file=sys.stderr); sys.exit(1)
-def warn(msg): print(f"[features:WARN] {msg}")
-def info(msg): print(f"[features] {msg}")
+def die(msg: str) -> None:
+    print(f"[features:ERROR] {msg}", file=sys.stderr)
+    sys.exit(1)
 
-def parse_args():
-    env = os.getenv("TARGET_SEASON")
-    return argparse.Namespace(season=int(env) if env and env.isdigit() else None)
+def warn(msg: str) -> None:
+    print(f"[features:WARN] {msg}")
 
-def pick_first_col(df, candidates, default_name):
+def info(msg: str) -> None:
+    print(f"[features] {msg}")
+
+def env_season() -> int:
+    s = os.getenv("TARGET_SEASON")
+    if not s or not s.isdigit():
+        die("TARGET_SEASON env is required (strict mode).")
+    return int(s)
+
+def pick_first_col(df: pd.DataFrame, candidates: list[str], default_name: str) -> str:
     for c in candidates:
-        if c in df.columns: return c
+        if c in df.columns:
+            return c
     df[default_name] = None
     return default_name
 
-def read_week_fallback():
+def read_week_fallback() -> int | None:
     if WEEKLY_LATEST.exists():
         try:
             wdf = pd.read_csv(WEEKLY_LATEST)
@@ -52,7 +61,7 @@ def read_week_fallback():
             pass
     return None
 
-def normalize_metadata(df, season):
+def normalize_metadata(df: pd.DataFrame) -> pd.DataFrame:
     id_col   = pick_first_col(df, CANDIDATE_ID_COLS,   "player_id")
     name_col = pick_first_col(df, CANDIDATE_NAME_COLS, "player_name")
     team_col = pick_first_col(df, CANDIDATE_TEAM_COLS, "team")
@@ -65,101 +74,96 @@ def normalize_metadata(df, season):
         opp_col:"opponent", week_col:"week", game_col:"game_id"
     }).copy()
 
-    out["season"] = season
-    if out["week"].isna().all():
+    if "week" in out and out["week"].isna().all():
         wk = read_week_fallback()
         if wk is not None:
             out["week"] = wk
 
     for c in REQ_META:
-        if c not in out.columns: out[c] = None
+        if c not in out.columns:
+            out[c] = None
     return out
 
-def market_filter(df, aliases):
-    if "market" not in df.columns:
-        return df  # can’t filter, return all
-    m = df["market"].astype(str).str.lower()
-    al = [a.lower() for a in aliases]
-    # match if any alias is substring OR exact
-    mask = False
-    for a in al:
-        mask = mask | m.str.contains(a, na=False) | (m == a)
-    return df[mask].copy()
+def build_for_market(props: pd.DataFrame, market_exact: str, season: int, pos_allow: set[str] | None) -> pd.DataFrame:
+    if "market" not in props.columns:
+        die("props_current.csv has no 'market' column (strict mode).")
 
-def extract_features(props, season, aliases, pos_allow):
-    df = props.copy()
-
-    # Try filtering by aliases
-    df_before = len(df)
-    df = market_filter(df, aliases)
-    info(f"Market match '{aliases[0]}' aliases={aliases}  rows_before={df_before} rows_after={len(df)}")
+    df = props[(props["market"].astype(str) == market_exact) & (props["season"].astype(int) == season)].copy()
 
     # Optional position filter
     if pos_allow:
         pos_col = None
         for c in CANDIDATE_POS_COLS:
-            if c in df.columns: pos_col = c; break
+            if c in df.columns:
+                pos_col = c
+                break
         if pos_col is not None:
             df = df[df[pos_col].astype(str).str.upper().isin({p.upper() for p in pos_allow})].copy()
 
-    df = normalize_metadata(df, season)
+    df = normalize_metadata(df)
 
-    # Stable basic features
-    if "line" not in df.columns: df["line"] = pd.NA
-    if "odds_over" not in df.columns:
-        for alt in ["over_odds","odds_o","american_odds_over","overAmerican","overAmericanOdds"]:
-            if alt in df.columns: df["odds_over"] = df[alt]; break
-        else: df["odds_over"] = pd.NA
-    if "odds_under" not in df.columns:
-        for alt in ["under_odds","odds_u","american_odds_under","underAmerican","underAmericanOdds"]:
-            if alt in df.columns: df["odds_under"] = df[alt]; break
-        else: df["odds_under"] = pd.NA
-    if "book" not in df.columns:
-        for alt in ["sportsbook","book_name","book","source"]:
-            if alt in df.columns: df["book"] = df[alt]; break
-        else: df["book"] = pd.NA
+    # Stable numeric/context features when present
+    def copy_or_na(out: pd.DataFrame, target: str, alts: list[str]):
+        if target not in out.columns:
+            for a in alts:
+                if a in out.columns:
+                    out[target] = out[a]
+                    break
+            else:
+                out[target] = pd.NA
+
+    copy_or_na(df, "line",        [])
+    copy_or_na(df, "odds_over",   ["over_odds","odds_o","american_odds_over","overAmerican","overAmericanOdds","prob_over"])
+    copy_or_na(df, "odds_under",  ["under_odds","odds_u","american_odds_under","underAmerican","underAmericanOdds","prob_under"])
+    copy_or_na(df, "book",        ["sportsbook","book_name","book","source"])
 
     cols = REQ_META + ["line","odds_over","odds_under","book"]
     for c in cols:
-        if c not in df.columns: df[c] = pd.NA
+        if c not in df.columns:
+            df[c] = pd.NA
+
     df = df[cols].drop_duplicates()
     return df
 
-def main():
-    args = parse_args()
-    if args.season is None:
-        die("Season not provided. Set env TARGET_SEASON.")
+def main() -> int:
+    season = env_season()
 
     if not PROPS_CUR.exists():
-        die(f"Missing input: {PROPS_CUR}")
+        die(f"Missing input file: {PROPS_CUR}")
 
     try:
         props = pd.read_csv(PROPS_CUR)
     except Exception as e:
         die(f"Unable to read {PROPS_CUR}: {e}")
 
-    # Prefer current season rows if present
-    if "season" in props.columns:
-        props = props[(props["season"].astype(str) == str(args.season)) | (props["season"].isna())].copy()
+    # Strict: verify TARGET_SEASON is present in props
+    if "season" not in props.columns:
+        die("props_current.csv is missing a 'season' column (strict mode).")
+
+    seasons_present = sorted(set(pd.to_numeric(props["season"], errors="coerce").dropna().astype(int).tolist()))
+    if season not in seasons_present:
+        die(f"TARGET_SEASON={season} not present in props_current.csv. Seasons present: {seasons_present}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    empty = []
-    for aliases, out_name, pos_allow in MARKETS:
-        df_feat = extract_features(props, args.season, aliases, pos_allow)
+    empty_outputs = []
+    for market_exact, out_name, pos_allow in MARKETS:
+        df_feat = build_for_market(props, market_exact, season, pos_allow)
         out_path = OUT_DIR / out_name
         df_feat.to_csv(out_path, index=False)
-        info(f"Wrote {out_path} rows={len(df_feat)}")
+        info(f"Wrote {out_path} rows={len(df_feat)} (market='{market_exact}', season={season})")
         if len(df_feat) == 0:
-            empty.append(out_name)
+            empty_outputs.append(out_name)
 
-    if empty:
+    if empty_outputs:
+        uniq_markets = sorted(props["market"].astype(str).unique().tolist())
         die(
-            "No rows produced for:\n  - " + "\n  - ".join(empty) +
-            f"\nCheck that props_current.csv has those markets (aliases supported) for season {args.season}."
+            "No rows produced for:\n  - " + "\n  - ".join(empty_outputs) +
+            f"\nCheck props_current.csv contains those exact markets for season {season}."
+            f"\nMarkets present: {uniq_markets[:12]}{' ...' if len(uniq_markets)>12 else ''}"
         )
 
-    info("All feature files written successfully.")
+    info("All feature files written successfully (strict mode).")
     return 0
 
 if __name__ == "__main__":
