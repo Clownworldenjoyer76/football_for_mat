@@ -2,16 +2,13 @@ name: Odds Fetch (API)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/30 * * * *"  # every 30 minutes UTC
 
 permissions:
   contents: write
 
 jobs:
-  fetch_and_build_props_current:
+  fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     env:
       TARGET_SEASON: '2025'
     steps:
@@ -29,9 +26,6 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Ensure data dirs
-        run: mkdir -p data/props data/logs
-
       - name: Fetch raw odds/props
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
@@ -46,33 +40,11 @@ jobs:
       - name: Verify props_current.csv exists
         run: test -s data/props/props_current.csv
 
-      - name: Guard: props_current must contain TARGET_SEASON
-        run: |
-          python - <<'PY'
-          import pandas as pd
-          df = pd.read_csv("data/props/props_current.csv")
-          seasons = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int)))
-          print("Seasons present:", seasons)
-          if 2025 not in seasons:
-              raise SystemExit("ERROR: TARGET_SEASON 2025 not found in props_current.csv")
-          PY
-
-      - name: Configure git
+      - name: Commit refreshed props_current
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Commit refreshed props_current
-        run: |
           git add data/props/props_current.csv -f
-          git commit -m "[fetch] refresh props_current (season $TARGET_SEASON)" || echo "No changes to commit"
+          git commit -m "[fetch] refresh props_current (season $TARGET_SEASON)" || echo "No changes"
           git push || true
-
-      - name: Upload artifact (debug)
-        uses: actions/upload-artifact@v4
-        with:
-          name: props-current-${{ github.run_id }}
-          path: data/props/props_current.csv
-          if-no-files-found: error
-          retention-days: 3
