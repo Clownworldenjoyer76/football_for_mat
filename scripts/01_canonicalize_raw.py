@@ -1,30 +1,42 @@
 #!/usr/bin/env python3
 """
-01_canonicalize_raw.py
+Canonicalize latest processed odds into data/props/props_current.csv
+and stamp with TARGET_SEASON.
 
-Goal for this repo: make sure data/props/props_current.csv exists
-and is stamped with the TARGET_SEASON so downstream steps (features/pipeline)
-see season=2025.
+- Maps provider market keys to your repo's canonical names.
+- If props_current.csv exists, season is overwritten to TARGET_SEASON.
+- Otherwise builds from latest data/odds/processed/odds_*.csv.
 
-Behavior:
-1) If data/props/props_current.csv exists, overwrite/ensure its `season`
-   column equals TARGET_SEASON and save in place.
-2) Otherwise, build it from the latest data/odds/processed/odds_*.csv,
-   ensure a `season` column set to TARGET_SEASON, and write to
-   data/props/props_current.csv.
-
-Environment:
-- TARGET_SEASON (preferred) or SEASON (fallback)
+Env:
+  TARGET_SEASON (preferred) or SEASON
 """
 
-import os
-import sys
+from __future__ import annotations
+import os, sys
 from pathlib import Path
-import pandas as pd
 from typing import Optional
+
+import pandas as pd
 
 PROPS_CUR = Path("data/props/props_current.csv")
 ODDS_PROC_DIR = Path("data/odds/processed")
+
+# Provider → canonical
+MARKET_MAP = {
+    # existing
+    "player_pass_yards":        "qb_passing_yards",
+    "player_rush_yards":        "rb_rushing_yards",
+    "player_rec_yards":         "wr_rec_yards",
+    "player_receptions":        "wrte_receptions",
+    # new
+    "player_pass_tds":          "qb_passing_tds",
+    "player_interceptions":     "qb_interceptions",
+    "player_touchdowns":        "player_tds",
+    "player_sacks":             "player_sacks",
+    "player_tackles":           "player_tackles",
+    "player_tackle_assists":    "player_tackles_assists",
+    "player_field_goals_made":  "player_field_goals_made",
+}
 
 def _get_target_season() -> int:
     s = (os.getenv("TARGET_SEASON") or os.getenv("SEASON") or "").strip()
@@ -36,55 +48,74 @@ def _get_target_season() -> int:
 def _latest_processed_odds() -> Optional[Path]:
     if not ODDS_PROC_DIR.exists():
         return None
-    candidates = sorted(ODDS_PROC_DIR.glob("odds_*.csv"))
-    return candidates[-1] if candidates else None
+    cands = sorted(ODDS_PROC_DIR.glob("odds_*.csv"))
+    return cands[-1] if cands else None
 
-def _ensure_season_column(df: pd.DataFrame, season: int) -> pd.DataFrame:
-    # Create/overwrite `season`
-    df = df.copy()
-    df["season"] = season
+def _ensure_cols(df: pd.DataFrame) -> pd.DataFrame:
+    # light schema: keep columns we know, add if missing
+    base = {
+        "season": None, "week": None, "game_id": None,
+        "player_id": None, "player_name": None, "team": None, "opponent": None,
+        "market": None, "line": None, "odds_over": None, "odds_under": None, "book": None,
+    }
+    for c in base:
+        if c not in df.columns:
+            df[c] = base[c]
     return df
-
-def _save_csv(path: Path, df: pd.DataFrame) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
 
 def main() -> int:
     season = _get_target_season()
     print(f"[canon] TARGET_SEASON={season}")
 
-    # Case 1: props_current.csv already exists -> just stamp season and save
     if PROPS_CUR.exists():
-        try:
-            df = pd.read_csv(PROPS_CUR)
-        except Exception as e:
-            print(f"[canon:ERROR] Could not read {PROPS_CUR}: {e}", file=sys.stderr)
-            return 1
-
-        df = _ensure_season_column(df, season)
-        _save_csv(PROPS_CUR, df)
-
-        seasons_present = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int).tolist()))
-        print(f"[canon] Updated existing props_current.csv, seasons present: {seasons_present}, rows={len(df)}")
+        df = pd.read_csv(PROPS_CUR)
+        df["season"] = season
+        # Keep as-is otherwise; just ensure baseline columns exist
+        df = _ensure_cols(df)
+        df.to_csv(PROPS_CUR, index=False)
+        print(f"[canon] Updated existing props_current.csv rows={len(df)}")
         return 0
 
-    # Case 2: build from latest processed odds CSV
     latest = _latest_processed_odds()
     if latest is None:
-        print(f"[canon:ERROR] {PROPS_CUR} not found and no processed odds in {ODDS_PROC_DIR}.", file=sys.stderr)
+        print(f"[canon:ERROR] No processed odds found in {ODDS_PROC_DIR}.", file=sys.stderr)
         return 1
 
-    try:
-        df = pd.read_csv(latest)
-    except Exception as e:
-        print(f"[canon:ERROR] Could not read {latest}: {e}", file=sys.stderr)
-        return 1
+    src = pd.read_csv(latest, low_memory=False)
 
-    df = _ensure_season_column(df, season)
-    _save_csv(PROPS_CUR, df)
+    # Map provider markets → canonical
+    if "market" in src.columns:
+        src["market"] = src["market"].map(lambda x: MARKET_MAP.get(str(x), str(x)))
+    else:
+        src["market"] = None
 
-    seasons_present = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int).tolist()))
-    print(f"[canon] Built props_current.csv from {latest.name}, seasons present: {seasons_present}, rows={len(df)}")
+    # Try to derive a player name from 'runner' when it doesn't look like Over/Under
+    player_name = None
+    if "runner" in src.columns:
+        s = src["runner"].astype(str)
+        player_name = s.where(~s.str.lower().isin(["over","under"]), None)
+
+    out = pd.DataFrame({
+        "season": season,
+        "week": None,  # will be filled later if you have a weekly file
+        "game_id": src.get("game_id"),
+        "player_id": None,  # no reliable id from odds feed
+        "player_name": player_name if player_name is not None else None,
+        "team": None,
+        "opponent": None,
+        "market": src.get("market"),
+        "line": src.get("point"),
+        # We don't get clear split over/under prices in all feeds; store unified price as over if unknown.
+        "odds_over": src.get("price_american"),
+        "odds_under": None,
+        "book": src.get("book"),
+    })
+
+    out = _ensure_cols(out)
+    out.to_csv(PROPS_CUR, index=False)
+
+    seasons_present = sorted(set(pd.to_numeric(out.get("season"), errors="coerce").dropna().astype(int)))
+    print(f"[canon] Built props_current.csv from {latest.name}; seasons={seasons_present}; rows={len(out)}")
     return 0
 
 if __name__ == "__main__":
