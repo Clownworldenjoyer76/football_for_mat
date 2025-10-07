@@ -12,8 +12,8 @@ jobs:
     timeout-minutes: 30
     env:
       TARGET_SEASON: '2025'
-      # Only Odds API–valid markets. Add more by editing this list or setting a repo/env secret ODDS_MARKETS.
-      ODDS_MARKETS: "h2h,spreads,totals,player_passing_yards,player_rushing_yards,player_receiving_yards,player_receptions,player_pass_tds,player_interceptions"
+      # Featured markets only (player props are fetched in the separate player-props workflow)
+      ODDS_MARKETS: "h2h,spreads,totals"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
