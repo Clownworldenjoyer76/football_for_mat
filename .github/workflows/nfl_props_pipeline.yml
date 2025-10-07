@@ -29,10 +29,33 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Fetch odds / props
+      # ---------------- Featured markets (no player_* here) ----------------
+      - name: Fetch featured odds (h2h/spreads/totals)
         run: python scripts/01_fetch_odds.py
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_SPORT: americanfootball_nfl
+          ODDS_REGIONS: us
+          ODDS_MARKETS: h2h,spreads,totals
+          ODDS_BOOKS: draftkings,fanduel,betmgm,caesars,espnbet,bet365,pointsbet,betway
+          ODDS_FORMAT: american
+          ODDS_DATE_FORMAT: iso
+
+      # ---------------- Player props (per-event endpoint) ----------------
+      - name: Fetch player props (per-event)
+        run: python scripts/01b_fetch_player_props.py
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_SPORT: americanfootball_nfl
+          ODDS_REGIONS: us
+          ODDS_BOOKS: draftkings,fanduel,betmgm,caesars,espnbet,bet365,pointsbet,betway
+          ODDS_FORMAT: american
+          ODDS_DATE_FORMAT: iso
+          ODDS_PLAYER_MARKETS: >
+            player_field_goals,player_kicking_points,player_pass_interceptions,
+            player_pass_rush_yds,player_pass_tds,player_pass_yds,player_receptions,
+            player_reception_yds,player_rush_attempts,player_rush_yds,player_sacks,
+            player_solo_tackles,player_tackles_assists,player_anytime_td
 
       - name: Step 01 - Canonicalize raw data
         run: python scripts/01_canonicalize_raw.py
