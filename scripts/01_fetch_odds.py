@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Fetch NFL odds (including supported player props) from The Odds API and normalize to CSV.
+Fetch NFL odds (incl. supported player props) from The Odds API and normalize to CSV.
 
-Defaults (safe for The Odds API):
+Defaults (safe for The Odds API and your requirements):
   Markets = h2h, spreads, totals,
-            player_pass_yards, player_rush_yards, player_rec_yards,
+            player_passing_yards, player_rushing_yards, player_receiving_yards,
             player_receptions, player_pass_tds, player_interceptions
 
 Override markets via:
@@ -37,9 +37,9 @@ DEFAULT_SPORT = "americanfootball_nfl"
 DEFAULT_REGIONS = "us"
 
 _VALID_PLAYER_MARKETS = [
-    "player_pass_yards",
-    "player_rush_yards",
-    "player_rec_yards",
+    "player_passing_yards",
+    "player_rushing_yards",
+    "player_receiving_yards",
     "player_receptions",
     "player_pass_tds",
     "player_interceptions",
@@ -78,7 +78,6 @@ def write_csv(path: Path, rows: List[Dict[str, Any]], fieldnames: List[str]) -> 
 def _effective_markets(cli_markets: Optional[str]) -> str:
     # Priority: CLI --markets > env ODDS_MARKETS > DEFAULT_MARKETS
     m = (cli_markets or os.getenv("ODDS_MARKETS") or DEFAULT_MARKETS).strip()
-    # Normalize spacing
     parts = [p.strip() for p in m.split(",") if p.strip()]
     return ",".join(parts)
 
@@ -105,21 +104,18 @@ def fetch_odds(api_key: str, sport: str, regions: str, markets: str,
             body = e.response.text[:500]
         except Exception:
             pass
-        print(f"[ERROR] HTTP {status} from Odds API", file=sys.stderr)
-        print(f"[ERROR] URL: {resp.url}", file=sys.stderr)
+        print(f"Error:  HTTP {status} from Odds API", file=sys.stderr)
+        print(f"Error:  URL: {resp.url}", file=sys.stderr)
         if status == 422:
-            print("[ERROR] The provider rejected one or more requested 'markets'.", file=sys.stderr)
-            print(f"[ERROR] Markets sent: {markets}", file=sys.stderr)
-            print(f"[ERROR] Response (truncated): {body}", file=sys.stderr)
-            print("[HINT] Keep to known-valid markets or set env ODDS_MARKETS to a smaller list.", file=sys.stderr)
+            print("Error:  The provider rejected one or more requested 'markets'.", file=sys.stderr)
+            print(f"Error:  Markets sent: {markets}", file=sys.stderr)
+            print(f"Error:  Response (truncated): {body}", file=sys.stderr)
+            print("[HINT] Keep to known-valid markets or set env ODDS_MARKETS to a smaller/edited list.", file=sys.stderr)
         raise
     time.sleep(sleep_between)
     return resp.json()
 
 def normalize(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Flatten Odds API JSON into a single table. Works for game + player markets.
-    """
     rows: List[Dict[str, Any]] = []
     for ev in events:
         game_id = ev.get("id", "")
@@ -127,7 +123,6 @@ def normalize(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         commence_time = ev.get("commence_time", "")
         home_team = ev.get("home_team", "")
         away_team = ev.get("away_team", "")
-
         for bm in ev.get("bookmakers", []) or []:
             book = bm.get("key", "")
             book_title = bm.get("title", "")
@@ -175,12 +170,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     ts = now_stamp()
 
     if args.dry_run:
-        sample = [{"id":"sample","sport_key":args.sport,"commence_time":"2025-09-10T00:20:00Z",
-                   "home_team":"A","away_team":"B","bookmakers":[{"key":"draftkings","title":"DraftKings",
-                   "last_update":ts,"markets":[
-                       {"key":"player_pass_yards","outcomes":[{"name":"Some QB","price":-110,"point":255.5}]},
-                       {"key":"player_receptions","outcomes":[{"name":"Some WR","price":-115,"point":5.5}]}
-                   ]}]}]
+        sample = [{
+            "id":"sample","sport_key":args.sport,"commence_time":"2025-09-10T00:20:00Z",
+            "home_team":"A","away_team":"B","bookmakers":[{"key":"draftkings","title":"DraftKings",
+            "last_update":ts,"markets":[
+                {"key":"player_passing_yards","outcomes":[{"name":"Some QB","price":-110,"point":255.5}]},
+                {"key":"player_receptions","outcomes":[{"name":"Some WR","price":-115,"point":5.5}]}
+            ]}]}]
         raw = RAW_DIR / f"odds_raw_{ts}.json"
         write_json(raw, sample)
         rows = normalize(sample)
