@@ -1,9 +1,7 @@
-name: Odds Fetch (API)
+name: odds_fetch
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/30 * * * *"  # every 30 minutes UTC
 
 permissions:
   contents: write
@@ -14,12 +12,13 @@ jobs:
     timeout-minutes: 30
     env:
       TARGET_SEASON: '2025'
-      SEASON: '2025'
+      # Only Odds API–valid markets. Add more by editing this list or setting a repo/env secret ODDS_MARKETS.
+      ODDS_MARKETS: "h2h,spreads,totals,player_passing_yards,player_rushing_yards,player_receiving_yards,player_receptions,player_pass_tds,player_interceptions"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -29,34 +28,42 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-      - name: Ensure data dirs
-        run: mkdir -p data/props data/logs data/odds
+          # pandas/requests are commonly needed if not pinned
+          python - <<'PY'
+          import importlib, subprocess, sys
+          for pkg in ("pandas","requests"):
+              try:
+                  importlib.import_module(pkg)
+              except Exception:
+                  subprocess.check_call([sys.executable,"-m","pip","install",pkg])
+          PY
 
       - name: Fetch raw odds/props
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-          TARGET_SEASON: ${{ env.TARGET_SEASON }}
-          SEASON: ${{ env.SEASON }}
+          ODDS_MARKETS: ${{ env.ODDS_MARKETS }}
         run: python scripts/01_fetch_odds.py
 
       - name: Canonicalize raw props feed
-        env:
-          TARGET_SEASON: ${{ env.TARGET_SEASON }}
-          SEASON: ${{ env.SEASON }}
-        run: python scripts/01_canonicalize_raw.py
+        run: |
+          if [ -f scripts/01_canonicalize_raw.py ]; then
+            python scripts/01_canonicalize_raw.py
+          else
+            echo "No canonicalizer found; skipping."
+          fi
 
       - name: Verify props_current.csv exists
-        run: test -s data/props/props_current.csv
+        run: |
+          test -s data/props/props_current.csv || (echo "props_current.csv missing" && exit 1)
 
-      - name: Guard - must contain TARGET_SEASON
+      - name: Guard - must contain TARGET_SEASON in props_current.csv
         run: |
           python - <<'PY'
-          import pandas as pd, sys
+          import sys, pandas as pd
           df = pd.read_csv("data/props/props_current.csv")
-          seasons = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int)))
-          print("Seasons present:", seasons)
-          if 2025 not in seasons:
+          seas = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int)))
+          print("Seasons present:", seas)
+          if 2025 not in seas:
               sys.exit("ERROR: TARGET_SEASON 2025 not found in props_current.csv")
           PY
 
@@ -68,14 +75,6 @@ jobs:
 
       - name: Commit refreshed props_current (only if changed)
         run: |
-          git add data/props/props_current.csv -f
-          git diff --cached --quiet && echo "No changes" || git commit -m "[fetch] refresh props_current (season $TARGET_SEASON)"
+          git add data/props/props_current.csv -f || true
+          git commit -m "[odds] refresh props_current" || true
           git push || true
-
-      - name: Upload artifact (debug)
-        uses: actions/upload-artifact@v4
-        with:
-          name: props-current-${{ github.run_id }}
-          path: data/props/props_current.csv
-          if-no-files-found: error
-          retention-days: 3
