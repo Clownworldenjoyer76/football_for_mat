@@ -12,28 +12,12 @@ jobs:
     timeout-minutes: 30
     env:
       TARGET_SEASON: '2025'
-
-      # Featured markets (cheap, single call)
-      ODDS_FEATURED_MARKETS: "h2h,spreads,totals"
-
-      # Exact player markets (per-event calls) – only used if FORCE_FETCH=1 or cache is empty
-      ODDS_PLAYER_MARKETS: >-
-        player_field_goals_made,player_kicking_points,player_pass_interceptions,
-        player_pass_rush_yds,player_pass_tds,player_pass_yds,player_receptions,
-        player_reception_yds,player_rush_attempts,player_rush_yds,player_sacks,
-        player_solo_tackles,player_tackles_assists,player_anytime_td
-
-      ODDS_REGIONS: "us"
-      ODDS_ODDS_FORMAT: "american"
-      ODDS_DATE_FORMAT: "iso"
-
-      # --- TOKEN SAVERS ---
-      # 1) Cache-first (set to 0 to force live fetching)
-      CACHE_FIRST: "1"
-      # 2) If we do fetch live, cap the number of events and bookmakers
-      ODDS_MAX_EVENTS: "8"
-      ODDS_BOOKMAKERS: "draftkings"
-
+      REGIONS: 'us'
+      BOOKS: 'draftkings,fanduel,betmgm,caesars,espnbet,bet365,pointsbet,betway'
+      # Featured markets only (valid for /sports/{sport}/odds)
+      FEATURED_MARKETS: 'h2h,spreads,totals'
+      # Limit how many events we pull player props for (to save tokens)
+      ODDS_MAX_EVENTS: '2'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,54 +31,74 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           python - <<'PY'
           import importlib, subprocess, sys
           for pkg in ("pandas","requests"):
-              try:
-                  importlib.import_module(pkg)
-              except Exception:
-                  subprocess.check_call([sys.executable,"-m","pip","install",pkg])
+              try: importlib.import_module(pkg)
+              except Exception: subprocess.check_call([sys.executable,"-m","pip","install",pkg])
           PY
 
-      # -------------- CACHE FIRST (no API) --------------
+      # Try to rebuild props from any previously cached player_* JSON (no API calls)
       - name: Try rebuild props from cache
-        if: env.CACHE_FIRST == '1'
         run: python scripts/01b_build_props_from_cache.py
 
       - name: Check if cache produced rows
-        if: env.CACHE_FIRST == '1'
         id: cachecheck
         run: |
           python - <<'PY'
-          import pandas as pd, sys
-          try:
-            df = pd.read_csv("data/props/props_current.csv")
-            n = len(df)
-          except Exception:
-            n = 0
-          print(f"rows={n}")
-          # expose an output flag
-          print(f"::set-output name=has_rows::{int(n>0)}")
+          import os, pandas as pd, sys
+          p = "data/props/props_current.csv"
+          rows = 0
+          if os.path.exists(p):
+              try: rows = len(pd.read_csv(p))
+              except Exception: rows = 0
+          print("rows=", rows)
+          # Set an output flag for later steps
+          print(f"cache_rows={rows}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"cache_rows={rows}\n")
           PY
 
-      # -------------- LIVE FETCH (only if needed) --------------
-      - name: Fetch raw odds/props (featured + limited per-event)
-        if: steps.cachecheck.outputs.has_rows != '1'
+      # If cache did not yield rows, do a lightweight FEATURED fetch (no player props)
+      - name: Fetch raw odds/props (featured only)
+        if: steps.cachecheck.outputs.cache_rows == '0'
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-          ODDS_FEATURED_MARKETS: ${{ env.ODDS_FEATURED_MARKETS }}
-          ODDS_PLAYER_MARKETS: ${{ env.ODDS_PLAYER_MARKETS }}
-          ODDS_REGIONS: ${{ env.ODDS_REGIONS }}
-          ODDS_ODDS_FORMAT: ${{ env.ODDS_ODDS_FORMAT }}
-          ODDS_DATE_FORMAT: ${{ env.ODDS_DATE_FORMAT }}
-          ODDS_BOOKMAKERS: ${{ env.ODDS_BOOKMAKERS }}
-          TARGET_SEASON: ${{ env.TARGET_SEASON }}
-          # Tell the fetcher to cap events
+          ODDS_MODE: 'featured'
+          ODDS_REGIONS: ${{ env.REGIONS }}
+          ODDS_BOOKS: ${{ env.BOOKS }}
+          ODDS_MARKETS: ${{ env.FEATURED_MARKETS }}
+        run: python scripts/01_fetch_odds.py
+
+      # If still no rows, do a VERY LIMITED player-props fetch (few events to save tokens)
+      - name: Fetch raw player props (limited events)
+        if: steps.cachecheck.outputs.cache_rows == '0'
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_MODE: 'players'
+          ODDS_REGIONS: ${{ env.REGIONS }}
+          ODDS_BOOKS: ${{ env.BOOKS }}
           ODDS_MAX_EVENTS: ${{ env.ODDS_MAX_EVENTS }}
         run: python scripts/01_fetch_odds.py
 
+      # Rebuild props_current.csv again now that we may have player_raw_*.json
+      - name: Rebuild props from cache (post-fetch)
+        run: python scripts/01b_build_props_from_cache.py
+
       - name: Verify props_current.csv exists
         run: test -s data/props/props_current.csv
+
+      - name: Guard - must contain TARGET_SEASON in props_current.csv
+        run: |
+          python - <<'PY'
+          import sys, pandas as pd
+          df = pd.read_csv("data/props/props_current.csv")
+          seas = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int)))
+          print("Seasons present:", seas)
+          if 2025 not in seas:
+              sys.exit("ERROR: TARGET_SEASON 2025 not found in props_current.csv")
+          PY
 
       - name: Configure git
         run: |
@@ -105,5 +109,5 @@ jobs:
       - name: Commit refreshed props_current (only if changed)
         run: |
           git add data/props/props_current.csv -f || true
-          git commit -m "[odds] refresh props_current (cache-first)" || true
+          git commit -m "[odds] refresh props_current" || true
           git push || true
