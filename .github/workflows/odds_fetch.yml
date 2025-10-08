@@ -12,16 +12,28 @@ jobs:
     timeout-minutes: 30
     env:
       TARGET_SEASON: '2025'
+
+      # Featured markets (cheap, single call)
       ODDS_FEATURED_MARKETS: "h2h,spreads,totals"
-      # EXACT player prop keys (per-event endpoint). These must be valid Odds API keys.
+
+      # Exact player markets (per-event calls) – only used if FORCE_FETCH=1 or cache is empty
       ODDS_PLAYER_MARKETS: >-
         player_field_goals_made,player_kicking_points,player_pass_interceptions,
         player_pass_rush_yds,player_pass_tds,player_pass_yds,player_receptions,
         player_reception_yds,player_rush_attempts,player_rush_yds,player_sacks,
         player_solo_tackles,player_tackles_assists,player_anytime_td
+
       ODDS_REGIONS: "us"
       ODDS_ODDS_FORMAT: "american"
       ODDS_DATE_FORMAT: "iso"
+
+      # --- TOKEN SAVERS ---
+      # 1) Cache-first (set to 0 to force live fetching)
+      CACHE_FIRST: "1"
+      # 2) If we do fetch live, cap the number of events and bookmakers
+      ODDS_MAX_EVENTS: "8"
+      ODDS_BOOKMAKERS: "draftkings"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,7 +56,30 @@ jobs:
                   subprocess.check_call([sys.executable,"-m","pip","install",pkg])
           PY
 
-      - name: Fetch raw odds/props (featured + per-event player props)
+      # -------------- CACHE FIRST (no API) --------------
+      - name: Try rebuild props from cache
+        if: env.CACHE_FIRST == '1'
+        run: python scripts/01b_build_props_from_cache.py
+
+      - name: Check if cache produced rows
+        if: env.CACHE_FIRST == '1'
+        id: cachecheck
+        run: |
+          python - <<'PY'
+          import pandas as pd, sys
+          try:
+            df = pd.read_csv("data/props/props_current.csv")
+            n = len(df)
+          except Exception:
+            n = 0
+          print(f"rows={n}")
+          # expose an output flag
+          print(f"::set-output name=has_rows::{int(n>0)}")
+          PY
+
+      # -------------- LIVE FETCH (only if needed) --------------
+      - name: Fetch raw odds/props (featured + limited per-event)
+        if: steps.cachecheck.outputs.has_rows != '1'
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           ODDS_FEATURED_MARKETS: ${{ env.ODDS_FEATURED_MARKETS }}
@@ -52,7 +87,10 @@ jobs:
           ODDS_REGIONS: ${{ env.ODDS_REGIONS }}
           ODDS_ODDS_FORMAT: ${{ env.ODDS_ODDS_FORMAT }}
           ODDS_DATE_FORMAT: ${{ env.ODDS_DATE_FORMAT }}
+          ODDS_BOOKMAKERS: ${{ env.ODDS_BOOKMAKERS }}
           TARGET_SEASON: ${{ env.TARGET_SEASON }}
+          # Tell the fetcher to cap events
+          ODDS_MAX_EVENTS: ${{ env.ODDS_MAX_EVENTS }}
         run: python scripts/01_fetch_odds.py
 
       - name: Verify props_current.csv exists
@@ -67,5 +105,5 @@ jobs:
       - name: Commit refreshed props_current (only if changed)
         run: |
           git add data/props/props_current.csv -f || true
-          git commit -m "[odds] refresh props_current" || true
+          git commit -m "[odds] refresh props_current (cache-first)" || true
           git push || true
