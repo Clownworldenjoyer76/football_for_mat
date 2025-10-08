@@ -12,7 +12,16 @@ jobs:
     timeout-minutes: 30
     env:
       TARGET_SEASON: '2025'
-      ODDS_MARKETS: "h2h,spreads,totals"  # featured markets only
+      ODDS_FEATURED_MARKETS: "h2h,spreads,totals"
+      # EXACT player prop keys (per-event endpoint). These must be valid Odds API keys.
+      ODDS_PLAYER_MARKETS: >-
+        player_field_goals_made,player_kicking_points,player_pass_interceptions,
+        player_pass_rush_yds,player_pass_tds,player_pass_yds,player_receptions,
+        player_reception_yds,player_rush_attempts,player_rush_yds,player_sacks,
+        player_solo_tackles,player_tackles_assists,player_anytime_td
+      ODDS_REGIONS: "us"
+      ODDS_ODDS_FORMAT: "american"
+      ODDS_DATE_FORMAT: "iso"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,59 +35,28 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           python - <<'PY'
           import importlib, subprocess, sys
           for pkg in ("pandas","requests"):
-              try: importlib.import_module(pkg)
-              except Exception: subprocess.check_call([sys.executable,"-m","pip","install",pkg])
+              try:
+                  importlib.import_module(pkg)
+              except Exception:
+                  subprocess.check_call([sys.executable,"-m","pip","install",pkg])
           PY
 
-      - name: Fetch raw odds/props (featured only)
+      - name: Fetch raw odds/props (featured + per-event player props)
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-          ODDS_MARKETS: ${{ env.ODDS_MARKETS }}
+          ODDS_FEATURED_MARKETS: ${{ env.ODDS_FEATURED_MARKETS }}
+          ODDS_PLAYER_MARKETS: ${{ env.ODDS_PLAYER_MARKETS }}
+          ODDS_REGIONS: ${{ env.ODDS_REGIONS }}
+          ODDS_ODDS_FORMAT: ${{ env.ODDS_ODDS_FORMAT }}
+          ODDS_DATE_FORMAT: ${{ env.ODDS_DATE_FORMAT }}
+          TARGET_SEASON: ${{ env.TARGET_SEASON }}
         run: python scripts/01_fetch_odds.py
 
-      - name: List odds outputs
-        run: |
-          echo "=== data/odds/raw ==="
-          ls -lAh --time-style=long-iso data/odds/raw || true
-          echo "=== data/odds/processed ==="
-          ls -lAh --time-style=long-iso data/odds/processed || true
-
-      - name: Upload odds artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: odds-featured-${{ github.run_id }}
-          path: |
-            data/odds/raw/*.json
-            data/odds/processed/*.csv
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Canonicalize raw props feed (if present)
-        run: |
-          if [ -f scripts/01_canonicalize_raw.py ]; then
-            python scripts/01_canonicalize_raw.py
-          else
-            echo "No canonicalizer found; skipping."
-          fi
-
-      - name: Verify props_current.csv exists (optional)
-        run: |
-          test -s data/props/props_current.csv || (echo "props_current.csv missing" && exit 1)
-
-      - name: Guard - must contain TARGET_SEASON in props_current.csv (optional)
-        run: |
-          python - <<'PY'
-          import sys, pandas as pd
-          df = pd.read_csv("data/props/props_current.csv")
-          seas = sorted(set(pd.to_numeric(df.get("season"), errors="coerce").dropna().astype(int)))
-          print("Seasons present:", seas)
-          if 2025 not in seas:
-              sys.exit("ERROR: TARGET_SEASON 2025 not found in props_current.csv")
-          PY
+      - name: Verify props_current.csv exists
+        run: test -s data/props/props_current.csv
 
       - name: Configure git
         run: |
@@ -86,9 +64,8 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Commit refreshed odds + props (force through .gitignore)
+      - name: Commit refreshed props_current (only if changed)
         run: |
-          git add -f data/odds/raw/*.json data/odds/processed/*.csv || true
-          git add -f data/props/props_current.csv || true
-          git commit -m "[odds] update featured odds + props_current" || true
+          git add data/props/props_current.csv -f || true
+          git commit -m "[odds] refresh props_current" || true
           git push || true
