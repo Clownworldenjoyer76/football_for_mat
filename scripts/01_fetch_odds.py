@@ -1,43 +1,39 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-01_fetch_odds.py
+Fetch NFL featured markets AND per-event player props, then write:
+  - data/odds/raw/featured_raw_<UTCYYYYMMDD_HHMMSS>.json
+  - data/odds/processed/featured_<UTCYYYYMMDD_HHMMSS>.csv
+  - data/odds/raw/player_raw_<EVENTID>.json    (one file per event with any player props)
+  - data/odds/processed/player_<UTCYYYYMMDD_HHMMSS>.csv  (flattened rows; optional)
 
-Fetches:
-  1) "Featured" markets in one shot (h2h/spreads/totals)  -> data/odds/raw/featured_raw_<UTCSTAMP>.json
-  2) Optional *player* props per-event (if event IDs are provided) -> data/odds/raw/player_raw_<UTCSTAMP>.json
+Env:
+  ODDS_API_KEY        (required)
+  FEATURED_MARKETS    default: "h2h,spreads,totals"
+  PLAYER_MARKETS      comma list of valid player markets, e.g.
+                      "player_pass_yds,player_rush_yds,player_reception_yds,player_receptions,player_pass_tds,player_interceptions"
+  REGIONS             default: "us"
+  BOOKMAKERS          default: "draftkings,fanduel,betmgm,caesars,espnbet,bet365,pointsbet,betway"
+  ODDS_FORMAT         default: "american"
+  DATE_FORMAT         default: "iso"
+  DRY_RUN             default: "0" (set "1" to avoid network calls)
 
-Environment (typical from workflow):
-  ODDS_API_KEY          : required (Odds API key)
-  ODDS_SPORT            : default "americanfootball_nfl"
-  ODDS_REGIONS          : default "us"
-  ODDS_MARKETS          : featured markets (comma list). Default "h2h,spreads,totals"
-  ODDS_BOOKS            : optional bookmaker keys (comma list)
-  ODDS_ODDS_FORMAT      : default "american"
-  ODDS_DATE_FORMAT      : default "iso"
-  ODDS_PLAYER_MARKETS   : player markets (comma list) for per-event fetch; if empty, player step is still executed and will write an empty JSON.
-  ODDS_EVENT_IDS        : comma list of event IDs to fetch player props for (use a small set to conserve quota).
-  ODDS_SLEEP_MS         : optional sleep between API calls (player loop), e.g. "150"
-
-CLI flags are optional mirrors of the env above.
-
-This script ALWAYS writes the raw files (even if the arrays are empty) so downstream
-cache building can proceed without extra API calls.
+This script is intentionally self-contained to avoid “missing script” issues.
 """
-from __future__ import annotations
 
-import os
-import sys
-import json
-import time
-import argparse
-from pathlib import Path
+import os, sys, json, time, csv
 from typing import Any, Dict, List, Optional
+from pathlib import Path
+from datetime import datetime
 
 try:
-    import requests  # type: ignore
+    import requests
 except Exception:
     requests = None
+
+API_SPORT = "americanfootball_nfl"
+API_BASE_FEATURED = "https://api.the-odds-api.com/v4/sports/{sport}/odds"
+API_BASE_EVENT = "https://api.the-odds-api.com/v4/sports/{sport}/events/{event_id}/odds"
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = ROOT / "data" / "odds" / "raw"
@@ -45,186 +41,208 @@ PROC_DIR = ROOT / "data" / "odds" / "processed"
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 PROC_DIR.mkdir(parents=True, exist_ok=True)
 
-API_BASE = "https://api.the-odds-api.com/v4"
-SPORT_DEFAULT = "americanfootball_nfl"
-
-def utc_stamp() -> str:
-    import datetime as dt
-    return dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+def now_stamp() -> str:
+    return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
 def write_json(path: Path, obj: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=2, ensure_ascii=False)
+        json.dump(obj, f, ensure_ascii=False, indent=2)
 
-def parse_csv_env(name: str, default: str = "") -> List[str]:
-    raw = os.getenv(name, default).strip()
-    if not raw:
-        return []
-    return [t.strip() for t in raw.split(",") if t.strip()]
+def write_csv(path: Path, rows: List[Dict[str, Any]], fieldnames: List[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in fieldnames})
 
-def fetch_url(url: str, params: Dict[str, Any]) -> Any:
-    if requests is None:
-        raise RuntimeError("The 'requests' package is not available.")
-    r = requests.get(url, params=params, timeout=30)
-    # If the provider rejects some markets, bubble up the exact message.
-    try:
-        r.raise_for_status()
-    except Exception as e:
-        # Add URL and params to error for easier debugging in Actions logs
-        msg = f"HTTP {r.status_code} for URL: {r.url}\nBody: {r.text}"
-        raise SystemExit(msg) from e
-    try:
-        return r.json()
-    except Exception:
-        return r.text
+def env(name: str, default: Optional[str]=None) -> str:
+    v = os.getenv(name)
+    return v if v is not None and v != "" else (default or "")
 
-def fetch_featured(api_key: str,
-                   sport: str,
-                   regions: str,
-                   markets: List[str],
-                   books: Optional[str],
-                   odds_fmt: str,
-                   date_fmt: str) -> Dict[str, Any]:
+def must_env(name: str) -> str:
+    v = env(name, "")
+    if not v:
+        print(f"ERROR: missing env {name}", file=sys.stderr)
+        sys.exit(2)
+    return v
+
+def http_get(url: str, params: Dict[str, str]) -> Any:
+    resp = requests.get(url, params=params, timeout=45)
+    # If provider rejects markets, raise now so caller can report clearly.
+    resp.raise_for_status()
+    return resp.json()
+
+def flatten_featured(json_blob: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for ev in json_blob:
+        ev_id = ev.get("id", "")
+        sport_key = ev.get("sport_key", "")
+        commence = ev.get("commence_time", "")
+        home = ev.get("home_team", "")
+        away = ev.get("away_team", "")
+        for bm in ev.get("bookmakers", []):
+            book = bm.get("key", "")
+            book_title = bm.get("title", "")
+            last_update = bm.get("last_update", "")
+            for m in bm.get("markets", []):
+                mkey = m.get("key", "")
+                for out in m.get("outcomes", []):
+                    rows.append({
+                        "event_id": ev_id,
+                        "sport_key": sport_key,
+                        "commence_time_utc": commence,
+                        "home_team": home,
+                        "away_team": away,
+                        "book": book,
+                        "book_title": book_title,
+                        "market": mkey,
+                        "runner": out.get("name", ""),
+                        "price_american": out.get("price", None),
+                        "point": out.get("point", None),
+                        "last_update": last_update,
+                    })
+    return rows
+
+def flatten_player(ev_id: str, json_blob: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for bm in json_blob or []:
+        book = bm.get("key", "")
+        book_title = bm.get("title", "")
+        last_update = bm.get("last_update", "")
+        for m in bm.get("markets", []):
+            mkey = m.get("key", "")
+            for out in m.get("outcomes", []):
+                rows.append({
+                    "event_id": ev_id,
+                    "book": book,
+                    "book_title": book_title,
+                    "market": mkey,
+                    "runner": out.get("name",""),
+                    "price_american": out.get("price", None),
+                    "point": out.get("point", None),
+                    "last_update": last_update,
+                })
+    return rows
+
+def fetch_featured(api_key: str, markets: str, regions: str, odds_format: str, date_format: str, books: str, dry: bool) -> List[Dict[str, Any]]:
+    if dry:
+        # tiny fake sample with one event
+        return [{
+            "id": "sample_ev",
+            "sport_key": API_SPORT,
+            "commence_time": "2025-09-10T00:20:00Z",
+            "home_team": "Home",
+            "away_team": "Away",
+            "bookmakers": [{
+                "key": "draftkings", "title": "DraftKings", "last_update": now_stamp(),
+                "markets": [{"key":"h2h","outcomes":[{"name":"Home","price":-120},{"name":"Away","price":+100}]}]
+            }]
+        }]
+    url = API_BASE_FEATURED.format(sport=API_SPORT)
     params = {
         "apiKey": api_key,
         "regions": regions,
-        "markets": ",".join(markets) if markets else "h2h,spreads,totals",
-        "oddsFormat": odds_fmt,
-        "dateFormat": date_fmt,
+        "markets": markets,
+        "oddsFormat": odds_format,
+        "dateFormat": date_format,
+        "bookmakers": books
     }
-    if books:
-        params["bookmakers"] = books
-    url = f"{API_BASE}/sports/{sport}/odds"
-    data = fetch_url(url, params)
-    return {
-        "meta": {
-            "kind": "featured",
-            "sport": sport,
-            "regions": regions,
-            "markets": markets,
-            "bookmakers": books,
-            "oddsFormat": odds_fmt,
-            "dateFormat": date_fmt,
-        },
-        "data": data if isinstance(data, list) else [],
-    }
+    return http_get(url, params)
 
-def fetch_players_for_events(api_key: str,
-                             sport: str,
-                             event_ids: List[str],
-                             player_markets: List[str],
-                             regions: str,
-                             books: Optional[str],
-                             odds_fmt: str,
-                             date_fmt: str,
-                             sleep_ms: int) -> Dict[str, Any]:
-    """
-    Fetch player props one event at a time. Writes a compact envelope:
-      { meta: {...}, events: [ {eventId: "...", markets:[...]}, ... ] }
-    If event_ids or player_markets are empty, returns an empty envelope.
-    """
-    envelope: Dict[str, Any] = {
-        "meta": {
-            "kind": "player",
-            "sport": sport,
-            "regions": regions,
-            "markets": player_markets,
-            "bookmakers": books,
-            "oddsFormat": odds_fmt,
-            "dateFormat": date_fmt,
-            "event_count": len(event_ids),
-        },
-        "events": [],
+def fetch_player_for_event(api_key: str, event_id: str, markets: str, regions: str, odds_format: str, date_format: str, books: str, dry: bool) -> List[Dict[str, Any]]:
+    if dry:
+        return [{
+            "key":"draftkings","title":"DraftKings","last_update":now_stamp(),
+            "markets":[{"key":"player_pass_yds","outcomes":[{"name":"QB A","price":-115,"point":250.5},{"name":"QB A","price":-105,"point":250.5}]}]
+        }]
+    url = API_BASE_EVENT.format(sport=API_SPORT, event_id=event_id)
+    params = {
+        "apiKey": api_key,
+        "regions": regions,
+        "markets": markets,
+        "oddsFormat": odds_format,
+        "dateFormat": date_format,
+        "bookmakers": books
     }
-    if not event_ids or not player_markets:
-        return envelope
+    return http_get(url, params)
 
-    for eid in event_ids:
-        params = {
-            "apiKey": api_key,
-            "regions": regions,
-            "markets": ",".join(player_markets),
-            "oddsFormat": odds_fmt,
-            "dateFormat": date_fmt,
-        }
-        if books:
-            params["bookmakers"] = books
-        url = f"{API_BASE}/sports/{sport}/events/{eid}/odds"
+def main() -> int:
+    if requests is None:
+        print("ERROR: requests not available", file=sys.stderr)
+        return 3
+
+    api_key = must_env("ODDS_API_KEY")
+    featured_markets = env("FEATURED_MARKETS", "h2h,spreads,totals")
+    player_markets   = env("PLAYER_MARKETS", "")
+    regions    = env("REGIONS", "us")
+    books      = env("BOOKMAKERS", "draftkings,fanduel,betmgm,caesars,espnbet,bet365,pointsbet,betway")
+    odds_fmt   = env("ODDS_FORMAT", "american")
+    date_fmt   = env("DATE_FORMAT", "iso")
+    dry_run    = env("DRY_RUN", "0") == "1"
+
+    ts = now_stamp()
+
+    # ---------------- Featured markets ----------------
+    try:
+        featured = fetch_featured(api_key, featured_markets, regions, odds_fmt, date_fmt, books, dry_run)
+    except requests.HTTPError as e:
+        print("ERROR: Featured request failed:", str(e), file=sys.stderr)
+        print("HINT: Keep FEATURED_MARKETS to valid values: h2h,spreads,totals", file=sys.stderr)
+        return 1
+
+    raw_featured_path = RAW_DIR / f"featured_raw_{ts}.json"
+    write_json(raw_featured_path, featured)
+    feat_rows = flatten_featured(featured)
+    feat_csv_path = PROC_DIR / f"featured_{ts}.csv"
+    write_csv(feat_csv_path, feat_rows, [
+        "event_id","sport_key","commence_time_utc","home_team","away_team",
+        "book","book_title","market","runner","price_american","point","last_update"
+    ])
+    print(f"[OK] wrote featured JSON -> {raw_featured_path}")
+    print(f"[OK] wrote featured CSV  -> {feat_csv_path}")
+    print(f"[OK] featured events: {len({r['event_id'] for r in feat_rows})}")
+
+    # collect unique event ids
+    event_ids = sorted({ev.get("id","") for ev in featured if ev.get("id")})
+    if not event_ids:
+        print("[WARN] No event IDs discovered from featured feed; skipping player props.")
+        return 0
+
+    if not player_markets.strip():
+        print("[INFO] PLAYER_MARKETS env empty; skipping player props.")
+        return 0
+
+    # ---------------- Player props per event ----------------
+    total_player_rows = 0
+    all_player_rows: List[Dict[str, Any]] = []
+
+    for ev_id in event_ids:
         try:
-            data = fetch_url(url, params)
-            envelope["events"].append({
-                "eventId": eid,
-                "payload": data if isinstance(data, dict) else data,
-            })
-        except SystemExit as e:
-            # Record the failure inline but keep going so we still produce a JSON
-            envelope["events"].append({
-                "eventId": eid,
-                "error": str(e),
-            })
-        # rate limit
-        if sleep_ms > 0:
-            time.sleep(sleep_ms / 1000.0)
-    return envelope
+            blob = fetch_player_for_event(api_key, ev_id, player_markets, regions, odds_fmt, date_fmt, books, dry_run)
+        except requests.HTTPError as e:
+            # If markets invalid, fail fast once with a useful message.
+            print(f"ERROR: Player props request failed for event {ev_id}: {e}", file=sys.stderr)
+            print("HINT: Ensure PLAYER_MARKETS contains only valid player markets.", file=sys.stderr)
+            return 1
 
-def main(argv: Optional[List[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description="Fetch featured and optional player props (per-event) from The Odds API.")
-    ap.add_argument("--sport", default=os.getenv("ODDS_SPORT", SPORT_DEFAULT))
-    ap.add_argument("--regions", default=os.getenv("ODDS_REGIONS", "us"))
-    ap.add_argument("--markets", default=os.getenv("ODDS_MARKETS", "h2h,spreads,totals"))
-    ap.add_argument("--books", default=os.getenv("ODDS_BOOKS", ""))
-    ap.add_argument("--odds-format", default=os.getenv("ODDS_ODDS_FORMAT", "american"))
-    ap.add_argument("--date-format", default=os.getenv("ODDS_DATE_FORMAT", "iso"))
-    ap.add_argument("--player-markets", default=os.getenv("ODDS_PLAYER_MARKETS", ""))
-    ap.add_argument("--event-ids", default=os.getenv("ODDS_EVENT_IDS", ""))
-    ap.add_argument("--sleep-ms", type=int, default=int(os.getenv("ODDS_SLEEP_MS", "0")))
-    args = ap.parse_args(argv)
+        # write raw per event
+        raw_p = RAW_DIR / f"player_raw_{ev_id}.json"
+        write_json(raw_p, blob)
+        rows = flatten_player(ev_id, blob)
+        total_player_rows += len(rows)
+        all_player_rows.extend(rows)
 
-    api_key = os.getenv("ODDS_API_KEY", "").strip()
-    if not api_key:
-        print("ERROR: missing ODDS_API_KEY", file=sys.stderr)
-        return 2
+    # optional convenience CSV of all player rows (cache remains per-event JSON)
+    ply_csv_path = PROC_DIR / f"player_{ts}.csv"
+    write_csv(ply_csv_path, all_player_rows, [
+        "event_id","book","book_title","market","runner","price_american","point","last_update"
+    ])
 
-    sport = args.sport
-    regions = args.regions
-    feat_markets = [m for m in parse_csv_env("ODDS_MARKETS", args.markets) if m]
-    # Hard-guard featured markets to the 3 allowed types
-    ALLOWED_FEATURED = {"h2h", "spreads", "totals"}
-    feat_markets = [m for m in feat_markets if m in ALLOWED_FEATURED]
-    if not feat_markets:
-        feat_markets = ["h2h", "spreads", "totals"]
-
-    books = args.books.strip() or None
-    odds_fmt = args.odds_format
-    date_fmt = args.date_format
-
-    # --- 1) Featured ---
-    ts = utc_stamp()
-    featured = fetch_featured(api_key, sport, regions, feat_markets, books, odds_fmt, date_fmt)
-    fpath = RAW_DIR / f"featured_raw_{ts}.json"
-    write_json(fpath, featured)
-    print(f"[featured] wrote {fpath}  items={len(featured.get('data', []))}")
-
-    # --- 2) Player (per-event) ---
-    player_markets = [m for m in parse_csv_env("ODDS_PLAYER_MARKETS", args.player_markets) if m]
-    event_ids = [e for e in parse_csv_env("ODDS_EVENT_IDS", args.event_ids) if e]
-    players_env = fetch_players_for_events(
-        api_key=api_key,
-        sport=sport,
-        event_ids=event_ids,
-        player_markets=player_markets,
-        regions=regions,
-        books=books,
-        odds_fmt=odds_fmt,
-        date_fmt=date_fmt,
-        sleep_ms=args.sleep_ms,
-    )
-    ppath = RAW_DIR / f"player_raw_{ts}.json"
-    write_json(ppath, players_env)
-    print(f"[players] wrote {ppath}  events={len(players_env.get('events', []))}")
-
+    print(f"[OK] wrote {len(event_ids)} player_raw_*.json; total rows={total_player_rows}")
+    print(f"[OK] wrote player CSV -> {ply_csv_path}")
     return 0
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())
