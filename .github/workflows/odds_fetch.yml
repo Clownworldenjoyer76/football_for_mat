@@ -14,9 +14,13 @@ jobs:
       TARGET_SEASON: '2025'
       REGIONS: 'us'
       BOOKS: 'draftkings,fanduel,betmgm,caesars,espnbet,bet365,pointsbet,betway'
+      # Featured markets only (valid for /sports/{sport}/odds)
       FEATURED_MARKETS: 'h2h,spreads,totals'
-      PLAYER_MARKETS: 'player_pass_yds,player_rush_yds,player_reception_yds,player_receptions,player_pass_tds,player_interceptions'
+      # Valid NFL player prop markets for /events/{eventId}/odds
+      PLAYER_MARKETS: 'player_pass_tds,player_pass_yds,player_rush_yds,player_reception_yds,player_receptions,player_rush_attempts,player_anytime_td,player_kicking_points,player_field_goals,player_tackles_assists,player_sacks,player_pass_interceptions'
+      # Limit how many events we pull player props for (to save tokens)
       ODDS_MAX_EVENTS: '2'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,8 +38,10 @@ jobs:
           python - <<'PY'
           import importlib, subprocess, sys
           for pkg in ("pandas","requests"):
-              try: importlib.import_module(pkg)
-              except Exception: subprocess.check_call([sys.executable,"-m","pip","install",pkg])
+              try:
+                  importlib.import_module(pkg)
+              except Exception:
+                  subprocess.check_call([sys.executable,"-m","pip","install",pkg])
           PY
 
       # Try to rebuild props from any previously cached player_* JSON (no API calls)
@@ -47,33 +53,42 @@ jobs:
         run: |
           python - <<'PY'
           import os, pandas as pd
-          rows = 0
           p = "data/props/props_current.csv"
+          rows = 0
           if os.path.exists(p):
               try:
                   rows = len(pd.read_csv(p))
               except Exception:
                   rows = 0
-          print(f"cache_rows={rows}")
+          print("rows=", rows)
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"cache_rows={rows}\n")
           PY
 
-      # If cache did not yield rows, fetch both featured + player props
-      - name: Fetch raw odds/props (featured + limited player props)
+      # If cache did not yield rows, do a lightweight FEATURED fetch (no player props)
+      - name: Fetch raw odds/props (featured only)
         if: steps.cachecheck.outputs.cache_rows == '0'
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-          FEATURED_MARKETS: ${{ env.FEATURED_MARKETS }}
-          PLAYER_MARKETS: ${{ env.PLAYER_MARKETS }}
-          REGIONS: ${{ env.REGIONS }}
-          BOOKMAKERS: ${{ env.BOOKS }}
-          ODDS_FORMAT: 'american'
-          DATE_FORMAT: 'iso'
-          DRY_RUN: '0'
+          ODDS_MODE: 'featured'
+          ODDS_REGIONS: ${{ env.REGIONS }}
+          ODDS_BOOKS: ${{ env.BOOKS }}
+          ODDS_MARKETS: ${{ env.FEATURED_MARKETS }}
         run: python scripts/01_fetch_odds.py
 
-      # Rebuild props_current.csv again now that player_raw_*.json exists
+      # If still no rows, do a VERY LIMITED player-props fetch (few events to save tokens)
+      - name: Fetch raw player props (limited events)
+        if: steps.cachecheck.outputs.cache_rows == '0'
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_MODE: 'players'
+          ODDS_REGIONS: ${{ env.REGIONS }}
+          ODDS_BOOKS: ${{ env.BOOKS }}
+          ODDS_MAX_EVENTS: ${{ env.ODDS_MAX_EVENTS }}
+          PLAYER_MARKETS: ${{ env.PLAYER_MARKETS }}
+        run: python scripts/01_fetch_odds.py
+
+      # Rebuild props_current.csv again now that we may have player_raw_*.json
       - name: Rebuild props from cache (post-fetch)
         run: python scripts/01b_build_props_from_cache.py
 
