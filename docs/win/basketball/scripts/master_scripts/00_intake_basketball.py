@@ -42,6 +42,7 @@ JOBS = [
     },
     {
         "script": Path("docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba_ncaam.py"),
+        "skip": True,
         "checks": [
             {
                 "type": "file_exists",
@@ -270,7 +271,11 @@ def ensure_output_dirs() -> None:
 
 
 def validate_scripts() -> None:
-    missing = [str(job["script"]) for job in JOBS if not job["script"].exists()]
+    missing = [
+        str(job["script"])
+        for job in JOBS
+        if not job.get("skip") and not job["script"].exists()
+    ]
     if missing:
         for path in missing:
             log(f"MISSING SCRIPT: {path}")
@@ -466,6 +471,11 @@ def main():
         validate_scripts()
 
         for job in JOBS:
+            if job.get("skip"):
+                log(f"SKIPPED: {job['script']}")
+                jobs_completed += 1
+                continue
+
             script_path = job["script"]
             checks = job.get("checks", [])
 
