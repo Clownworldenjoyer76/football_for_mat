@@ -19,6 +19,7 @@ TODAY = datetime.now().strftime("%Y_%m_%d")
 JOBS = [
     {
         "script": Path("docs/win/basketball/scripts/00_intake/cloudbet_ncaam_wnba_odds_pull.py"),
+        "skip": True,
         "checks": [
             {
                 "type": "file_exists",
@@ -66,6 +67,7 @@ JOBS = [
     },
     {
         "script": Path("docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py"),
+        "skip": False,
         "checks": [
             {
                 "type": "glob_count",
@@ -77,6 +79,7 @@ JOBS = [
     },
     {
         "script": Path("docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py"),
+        "skip": False,
         "checks": [
             {
                 "type": "file_exists",
@@ -109,6 +112,7 @@ JOBS = [
     },
     {
         "script": Path("docs/win/basketball/scripts/00_intake/transform_basketball.py"),
+        "skip": False,
         "checks": [
             {
                 "type": "glob_count",
@@ -132,6 +136,7 @@ JOBS = [
     },
     {
         "script": Path("docs/win/basketball/scripts/00_intake/basketball_name_normalization.py"),
+        "skip": False,
         "checks": [
             {
                 "type": "file_exists",
@@ -149,6 +154,7 @@ JOBS = [
     },
     {
         "script": Path("docs/win/basketball/scripts/00_intake/basketball_daily_games.py"),
+        "skip": False,
         "checks": [
             {
                 "type": "glob_count",
@@ -172,6 +178,7 @@ JOBS = [
     },
     {
         "script": Path("docs/win/basketball/scripts/00_intake/basketball_game_id.py"),
+        "skip": False,
         "checks": [
             {
                 "type": "csv_has_columns",
