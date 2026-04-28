@@ -136,6 +136,7 @@ def process_predictions(
             rows.append({
                 "sport": "Basketball",
                 "league": league_label,
+                "game_id": "",
                 "game_date": date_val,
                 "game_time": row["game_time"],
                 "home_team": row["team2"],
@@ -147,7 +148,11 @@ def process_predictions(
                 "total_projected_points": total_proj,
             })
 
-        out = pd.DataFrame(rows)
+        out = pd.DataFrame(rows, columns=[
+            "sport", "league", "game_id", "game_date", "game_time",
+            "home_team", "away_team", "home_prob", "away_prob",
+            "home_projected_points", "away_projected_points", "total_projected_points",
+        ])
         path = f"{cfg['predictions_dir']}/{date_val}_{league_label}_predictions.csv"
         save(out, path, files_written, league_key)
         stats["prediction_files_written"] += 1
