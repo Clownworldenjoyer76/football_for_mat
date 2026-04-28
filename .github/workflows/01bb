@@ -1,0 +1,63 @@
+name: 01_merge_basketball
+
+on:
+  workflow_dispatch:
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pandas scipy
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/win/basketball/errors/01_merge
+          mkdir -p docs/win/basketball/01_merge/nba/moneyline
+          mkdir -p docs/win/basketball/01_merge/nba/spread
+          mkdir -p docs/win/basketball/01_merge/nba/total
+          mkdir -p docs/win/basketball/01_merge/ncaam/moneyline
+          mkdir -p docs/win/basketball/01_merge/ncaam/spread
+          mkdir -p docs/win/basketball/01_merge/ncaam/total
+          mkdir -p docs/win/basketball/01_merge/wnba/moneyline
+          mkdir -p docs/win/basketball/01_merge/wnba/spread
+          mkdir -p docs/win/basketball/01_merge/wnba/total
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/nba/moneyline
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/nba/spread
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/nba/total
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/ncaam/moneyline
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/ncaam/spread
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/ncaam/total
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/wnba/moneyline
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/wnba/spread
+          mkdir -p docs/win/basketball/01_merge/01_merguiced/wnba/total
+
+      - name: Run merge_intake
+        run: python docs/win/basketball/scripts/01_merge/merge_intake.py
+
+      - name: Run build_juice_files
+        run: python docs/win/basketball/scripts/01_merge/build_juice_files.py
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merge-logs
+          path: docs/win/basketball/errors/01_merge/
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/win/basketball/01_merge/
+          git diff --cached --quiet || git commit -m "basketball merge run $(date +'%Y-%m-%d')"
+          git push
