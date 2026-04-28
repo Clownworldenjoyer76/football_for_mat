@@ -191,6 +191,7 @@ def process_final_scores(
             rows.append({
                 "sport": "Basketball",
                 "league": league_label,
+                "game_id": "",
                 "game_date": date_val,
                 "home_team": row["team2"],
                 "away_team": row["team1"],
@@ -201,8 +202,12 @@ def process_final_scores(
                 "away_spread": away_spread,
             })
 
-        out = pd.DataFrame(rows)
-        path = f"{cfg['final_scores_dir']}/{date_val}_{league_label}_final_scores.csv"
+        out = pd.DataFrame(rows, columns=[
+            "sport", "league", "game_id", "game_date",
+            "home_team", "away_team", "home_score", "away_score",
+            "total", "home_spread", "away_spread",
+        ])
+        path = f"{cfg['final_scores_dir']}/{date_val}_final_scores_{league_label}.csv"
         save(out, path, files_written, league_key)
         stats["final_score_files_written"] += 1
         stats["final_score_rows_written"] += len(out)
