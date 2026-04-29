@@ -1,29 +1,22 @@
 name: 00_intake_basketball
-
 on:
   workflow_dispatch:
-
 jobs:
   intake:
     runs-on: ubuntu-latest
-
     env:
       CLOUDBET_API_KEY: ${{ secrets.CLOUDBET_API_KEY }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install dependencies
         run: |
           pip install pandas playwright pytz requests
           playwright install chromium
-
       - name: Create output directories
         run: |
           mkdir -p docs/win/basketball/errors/00_intake
@@ -45,17 +38,14 @@ jobs:
           mkdir -p docs/win/basketball/daily_games/ncaam
           mkdir -p docs/win/basketball/daily_games/wnba
           mkdir -p mappings/basketball/no_map
-
       - name: Run 00_intake_basketball
         run: python docs/win/basketball/scripts/master_scripts/00_intake_basketball.py
-
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: intake-logs
           path: docs/win/basketball/errors/00_intake/
-
       - name: Commit outputs
         run: |
           git config user.name "github-actions[bot]"
