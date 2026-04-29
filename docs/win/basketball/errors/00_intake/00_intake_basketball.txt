@@ -1,485 +1,485 @@
-=== 00_intake_basketball RUN 2026-04-29T09:58:56.697848 ===
-2026-04-29T09:58:56.697926 | MASTER SCRIPT START
-2026-04-29T09:58:56.697975 | TODAY = 2026_04_29
-2026-04-29T09:58:56.698034 | ENSURED DIR: docs/win/basketball/errors/00_intake
-2026-04-29T09:58:56.698096 | ENSURED DIR: docs/win/basketball/odds/ncaam
-2026-04-29T09:58:56.698140 | ENSURED DIR: docs/win/basketball/odds/wnba
-2026-04-29T09:58:56.698191 | ENSURED DIR: docs/win/basketball/00_intake/predictions/nba
-2026-04-29T09:58:56.698241 | ENSURED DIR: docs/win/basketball/00_intake/predictions/ncaam
-2026-04-29T09:58:56.698284 | ENSURED DIR: docs/win/basketball/00_intake/predictions/wnba
-2026-04-29T09:58:56.698336 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/wnba
-2026-04-29T09:58:56.698382 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/ncaam
-2026-04-29T09:58:56.698427 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/nba
-2026-04-29T09:58:56.698471 | ENSURED DIR: docs/win/basketball/05_final_scores/results/nba
-2026-04-29T09:58:56.698514 | ENSURED DIR: docs/win/basketball/05_final_scores/results/ncaam
-2026-04-29T09:58:56.698556 | ENSURED DIR: docs/win/basketball/05_final_scores/results/wnba
-2026-04-29T09:58:56.698599 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/nba
-2026-04-29T09:58:56.698641 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/ncaam
-2026-04-29T09:58:56.698682 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/wnba
-2026-04-29T09:58:56.698724 | ENSURED DIR: docs/win/basketball/daily_games/wnba
-2026-04-29T09:58:56.698785 | ENSURED DIR: docs/win/basketball/daily_games/nba
-2026-04-29T09:58:56.698833 | ENSURED DIR: docs/win/basketball/daily_games/ncaam
-2026-04-29T09:58:56.698912 | SKIPPED: docs/win/basketball/scripts/00_intake/cloudbet_ncaam_wnba_odds_pull.py
-2026-04-29T09:58:56.698946 | SKIPPED: docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba_ncaam.py
-2026-04-29T09:58:56.698974 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py
-2026-04-29T09:58:56.788759 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py
-2026-04-29T09:58:56.789475 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/nba pattern=*_NBA_odds.csv count=180
-2026-04-29T09:58:56.789558 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py
-2026-04-29T09:59:12.288153 | [STDOUT] Basketball drat scraper complete.
-2026-04-29T09:59:12.288268 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py
-2026-04-29T09:59:12.288339 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/nba/2026_04_29_nba_raw.json
-2026-04-29T09:59:12.288388 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/ncaam/2026_04_29_ncaam_raw.json
-2026-04-29T09:59:12.288430 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/wnba/2026_04_29_wnba_raw.json
-2026-04-29T09:59:12.290293 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/nba/2026_04_29_nba_raw.json rows=19
-2026-04-29T09:59:12.290467 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/ncaam/2026_04_29_ncaam_raw.json rows=16
-2026-04-29T09:59:12.290621 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/wnba/2026_04_29_wnba_raw.json rows=16
-2026-04-29T09:59:12.290664 | START SCRIPT: docs/win/basketball/scripts/00_intake/transform_basketball.py
-2026-04-29T09:59:13.591033 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_26_NBA_predictions.csv
-2026-04-29T09:59:13.591151 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_24_final_scores_NBA.csv
-2026-04-29T09:59:13.591190 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_25_final_scores_NBA.csv
-2026-04-29T09:59:13.591224 | [STDOUT]   Saved 10 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_27_NBA_predictions.csv
-2026-04-29T09:59:13.591251 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_24_final_scores_NBA.csv
-2026-04-29T09:59:13.591277 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_25_final_scores_NBA.csv
-2026-04-29T09:59:13.591315 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_26_final_scores_NBA.csv
-2026-04-29T09:59:13.591345 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_28_NBA_predictions.csv
-2026-04-29T09:59:13.591369 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_25_final_scores_NBA.csv
-2026-04-29T09:59:13.591394 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_26_final_scores_NBA.csv
-2026-04-29T09:59:13.591418 | [STDOUT]   Saved 10 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_27_final_scores_NBA.csv
-2026-04-29T09:59:13.591443 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_29_NBA_predictions.csv
-2026-04-29T09:59:13.591467 | [STDOUT]   Saved 10 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_27_final_scores_NBA.csv
-2026-04-29T09:59:13.591492 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_28_final_scores_NBA.csv
-2026-04-29T09:59:13.591516 | [STDOUT]   Saved 7 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_30_NBA_predictions.csv
-2026-04-29T09:59:13.591541 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_27_final_scores_NBA.csv
-2026-04-29T09:59:13.591565 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_28_final_scores_NBA.csv
-2026-04-29T09:59:13.591589 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_29_final_scores_NBA.csv
-2026-04-29T09:59:13.591614 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_31_NBA_predictions.csv
-2026-04-29T09:59:13.591638 | [STDOUT]   Saved 8 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_29_final_scores_NBA.csv
-2026-04-29T09:59:13.591663 | [STDOUT]   Saved 8 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_30_final_scores_NBA.csv
-2026-04-29T09:59:13.591687 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_01_NBA_predictions.csv
-2026-04-29T09:59:13.591711 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_29_final_scores_NBA.csv
-2026-04-29T09:59:13.591736 | [STDOUT]   Saved 8 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_30_final_scores_NBA.csv
-2026-04-29T09:59:13.591782 | [STDOUT]   Saved 7 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_31_final_scores_NBA.csv
-2026-04-29T09:59:13.591808 | [STDOUT]   Saved 6 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_02_NBA_predictions.csv
-2026-04-29T09:59:13.591833 | [STDOUT]   Saved 7 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_31_final_scores_NBA.csv
-2026-04-29T09:59:13.591857 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_01_final_scores_NBA.csv
-2026-04-29T09:59:13.591882 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_03_NBA_predictions.csv
-2026-04-29T09:59:13.591906 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_31_final_scores_NBA.csv
-2026-04-29T09:59:13.591931 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_01_final_scores_NBA.csv
-2026-04-29T09:59:13.591956 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_02_final_scores_NBA.csv
-2026-04-29T09:59:13.591986 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_04_NBA_predictions.csv
-2026-04-29T09:59:13.592011 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_01_final_scores_NBA.csv
-2026-04-29T09:59:13.592035 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_02_final_scores_NBA.csv
-2026-04-29T09:59:13.592060 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_03_final_scores_NBA.csv
-2026-04-29T09:59:13.592089 | [STDOUT]   Saved 10 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_05_NBA_predictions.csv
-2026-04-29T09:59:13.592114 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_02_final_scores_NBA.csv
-2026-04-29T09:59:13.592138 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_03_final_scores_NBA.csv
-2026-04-29T09:59:13.592163 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_04_final_scores_NBA.csv
-2026-04-29T09:59:13.592188 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_06_NBA_predictions.csv
-2026-04-29T09:59:13.592212 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_03_final_scores_NBA.csv
-2026-04-29T09:59:13.592237 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_04_final_scores_NBA.csv
-2026-04-29T09:59:13.592261 | [STDOUT]   Saved 11 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_05_final_scores_NBA.csv
-2026-04-29T09:59:13.592286 | [STDOUT]   Saved 9 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_07_NBA_predictions.csv
-2026-04-29T09:59:13.592311 | [STDOUT]   Saved 11 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_05_final_scores_NBA.csv
-2026-04-29T09:59:13.592336 | [STDOUT]   Saved 5 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_06_final_scores_NBA.csv
-2026-04-29T09:59:13.592361 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_08_NBA_predictions.csv
-2026-04-29T09:59:13.592387 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_05_final_scores_NBA.csv
-2026-04-29T09:59:13.592412 | [STDOUT]   Saved 5 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_06_final_scores_NBA.csv
-2026-04-29T09:59:13.592436 | [STDOUT]   Saved 10 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_07_final_scores_NBA.csv
-2026-04-29T09:59:13.592461 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_09_NBA_predictions.csv
-2026-04-29T09:59:13.592486 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_07_final_scores_NBA.csv
-2026-04-29T09:59:13.592510 | [STDOUT]   Saved 7 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_08_final_scores_NBA.csv
-2026-04-29T09:59:13.592539 | [STDOUT]   Saved 14 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_10_NBA_predictions.csv
-2026-04-29T09:59:13.592563 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_07_final_scores_NBA.csv
-2026-04-29T09:59:13.592588 | [STDOUT]   Saved 7 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_08_final_scores_NBA.csv
-2026-04-29T09:59:13.592613 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_09_final_scores_NBA.csv
-2026-04-29T09:59:13.592638 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_09_final_scores_NBA.csv
-2026-04-29T09:59:13.592663 | [STDOUT]   Saved 15 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_10_final_scores_NBA.csv
-2026-04-29T09:59:13.592688 | [STDOUT]   Saved 14 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_12_NBA_predictions.csv
-2026-04-29T09:59:13.592717 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_09_final_scores_NBA.csv
-2026-04-29T09:59:13.592746 | [STDOUT]   Saved 15 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_10_final_scores_NBA.csv
-2026-04-29T09:59:13.592790 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_14_NBA_predictions.csv
-2026-04-29T09:59:13.592819 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_10_final_scores_NBA.csv
-2026-04-29T09:59:13.592844 | [STDOUT]   Saved 15 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
-2026-04-29T09:59:13.592894 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_14_NBA_predictions.csv
-2026-04-29T09:59:13.592931 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_10_final_scores_NBA.csv
-2026-04-29T09:59:13.592960 | [STDOUT]   Saved 15 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
-2026-04-29T09:59:13.592989 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_15_NBA_predictions.csv
-2026-04-29T09:59:13.593016 | [STDOUT]   Saved 14 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
-2026-04-29T09:59:13.593045 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
-2026-04-29T09:59:13.593072 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_17_NBA_predictions.csv
-2026-04-29T09:59:13.593099 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
-2026-04-29T09:59:13.593126 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
-2026-04-29T09:59:13.593153 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
-2026-04-29T09:59:13.593181 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_17_NBA_predictions.csv
-2026-04-29T09:59:13.593208 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
-2026-04-29T09:59:13.593237 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
-2026-04-29T09:59:13.593264 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
-2026-04-29T09:59:13.593291 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_18_NBA_predictions.csv
-2026-04-29T09:59:13.593318 | [STDOUT]   Saved 10 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
-2026-04-29T09:59:13.593346 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
-2026-04-29T09:59:13.593373 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
-2026-04-29T09:59:13.593400 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
-2026-04-29T09:59:13.593427 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_19_NBA_predictions.csv
-2026-04-29T09:59:13.593454 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
-2026-04-29T09:59:13.593482 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
-2026-04-29T09:59:13.593510 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
-2026-04-29T09:59:13.593537 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
-2026-04-29T09:59:13.593565 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
-2026-04-29T09:59:13.593592 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_20_NBA_predictions.csv
-2026-04-29T09:59:13.593619 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
-2026-04-29T09:59:13.593647 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
-2026-04-29T09:59:13.593675 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
-2026-04-29T09:59:13.593702 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
-2026-04-29T09:59:13.593733 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
-2026-04-29T09:59:13.593761 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
-2026-04-29T09:59:13.593807 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_21_NBA_predictions.csv
-2026-04-29T09:59:13.593835 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
-2026-04-29T09:59:13.593862 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
-2026-04-29T09:59:13.593889 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
-2026-04-29T09:59:13.593917 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
-2026-04-29T09:59:13.593944 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
-2026-04-29T09:59:13.593972 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
-2026-04-29T09:59:13.593999 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_22_NBA_predictions.csv
-2026-04-29T09:59:13.594027 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
-2026-04-29T09:59:13.594054 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
-2026-04-29T09:59:13.594081 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
-2026-04-29T09:59:13.594108 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
-2026-04-29T09:59:13.594135 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
-2026-04-29T09:59:13.594162 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_23_NBA_predictions.csv
-2026-04-29T09:59:13.594189 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
-2026-04-29T09:59:13.594216 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
-2026-04-29T09:59:13.594243 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
-2026-04-29T09:59:13.594271 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
-2026-04-29T09:59:13.594298 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
-2026-04-29T09:59:13.594325 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_24_NBA_predictions.csv
-2026-04-29T09:59:13.594352 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
-2026-04-29T09:59:13.594380 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
-2026-04-29T09:59:13.594406 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
-2026-04-29T09:59:13.594433 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
-2026-04-29T09:59:13.594460 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
-2026-04-29T09:59:13.594487 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
-2026-04-29T09:59:13.594516 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_25_NBA_predictions.csv
-2026-04-29T09:59:13.594541 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
-2026-04-29T09:59:13.594565 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
-2026-04-29T09:59:13.594594 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
-2026-04-29T09:59:13.594622 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
-2026-04-29T09:59:13.594649 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
-2026-04-29T09:59:13.594673 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
-2026-04-29T09:59:13.594698 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_26_NBA_predictions.csv
-2026-04-29T09:59:13.594722 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
-2026-04-29T09:59:13.594746 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
-2026-04-29T09:59:13.594789 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
-2026-04-29T09:59:13.594815 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
-2026-04-29T09:59:13.594844 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
-2026-04-29T09:59:13.594872 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_25_final_scores_NBA.csv
-2026-04-29T09:59:13.594899 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_27_NBA_predictions.csv
-2026-04-29T09:59:13.594926 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
-2026-04-29T09:59:13.594954 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
-2026-04-29T09:59:13.594981 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
-2026-04-29T09:59:13.595008 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_25_final_scores_NBA.csv
-2026-04-29T09:59:13.595036 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_26_final_scores_NBA.csv
-2026-04-29T09:59:13.595062 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_28_NBA_predictions.csv
-2026-04-29T09:59:13.595089 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
-2026-04-29T09:59:13.595116 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
-2026-04-29T09:59:13.595144 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_25_final_scores_NBA.csv
-2026-04-29T09:59:13.595171 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_26_final_scores_NBA.csv
-2026-04-29T09:59:13.595198 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_27_final_scores_NBA.csv
-2026-04-29T09:59:13.595226 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_28_final_scores_NBA.csv
-2026-04-29T09:59:13.595253 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_29_NBA_predictions.csv
-2026-04-29T09:59:13.595280 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
-2026-04-29T09:59:13.595307 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_25_final_scores_NBA.csv
-2026-04-29T09:59:13.595334 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_26_final_scores_NBA.csv
-2026-04-29T09:59:13.595362 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_27_final_scores_NBA.csv
-2026-04-29T09:59:13.595389 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_28_final_scores_NBA.csv
-2026-04-29T09:59:13.595421 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_26_NCAAM_predictions.csv
-2026-04-29T09:59:13.595448 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_22_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595475 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595502 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595529 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_27_NCAAM_predictions.csv
-2026-04-29T09:59:13.595556 | [STDOUT]   Saved 8 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_22_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595583 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595610 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595637 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595664 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_28_NCAAM_predictions.csv
-2026-04-29T09:59:13.595691 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_22_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595718 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595745 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595786 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595815 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595844 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_29_NCAAM_predictions.csv
-2026-04-29T09:59:13.595868 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_22_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595893 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595917 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595941 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595966 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.595990 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596014 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
-2026-04-29T09:59:13.596039 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596063 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596087 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596112 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596136 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596160 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596188 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
-2026-04-29T09:59:13.596212 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596237 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596261 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596285 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596310 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596334 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596358 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
-2026-04-29T09:59:13.596383 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596407 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596431 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596455 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596480 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596504 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596528 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_02_NCAAM_predictions.csv
-2026-04-29T09:59:13.596554 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596578 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596602 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596626 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596651 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596676 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596701 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_04_NCAAM_predictions.csv
-2026-04-29T09:59:13.596726 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596750 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596842 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596886 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596922 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596957 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.596992 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_04_NCAAM_predictions.csv
-2026-04-29T09:59:13.597033 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597068 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597103 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597137 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597172 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597206 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597241 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_05_NCAAM_predictions.csv
-2026-04-29T09:59:13.597275 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597309 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597343 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597378 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597412 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597446 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597481 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_06_NCAAM_predictions.csv
-2026-04-29T09:59:13.597516 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597550 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597585 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597619 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597653 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597687 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597721 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597756 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597820 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597856 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597891 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597926 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597959 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.597993 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598028 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598062 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598101 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598136 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598171 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598206 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598239 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598274 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598309 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598343 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598379 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598414 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598449 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598484 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598519 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598554 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598588 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598622 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598656 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598691 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598726 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598760 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598818 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598853 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598887 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598922 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598956 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.598990 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599024 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599059 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599092 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599131 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599166 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599201 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599237 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599275 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599309 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599344 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599378 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599412 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599447 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599481 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599515 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599549 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599583 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599617 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599653 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599687 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599721 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599756 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599807 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599846 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599882 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599916 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599950 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.599984 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600018 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600053 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600087 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600122 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600160 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600195 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600229 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600263 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600298 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600332 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600375 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600411 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600445 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600480 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600515 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600549 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600584 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600618 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600652 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600686 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600720 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600754 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600817 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600857 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600893 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600928 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600963 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.600999 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601033 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601067 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601102 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601136 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601170 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601206 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601245 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601281 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601315 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601350 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601384 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601419 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601453 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601488 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601522 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601556 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601591 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601625 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601659 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601693 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601728 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601762 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601821 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601857 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601892 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601926 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601962 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.601997 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602031 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602065 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602102 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602137 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602171 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602205 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602241 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602287 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602323 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602358 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602394 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602428 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602462 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602496 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602530 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602563 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602598 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602632 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602666 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602700 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602735 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602783 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602822 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602859 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602896 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602935 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.602975 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603013 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603052 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603086 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603121 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603156 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603189 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603224 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603256 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603292 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603331 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603367 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603402 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603436 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603471 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
-2026-04-29T09:59:13.603506 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_18_final_scores_WNBA.csv
-2026-04-29T09:59:13.603540 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_19_final_scores_WNBA.csv
-2026-04-29T09:59:13.603575 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_21_final_scores_WNBA.csv
-2026-04-29T09:59:13.603608 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_23_final_scores_WNBA.csv
-2026-04-29T09:59:13.603642 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_26_final_scores_WNBA.csv
-2026-04-29T09:59:13.603677 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_28_final_scores_WNBA.csv
-2026-04-29T09:59:13.603711 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_30_final_scores_WNBA.csv
-2026-04-29T09:59:13.603745 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_03_final_scores_WNBA.csv
-2026-04-29T09:59:13.603798 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_05_final_scores_WNBA.csv
-2026-04-29T09:59:13.603836 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_08_final_scores_WNBA.csv
-2026-04-29T09:59:13.603871 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_10_final_scores_WNBA.csv
-2026-04-29T09:59:13.603905 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_18_final_scores_WNBA.csv
-2026-04-29T09:59:13.603938 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_19_final_scores_WNBA.csv
-2026-04-29T09:59:13.603973 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_21_final_scores_WNBA.csv
-2026-04-29T09:59:13.604007 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_23_final_scores_WNBA.csv
-2026-04-29T09:59:13.604041 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_26_final_scores_WNBA.csv
-2026-04-29T09:59:13.604078 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_28_final_scores_WNBA.csv
-2026-04-29T09:59:13.604113 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_30_final_scores_WNBA.csv
-2026-04-29T09:59:13.604147 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_03_final_scores_WNBA.csv
-2026-04-29T09:59:13.604181 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_05_final_scores_WNBA.csv
-2026-04-29T09:59:13.604216 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_08_final_scores_WNBA.csv
-2026-04-29T09:59:13.604250 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_10_final_scores_WNBA.csv
-2026-04-29T09:59:13.604284 | [STDOUT] 
-2026-04-29T09:59:13.604319 | [STDOUT] Done.
-2026-04-29T09:59:13.604368 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/transform_basketball.py
-2026-04-29T09:59:13.605183 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/nba pattern=*_NBA_predictions.csv count=180
-2026-04-29T09:59:13.605796 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/ncaam pattern=*_NCAAM_predictions.csv count=130
-2026-04-29T09:59:13.606294 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/wnba pattern=*_WNBA_predictions.csv count=114
-2026-04-29T09:59:13.606357 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_name_normalization.py
-2026-04-29T09:59:13.772267 | [STDOUT] Basketball name normalization complete.
-2026-04-29T09:59:13.772343 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_name_normalization.py
-2026-04-29T09:59:13.772409 | CHECK OK file_exists: mappings/basketball/no_map/no_map_basketball.csv
-2026-04-29T09:59:13.772449 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/name_normalization.txt
-2026-04-29T09:59:13.772490 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/condensed_summary.txt
-2026-04-29T09:59:13.772523 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_daily_games.py
-2026-04-29T09:59:13.963605 | [STDOUT] Basketball daily games complete.
-2026-04-29T09:59:13.963682 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_daily_games.py
-2026-04-29T09:59:13.964336 | CHECK OK glob_count: docs/win/basketball/daily_games/nba pattern=*_NBA.csv count=180
-2026-04-29T09:59:13.964784 | CHECK OK glob_count: docs/win/basketball/daily_games/ncaam pattern=*_NCAAM.csv count=127
-2026-04-29T09:59:13.965172 | CHECK OK glob_count: docs/win/basketball/daily_games/wnba pattern=*_WNBA.csv count=114
-2026-04-29T09:59:13.965243 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_game_id.py
-2026-04-29T09:59:14.163201 | [STDOUT] Basketball game_id injection complete.
-2026-04-29T09:59:14.163282 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_game_id.py
-2026-04-29T09:59:14.176824 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/nba pattern=*.csv files=180 required_columns=['game_id', 'game_time']
-2026-04-29T09:59:14.203408 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/ncaam pattern=*.csv files=130 required_columns=['game_id', 'game_time']
-2026-04-29T09:59:14.209349 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/wnba pattern=*.csv files=114 required_columns=['game_id', 'game_time']
-2026-04-29T09:59:14.220801 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/nba pattern=*_final_scores_*.csv files=179 required_columns=['game_id']
-2026-04-29T09:59:14.249197 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/ncaam pattern=*_final_scores_*.csv files=146 required_columns=['game_id']
-2026-04-29T09:59:14.255100 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/wnba pattern=*_final_scores_*.csv files=114 required_columns=['game_id']
-2026-04-29T09:59:14.255160 | --- SUMMARY ---
-2026-04-29T09:59:14.255198 | Jobs requested: 8
-2026-04-29T09:59:14.255228 | Jobs completed: 8
-2026-04-29T09:59:14.255256 | STATUS: SUCCESS
+=== 00_intake_basketball RUN 2026-04-29T15:15:46.145326 ===
+2026-04-29T15:15:46.145395 | MASTER SCRIPT START
+2026-04-29T15:15:46.145462 | TODAY = 2026_04_29
+2026-04-29T15:15:46.145535 | ENSURED DIR: docs/win/basketball/errors/00_intake
+2026-04-29T15:15:46.145605 | ENSURED DIR: docs/win/basketball/odds/ncaam
+2026-04-29T15:15:46.145680 | ENSURED DIR: docs/win/basketball/odds/wnba
+2026-04-29T15:15:46.145770 | ENSURED DIR: docs/win/basketball/00_intake/predictions/nba
+2026-04-29T15:15:46.145845 | ENSURED DIR: docs/win/basketball/00_intake/predictions/ncaam
+2026-04-29T15:15:46.145918 | ENSURED DIR: docs/win/basketball/00_intake/predictions/wnba
+2026-04-29T15:15:46.146001 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/wnba
+2026-04-29T15:15:46.146080 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/ncaam
+2026-04-29T15:15:46.146135 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/nba
+2026-04-29T15:15:46.146206 | ENSURED DIR: docs/win/basketball/05_final_scores/results/nba
+2026-04-29T15:15:46.146277 | ENSURED DIR: docs/win/basketball/05_final_scores/results/ncaam
+2026-04-29T15:15:46.146345 | ENSURED DIR: docs/win/basketball/05_final_scores/results/wnba
+2026-04-29T15:15:46.146413 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/nba
+2026-04-29T15:15:46.146491 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/ncaam
+2026-04-29T15:15:46.146558 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/wnba
+2026-04-29T15:15:46.146624 | ENSURED DIR: docs/win/basketball/daily_games/wnba
+2026-04-29T15:15:46.146717 | ENSURED DIR: docs/win/basketball/daily_games/nba
+2026-04-29T15:15:46.146781 | ENSURED DIR: docs/win/basketball/daily_games/ncaam
+2026-04-29T15:15:46.146870 | SKIPPED: docs/win/basketball/scripts/00_intake/cloudbet_ncaam_wnba_odds_pull.py
+2026-04-29T15:15:46.146927 | SKIPPED: docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba_ncaam.py
+2026-04-29T15:15:46.146980 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py
+2026-04-29T15:15:46.241524 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py
+2026-04-29T15:15:46.242193 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/nba pattern=*_NBA_odds.csv count=180
+2026-04-29T15:15:46.242275 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py
+2026-04-29T15:16:00.845922 | [STDOUT] Basketball drat scraper complete.
+2026-04-29T15:16:00.846020 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py
+2026-04-29T15:16:00.846102 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/nba/2026_04_29_nba_raw.json
+2026-04-29T15:16:00.846162 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/ncaam/2026_04_29_ncaam_raw.json
+2026-04-29T15:16:00.846217 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/wnba/2026_04_29_wnba_raw.json
+2026-04-29T15:16:00.848038 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/nba/2026_04_29_nba_raw.json rows=19
+2026-04-29T15:16:00.848231 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/ncaam/2026_04_29_ncaam_raw.json rows=16
+2026-04-29T15:16:00.848413 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/wnba/2026_04_29_wnba_raw.json rows=16
+2026-04-29T15:16:00.848502 | START SCRIPT: docs/win/basketball/scripts/00_intake/transform_basketball.py
+2026-04-29T15:16:02.243497 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_26_NBA_predictions.csv
+2026-04-29T15:16:02.243601 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_24_final_scores_NBA.csv
+2026-04-29T15:16:02.243651 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_25_final_scores_NBA.csv
+2026-04-29T15:16:02.243788 | [STDOUT]   Saved 10 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_27_NBA_predictions.csv
+2026-04-29T15:16:02.243838 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_24_final_scores_NBA.csv
+2026-04-29T15:16:02.243878 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_25_final_scores_NBA.csv
+2026-04-29T15:16:02.243933 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_26_final_scores_NBA.csv
+2026-04-29T15:16:02.243972 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_28_NBA_predictions.csv
+2026-04-29T15:16:02.244003 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_25_final_scores_NBA.csv
+2026-04-29T15:16:02.244031 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_26_final_scores_NBA.csv
+2026-04-29T15:16:02.244060 | [STDOUT]   Saved 10 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_27_final_scores_NBA.csv
+2026-04-29T15:16:02.244088 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_29_NBA_predictions.csv
+2026-04-29T15:16:02.244116 | [STDOUT]   Saved 10 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_27_final_scores_NBA.csv
+2026-04-29T15:16:02.244144 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_28_final_scores_NBA.csv
+2026-04-29T15:16:02.244172 | [STDOUT]   Saved 7 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_30_NBA_predictions.csv
+2026-04-29T15:16:02.244199 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_27_final_scores_NBA.csv
+2026-04-29T15:16:02.244226 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_28_final_scores_NBA.csv
+2026-04-29T15:16:02.244254 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_29_final_scores_NBA.csv
+2026-04-29T15:16:02.244281 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_31_NBA_predictions.csv
+2026-04-29T15:16:02.244310 | [STDOUT]   Saved 8 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_29_final_scores_NBA.csv
+2026-04-29T15:16:02.244346 | [STDOUT]   Saved 8 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_30_final_scores_NBA.csv
+2026-04-29T15:16:02.244382 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_01_NBA_predictions.csv
+2026-04-29T15:16:02.244419 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_29_final_scores_NBA.csv
+2026-04-29T15:16:02.244458 | [STDOUT]   Saved 8 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_30_final_scores_NBA.csv
+2026-04-29T15:16:02.244511 | [STDOUT]   Saved 7 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_31_final_scores_NBA.csv
+2026-04-29T15:16:02.244563 | [STDOUT]   Saved 6 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_02_NBA_predictions.csv
+2026-04-29T15:16:02.244612 | [STDOUT]   Saved 7 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_31_final_scores_NBA.csv
+2026-04-29T15:16:02.244657 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_01_final_scores_NBA.csv
+2026-04-29T15:16:02.244730 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_03_NBA_predictions.csv
+2026-04-29T15:16:02.244784 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_03_31_final_scores_NBA.csv
+2026-04-29T15:16:02.244834 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_01_final_scores_NBA.csv
+2026-04-29T15:16:02.244883 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_02_final_scores_NBA.csv
+2026-04-29T15:16:02.244933 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_04_NBA_predictions.csv
+2026-04-29T15:16:02.244982 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_01_final_scores_NBA.csv
+2026-04-29T15:16:02.245032 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_02_final_scores_NBA.csv
+2026-04-29T15:16:02.245081 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_03_final_scores_NBA.csv
+2026-04-29T15:16:02.245139 | [STDOUT]   Saved 10 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_05_NBA_predictions.csv
+2026-04-29T15:16:02.245189 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_02_final_scores_NBA.csv
+2026-04-29T15:16:02.245238 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_03_final_scores_NBA.csv
+2026-04-29T15:16:02.245274 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_04_final_scores_NBA.csv
+2026-04-29T15:16:02.245301 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_06_NBA_predictions.csv
+2026-04-29T15:16:02.245329 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_03_final_scores_NBA.csv
+2026-04-29T15:16:02.245350 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_04_final_scores_NBA.csv
+2026-04-29T15:16:02.245369 | [STDOUT]   Saved 11 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_05_final_scores_NBA.csv
+2026-04-29T15:16:02.245387 | [STDOUT]   Saved 9 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_07_NBA_predictions.csv
+2026-04-29T15:16:02.245404 | [STDOUT]   Saved 11 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_05_final_scores_NBA.csv
+2026-04-29T15:16:02.245422 | [STDOUT]   Saved 5 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_06_final_scores_NBA.csv
+2026-04-29T15:16:02.245440 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_08_NBA_predictions.csv
+2026-04-29T15:16:02.245457 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_05_final_scores_NBA.csv
+2026-04-29T15:16:02.245474 | [STDOUT]   Saved 5 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_06_final_scores_NBA.csv
+2026-04-29T15:16:02.245491 | [STDOUT]   Saved 10 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_07_final_scores_NBA.csv
+2026-04-29T15:16:02.245508 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_09_NBA_predictions.csv
+2026-04-29T15:16:02.245526 | [STDOUT]   Saved 9 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_07_final_scores_NBA.csv
+2026-04-29T15:16:02.245544 | [STDOUT]   Saved 7 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_08_final_scores_NBA.csv
+2026-04-29T15:16:02.245562 | [STDOUT]   Saved 14 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_10_NBA_predictions.csv
+2026-04-29T15:16:02.245579 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_07_final_scores_NBA.csv
+2026-04-29T15:16:02.245597 | [STDOUT]   Saved 7 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_08_final_scores_NBA.csv
+2026-04-29T15:16:02.245615 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_09_final_scores_NBA.csv
+2026-04-29T15:16:02.245633 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_09_final_scores_NBA.csv
+2026-04-29T15:16:02.245650 | [STDOUT]   Saved 15 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_10_final_scores_NBA.csv
+2026-04-29T15:16:02.245668 | [STDOUT]   Saved 14 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_12_NBA_predictions.csv
+2026-04-29T15:16:02.245686 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_09_final_scores_NBA.csv
+2026-04-29T15:16:02.245762 | [STDOUT]   Saved 15 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_10_final_scores_NBA.csv
+2026-04-29T15:16:02.245812 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_14_NBA_predictions.csv
+2026-04-29T15:16:02.245855 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_10_final_scores_NBA.csv
+2026-04-29T15:16:02.245898 | [STDOUT]   Saved 15 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
+2026-04-29T15:16:02.245946 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_14_NBA_predictions.csv
+2026-04-29T15:16:02.245990 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_10_final_scores_NBA.csv
+2026-04-29T15:16:02.246032 | [STDOUT]   Saved 15 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
+2026-04-29T15:16:02.246073 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_15_NBA_predictions.csv
+2026-04-29T15:16:02.246114 | [STDOUT]   Saved 14 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
+2026-04-29T15:16:02.246156 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
+2026-04-29T15:16:02.246196 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_17_NBA_predictions.csv
+2026-04-29T15:16:02.246236 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
+2026-04-29T15:16:02.246275 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
+2026-04-29T15:16:02.246314 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
+2026-04-29T15:16:02.246354 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_17_NBA_predictions.csv
+2026-04-29T15:16:02.246395 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
+2026-04-29T15:16:02.246435 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
+2026-04-29T15:16:02.246475 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
+2026-04-29T15:16:02.246515 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_18_NBA_predictions.csv
+2026-04-29T15:16:02.246554 | [STDOUT]   Saved 10 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
+2026-04-29T15:16:02.246594 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
+2026-04-29T15:16:02.246634 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
+2026-04-29T15:16:02.246674 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
+2026-04-29T15:16:02.246738 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_19_NBA_predictions.csv
+2026-04-29T15:16:02.246781 | [STDOUT]   Saved 6 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
+2026-04-29T15:16:02.246821 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
+2026-04-29T15:16:02.246861 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
+2026-04-29T15:16:02.246901 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
+2026-04-29T15:16:02.246940 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
+2026-04-29T15:16:02.246980 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_20_NBA_predictions.csv
+2026-04-29T15:16:02.247020 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_12_final_scores_NBA.csv
+2026-04-29T15:16:02.247060 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
+2026-04-29T15:16:02.247100 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
+2026-04-29T15:16:02.247140 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
+2026-04-29T15:16:02.247186 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
+2026-04-29T15:16:02.247228 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
+2026-04-29T15:16:02.247268 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_21_NBA_predictions.csv
+2026-04-29T15:16:02.247310 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_14_final_scores_NBA.csv
+2026-04-29T15:16:02.247351 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_15_final_scores_NBA.csv
+2026-04-29T15:16:02.247391 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
+2026-04-29T15:16:02.247431 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
+2026-04-29T15:16:02.247471 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
+2026-04-29T15:16:02.247511 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
+2026-04-29T15:16:02.247550 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_22_NBA_predictions.csv
+2026-04-29T15:16:02.247591 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_17_final_scores_NBA.csv
+2026-04-29T15:16:02.247631 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
+2026-04-29T15:16:02.247672 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
+2026-04-29T15:16:02.247760 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
+2026-04-29T15:16:02.247804 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
+2026-04-29T15:16:02.247844 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_23_NBA_predictions.csv
+2026-04-29T15:16:02.247885 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
+2026-04-29T15:16:02.247924 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
+2026-04-29T15:16:02.247964 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
+2026-04-29T15:16:02.248004 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
+2026-04-29T15:16:02.248043 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
+2026-04-29T15:16:02.248082 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_24_NBA_predictions.csv
+2026-04-29T15:16:02.248122 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_18_final_scores_NBA.csv
+2026-04-29T15:16:02.248161 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
+2026-04-29T15:16:02.248201 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
+2026-04-29T15:16:02.248241 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
+2026-04-29T15:16:02.248282 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
+2026-04-29T15:16:02.248323 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
+2026-04-29T15:16:02.248362 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_25_NBA_predictions.csv
+2026-04-29T15:16:02.248401 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_19_final_scores_NBA.csv
+2026-04-29T15:16:02.248441 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
+2026-04-29T15:16:02.248485 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
+2026-04-29T15:16:02.248526 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
+2026-04-29T15:16:02.248566 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
+2026-04-29T15:16:02.248605 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
+2026-04-29T15:16:02.248644 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_26_NBA_predictions.csv
+2026-04-29T15:16:02.248683 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_20_final_scores_NBA.csv
+2026-04-29T15:16:02.248747 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_21_final_scores_NBA.csv
+2026-04-29T15:16:02.248790 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
+2026-04-29T15:16:02.248830 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
+2026-04-29T15:16:02.248870 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
+2026-04-29T15:16:02.248909 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_25_final_scores_NBA.csv
+2026-04-29T15:16:02.248948 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_27_NBA_predictions.csv
+2026-04-29T15:16:02.248987 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_22_final_scores_NBA.csv
+2026-04-29T15:16:02.249026 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
+2026-04-29T15:16:02.249066 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
+2026-04-29T15:16:02.249106 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_25_final_scores_NBA.csv
+2026-04-29T15:16:02.249145 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_26_final_scores_NBA.csv
+2026-04-29T15:16:02.249186 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_28_NBA_predictions.csv
+2026-04-29T15:16:02.249226 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_23_final_scores_NBA.csv
+2026-04-29T15:16:02.249266 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
+2026-04-29T15:16:02.249306 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_25_final_scores_NBA.csv
+2026-04-29T15:16:02.249347 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_26_final_scores_NBA.csv
+2026-04-29T15:16:02.249387 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_27_final_scores_NBA.csv
+2026-04-29T15:16:02.249426 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_28_final_scores_NBA.csv
+2026-04-29T15:16:02.249466 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_29_NBA_predictions.csv
+2026-04-29T15:16:02.249505 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_24_final_scores_NBA.csv
+2026-04-29T15:16:02.249545 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_25_final_scores_NBA.csv
+2026-04-29T15:16:02.249585 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_26_final_scores_NBA.csv
+2026-04-29T15:16:02.249624 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_27_final_scores_NBA.csv
+2026-04-29T15:16:02.249664 | [STDOUT]   Saved 3 rows -> docs/win/basketball/05_final_scores/results/nba/2026_04_28_final_scores_NBA.csv
+2026-04-29T15:16:02.249735 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_26_NCAAM_predictions.csv
+2026-04-29T15:16:02.249779 | [STDOUT]   Saved 12 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_22_final_scores_NCAAM.csv
+2026-04-29T15:16:02.249819 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
+2026-04-29T15:16:02.249859 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
+2026-04-29T15:16:02.249899 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_27_NCAAM_predictions.csv
+2026-04-29T15:16:02.249939 | [STDOUT]   Saved 8 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_22_final_scores_NCAAM.csv
+2026-04-29T15:16:02.249978 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250017 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250057 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250098 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_28_NCAAM_predictions.csv
+2026-04-29T15:16:02.250138 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_22_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250178 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250219 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250259 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250298 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250338 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_29_NCAAM_predictions.csv
+2026-04-29T15:16:02.250378 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_22_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250418 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250457 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250497 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250537 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250576 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250616 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
+2026-04-29T15:16:02.250655 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250719 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250762 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250803 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250843 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250883 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.250928 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
+2026-04-29T15:16:02.250970 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251010 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251049 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251089 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251128 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251168 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251208 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
+2026-04-29T15:16:02.251248 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_24_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251288 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251327 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251368 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251407 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251447 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251487 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_02_NCAAM_predictions.csv
+2026-04-29T15:16:02.251526 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_25_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251566 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251606 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251645 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251685 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251747 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251788 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_04_NCAAM_predictions.csv
+2026-04-29T15:16:02.251828 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251868 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251907 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251947 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.251986 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252025 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252065 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_04_NCAAM_predictions.csv
+2026-04-29T15:16:02.252109 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_26_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252150 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252190 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252229 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252269 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252309 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252348 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_05_NCAAM_predictions.csv
+2026-04-29T15:16:02.252388 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_27_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252428 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252468 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252507 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252546 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252585 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252625 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_06_NCAAM_predictions.csv
+2026-04-29T15:16:02.252664 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252730 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252782 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252829 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252876 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252923 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.252970 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253017 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253064 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253111 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253159 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253205 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253251 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253298 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253345 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253392 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253445 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253494 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253541 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253588 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253635 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253682 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253742 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253789 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253836 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253882 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253929 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.253976 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254024 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254082 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254119 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254171 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254217 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254257 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254294 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254325 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254353 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254381 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254409 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254436 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254464 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254492 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254520 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254547 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254574 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254608 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254637 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254669 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254717 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254751 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254772 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254790 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254807 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254825 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254843 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254860 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254877 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254895 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254912 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254929 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254947 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254966 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.254983 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255001 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255018 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255036 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255053 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255070 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255087 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255105 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255122 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255139 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255156 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255173 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255195 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255214 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255232 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255250 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255267 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255285 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255303 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255320 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255338 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255355 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255373 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255390 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255408 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255425 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255443 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255460 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255478 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255496 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255514 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255531 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255548 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255566 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255583 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255601 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255618 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255637 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255655 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255672 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255690 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255747 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255773 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255793 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255811 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255829 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255846 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255864 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255881 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255898 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255916 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255933 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255951 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255968 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.255986 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256003 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256021 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256039 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256057 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256075 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256092 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256109 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256127 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256144 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256161 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256179 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256196 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256213 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256231 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256248 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256266 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256287 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256306 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256324 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256341 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256359 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256376 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256393 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256410 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256428 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256445 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256462 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256479 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256496 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256513 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256531 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256549 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256566 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256583 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256601 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256618 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256635 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256652 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256669 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256687 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256791 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256834 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256874 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256913 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_28_final_scores_NCAAM.csv
+2026-04-29T15:16:02.256962 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_03_29_final_scores_NCAAM.csv
+2026-04-29T15:16:02.257022 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_01_final_scores_NCAAM.csv
+2026-04-29T15:16:02.257073 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_02_final_scores_NCAAM.csv
+2026-04-29T15:16:02.257117 | [STDOUT]   Saved 4 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_04_final_scores_NCAAM.csv
+2026-04-29T15:16:02.257159 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_05_final_scores_NCAAM.csv
+2026-04-29T15:16:02.257207 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/ncaam/2026_04_06_final_scores_NCAAM.csv
+2026-04-29T15:16:02.257247 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_18_final_scores_WNBA.csv
+2026-04-29T15:16:02.257269 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_19_final_scores_WNBA.csv
+2026-04-29T15:16:02.257288 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_21_final_scores_WNBA.csv
+2026-04-29T15:16:02.257308 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_23_final_scores_WNBA.csv
+2026-04-29T15:16:02.257326 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_26_final_scores_WNBA.csv
+2026-04-29T15:16:02.257344 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_28_final_scores_WNBA.csv
+2026-04-29T15:16:02.257362 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_30_final_scores_WNBA.csv
+2026-04-29T15:16:02.257380 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_03_final_scores_WNBA.csv
+2026-04-29T15:16:02.257398 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_05_final_scores_WNBA.csv
+2026-04-29T15:16:02.257415 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_08_final_scores_WNBA.csv
+2026-04-29T15:16:02.257433 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_10_final_scores_WNBA.csv
+2026-04-29T15:16:02.257450 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_18_final_scores_WNBA.csv
+2026-04-29T15:16:02.257468 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_19_final_scores_WNBA.csv
+2026-04-29T15:16:02.257485 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_21_final_scores_WNBA.csv
+2026-04-29T15:16:02.257503 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_23_final_scores_WNBA.csv
+2026-04-29T15:16:02.257520 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_26_final_scores_WNBA.csv
+2026-04-29T15:16:02.257538 | [STDOUT]   Saved 2 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_28_final_scores_WNBA.csv
+2026-04-29T15:16:02.257555 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_09_30_final_scores_WNBA.csv
+2026-04-29T15:16:02.257573 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_03_final_scores_WNBA.csv
+2026-04-29T15:16:02.257590 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_05_final_scores_WNBA.csv
+2026-04-29T15:16:02.257607 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_08_final_scores_WNBA.csv
+2026-04-29T15:16:02.257625 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/wnba/2025_10_10_final_scores_WNBA.csv
+2026-04-29T15:16:02.257643 | [STDOUT] 
+2026-04-29T15:16:02.257661 | [STDOUT] Done.
+2026-04-29T15:16:02.257685 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/transform_basketball.py
+2026-04-29T15:16:02.258251 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/nba pattern=*_NBA_predictions.csv count=180
+2026-04-29T15:16:02.258646 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/ncaam pattern=*_NCAAM_predictions.csv count=130
+2026-04-29T15:16:02.259068 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/wnba pattern=*_WNBA_predictions.csv count=114
+2026-04-29T15:16:02.259149 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_name_normalization.py
+2026-04-29T15:16:02.442095 | [STDOUT] Basketball name normalization complete.
+2026-04-29T15:16:02.442196 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_name_normalization.py
+2026-04-29T15:16:02.442280 | CHECK OK file_exists: mappings/basketball/no_map/no_map_basketball.csv
+2026-04-29T15:16:02.442368 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/name_normalization.txt
+2026-04-29T15:16:02.442444 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/condensed_summary.txt
+2026-04-29T15:16:02.442509 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_daily_games.py
+2026-04-29T15:16:02.632116 | [STDOUT] Basketball daily games complete.
+2026-04-29T15:16:02.632206 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_daily_games.py
+2026-04-29T15:16:02.632796 | CHECK OK glob_count: docs/win/basketball/daily_games/nba pattern=*_NBA.csv count=180
+2026-04-29T15:16:02.633199 | CHECK OK glob_count: docs/win/basketball/daily_games/ncaam pattern=*_NCAAM.csv count=127
+2026-04-29T15:16:02.633556 | CHECK OK glob_count: docs/win/basketball/daily_games/wnba pattern=*_WNBA.csv count=114
+2026-04-29T15:16:02.633633 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_game_id.py
+2026-04-29T15:16:02.838962 | [STDOUT] Basketball game_id injection complete.
+2026-04-29T15:16:02.839047 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_game_id.py
+2026-04-29T15:16:02.852714 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/nba pattern=*.csv files=180 required_columns=['game_id', 'game_time']
+2026-04-29T15:16:02.876952 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/ncaam pattern=*.csv files=130 required_columns=['game_id', 'game_time']
+2026-04-29T15:16:02.883147 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/wnba pattern=*.csv files=114 required_columns=['game_id', 'game_time']
+2026-04-29T15:16:02.895235 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/nba pattern=*_final_scores_*.csv files=179 required_columns=['game_id']
+2026-04-29T15:16:02.921490 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/ncaam pattern=*_final_scores_*.csv files=146 required_columns=['game_id']
+2026-04-29T15:16:02.927560 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/wnba pattern=*_final_scores_*.csv files=114 required_columns=['game_id']
+2026-04-29T15:16:02.927641 | --- SUMMARY ---
+2026-04-29T15:16:02.927714 | Jobs requested: 8
+2026-04-29T15:16:02.927762 | Jobs completed: 8
+2026-04-29T15:16:02.927818 | STATUS: SUCCESS
