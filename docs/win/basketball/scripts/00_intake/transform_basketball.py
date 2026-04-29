@@ -60,10 +60,14 @@ def parse_date(date_str: str) -> str:
 
 
 def parse_time(date_str: str) -> str:
-    parts = date_str.strip().split(" ")
-    if len(parts) >= 2:
-        return " ".join(parts[1:])
-    return ""
+    try:
+        dt = datetime.strptime(date_str.strip(), "%m/%d/%Y %I:%M %p")
+        return dt.strftime("%I:%M %p")
+    except ValueError:
+        parts = date_str.strip().split(" ")
+        if len(parts) >= 2:
+            return " ".join(parts[1:])
+        return ""
 
 
 def strip_record(name: str) -> str:
