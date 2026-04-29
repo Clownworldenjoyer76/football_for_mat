@@ -212,7 +212,7 @@ def process_spread(df: pd.DataFrame, date: str, league_upper: str, settings: dic
     for _, row in spread_df.iterrows():
         try:
             mean_margin = float(row["home_projected_points"]) - float(row["away_projected_points"])
-            home_line   = float(row["home_dk_spread_american"])
+            home_line   = float(row["home_spread"])
         except (ValueError, TypeError):
             fair_home.append("")
             fair_away.append("")
