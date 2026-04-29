@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 # docs/win/basketball/scripts/00_intake/clean_basketball_inputs.py
+#
+# Reads originals from:
+#   docs/win/basketball/00_intake/predictions/{league}/
+#   docs/win/basketball/00_intake/sportsbook/{league}/
+#
+# Writes cleaned copies to:
+#   docs/win/basketball/00_intake/predictions/predictions_cleaned/{league}/
+#   docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/{league}/
+#
+# Originals are never mutated. Filenames are preserved.
 
 import csv
-import math
 import traceback
 from pathlib import Path
 from datetime import datetime
@@ -21,6 +30,18 @@ SPORTSBOOK_DIRS = {
     "NBA": Path("docs/win/basketball/00_intake/sportsbook/nba"),
     "NCAAM": Path("docs/win/basketball/00_intake/sportsbook/ncaam"),
     "WNBA": Path("docs/win/basketball/00_intake/sportsbook/wnba"),
+}
+
+CLEANED_PREDICTION_DIRS = {
+    "NBA": Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/nba"),
+    "NCAAM": Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/ncaam"),
+    "WNBA": Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/wnba"),
+}
+
+CLEANED_SPORTSBOOK_DIRS = {
+    "NBA": Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/nba"),
+    "NCAAM": Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/ncaam"),
+    "WNBA": Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/wnba"),
 }
 
 ERROR_DIR = Path("docs/win/basketball/errors/00_intake")
@@ -50,8 +71,7 @@ TOTAL_BIAS = {
 }
 
 # Sentinel column written into prediction rows after biases are applied.
-# Rows containing this flag are skipped on subsequent runs to prevent
-# bias stacking.
+# Acts as a marker that the row has been processed by this cleaner.
 BIAS_FLAG_COLUMN = "bias_applied"
 BIAS_FLAG_VALUE = "1"
 
@@ -100,6 +120,7 @@ def read_csv(path: Path):
     return fieldnames, rows
 
 def write_csv(path: Path, fieldnames, rows):
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
@@ -112,20 +133,31 @@ def csv_files(folder: Path):
     return sorted(folder.rglob("*.csv"))
 
 # =========================
-# STEP 1: DROP BAD NCAAM MONEYLINE ODDS
+# LOAD ALL ORIGINALS INTO MEMORY
 # =========================
-# A row is dropped if EITHER:
-#   - the implied book hold falls outside [MIN, MAX], OR
-#   - the decimal odds are missing / unparseable / <= 1
-#     (these can no longer pass through silently)
+# Returns: { league: { path: [fieldnames, rows] } }
 
-def clean_bad_ncaam_moneyline_rows():
+def load_all(dir_map):
+    loaded = {}
+    for league, folder in dir_map.items():
+        loaded[league] = {}
+        for path in csv_files(folder):
+            fieldnames, rows = read_csv(path)
+            loaded[league][path] = [fieldnames, rows]
+    return loaded
+
+# =========================
+# STEP 1: DROP BAD NCAAM MONEYLINE ROWS (IN MEMORY)
+# =========================
+# Drops a row if EITHER:
+#   - decimals are missing / unparseable / <= 1, OR
+#   - implied book hold is outside [MIN, MAX]
+
+def drop_bad_ncaam_moneyline(book_files_ncaam):
     removed = 0
 
-    folder = SPORTSBOOK_DIRS["NCAAM"]
-
-    for path in csv_files(folder):
-        fieldnames, rows = read_csv(path)
+    for path, data in book_files_ncaam.items():
+        fieldnames, rows = data
 
         if not {
             "home_dk_moneyline_decimal",
@@ -134,14 +166,15 @@ def clean_bad_ncaam_moneyline_rows():
             continue
 
         kept = []
+        file_removed = 0
 
         for row in rows:
             home_dec = to_float(row.get("home_dk_moneyline_decimal"))
             away_dec = to_float(row.get("away_dk_moneyline_decimal"))
 
-            # Reject malformed decimals outright.
             if home_dec is None or away_dec is None or home_dec <= 1 or away_dec <= 1:
                 removed += 1
+                file_removed += 1
                 log(
                     f"DROP_BAD_ML_MALFORMED | {path} | {row_key(row)} | "
                     f"home_dec={row.get('home_dk_moneyline_decimal')!r} "
@@ -153,6 +186,7 @@ def clean_bad_ncaam_moneyline_rows():
 
             if hold < MONEYLINE_HOLD_MIN or hold > MONEYLINE_HOLD_MAX:
                 removed += 1
+                file_removed += 1
                 log(
                     f"DROP_BAD_ML_HOLD | {path} | {row_key(row)} | "
                     f"home_dec={home_dec} away_dec={away_dec} hold={round(hold, 6)}"
@@ -161,55 +195,37 @@ def clean_bad_ncaam_moneyline_rows():
 
             kept.append(row)
 
-        if len(kept) != len(rows):
-            write_csv(path, fieldnames, kept)
-            log(f"UPDATED | {path} | removed_bad_ml={len(rows) - len(kept)}")
+        if file_removed:
+            data[1] = kept
+            log(f"FILTERED | {path} | removed_bad_ml={file_removed}")
 
     return removed
 
 # =========================
-# STEP 2: BUILD ROW INDEXES
+# STEP 2: BUILD INDEXES FROM IN-MEMORY DATA
 # =========================
 
-def load_prediction_index():
+def build_pred_index(pred_files):
     index = {}
-    file_rows = {}
-
-    for league, folder in PREDICTION_DIRS.items():
-        for path in csv_files(folder):
-            fieldnames, rows = read_csv(path)
-            file_rows[path] = [fieldnames, rows]
-
+    for league, files in pred_files.items():
+        for path, (fieldnames, rows) in files.items():
             for row in rows:
                 key = row_key(row)
                 if key:
-                    index[key] = {
-                        "league": league,
-                        "path": path,
-                        "row": row,
-                    }
+                    index[key] = {"league": league, "path": path, "row": row}
+    return index
 
-    return index, file_rows
-
-def load_sportsbook_index():
+def build_book_index(book_files):
     index = {}
-    file_rows = {}
-
-    for league, folder in SPORTSBOOK_DIRS.items():
-        for path in csv_files(folder):
-            fieldnames, rows = read_csv(path)
-            file_rows[path] = [fieldnames, rows]
-
+    for league, files in book_files.items():
+        for path, (fieldnames, rows) in files.items():
             for row in rows:
                 key = row_key(row)
                 if key:
-                    index.setdefault(key, []).append({
-                        "league": league,
-                        "path": path,
-                        "row": row,
-                    })
-
-    return index, file_rows
+                    index.setdefault(key, []).append(
+                        {"league": league, "path": path, "row": row}
+                    )
+    return index
 
 # =========================
 # STEP 3: FIND MODEL VS BOOK OUTLIERS
@@ -260,78 +276,80 @@ def find_outlier_keys(pred_index, book_index):
     return drop_keys
 
 # =========================
-# STEP 4: DROP OUTLIERS FROM BOTH
+# STEP 4: DROP OUTLIER KEYS FROM IN-MEMORY DATA
 # =========================
 
-def drop_keys_from_files(file_rows, drop_keys, label):
+def drop_outlier_keys(loaded_files, drop_keys, label):
     removed = 0
 
-    for path, data in file_rows.items():
-        fieldnames, rows = data
+    for league, files in loaded_files.items():
+        for path, data in files.items():
+            fieldnames, rows = data
 
-        kept = []
-        file_removed = 0
+            kept = []
+            file_removed = 0
 
-        for row in rows:
-            key = row_key(row)
+            for row in rows:
+                key = row_key(row)
+                if key in drop_keys:
+                    removed += 1
+                    file_removed += 1
+                    continue
+                kept.append(row)
 
-            if key in drop_keys:
-                removed += 1
-                file_removed += 1
-                continue
-
-            kept.append(row)
-
-        if file_removed:
-            write_csv(path, fieldnames, kept)
-            log(f"UPDATED | {label} | {path} | removed_outliers={file_removed}")
+            if file_removed:
+                data[1] = kept
+                log(f"FILTERED | {label} | {path} | removed_outliers={file_removed}")
 
     return removed
 
 # =========================
-# STEP 5: APPLY PREDICTION BIASES
+# STEP 5: APPLY PREDICTION BIASES (IN MEMORY)
 # =========================
-# Idempotent: rows already flagged with BIAS_FLAG_COLUMN=BIAS_FLAG_VALUE
-# are skipped. Total bias is split evenly across home and away so that
+# Total bias is split evenly across home and away so that
 # (new_home + new_away) == new_total stays internally consistent.
 
-def apply_prediction_biases():
-    updated_files = 0
-    adjusted_rows = 0
-    skipped_already_applied = 0
+def apply_prediction_biases(pred_files):
+    files_with_biased_rows = 0
+    rows_adjusted = 0
+    rows_skipped_already_flagged = 0
 
-    for league, folder in PREDICTION_DIRS.items():
+    required = {
+        "home_projected_points",
+        "away_projected_points",
+        "total_projected_points",
+    }
+
+    for league, files in pred_files.items():
         margin_bias = MARGIN_BIAS[league]
         total_bias = TOTAL_BIAS[league]
         margin_half = margin_bias / 2.0
         total_half = total_bias / 2.0
 
-        for path in csv_files(folder):
-            fieldnames, rows = read_csv(path)
-
-            required = {
-                "home_projected_points",
-                "away_projected_points",
-                "total_projected_points",
-            }
+        for path, data in files.items():
+            fieldnames, rows = data
 
             if not required.issubset(set(fieldnames)):
                 log(f"WARN | Missing prediction columns, skipped: {path}")
                 continue
 
-            # Ensure sentinel column exists in the output schema.
+            # Ensure sentinel column exists in the output schema. This is
+            # written to disk later regardless of whether any rows were
+            # biased, so downstream schema checks always find it.
             if BIAS_FLAG_COLUMN not in fieldnames:
                 fieldnames = list(fieldnames) + [BIAS_FLAG_COLUMN]
+                data[0] = fieldnames
 
-            changed = False
             file_adjusted = 0
             file_skipped = 0
 
             for row in rows:
-                # Skip rows already biased on a prior run.
+                # Defensive: skip rows that already carry the flag (originals
+                # should never have this column, but if a manual copy slipped
+                # through, don't double-bias it).
                 if str(row.get(BIAS_FLAG_COLUMN, "")).strip() == BIAS_FLAG_VALUE:
                     file_skipped += 1
-                    skipped_already_applied += 1
+                    rows_skipped_already_flagged += 1
                     continue
 
                 home = to_float(row.get("home_projected_points"))
@@ -350,44 +368,78 @@ def apply_prediction_biases():
                 row["total_projected_points"] = f"{new_total:.2f}"
                 row[BIAS_FLAG_COLUMN] = BIAS_FLAG_VALUE
 
-                changed = True
                 file_adjusted += 1
-                adjusted_rows += 1
+                rows_adjusted += 1
 
-            if changed:
-                write_csv(path, fieldnames, rows)
-                updated_files += 1
+            if file_adjusted:
+                files_with_biased_rows += 1
                 log(
-                    f"UPDATED | BIAS | {path} | league={league} "
+                    f"BIASED | {path} | league={league} "
                     f"margin_bias={margin_bias} total_bias={total_bias} "
-                    f"adjusted={file_adjusted} skipped_already_applied={file_skipped}"
-                )
-            elif file_skipped:
-                log(
-                    f"SKIPPED | BIAS | {path} | league={league} "
-                    f"all_rows_already_biased={file_skipped}"
+                    f"adjusted={file_adjusted} skipped_already_flagged={file_skipped}"
                 )
 
-    return updated_files, adjusted_rows, skipped_already_applied
+    return files_with_biased_rows, rows_adjusted, rows_skipped_already_flagged
+
+# =========================
+# STEP 6: WRITE EVERYTHING TO CLEANED FOLDERS
+# =========================
+
+def write_cleaned(loaded_files, cleaned_dirs, label):
+    files_written = 0
+    rows_written = 0
+
+    for league, files in loaded_files.items():
+        cleaned_root = cleaned_dirs[league]
+
+        for path, (fieldnames, rows) in files.items():
+            new_path = cleaned_root / path.name
+            write_csv(new_path, fieldnames, rows)
+            files_written += 1
+            rows_written += len(rows)
+            log(f"WROTE | {label} | {new_path} | rows={len(rows)}")
+
+    return files_written, rows_written
 
 # =========================
 # MAIN
 # =========================
 
 def main():
-    log("INFO | Starting basketball input cleanup")
+    log("INFO | Starting basketball input cleanup (cleaned-folder mode)")
 
-    bad_ml_removed = clean_bad_ncaam_moneyline_rows()
+    # Load originals into memory
+    pred_files = load_all(PREDICTION_DIRS)
+    book_files = load_all(SPORTSBOOK_DIRS)
 
-    pred_index, pred_files = load_prediction_index()
-    book_index, book_files = load_sportsbook_index()
+    pred_loaded = sum(len(v) for v in pred_files.values())
+    book_loaded = sum(len(v) for v in book_files.values())
+    log(f"LOADED | predictions_files={pred_loaded} sportsbook_files={book_loaded}")
 
+    # Step 1: drop bad NCAAM moneyline rows (in memory)
+    bad_ml_removed = drop_bad_ncaam_moneyline(book_files["NCAAM"])
+
+    # Step 2: build indexes for outlier detection
+    pred_index = build_pred_index(pred_files)
+    book_index = build_book_index(book_files)
+
+    # Step 3: find outlier game keys
     outlier_keys = find_outlier_keys(pred_index, book_index)
 
-    pred_outliers_removed = drop_keys_from_files(pred_files, outlier_keys, "PREDICTIONS")
-    book_outliers_removed = drop_keys_from_files(book_files, outlier_keys, "SPORTSBOOK")
+    # Step 4: drop outliers from both predictions and sportsbook (in memory)
+    pred_outliers_removed = drop_outlier_keys(pred_files, outlier_keys, "PREDICTIONS")
+    book_outliers_removed = drop_outlier_keys(book_files, outlier_keys, "SPORTSBOOK")
 
-    bias_files_updated, bias_rows_adjusted, bias_rows_skipped = apply_prediction_biases()
+    # Step 5: apply biases to predictions (in memory)
+    bias_files, bias_rows, bias_skipped = apply_prediction_biases(pred_files)
+
+    # Step 6: write everything to cleaned folders
+    pred_files_written, pred_rows_written = write_cleaned(
+        pred_files, CLEANED_PREDICTION_DIRS, "PREDICTIONS"
+    )
+    book_files_written, book_rows_written = write_cleaned(
+        book_files, CLEANED_SPORTSBOOK_DIRS, "SPORTSBOOK"
+    )
 
     log("")
     log("============================================================")
@@ -397,9 +449,13 @@ def main():
     log(f"outlier_game_keys_found          : {len(outlier_keys)}")
     log(f"prediction_outlier_rows_removed  : {pred_outliers_removed}")
     log(f"sportsbook_outlier_rows_removed  : {book_outliers_removed}")
-    log(f"bias_files_updated               : {bias_files_updated}")
-    log(f"bias_rows_adjusted               : {bias_rows_adjusted}")
-    log(f"bias_rows_skipped_already_applied: {bias_rows_skipped}")
+    log(f"bias_files_with_adjusted_rows    : {bias_files}")
+    log(f"bias_rows_adjusted               : {bias_rows}")
+    log(f"bias_rows_skipped_already_flagged: {bias_skipped}")
+    log(f"prediction_files_written         : {pred_files_written}")
+    log(f"prediction_rows_written          : {pred_rows_written}")
+    log(f"sportsbook_files_written         : {book_files_written}")
+    log(f"sportsbook_rows_written          : {book_rows_written}")
     log("STATUS: SUCCESS")
     log("============================================================")
 
@@ -408,9 +464,13 @@ def main():
     print(f"outlier_game_keys_found          : {len(outlier_keys)}")
     print(f"prediction_outlier_rows_removed  : {pred_outliers_removed}")
     print(f"sportsbook_outlier_rows_removed  : {book_outliers_removed}")
-    print(f"bias_files_updated               : {bias_files_updated}")
-    print(f"bias_rows_adjusted               : {bias_rows_adjusted}")
-    print(f"bias_rows_skipped_already_applied: {bias_rows_skipped}")
+    print(f"bias_files_with_adjusted_rows    : {bias_files}")
+    print(f"bias_rows_adjusted               : {bias_rows}")
+    print(f"bias_rows_skipped_already_flagged: {bias_skipped}")
+    print(f"prediction_files_written         : {pred_files_written}")
+    print(f"prediction_rows_written          : {pred_rows_written}")
+    print(f"sportsbook_files_written         : {book_files_written}")
+    print(f"sportsbook_rows_written          : {book_rows_written}")
     print(f"log_file                         : {LOG_FILE}")
 
 if __name__ == "__main__":
