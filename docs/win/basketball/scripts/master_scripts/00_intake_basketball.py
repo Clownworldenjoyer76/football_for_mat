@@ -234,21 +234,39 @@ JOBS = [
             },
             {
                 "type": "csv_has_columns",
-                "path": Path("docs/win/basketball/00_intake/predictions/nba"),
+                "path": Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/nba"),
                 "pattern": "*.csv",
                 "required_columns": ["bias_applied"],
             },
             {
                 "type": "csv_has_columns",
-                "path": Path("docs/win/basketball/00_intake/predictions/ncaam"),
+                "path": Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/ncaam"),
                 "pattern": "*.csv",
                 "required_columns": ["bias_applied"],
             },
             {
                 "type": "csv_has_columns",
-                "path": Path("docs/win/basketball/00_intake/predictions/wnba"),
+                "path": Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/wnba"),
                 "pattern": "*.csv",
                 "required_columns": ["bias_applied"],
+            },
+            {
+                "type": "glob_count",
+                "path": Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/nba"),
+                "pattern": "*.csv",
+                "min_count": 1,
+            },
+            {
+                "type": "glob_count",
+                "path": Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/ncaam"),
+                "pattern": "*.csv",
+                "min_count": 1,
+            },
+            {
+                "type": "glob_count",
+                "path": Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/wnba"),
+                "pattern": "*.csv",
+                "min_count": 1,
             },
         ],
     },
@@ -273,6 +291,12 @@ OUTPUT_DIRS = [
     Path("docs/win/basketball/daily_games/wnba"),
     Path("docs/win/basketball/daily_games/nba"),
     Path("docs/win/basketball/daily_games/ncaam"),
+    Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/nba"),
+    Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/ncaam"),
+    Path("docs/win/basketball/00_intake/predictions/predictions_cleaned/wnba"),
+    Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/nba"),
+    Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/ncaam"),
+    Path("docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/wnba"),
 ]
 
 MASTER_LOG = Path("docs/win/basketball/errors/00_intake/00_intake_basketball.txt")
