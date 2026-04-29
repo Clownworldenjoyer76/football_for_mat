@@ -50,6 +50,7 @@ SPREAD_FIELDS = [
     "home_prob", "away_prob",
     "away_projected_points", "home_projected_points", "total_projected_points",
     "total",
+    "home_spread", "away_spread",
     "home_dk_spread_american", "away_dk_spread_american",
     "home_dk_spread_decimal", "away_dk_spread_decimal",
 ]
@@ -152,7 +153,7 @@ def main():
 
                 book_map = {build_key(r): r for r in book_rows}
 
-                ml_rows    = []
+                ml_rows     = []
                 spread_rows = []
                 total_rows  = []
 
@@ -191,6 +192,8 @@ def main():
 
                     spread_rows.append({
                         **base,
+                        "home_spread":             b.get("home_spread", ""),
+                        "away_spread":             b.get("away_spread", ""),
                         "home_dk_spread_american": b.get("home_dk_spread_american", ""),
                         "away_dk_spread_american": b.get("away_dk_spread_american", ""),
                         "home_dk_spread_decimal":  b.get("home_dk_spread_decimal", ""),
