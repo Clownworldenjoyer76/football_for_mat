@@ -224,6 +224,34 @@ JOBS = [
             },
         ],
     },
+    {
+        "script": Path("docs/win/basketball/scripts/00_intake/clean_basketball_inputs.py"),
+        "skip": False,
+        "checks": [
+            {
+                "type": "file_exists",
+                "path": Path("docs/win/basketball/errors/00_intake/clean_basketball_inputs.txt"),
+            },
+            {
+                "type": "csv_has_columns",
+                "path": Path("docs/win/basketball/00_intake/predictions/nba"),
+                "pattern": "*.csv",
+                "required_columns": ["bias_applied"],
+            },
+            {
+                "type": "csv_has_columns",
+                "path": Path("docs/win/basketball/00_intake/predictions/ncaam"),
+                "pattern": "*.csv",
+                "required_columns": ["bias_applied"],
+            },
+            {
+                "type": "csv_has_columns",
+                "path": Path("docs/win/basketball/00_intake/predictions/wnba"),
+                "pattern": "*.csv",
+                "required_columns": ["bias_applied"],
+            },
+        ],
+    },
 ]
 
 OUTPUT_DIRS = [
