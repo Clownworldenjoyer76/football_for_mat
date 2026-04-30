@@ -15,23 +15,23 @@ import pandas as pd
 
 LEAGUE_SETTINGS = {
     "NBA": {
-        "ML_EDGE":     0.015,
-        "TOTAL_EDGE":  0.025,
-        "SPREAD_EDGE": 0.035,
+        "ML_EDGE":     0.020,
+        "TOTAL_EDGE":  0.020,
+        "SPREAD_EDGE": 0.050,
         "TOTAL_STD":   19.1345,
         "SPREAD_STD":  14.1837,
     },
     "NCAAM": {
         "ML_EDGE":     0.015,
         "TOTAL_EDGE":  0.03,
-        "SPREAD_EDGE": 0.03,
+        "SPREAD_EDGE": 0.050,
         "TOTAL_STD":   17.7495,
         "SPREAD_STD":  11.2375,
     },
     "WNBA": {
-        "ML_EDGE":     0.020,
+        "ML_EDGE":     0.005,
         "TOTAL_EDGE":  0.030,
-        "SPREAD_EDGE": 0.040,
+        "SPREAD_EDGE": 0.050,
         "TOTAL_STD":   16.6675,
         "SPREAD_STD":  13.0424,
     },
