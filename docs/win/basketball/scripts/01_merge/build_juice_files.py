@@ -18,22 +18,22 @@ LEAGUE_SETTINGS = {
         "ML_EDGE":     0.015,
         "TOTAL_EDGE":  0.025,
         "SPREAD_EDGE": 0.035,
-        "TOTAL_STD":   17.85,
-        "SPREAD_STD":  17.5,
+        "TOTAL_STD":   19.1345,
+        "SPREAD_STD":  14.1837,
     },
     "NCAAM": {
         "ML_EDGE":     0.015,
         "TOTAL_EDGE":  0.03,
         "SPREAD_EDGE": 0.03,
-        "TOTAL_STD":   18.6662,
-        "SPREAD_STD":  11.5,
+        "TOTAL_STD":   17.7495,
+        "SPREAD_STD":  11.2375,
     },
     "WNBA": {
         "ML_EDGE":     0.020,
         "TOTAL_EDGE":  0.030,
         "SPREAD_EDGE": 0.040,
-        "TOTAL_STD":   16.5,
-        "SPREAD_STD":  16.0,
+        "TOTAL_STD":   16.6675,
+        "SPREAD_STD":  13.0424,
     },
 }
 
