@@ -55,6 +55,17 @@ LOG_FILE = ERROR_DIR / "clean_basketball_inputs.txt"
 MONEYLINE_HOLD_MIN = 1.01
 MONEYLINE_HOLD_MAX = 1.08
 
+# Same hold range applies to totals and spreads. Aliased for clarity at call sites.
+ODDS_HOLD_MIN = MONEYLINE_HOLD_MIN
+ODDS_HOLD_MAX = MONEYLINE_HOLD_MAX
+
+# Markets to validate. (decimal_col_a, decimal_col_b, market_label)
+ODDS_CHECKS = [
+    ("home_dk_moneyline_decimal", "away_dk_moneyline_decimal", "ML"),
+    ("dk_total_over_decimal",     "dk_total_under_decimal",    "TOTAL"),
+    ("home_dk_spread_decimal",    "away_dk_spread_decimal",    "SPREAD"),
+]
+
 SPREAD_OUTLIER_MAX = 25.0
 TOTAL_OUTLIER_MAX = 40.0
 
@@ -147,59 +158,71 @@ def load_all(dir_map):
     return loaded
 
 # =========================
-# STEP 1: DROP BAD NCAAM MONEYLINE ROWS (IN MEMORY)
+# STEP 1: DROP BAD ODDS ROWS (IN MEMORY)
 # =========================
-# Drops a row if EITHER:
-#   - decimals are missing / unparseable / <= 1, OR
-#   - implied book hold is outside [MIN, MAX]
+# Validates moneyline, totals, and spreads decimal odds across ALL leagues.
+# Drops a row if any market on that row has:
+#   - decimals missing / unparseable / <= 1, OR
+#   - implied book hold outside [ODDS_HOLD_MIN, ODDS_HOLD_MAX]
+# A bad row is dropped from the snapshot entirely (one bad market = the
+# whole row is suspect at that timestamp).
 
-def drop_bad_ncaam_moneyline(book_files_ncaam):
-    removed = 0
+def drop_bad_odds_rows(book_files):
+    removed_by_market = {market: 0 for _, _, market in ODDS_CHECKS}
 
-    for path, data in book_files_ncaam.items():
-        fieldnames, rows = data
+    for league, files in book_files.items():
+        for path, data in files.items():
+            fieldnames, rows = data
+            fieldset = set(fieldnames)
 
-        if not {
-            "home_dk_moneyline_decimal",
-            "away_dk_moneyline_decimal",
-        }.issubset(set(fieldnames)):
-            continue
+            kept = []
+            file_removed = 0
 
-        kept = []
-        file_removed = 0
+            for row in rows:
+                drop_reason = None
 
-        for row in rows:
-            home_dec = to_float(row.get("home_dk_moneyline_decimal"))
-            away_dec = to_float(row.get("away_dk_moneyline_decimal"))
+                for col_a, col_b, market in ODDS_CHECKS:
+                    # Skip the check if this file's schema doesn't include
+                    # the market's decimal columns.
+                    if col_a not in fieldset or col_b not in fieldset:
+                        continue
 
-            if home_dec is None or away_dec is None or home_dec <= 1 or away_dec <= 1:
-                removed += 1
-                file_removed += 1
-                log(
-                    f"DROP_BAD_ML_MALFORMED | {path} | {row_key(row)} | "
-                    f"home_dec={row.get('home_dk_moneyline_decimal')!r} "
-                    f"away_dec={row.get('away_dk_moneyline_decimal')!r}"
-                )
-                continue
+                    dec_a = to_float(row.get(col_a))
+                    dec_b = to_float(row.get(col_b))
 
-            hold = (1.0 / home_dec) + (1.0 / away_dec)
+                    if dec_a is None or dec_b is None or dec_a <= 1 or dec_b <= 1:
+                        drop_reason = (market, "MALFORMED",
+                                       row.get(col_a), row.get(col_b), None)
+                        break
 
-            if hold < MONEYLINE_HOLD_MIN or hold > MONEYLINE_HOLD_MAX:
-                removed += 1
-                file_removed += 1
-                log(
-                    f"DROP_BAD_ML_HOLD | {path} | {row_key(row)} | "
-                    f"home_dec={home_dec} away_dec={away_dec} hold={round(hold, 6)}"
-                )
-                continue
+                    hold = (1.0 / dec_a) + (1.0 / dec_b)
+                    if hold < ODDS_HOLD_MIN or hold > ODDS_HOLD_MAX:
+                        drop_reason = (market, "HOLD", dec_a, dec_b, hold)
+                        break
 
-            kept.append(row)
+                if drop_reason is not None:
+                    market, kind, val_a, val_b, hold = drop_reason
+                    removed_by_market[market] += 1
+                    file_removed += 1
+                    if kind == "MALFORMED":
+                        log(
+                            f"DROP_BAD_{market}_MALFORMED | {path} | {row_key(row)} | "
+                            f"a={val_a!r} b={val_b!r}"
+                        )
+                    else:
+                        log(
+                            f"DROP_BAD_{market}_HOLD | {path} | {row_key(row)} | "
+                            f"a={val_a} b={val_b} hold={round(hold, 6)}"
+                        )
+                    continue
 
-        if file_removed:
-            data[1] = kept
-            log(f"FILTERED | {path} | removed_bad_ml={file_removed}")
+                kept.append(row)
 
-    return removed
+            if file_removed:
+                data[1] = kept
+                log(f"FILTERED | {path} | removed_bad_odds={file_removed}")
+
+    return removed_by_market
 
 # =========================
 # STEP 2: BUILD INDEXES FROM IN-MEMORY DATA
@@ -416,8 +439,12 @@ def main():
     book_loaded = sum(len(v) for v in book_files.values())
     log(f"LOADED | predictions_files={pred_loaded} sportsbook_files={book_loaded}")
 
-    # Step 1: drop bad NCAAM moneyline rows (in memory)
-    bad_ml_removed = drop_bad_ncaam_moneyline(book_files["NCAAM"])
+    # Step 1: drop bad odds rows across all leagues / all markets (in memory)
+    bad_odds_removed = drop_bad_odds_rows(book_files)
+    bad_ml_removed     = bad_odds_removed.get("ML", 0)
+    bad_total_removed  = bad_odds_removed.get("TOTAL", 0)
+    bad_spread_removed = bad_odds_removed.get("SPREAD", 0)
+    bad_total_removed_total = bad_ml_removed + bad_total_removed + bad_spread_removed
 
     # Step 2: build indexes for outlier detection
     pred_index = build_pred_index(pred_files)
@@ -445,7 +472,10 @@ def main():
     log("============================================================")
     log("SUMMARY")
     log("============================================================")
-    log(f"bad_ncaam_moneyline_rows_removed : {bad_ml_removed}")
+    log(f"bad_ml_rows_removed              : {bad_ml_removed}")
+    log(f"bad_total_rows_removed           : {bad_total_removed}")
+    log(f"bad_spread_rows_removed          : {bad_spread_removed}")
+    log(f"bad_odds_rows_removed_total      : {bad_total_removed_total}")
     log(f"outlier_game_keys_found          : {len(outlier_keys)}")
     log(f"prediction_outlier_rows_removed  : {pred_outliers_removed}")
     log(f"sportsbook_outlier_rows_removed  : {book_outliers_removed}")
@@ -460,7 +490,10 @@ def main():
     log("============================================================")
 
     print("STATUS: SUCCESS")
-    print(f"bad_ncaam_moneyline_rows_removed : {bad_ml_removed}")
+    print(f"bad_ml_rows_removed              : {bad_ml_removed}")
+    print(f"bad_total_rows_removed           : {bad_total_removed}")
+    print(f"bad_spread_rows_removed          : {bad_spread_removed}")
+    print(f"bad_odds_rows_removed_total      : {bad_total_removed_total}")
     print(f"outlier_game_keys_found          : {len(outlier_keys)}")
     print(f"prediction_outlier_rows_removed  : {pred_outliers_removed}")
     print(f"sportsbook_outlier_rows_removed  : {book_outliers_removed}")
