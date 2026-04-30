@@ -1,7 +1,39 @@
 #!/usr/bin/env python3
 # docs/win/basketball/scripts/04_select/basketball_select_bets.py
+#
+# Reads stage-3 EV/Kelly outputs and applies per-league × per-market × per-side
+# filters from markets.yaml. Picks bet(s) per game according to the configured
+# selection_mode and pick_preference. Adds fractional-Kelly stake sizing.
+#
+# Input layout (matches stage-3 output):
+#   docs/win/basketball/03_edges/ev_kelly/{league}/{market}/*.csv
+#   where league in {nba, ncaam, wnba}, market in {moneyline, spread, total}
+#
+# Output:
+#   docs/win/basketball/04_select/daily_slate/{league}_selected.csv
+#
+# Filters per side (each is a list of [lo, hi] bands; pass = value falls in any band):
+#   odds_bands           (american odds)
+#   line_bands           (book spread or total line; spread/total only)
+#   ev_bands             (decimal EV)
+#   kelly_bands          (decimal Kelly fraction)
+#   model_prob_bands     (decimal probability)
+#   edge_vs_market_bands (percentage points: model_prob - market_prob, scaled *100)
+#
+# Date filters per side:
+#   months                (list of ints 1-12; empty = all months allowed)
+#   exclude_days_of_week  (list of ints 0=Mon ... 6=Sun)
+#
+# Per-market:
+#   selection_mode: pick_one | all_qualifying
+#   pick_preference: { metric: ev|kelly|model_prob|edge_vs_market, direction: max|min }
+#
+# Top-level stake sizing (applied to every selected bet):
+#   stake_sizing.kelly_fraction (multiplier on raw Kelly)
+#   stake_sizing.kelly_cap      (max stake as fraction of bankroll)
 
 import re
+import sys
 import traceback
 from collections import defaultdict
 from datetime import datetime, UTC
@@ -14,9 +46,8 @@ INPUT_DIR   = Path("docs/win/basketball/03_edges/ev_kelly")
 SELECT_DIR  = Path("docs/win/basketball/04_select")
 DAILY_DIR   = SELECT_DIR / "daily_slate"
 CONFIG_PATH = Path("docs/win/basketball/config/markets.yaml")
-
-ERROR_DIR = Path("docs/win/basketball/errors/04_select")
-LOG_FILE  = ERROR_DIR / "select_bets.txt"
+ERROR_DIR   = Path("docs/win/basketball/errors/04_select")
+LOG_FILE    = ERROR_DIR / "select_bets.txt"
 
 SELECT_DIR.mkdir(parents=True, exist_ok=True)
 DAILY_DIR.mkdir(parents=True, exist_ok=True)
@@ -25,8 +56,19 @@ ERROR_DIR.mkdir(parents=True, exist_ok=True)
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
 
+STAKE = CONFIG.get("stake_sizing", {}) or {}
+KELLY_FRACTION = float(STAKE.get("kelly_fraction", 1.0))
+KELLY_CAP      = float(STAKE.get("kelly_cap", 1.0))
+
+LEAGUES = ["nba", "ncaam", "wnba"]
+MARKETS = ["moneyline", "spread", "total"]
+
 DEBUG_COUNTS = defaultdict(int)
 
+
+# =========================
+# LOGGING
+# =========================
 
 def _now():
     return datetime.now(UTC).isoformat()
@@ -40,104 +82,157 @@ def _log(msg: str, level: str = "INFO"):
 def _write_summary(summary: dict, per_file: list) -> None:
     lines = [
         "",
-        "=" * 60,
+        "=" * 70,
         f"SUMMARY  {_now()}",
-        "=" * 60,
+        "=" * 70,
         f"  files_processed : {summary['files_processed']}",
         f"  total_selected  : {summary['total_selected']}",
         f"  nba_bets        : {summary['nba_bets']}",
-        f"  ncaab_bets      : {summary['ncaab_bets']}",
+        f"  ncaam_bets      : {summary['ncaam_bets']}",
+        f"  wnba_bets       : {summary['wnba_bets']}",
         f"  skipped         : {summary['skipped']}",
         f"  errors          : {summary['errors']}",
+        f"  kelly_fraction  : {KELLY_FRACTION}",
+        f"  kelly_cap       : {KELLY_CAP}",
         "",
-        "--- Debug Filter Counts ---",
+        "--- Filter Reject Counts ---",
     ]
     for k, v in sorted(DEBUG_COUNTS.items()):
-        lines.append(f"  {k:<20} : {v}")
+        lines.append(f"  {k:<28} : {v}")
     lines += [
         "",
-        f"  {'file':<50} {'market':<10} {'league':>6} {'selected':>9} {'status':>10}",
+        f"  {'file':<48} {'market':<10} {'league':>6} {'selected':>9} {'status':>10}",
     ]
     for pf in per_file:
         lines.append(
-            f"  {pf['name']:<50} {pf['market']:<10} {pf['league']:>6} "
+            f"  {pf['name']:<48} {pf['market']:<10} {pf['league']:>6} "
             f"{pf['selected']:>9} {pf['status']:>10}"
         )
     status = "SUCCESS" if summary["errors"] == 0 else "COMPLETED WITH ERRORS"
-    lines += ["", f"STATUS: {status}", "=" * 60]
+    lines += ["", f"STATUS: {status}", "=" * 70]
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
 
+# =========================
+# HELPERS
+# =========================
+
 def fv(x):
+    """Float-or-None from any cell."""
     try:
-        if pd.isna(x):
+        if x is None or pd.isna(x):
             return None
         return float(x)
     except Exception:
         return None
 
 
-def in_bands(value, bands):
-    if value is None:
-        DEBUG_COUNTS["fail_null"] += 1
+def in_any_band(value, bands):
+    """True if value falls inside any [lo, hi] band (inclusive)."""
+    if value is None or bands is None:
         return False
-    ok = any(lo <= value <= hi for lo, hi in bands)
-    if not ok:
-        DEBUG_COUNTS["fail_band"] += 1
-    return ok
+    return any(lo <= value <= hi for lo, hi in bands)
 
 
-def violates_exclude_rules(ev, kelly, odds, line, rules):
-    for r in rules.get("exclude_rules", []):
-        if "ev_min"   in r and (ev   is None or ev   < r["ev_min"]):   continue
-        if "ev_max"   in r and (ev   is None or ev   > r["ev_max"]):   continue
-        if "odds_min" in r and (odds is None or odds < r["odds_min"]): continue
-        if "odds_max" in r and (odds is None or odds > r["odds_max"]): continue
-        if "line_min" in r and (line is None or line < r["line_min"]): continue
-        if "line_max" in r and (line is None or line > r["line_max"]): continue
+def parse_date(s):
+    try:
+        return datetime.strptime(s, "%Y_%m_%d")
+    except Exception:
+        return None
+
+
+def date_ok(game_date, months, exclude_dow):
+    """Date filter: passes if month is allowed and dow is not excluded."""
+    if not months and not exclude_dow:
         return True
-    return False
-
-
-def ev_ok(ev, cfg):
-    if ev is None:
-        DEBUG_COUNTS["fail_null"] += 1
+    dt = parse_date(game_date) if isinstance(game_date, str) else None
+    if dt is None:
+        # No parseable date → don't filter on date
+        return True
+    if months and dt.month not in months:
+        DEBUG_COUNTS["fail_month"] += 1
         return False
-    if ev < cfg["ev_min"]:
-        DEBUG_COUNTS["fail_ev_min"] += 1
-        return False
-    if ev > cfg.get("ev_max", float("inf")):
-        DEBUG_COUNTS["fail_ev_max"] += 1
+    if exclude_dow and dt.weekday() in exclude_dow:
+        DEBUG_COUNTS["fail_dow"] += 1
         return False
     return True
 
 
-def kelly_ok(kelly, cfg):
-    if kelly is None:
-        DEBUG_COUNTS["fail_null"] += 1
+def passes_filters(values: dict, scfg: dict, game_date: str) -> bool:
+    """
+    values keys (any may be None): odds, line, ev, kelly, model_prob, edge_vs_market_pct
+    scfg is the per-side config block.
+    """
+    # odds
+    if "odds_bands" in scfg:
+        if not in_any_band(values.get("odds"), scfg["odds_bands"]):
+            DEBUG_COUNTS["fail_odds"] += 1
+            return False
+
+    # line (only enforced if config specifies and value is provided)
+    if "line_bands" in scfg and values.get("line") is not None:
+        if not in_any_band(values.get("line"), scfg["line_bands"]):
+            DEBUG_COUNTS["fail_line"] += 1
+            return False
+
+    # ev
+    if "ev_bands" in scfg:
+        if not in_any_band(values.get("ev"), scfg["ev_bands"]):
+            DEBUG_COUNTS["fail_ev"] += 1
+            return False
+
+    # kelly
+    if "kelly_bands" in scfg:
+        if not in_any_band(values.get("kelly"), scfg["kelly_bands"]):
+            DEBUG_COUNTS["fail_kelly"] += 1
+            return False
+
+    # model probability
+    if "model_prob_bands" in scfg:
+        if not in_any_band(values.get("model_prob"), scfg["model_prob_bands"]):
+            DEBUG_COUNTS["fail_model_prob"] += 1
+            return False
+
+    # edge vs market (in percentage points)
+    if "edge_vs_market_bands" in scfg:
+        if not in_any_band(values.get("edge_vs_market_pct"), scfg["edge_vs_market_bands"]):
+            DEBUG_COUNTS["fail_edge_vs_market"] += 1
+            return False
+
+    # date filters
+    if not date_ok(game_date, scfg.get("months", []) or [],
+                   scfg.get("exclude_days_of_week", []) or []):
         return False
-    if not (cfg["kelly_min"] <= kelly <= cfg["kelly_max"]):
-        DEBUG_COUNTS["fail_kelly"] += 1
-        return False
+
     return True
 
 
-def detect_league(filename):
-    name = filename.lower()
-    if "ncaab" in name:
-        return "NCAAB"
-    if "nba" in name:
-        return "NBA"
-    raise ValueError(f"Unknown league in filename: {filename}")
+def pick(qualifying, preference):
+    """
+    qualifying is a list of dicts each containing the candidate's metrics.
+    preference is {'metric': str, 'direction': 'max'|'min'}.
+    """
+    if not qualifying:
+        return None
+    metric = preference.get("metric", "ev")
+    direction = preference.get("direction", "max")
+
+    def key(c):
+        v = c.get(metric)
+        # Treat missing metric as worst possible value
+        if v is None:
+            return float("-inf") if direction == "max" else float("inf")
+        return v
+
+    return max(qualifying, key=key) if direction == "max" else min(qualifying, key=key)
 
 
-def detect_market_type(filename):
-    name = filename.lower()
-    if "moneyline" in name: return "moneyline"
-    if "spread"    in name: return "spread"
-    if "total"     in name: return "total"
-    return ""
+def market_cfg(league, market_type):
+    try:
+        return CONFIG["markets"][league.lower()][market_type]
+    except KeyError as e:
+        raise KeyError(f"No config: league={league!r} market_type={market_type!r}") from e
 
 
 def extract_date(filename):
@@ -145,124 +240,168 @@ def extract_date(filename):
     return m.group(0) if m else None
 
 
-def market_cfg(league, market_type):
-    try:
-        return CONFIG["markets"][league.lower()][market_type]
-    except KeyError:
-        raise KeyError(f"No config: league={league!r} market_type={market_type!r}")
-
-
-def pick_side(valid_sides, preference):
-    if not valid_sides:
+def stake_pct(kelly):
+    """Apply fractional Kelly and cap. Returns None if kelly is missing/non-positive."""
+    if kelly is None or kelly <= 0:
         return None
-    return max(valid_sides,
-               key=lambda x: x["kelly"] if preference == "best_kelly" else x["ev"])
+    raw = kelly * KELLY_FRACTION
+    return min(raw, KELLY_CAP)
 
 
-def moneyline(row, league):
-    cfg  = market_cfg(league, "moneyline")
-    if not cfg.get("enabled", True):
-        return False, "", "", 0
-    pref = cfg.get("pick_preference", "best_ev")
+# =========================
+# MARKET SIDE BUILDERS
+# =========================
+
+def build_ml_sides(row, league, game_date, cfg):
     sides = []
-    for side in ["home", "away"]:
-        scfg  = cfg[side]
+    for side in ("home", "away"):
+        scfg = cfg[side]
         if not scfg.get("enabled", True):
             continue
         odds  = fv(row.get(f"{side}_dk_moneyline_american"))
         ev    = fv(row.get(f"{side}_ml_ev"))
         kelly = fv(row.get(f"{side}_ml_kelly"))
-        if (in_bands(odds, scfg["odds_bands"])
-                and ev_ok(ev, scfg)
-                and kelly_ok(kelly, scfg)
-                and not violates_exclude_rules(ev, kelly, odds, None, scfg)):
-            sides.append({"side": side, "line": odds, "ev": ev, "kelly": kelly})
-    pick = pick_side(sides, pref)
-    return (True, pick["side"], pick["line"], pick["ev"]) if pick else (False, "", "", 0)
+        mp    = fv(row.get(f"{side}_model_prob"))
+        # Fallback: home_prob/away_prob is identical to *_model_prob upstream
+        if mp is None:
+            mp = fv(row.get(f"{side}_prob"))
+        evm   = fv(row.get(f"{side}_ml_edge_vs_market_pct"))
+
+        values = {"odds": odds, "ev": ev, "kelly": kelly,
+                  "model_prob": mp, "edge_vs_market_pct": evm}
+        if passes_filters(values, scfg, game_date):
+            sides.append({
+                "side": side, "line": odds, "odds": odds,
+                "ev": ev, "kelly": kelly,
+                "model_prob": mp, "edge_vs_market": evm,
+            })
+        else:
+            DEBUG_COUNTS["rejected_ml"] += 1
+    return sides
 
 
-def spread(row, league):
-    cfg  = market_cfg(league, "spread")
-    if not cfg.get("enabled", True):
-        return False, "", "", 0
-    pref = cfg.get("pick_preference", "best_ev")
+def build_spread_sides(row, league, game_date, cfg):
     sides = []
-    for side in ["home", "away"]:
-        scfg  = cfg[side]
+    for side in ("home", "away"):
+        scfg = cfg[side]
         if not scfg.get("enabled", True):
             continue
         line  = fv(row.get(f"{side}_spread"))
         odds  = fv(row.get(f"{side}_dk_spread_american"))
         ev    = fv(row.get(f"{side}_spread_ev"))
         kelly = fv(row.get(f"{side}_spread_kelly"))
-        if (in_bands(line, scfg["line_bands"])
-                and in_bands(odds, scfg.get("odds_bands", [[-10000, 10000]]))
-                and ev_ok(ev, scfg)
-                and kelly_ok(kelly, scfg)
-                and not violates_exclude_rules(ev, kelly, odds, line, scfg)):
-            sides.append({"side": side, "line": line, "ev": ev, "kelly": kelly})
-    pick = pick_side(sides, pref)
-    return (True, pick["side"], pick["line"], pick["ev"]) if pick else (False, "", "", 0)
+        mp    = fv(row.get(f"{side}_spread_model_prob"))
+        evm   = fv(row.get(f"{side}_spread_edge_vs_market_pct"))
+
+        values = {"odds": odds, "line": line, "ev": ev, "kelly": kelly,
+                  "model_prob": mp, "edge_vs_market_pct": evm}
+        if passes_filters(values, scfg, game_date):
+            sides.append({
+                "side": side, "line": line, "odds": odds,
+                "ev": ev, "kelly": kelly,
+                "model_prob": mp, "edge_vs_market": evm,
+            })
+        else:
+            DEBUG_COUNTS["rejected_spread"] += 1
+    return sides
 
 
-def total(row, league):
-    cfg  = market_cfg(league, "total")
-    if not cfg.get("enabled", True):
-        return False, "", "", 0
-    pref = cfg.get("pick_preference", "best_ev")
-    line = fv(row.get("total"))
+def build_total_sides(row, league, game_date, cfg):
     sides = []
-    for side in ["over", "under"]:
-        scfg  = cfg[side]
+    line = fv(row.get("total"))
+    for side in ("over", "under"):
+        scfg = cfg[side]
         if not scfg.get("enabled", True):
             continue
         odds  = fv(row.get(f"dk_total_{side}_american"))
         ev    = fv(row.get(f"{side}_ev"))
         kelly = fv(row.get(f"{side}_kelly"))
-        if (in_bands(line, scfg["line_bands"])
-                and in_bands(odds, scfg.get("odds_bands", [[-10000, 10000]]))
-                and ev_ok(ev, scfg)
-                and kelly_ok(kelly, scfg)
-                and not violates_exclude_rules(ev, kelly, odds, line, scfg)):
-            sides.append({"side": side, "line": line, "ev": ev, "kelly": kelly})
-    pick = pick_side(sides, pref)
-    return (True, pick["side"], pick["line"], pick["ev"]) if pick else (False, "", "", 0)
+        mp    = fv(row.get(f"{side}_model_prob"))
+        evm   = fv(row.get(f"{side}_edge_vs_market_pct"))
+
+        values = {"odds": odds, "line": line, "ev": ev, "kelly": kelly,
+                  "model_prob": mp, "edge_vs_market_pct": evm}
+        if passes_filters(values, scfg, game_date):
+            sides.append({
+                "side": side, "line": line, "odds": odds,
+                "ev": ev, "kelly": kelly,
+                "model_prob": mp, "edge_vs_market": evm,
+            })
+        else:
+            DEBUG_COUNTS["rejected_total"] += 1
+    return sides
 
 
-def process_file(file):
+SIDE_BUILDERS = {
+    "moneyline": build_ml_sides,
+    "spread":    build_spread_sides,
+    "total":     build_total_sides,
+}
+
+
+# =========================
+# FILE PROCESSOR
+# =========================
+
+def process_file(file: Path, league: str, market_type: str):
     df = pd.read_csv(file)
     if df.empty:
         _log(f"EMPTY: {file.name}", "WARN")
         return pd.DataFrame(), 0
 
-    league      = detect_league(file.name)
-    market_type = detect_market_type(file.name)
-    game_date   = extract_date(file.name)
+    cfg = market_cfg(league, market_type)
+    if not cfg.get("enabled", True):
+        _log(f"DISABLED in config: league={league} market={market_type}")
+        return pd.DataFrame(), 0
 
-    _log(f"--- FILE: {file.name}  league={league} market={market_type} rows={len(df)}")
+    selection_mode = cfg.get("selection_mode", "pick_one")
+    preference     = cfg.get("pick_preference", {"metric": "ev", "direction": "max"})
+    builder        = SIDE_BUILDERS[market_type]
+    file_date      = extract_date(file.name)
 
-    rows = []
+    _log(f"--- FILE: {file.name}  league={league} market={market_type} rows={len(df)} mode={selection_mode}")
+
+    out_rows = []
     for _, row in df.iterrows():
-        if market_type == "moneyline":
-            ok, side, line, ev = moneyline(row, league)
-        elif market_type == "spread":
-            ok, side, line, ev = spread(row, league)
-        else:
-            ok, side, line, ev = total(row, league)
+        game_date = row.get("game_date") or file_date
+        sides = builder(row, league, game_date, cfg)
 
-        if ok:
+        if not sides:
+            continue
+
+        if selection_mode == "all_qualifying":
+            picks = sides
+        else:
+            p = pick(sides, preference)
+            picks = [p] if p else []
+
+        for sel in picks:
             DEBUG_COUNTS["selected"] += 1
             r = row.to_dict()
-            r.update({"bet_side": side, "line": line, "selected_ev": ev,
-                      "market_type": market_type, "market": league,
-                      "league": "basketball", "game_date": game_date})
-            rows.append(r)
-        else:
-            DEBUG_COUNTS["rejected"] += 1
+            r.update({
+                "bet_side":           sel["side"],
+                "bet_line":           sel["line"],
+                "bet_odds_american":  sel["odds"],
+                "bet_ev":             sel["ev"],
+                "bet_kelly":          sel["kelly"],
+                "bet_model_prob":     sel["model_prob"],
+                "bet_edge_vs_market": sel["edge_vs_market"],
+                "bet_stake_pct":      stake_pct(sel["kelly"]),
+                "market_type":        market_type,
+                "league_lower":       league,
+                "league":             league.upper(),
+                "game_date":          game_date,
+            })
+            out_rows.append(r)
 
-    _log(f"{file.name} | {len(rows)} selected from {len(df)} rows")
-    return pd.DataFrame(rows), len(rows)
+    n = len(out_rows)
+    _log(f"{file.name} | {n} selected from {len(df)} rows")
+    return pd.DataFrame(out_rows), n
 
+
+# =========================
+# MAIN
+# =========================
 
 def main():
     with open(LOG_FILE, "w", encoding="utf-8") as f:
@@ -270,70 +409,60 @@ def main():
 
     summary = {
         "files_processed": 0, "total_selected": 0,
-        "nba_bets": 0, "ncaab_bets": 0,
+        "nba_bets": 0, "ncaam_bets": 0, "wnba_bets": 0,
         "skipped": 0, "errors": 0,
     }
     per_file = []
 
     _log(f"INPUT_DIR : {INPUT_DIR}")
     _log(f"OUTPUT_DIR: {SELECT_DIR}")
+    _log(f"stake_sizing: kelly_fraction={KELLY_FRACTION} kelly_cap={KELLY_CAP}")
+
+    league_dfs = {lg: [] for lg in LEAGUES}
 
     try:
-        input_files = sorted(INPUT_DIR.glob("*.csv"))
-        _log(f"Files found: {len(input_files)}")
+        for league in LEAGUES:
+            for market in MARKETS:
+                folder = INPUT_DIR / league / market
+                if not folder.exists():
+                    _log(f"INPUT FOLDER MISSING: {folder}", "WARN")
+                    continue
 
-        dfs = []
-        for file in input_files:
-            pf = {"name": file.name, "market": detect_market_type(file.name),
-                  "league": "?", "selected": 0, "status": "ok"}
-            try:
-                pf["league"] = detect_league(file.name)
-            except ValueError:
-                pass
+                files = sorted(folder.glob("*.csv"))
+                if not files:
+                    _log(f"NO FILES: league={league} market={market}", "WARN")
+                    continue
 
-            try:
-                df, n_selected = process_file(file)
-                pf["selected"] = n_selected
-                summary["files_processed"] += 1
-                summary["total_selected"]  += n_selected
+                for f in files:
+                    pf = {"name": f.name, "market": market, "league": league.upper(),
+                          "selected": 0, "status": "ok"}
+                    try:
+                        df, n = process_file(f, league, market)
+                        pf["selected"] = n
+                        summary["files_processed"] += 1
+                        summary["total_selected"]  += n
+                        summary[f"{league}_bets"]  += n
+                        if not df.empty:
+                            league_dfs[league].append(df)
+                    except KeyError as e:
+                        _log(f"{f.name} CONFIG ERROR: {e}", "ERROR")
+                        pf["status"] = "config_error"
+                        summary["errors"] += 1
+                    except Exception as e:
+                        _log(f"{f.name} FAILED: {e}\n{traceback.format_exc()}", "ERROR")
+                        pf["status"] = "error"
+                        summary["errors"] += 1
+                    per_file.append(pf)
 
-                if pf["league"] == "NBA":
-                    summary["nba_bets"] += n_selected
-                elif pf["league"] == "NCAAB":
-                    summary["ncaab_bets"] += n_selected
-
-                if not df.empty:
-                    dfs.append(df)
-
-            except ValueError as e:
-                _log(f"{file.name} SKIP: {e}", "WARN")
-                pf["status"] = "skipped"
-                summary["skipped"] += 1
-            except Exception as e:
-                _log(f"{file.name} FAILED: {e}\n{traceback.format_exc()}", "ERROR")
-                pf["status"] = "error"
-                summary["errors"] += 1
-
-            per_file.append(pf)
-
-        final_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-
-        if final_df.empty:
-            _log("No selections generated", "WARN")
-            _write_summary(summary, per_file)
-            return
-
-        nba_df   = final_df[final_df["market"] == "NBA"]
-        ncaab_df = final_df[final_df["market"] == "NCAAB"]
-
-        nba_path   = DAILY_DIR / "nba_selected.csv"
-        ncaab_path = DAILY_DIR / "ncaab_selected.csv"
-
-        nba_df.to_csv(nba_path,   index=False)
-        ncaab_df.to_csv(ncaab_path, index=False)
-
-        _log(f"WROTE: {nba_path}   ({len(nba_df)} rows)")
-        _log(f"WROTE: {ncaab_path} ({len(ncaab_df)} rows)")
+        # Write per-league output files
+        for league in LEAGUES:
+            dfs = league_dfs[league]
+            if not dfs:
+                continue
+            out_df = pd.concat(dfs, ignore_index=True)
+            out_path = DAILY_DIR / f"{league}_selected.csv"
+            out_df.to_csv(out_path, index=False)
+            _log(f"WROTE: {out_path} ({len(out_df)} rows)")
 
     except Exception as e:
         _log(f"FATAL: {e}\n{traceback.format_exc()}", "ERROR")
