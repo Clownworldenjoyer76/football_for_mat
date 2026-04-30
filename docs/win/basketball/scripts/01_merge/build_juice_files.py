@@ -6,7 +6,7 @@ import traceback
 import sys
 from pathlib import Path
 from datetime import datetime, timezone
-from scipy.stats import norm, poisson
+from scipy.stats import norm
 import pandas as pd
 
 # ============================================================
@@ -96,7 +96,9 @@ def to_american(dec):
 
 
 def clamp_probability(p):
-    return min(max(p, 0.05), 0.95)
+    # Loosened from [0.05, 0.95] to [0.01, 0.99]. Trust the model further out
+    # on heavy favorites/extreme totals where the predictions are calibrated.
+    return min(max(p, 0.01), 0.99)
 
 
 def safe_implied_prob(decimal_value):
@@ -150,7 +152,7 @@ def process_moneyline(df: pd.DataFrame, date: str, league_upper: str, settings: 
 
     ml_df = df.copy()
 
-    # Decimal odds (some pipelines pass these in already; recompute from American to be safe)
+    # Decimal odds (recompute from American to be safe)
     ml_df["away_decimal"] = ml_df["away_dk_moneyline_american"].apply(american_to_decimal)
     ml_df["home_decimal"] = ml_df["home_dk_moneyline_american"].apply(american_to_decimal)
 
@@ -167,7 +169,6 @@ def process_moneyline(df: pd.DataFrame, date: str, league_upper: str, settings: 
     ml_df["home_market_prob"] = market_pairs.apply(lambda t: t[1])
 
     # Model probabilities pass through directly from the predictions stage
-    # (already in columns home_prob, away_prob — written here under standardized names too)
     ml_df["home_model_prob"] = pd.to_numeric(ml_df["home_prob"], errors="coerce")
     ml_df["away_model_prob"] = pd.to_numeric(ml_df["away_prob"], errors="coerce")
 
@@ -215,11 +216,15 @@ def process_totals(df: pd.DataFrame, date: str, league_upper: str, settings: dic
             acc_under.append("")
             continue
 
-        if league_upper == "NCAAM":
-            p_under = poisson.cdf(T - 0.5, mean)
-        else:
-            z       = (T - mean) / TOTAL_STD
-            p_under = norm.cdf(z)
+        # Normal distribution for all leagues. NCAAM previously used Poisson,
+        # which forces variance = mean. With NCAAM totals around 140 the
+        # implied std was ~12, far tighter than reality (observed total MAE
+        # was ~14 implying std ~18+). The Poisson assumption produced
+        # artificially confident probabilities, hit the clamp, and inflated
+        # apparent edges. Normal with the league's TOTAL_STD reflects
+        # observed variance.
+        z       = (T - mean) / TOTAL_STD
+        p_under = norm.cdf(z)
 
         p_under = clamp_probability(p_under)
         p_over  = 1 - p_under
