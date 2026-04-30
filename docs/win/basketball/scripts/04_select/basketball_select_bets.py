@@ -5,6 +5,11 @@
 # filters from markets.yaml. Picks bet(s) per game according to the configured
 # selection_mode and pick_preference. Adds fractional-Kelly stake sizing.
 #
+# After per-market selection, a global reconciliation step ensures that for any
+# given game, you cannot end up with BOTH a moneyline and a spread bet. Total
+# bets are unaffected (a game can still have ML+total, spread+total, or just
+# total). Tiebreak is configurable; default is best EV.
+#
 # Input layout (matches stage-3 output):
 #   docs/win/basketball/03_edges/ev_kelly/{league}/{market}/*.csv
 #   where league in {nba, ncaam, wnba}, market in {moneyline, spread, total}
@@ -29,9 +34,12 @@
 #   selection_mode: pick_one | all_qualifying
 #   pick_preference: { metric: ev|kelly|model_prob|edge_vs_market, direction: max|min }
 #
-# Top-level stake sizing (applied to every selected bet):
-#   stake_sizing.kelly_fraction (multiplier on raw Kelly)
-#   stake_sizing.kelly_cap      (max stake as fraction of bankroll)
+# Top-level:
+#   stake_sizing.kelly_fraction      (multiplier on raw Kelly)
+#   stake_sizing.kelly_cap           (max stake as fraction of bankroll)
+#   ml_vs_spread_tiebreak            (ev | kelly | edge_vs_market; default ev)
+#                                    Used to decide which market wins when both
+#                                    moneyline and spread qualify on the same game.
 
 import re
 import sys
@@ -61,6 +69,17 @@ STAKE = CONFIG.get("stake_sizing", {}) or {}
 KELLY_FRACTION = float(STAKE.get("kelly_fraction", 1.0))
 KELLY_CAP      = float(STAKE.get("kelly_cap", 1.0))
 
+# Allowed metrics: ev, kelly, edge_vs_market
+ML_VS_SPREAD_TIEBREAK = str(CONFIG.get("ml_vs_spread_tiebreak", "ev")).strip().lower()
+TIEBREAK_COL_MAP = {
+    "ev":              "bet_ev",
+    "kelly":           "bet_kelly",
+    "edge_vs_market":  "bet_edge_vs_market",
+}
+if ML_VS_SPREAD_TIEBREAK not in TIEBREAK_COL_MAP:
+    # Fall back to ev if mis-configured; we'll log later in main().
+    ML_VS_SPREAD_TIEBREAK = "ev"
+
 LEAGUES = ["nba", "ncaam", "wnba"]
 MARKETS = ["moneyline", "spread", "total"]
 
@@ -86,15 +105,17 @@ def _write_summary(summary: dict, per_file: list) -> None:
         "=" * 70,
         f"SUMMARY  {_now()}",
         "=" * 70,
-        f"  files_processed : {summary['files_processed']}",
-        f"  total_selected  : {summary['total_selected']}",
-        f"  nba_bets        : {summary['nba_bets']}",
-        f"  ncaam_bets      : {summary['ncaam_bets']}",
-        f"  wnba_bets       : {summary['wnba_bets']}",
-        f"  skipped         : {summary['skipped']}",
-        f"  errors          : {summary['errors']}",
-        f"  kelly_fraction  : {KELLY_FRACTION}",
-        f"  kelly_cap       : {KELLY_CAP}",
+        f"  files_processed       : {summary['files_processed']}",
+        f"  total_selected        : {summary['total_selected']}",
+        f"  nba_bets              : {summary['nba_bets']}",
+        f"  ncaam_bets            : {summary['ncaam_bets']}",
+        f"  wnba_bets             : {summary['wnba_bets']}",
+        f"  ml_vs_spread_dropped  : {summary['ml_vs_spread_dropped']}",
+        f"  skipped               : {summary['skipped']}",
+        f"  errors                : {summary['errors']}",
+        f"  kelly_fraction        : {KELLY_FRACTION}",
+        f"  kelly_cap             : {KELLY_CAP}",
+        f"  ml_vs_spread_tiebreak : {ML_VS_SPREAD_TIEBREAK}",
         "",
         "--- Filter Reject Counts ---",
     ]
@@ -149,7 +170,6 @@ def date_ok(game_date, months, exclude_dow):
         return True
     dt = parse_date(game_date) if isinstance(game_date, str) else None
     if dt is None:
-        # No parseable date → don't filter on date
         return True
     if months and dt.month not in months:
         DEBUG_COUNTS["fail_month"] += 1
@@ -161,59 +181,37 @@ def date_ok(game_date, months, exclude_dow):
 
 
 def passes_filters(values: dict, scfg: dict, game_date: str) -> bool:
-    """
-    values keys (any may be None): odds, line, ev, kelly, model_prob, edge_vs_market_pct
-    scfg is the per-side config block.
-    """
-    # odds
     if "odds_bands" in scfg:
         if not in_any_band(values.get("odds"), scfg["odds_bands"]):
             DEBUG_COUNTS["fail_odds"] += 1
             return False
-
-    # line (only enforced if config specifies and value is provided)
     if "line_bands" in scfg and values.get("line") is not None:
         if not in_any_band(values.get("line"), scfg["line_bands"]):
             DEBUG_COUNTS["fail_line"] += 1
             return False
-
-    # ev
     if "ev_bands" in scfg:
         if not in_any_band(values.get("ev"), scfg["ev_bands"]):
             DEBUG_COUNTS["fail_ev"] += 1
             return False
-
-    # kelly
     if "kelly_bands" in scfg:
         if not in_any_band(values.get("kelly"), scfg["kelly_bands"]):
             DEBUG_COUNTS["fail_kelly"] += 1
             return False
-
-    # model probability
     if "model_prob_bands" in scfg:
         if not in_any_band(values.get("model_prob"), scfg["model_prob_bands"]):
             DEBUG_COUNTS["fail_model_prob"] += 1
             return False
-
-    # edge vs market (in percentage points)
     if "edge_vs_market_bands" in scfg:
         if not in_any_band(values.get("edge_vs_market_pct"), scfg["edge_vs_market_bands"]):
             DEBUG_COUNTS["fail_edge_vs_market"] += 1
             return False
-
-    # date filters
     if not date_ok(game_date, scfg.get("months", []) or [],
                    scfg.get("exclude_days_of_week", []) or []):
         return False
-
     return True
 
 
 def pick(qualifying, preference):
-    """
-    qualifying is a list of dicts each containing the candidate's metrics.
-    preference is {'metric': str, 'direction': 'max'|'min'}.
-    """
     if not qualifying:
         return None
     metric = preference.get("metric", "ev")
@@ -221,7 +219,6 @@ def pick(qualifying, preference):
 
     def key(c):
         v = c.get(metric)
-        # Treat missing metric as worst possible value
         if v is None:
             return float("-inf") if direction == "max" else float("inf")
         return v
@@ -242,7 +239,6 @@ def extract_date(filename):
 
 
 def stake_pct(kelly):
-    """Apply fractional Kelly and cap. Returns None if kelly is missing/non-positive."""
     if kelly is None or kelly <= 0:
         return None
     raw = kelly * KELLY_FRACTION
@@ -268,10 +264,89 @@ def write_daily_pick_files(league: str, out_df: pd.DataFrame) -> None:
     for game_date, date_df in out_df.groupby("game_date", dropna=False):
         if pd.isna(game_date) or not str(game_date).strip():
             game_date = "unknown_date"
-
         out_path = daily_pick_dir / f"{game_date}_{league}_selected.csv"
         date_df.to_csv(out_path, index=False)
         _log(f"WROTE DAILY PICKS: {out_path} ({len(date_df)} rows)")
+
+
+# =========================
+# ML vs SPREAD RECONCILIATION
+# =========================
+
+def reconcile_ml_vs_spread(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """
+    For each game, if both moneyline AND spread bets are present, keep only
+    one market and drop the other entirely. Selection is by the configured
+    ML_VS_SPREAD_TIEBREAK metric, taking the BEST row in each market and
+    comparing those bests. The losing market's rows for that game are all
+    dropped (this matters when selection_mode is 'all_qualifying' and there
+    are multiple rows per market per game).
+
+    Total bets are unaffected — they pass through regardless.
+
+    Returns (filtered_df, n_dropped).
+    """
+    if df.empty:
+        return df, 0
+
+    if "game_id" not in df.columns or "market_type" not in df.columns:
+        _log("Cannot reconcile ML vs spread: missing 'game_id' or 'market_type' column",
+             "WARN")
+        return df, 0
+
+    metric_col = TIEBREAK_COL_MAP.get(ML_VS_SPREAD_TIEBREAK, "bet_ev")
+    if metric_col not in df.columns:
+        _log(f"Cannot reconcile: tiebreak column {metric_col!r} missing", "WARN")
+        return df, 0
+
+    # Numeric coercion for the tiebreak column (defensive)
+    df = df.copy()
+    df["_tiebreak_metric"] = pd.to_numeric(df[metric_col], errors="coerce")
+
+    # Build a per-game best-metric table for ML and for spread.
+    ml_mask     = df["market_type"] == "moneyline"
+    spread_mask = df["market_type"] == "spread"
+
+    if not ml_mask.any() or not spread_mask.any():
+        # No conflict possible — at least one market is empty.
+        df = df.drop(columns=["_tiebreak_metric"])
+        return df, 0
+
+    ml_best     = df.loc[ml_mask].groupby("game_id")["_tiebreak_metric"].max()
+    spread_best = df.loc[spread_mask].groupby("game_id")["_tiebreak_metric"].max()
+
+    conflict_games = ml_best.index.intersection(spread_best.index)
+    if len(conflict_games) == 0:
+        df = df.drop(columns=["_tiebreak_metric"])
+        return df, 0
+
+    drop_indices = []
+    for gid in conflict_games:
+        ml_val = ml_best.loc[gid]
+        sp_val = spread_best.loc[gid]
+
+        # NaN handling: if both NaN, drop spread (arbitrary stable choice).
+        # If one NaN, the non-NaN side wins.
+        if pd.isna(ml_val) and pd.isna(sp_val):
+            losing_market = "spread"
+        elif pd.isna(ml_val):
+            losing_market = "moneyline"
+        elif pd.isna(sp_val):
+            losing_market = "spread"
+        else:
+            # Higher tiebreak metric wins. Tie → spread loses (stable, arbitrary).
+            losing_market = "spread" if ml_val >= sp_val else "moneyline"
+
+        # All rows in the losing market for this game get dropped.
+        loss_mask = (df["game_id"] == gid) & (df["market_type"] == losing_market)
+        drop_indices.extend(df.index[loss_mask].tolist())
+        DEBUG_COUNTS[f"ml_vs_spread_dropped_{losing_market}"] += int(loss_mask.sum())
+
+    n_dropped = len(drop_indices)
+    if n_dropped:
+        df = df.drop(index=drop_indices)
+    df = df.drop(columns=["_tiebreak_metric"])
+    return df, n_dropped
 
 
 # =========================
@@ -288,7 +363,6 @@ def build_ml_sides(row, league, game_date, cfg):
         ev    = fv(row.get(f"{side}_ml_ev"))
         kelly = fv(row.get(f"{side}_ml_kelly"))
         mp    = fv(row.get(f"{side}_model_prob"))
-        # Fallback: home_prob/away_prob is identical to *_model_prob upstream
         if mp is None:
             mp = fv(row.get(f"{side}_prob"))
         evm   = fv(row.get(f"{side}_ml_edge_vs_market_pct"))
@@ -436,6 +510,7 @@ def main():
     summary = {
         "files_processed": 0, "total_selected": 0,
         "nba_bets": 0, "ncaam_bets": 0, "wnba_bets": 0,
+        "ml_vs_spread_dropped": 0,
         "skipped": 0, "errors": 0,
     }
     per_file = []
@@ -443,6 +518,7 @@ def main():
     _log(f"INPUT_DIR : {INPUT_DIR}")
     _log(f"OUTPUT_DIR: {SELECT_DIR}")
     _log(f"stake_sizing: kelly_fraction={KELLY_FRACTION} kelly_cap={KELLY_CAP}")
+    _log(f"ml_vs_spread_tiebreak: {ML_VS_SPREAD_TIEBREAK}")
 
     league_dfs = {lg: [] for lg in LEAGUES}
 
@@ -480,7 +556,7 @@ def main():
                         summary["errors"] += 1
                     per_file.append(pf)
 
-        # Write per-league output files and per-league/per-date daily pick files
+        # Per-league: concat, reconcile ML vs spread, write outputs
         for league in LEAGUES:
             dfs = league_dfs[league]
             if not dfs:
@@ -488,12 +564,22 @@ def main():
 
             out_df = pd.concat(dfs, ignore_index=True)
 
-            # Existing full league file
+            # Reconcile ML vs spread per game (drops one market when both qualify)
+            before = len(out_df)
+            out_df, dropped = reconcile_ml_vs_spread(out_df)
+            after = len(out_df)
+            summary["ml_vs_spread_dropped"]  += dropped
+            summary[f"{league}_bets"]        -= (before - after)
+            summary["total_selected"]        -= (before - after)
+            _log(f"RECONCILE {league}: dropped {dropped} rows due to ML/spread conflict "
+                 f"({before} -> {after}, tiebreak={ML_VS_SPREAD_TIEBREAK})")
+
+            # Combined per-league file
             out_path = DAILY_DIR / f"{league}_selected.csv"
             out_df.to_csv(out_path, index=False)
             _log(f"WROTE: {out_path} ({len(out_df)} rows)")
 
-            # New per-league, per-date daily pick files
+            # Per-date daily pick files
             write_daily_pick_files(league, out_df)
 
     except Exception as e:
