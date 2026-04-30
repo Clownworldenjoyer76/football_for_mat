@@ -9,8 +9,9 @@
 #   docs/win/basketball/03_edges/ev_kelly/{league}/{market}/*.csv
 #   where league in {nba, ncaam, wnba}, market in {moneyline, spread, total}
 #
-# Output:
+# Outputs:
 #   docs/win/basketball/04_select/daily_slate/{league}_selected.csv
+#   docs/win/basketball/04_select/{league}/daily_picks/{YYYY_MM_DD}_{league}_selected.csv
 #
 # Filters per side (each is a list of [lo, hi] bands; pass = value falls in any band):
 #   odds_bands           (american odds)
@@ -248,6 +249,31 @@ def stake_pct(kelly):
     return min(raw, KELLY_CAP)
 
 
+def write_daily_pick_files(league: str, out_df: pd.DataFrame) -> None:
+    """
+    Writes one selected-picks file per league per game_date to:
+      docs/win/basketball/04_select/{league}/daily_picks/{YYYY_MM_DD}_{league}_selected.csv
+    """
+    daily_pick_dir = SELECT_DIR / league / "daily_picks"
+    daily_pick_dir.mkdir(parents=True, exist_ok=True)
+
+    # Wipe old daily pick files for that league
+    for stale in daily_pick_dir.glob("*.csv"):
+        stale.unlink(missing_ok=True)
+
+    if "game_date" not in out_df.columns:
+        _log(f"Cannot write daily picks for {league}: missing game_date column", "ERROR")
+        return
+
+    for game_date, date_df in out_df.groupby("game_date", dropna=False):
+        if pd.isna(game_date) or not str(game_date).strip():
+            game_date = "unknown_date"
+
+        out_path = daily_pick_dir / f"{game_date}_{league}_selected.csv"
+        date_df.to_csv(out_path, index=False)
+        _log(f"WROTE DAILY PICKS: {out_path} ({len(date_df)} rows)")
+
+
 # =========================
 # MARKET SIDE BUILDERS
 # =========================
@@ -454,15 +480,21 @@ def main():
                         summary["errors"] += 1
                     per_file.append(pf)
 
-        # Write per-league output files
+        # Write per-league output files and per-league/per-date daily pick files
         for league in LEAGUES:
             dfs = league_dfs[league]
             if not dfs:
                 continue
+
             out_df = pd.concat(dfs, ignore_index=True)
+
+            # Existing full league file
             out_path = DAILY_DIR / f"{league}_selected.csv"
             out_df.to_csv(out_path, index=False)
             _log(f"WROTE: {out_path} ({len(out_df)} rows)")
+
+            # New per-league, per-date daily pick files
+            write_daily_pick_files(league, out_df)
 
     except Exception as e:
         _log(f"FATAL: {e}\n{traceback.format_exc()}", "ERROR")
