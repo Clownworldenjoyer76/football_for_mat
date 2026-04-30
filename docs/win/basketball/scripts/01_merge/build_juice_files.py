@@ -99,6 +99,38 @@ def clamp_probability(p):
     return min(max(p, 0.05), 0.95)
 
 
+def safe_implied_prob(decimal_value):
+    """Convert a decimal odds value to implied probability. Returns '' if invalid."""
+    if decimal_value == "" or pd.isna(decimal_value):
+        return ""
+    try:
+        d = float(decimal_value)
+    except (ValueError, TypeError):
+        return ""
+    if d <= 0:
+        return ""
+    return 1.0 / d
+
+
+def devig_pair(p_a, p_b):
+    """
+    Normalize a pair of implied probabilities so they sum to 1.
+    Removes the bookmaker's overround (vig).
+    Returns ('', '') if either input is missing/invalid.
+    """
+    if p_a == "" or p_b == "" or pd.isna(p_a) or pd.isna(p_b):
+        return "", ""
+    try:
+        a = float(p_a)
+        b = float(p_b)
+    except (ValueError, TypeError):
+        return "", ""
+    s = a + b
+    if s <= 0:
+        return "", ""
+    return a / s, b / s
+
+
 def wipe_outputs():
     for league in LEAGUES:
         for subdir in ["moneyline", "spread", "total"]:
@@ -117,23 +149,31 @@ def process_moneyline(df: pd.DataFrame, date: str, league_upper: str, settings: 
     ML_EDGE = settings["ML_EDGE"]
 
     ml_df = df.copy()
-    ml_df["away_decimal"]      = ml_df["away_dk_moneyline_american"].apply(american_to_decimal)
-    ml_df["home_decimal"]      = ml_df["home_dk_moneyline_american"].apply(american_to_decimal)
-    ml_df["away_implied_prob"] = ml_df["away_decimal"].apply(lambda x: 1 / x if x != "" and float(x) > 0 else "")
-    ml_df["home_implied_prob"] = ml_df["home_decimal"].apply(lambda x: 1 / x if x != "" and float(x) > 0 else "")
 
-    total_implied = ml_df["away_implied_prob"].apply(lambda x: float(x) if x != "" else 0) + \
-                    ml_df["home_implied_prob"].apply(lambda x: float(x) if x != "" else 0)
+    # Decimal odds (some pipelines pass these in already; recompute from American to be safe)
+    ml_df["away_decimal"] = ml_df["away_dk_moneyline_american"].apply(american_to_decimal)
+    ml_df["home_decimal"] = ml_df["home_dk_moneyline_american"].apply(american_to_decimal)
 
-    ml_df["away_market_prob"] = ml_df.apply(
-        lambda r: float(r["away_implied_prob"]) / total_implied[r.name] if r["away_implied_prob"] != "" and total_implied[r.name] > 0 else "", axis=1
+    # Raw implied probabilities from book decimals (not yet devigged)
+    ml_df["away_implied_prob"] = ml_df["away_decimal"].apply(safe_implied_prob)
+    ml_df["home_implied_prob"] = ml_df["home_decimal"].apply(safe_implied_prob)
+
+    # Devigged market probabilities — what the book "really" thinks after removing the hold
+    market_pairs = ml_df.apply(
+        lambda r: devig_pair(r["away_implied_prob"], r["home_implied_prob"]),
+        axis=1,
     )
-    ml_df["home_market_prob"] = ml_df.apply(
-        lambda r: float(r["home_implied_prob"]) / total_implied[r.name] if r["home_implied_prob"] != "" and total_implied[r.name] > 0 else "", axis=1
-    )
+    ml_df["away_market_prob"] = market_pairs.apply(lambda t: t[0])
+    ml_df["home_market_prob"] = market_pairs.apply(lambda t: t[1])
 
-    ml_df["away_fair"] = ml_df["away_prob"].apply(lambda x: 1 / float(x) if str(x).strip() != "" and float(x) > 0 else "")
-    ml_df["home_fair"] = ml_df["home_prob"].apply(lambda x: 1 / float(x) if str(x).strip() != "" and float(x) > 0 else "")
+    # Model probabilities pass through directly from the predictions stage
+    # (already in columns home_prob, away_prob — written here under standardized names too)
+    ml_df["home_model_prob"] = pd.to_numeric(ml_df["home_prob"], errors="coerce")
+    ml_df["away_model_prob"] = pd.to_numeric(ml_df["away_prob"], errors="coerce")
+
+    # Fair decimal odds = 1 / model_prob
+    ml_df["away_fair"] = ml_df["away_model_prob"].apply(lambda x: 1 / float(x) if pd.notna(x) and float(x) > 0 else "")
+    ml_df["home_fair"] = ml_df["home_model_prob"].apply(lambda x: 1 / float(x) if pd.notna(x) and float(x) > 0 else "")
 
     ml_df["away_acceptable_decimal_moneyline"]  = ml_df["away_fair"].apply(lambda x: float(x) * (1 + ML_EDGE) if x != "" else "")
     ml_df["home_acceptable_decimal_moneyline"]  = ml_df["home_fair"].apply(lambda x: float(x) * (1 + ML_EDGE) if x != "" else "")
@@ -153,17 +193,22 @@ def process_totals(df: pd.DataFrame, date: str, league_upper: str, settings: dic
     TOTAL_EDGE = settings["TOTAL_EDGE"]
     TOTAL_STD  = settings["TOTAL_STD"]
 
-    total_df   = df.copy()
-    fair_over  = []
-    fair_under = []
-    acc_over   = []
-    acc_under  = []
+    total_df = df.copy()
+
+    over_model_prob  = []
+    under_model_prob = []
+    fair_over        = []
+    fair_under       = []
+    acc_over         = []
+    acc_under        = []
 
     for _, row in total_df.iterrows():
         try:
             T    = float(row["total"])
             mean = float(row["total_projected_points"])
         except (ValueError, TypeError):
+            over_model_prob.append("")
+            under_model_prob.append("")
             fair_over.append("")
             fair_under.append("")
             acc_over.append("")
@@ -176,19 +221,36 @@ def process_totals(df: pd.DataFrame, date: str, league_upper: str, settings: dic
             z       = (T - mean) / TOTAL_STD
             p_under = norm.cdf(z)
 
-        p_under        = clamp_probability(p_under)
-        p_over         = 1 - p_under
-        fair_under_dec = 1 / p_under
-        fair_over_dec  = 1 / p_over
-        fair_under.append(fair_under_dec)
-        fair_over.append(fair_over_dec)
-        acc_under.append(fair_under_dec * (1 + TOTAL_EDGE))
-        acc_over.append(fair_over_dec  * (1 + TOTAL_EDGE))
+        p_under = clamp_probability(p_under)
+        p_over  = 1 - p_under
 
+        over_model_prob.append(p_over)
+        under_model_prob.append(p_under)
+
+        fair_over_dec  = 1 / p_over
+        fair_under_dec = 1 / p_under
+        fair_over.append(fair_over_dec)
+        fair_under.append(fair_under_dec)
+        acc_over.append(fair_over_dec  * (1 + TOTAL_EDGE))
+        acc_under.append(fair_under_dec * (1 + TOTAL_EDGE))
+
+    total_df["over_model_prob"]  = over_model_prob
+    total_df["under_model_prob"] = under_model_prob
     total_df["fair_over"]        = fair_over
     total_df["fair_under"]       = fair_under
     total_df["acceptable_over"]  = acc_over
     total_df["acceptable_under"] = acc_under
+
+    # Devigged market probabilities from the over/under decimal odds
+    total_df["over_implied_prob"]  = total_df["dk_total_over_decimal"].apply(safe_implied_prob)
+    total_df["under_implied_prob"] = total_df["dk_total_under_decimal"].apply(safe_implied_prob)
+
+    market_pairs = total_df.apply(
+        lambda r: devig_pair(r["over_implied_prob"], r["under_implied_prob"]),
+        axis=1,
+    )
+    total_df["over_market_prob"]  = market_pairs.apply(lambda t: t[0])
+    total_df["under_market_prob"] = market_pairs.apply(lambda t: t[1])
 
     out_path = OUTPUT_DIR / league / "total" / f"{date}_{league_upper}_total.csv"
     total_df.to_csv(out_path, index=False)
@@ -204,25 +266,39 @@ def process_spread(df: pd.DataFrame, date: str, league_upper: str, settings: dic
     SPREAD_STD  = settings["SPREAD_STD"]
 
     spread_df = df.copy()
-    fair_home = []
-    fair_away = []
-    acc_home  = []
-    acc_away  = []
+
+    home_model_prob = []
+    away_model_prob = []
+    fair_home       = []
+    fair_away       = []
+    acc_home        = []
+    acc_away        = []
 
     for _, row in spread_df.iterrows():
         try:
             mean_margin = float(row["home_projected_points"]) - float(row["away_projected_points"])
             home_line   = float(row["home_spread"])
         except (ValueError, TypeError):
+            home_model_prob.append("")
+            away_model_prob.append("")
             fair_home.append("")
             fair_away.append("")
             acc_home.append("")
             acc_away.append("")
             continue
 
-        p_home        = 1 - norm.cdf(home_line, loc=mean_margin, scale=SPREAD_STD)
-        p_home        = clamp_probability(p_home)
-        p_away        = 1 - p_home
+        # Spread cover convention:
+        # If home_spread = -3.5 (home favored by 3.5), home covers iff
+        # home_margin > 3.5, i.e., home_margin > -home_line.
+        # We compute P(margin > -home_line) where margin ~ N(mean_margin, SPREAD_STD).
+        cover_threshold = -home_line
+        p_home = 1 - norm.cdf(cover_threshold, loc=mean_margin, scale=SPREAD_STD)
+        p_home = clamp_probability(p_home)
+        p_away = 1 - p_home
+
+        home_model_prob.append(p_home)
+        away_model_prob.append(p_away)
+
         fair_home_dec = 1 / p_home
         fair_away_dec = 1 / p_away
         fair_home.append(fair_home_dec)
@@ -230,12 +306,25 @@ def process_spread(df: pd.DataFrame, date: str, league_upper: str, settings: dic
         acc_home.append(fair_home_dec * (1 + SPREAD_EDGE))
         acc_away.append(fair_away_dec * (1 + SPREAD_EDGE))
 
+    spread_df["home_spread_model_prob"]          = home_model_prob
+    spread_df["away_spread_model_prob"]          = away_model_prob
     spread_df["fair_home_spread_decimal"]        = fair_home
     spread_df["fair_away_spread_decimal"]        = fair_away
     spread_df["home_acceptable_spread_decimal"]  = acc_home
     spread_df["away_acceptable_spread_decimal"]  = acc_away
     spread_df["home_acceptable_spread_american"] = spread_df["home_acceptable_spread_decimal"].apply(to_american)
     spread_df["away_acceptable_spread_american"] = spread_df["away_acceptable_spread_decimal"].apply(to_american)
+
+    # Devigged market probabilities from the spread decimal odds
+    spread_df["home_spread_implied_prob"] = spread_df["home_dk_spread_decimal"].apply(safe_implied_prob)
+    spread_df["away_spread_implied_prob"] = spread_df["away_dk_spread_decimal"].apply(safe_implied_prob)
+
+    market_pairs = spread_df.apply(
+        lambda r: devig_pair(r["home_spread_implied_prob"], r["away_spread_implied_prob"]),
+        axis=1,
+    )
+    spread_df["home_spread_market_prob"] = market_pairs.apply(lambda t: t[0])
+    spread_df["away_spread_market_prob"] = market_pairs.apply(lambda t: t[1])
 
     out_path = OUTPUT_DIR / league / "spread" / f"{date}_{league_upper}_spread.csv"
     spread_df.to_csv(out_path, index=False)
