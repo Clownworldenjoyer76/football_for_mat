@@ -26,10 +26,20 @@
 # Top-level:
 #   stake_sizing.kelly_fraction : multiplier on raw Kelly (e.g., 0.25 for ¼ Kelly)
 #   stake_sizing.kelly_cap      : maximum stake as fraction of bankroll
+#
+#   ml_vs_spread_tiebreak       : when both ML and spread qualify on the same
+#                                 game, keep only one. Tiebreak by:
+#                                   ev             -> higher EV wins
+#                                   kelly          -> higher Kelly wins
+#                                   edge_vs_market -> higher edge_vs_market (pp) wins
+#                                 The losing market is dropped entirely for that game.
+#                                 Total bets are not affected by this rule.
 
 stake_sizing:
   kelly_fraction: 0.25
   kelly_cap: 0.05
+
+ml_vs_spread_tiebreak: ev
 
 markets:
 
