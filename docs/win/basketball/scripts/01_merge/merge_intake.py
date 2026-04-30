@@ -12,9 +12,9 @@ from datetime import datetime
 
 LEAGUES = ["nba", "ncaam", "wnba"]
 
-INTAKE_DIR     = Path("docs/win/basketball/00_intake")
-PREDICTIONS_DIR = INTAKE_DIR / "predictions"
-SPORTSBOOK_DIR  = INTAKE_DIR / "sportsbook"
+INTAKE_DIR      = Path("docs/win/basketball/00_intake")
+PREDICTIONS_DIR = INTAKE_DIR / "predictions" / "predictions_cleaned"
+SPORTSBOOK_DIR  = INTAKE_DIR / "sportsbook"  / "sportsbook_cleaned"
 MERGE_DIR       = Path("docs/win/basketball/01_merge")
 ERROR_DIR       = Path("docs/win/basketball/errors/01_merge")
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
