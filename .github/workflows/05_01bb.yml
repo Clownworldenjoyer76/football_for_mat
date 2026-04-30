@@ -1,0 +1,47 @@
+name: Manual Basketball Results Grade
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  grade-basketball-results:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/win/basketball/05_final_scores/results/nba/graded/
+          mkdir -p docs/win/basketball/05_final_scores/results/ncaam/graded/
+          mkdir -p docs/win/basketball/05_final_scores/results/wnba/graded/
+          mkdir -p docs/win/basketball/errors/05_final_scores/
+
+      - name: Run basketball results grading
+        run: python docs/win/basketball/scripts/05_final_scores/01_basketball_results_grade.py
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/basketball/05_final_scores/results/nba/graded/
+          git add docs/win/basketball/05_final_scores/results/ncaam/graded/
+          git add docs/win/basketball/05_final_scores/results/wnba/graded/
+          git add docs/win/basketball/errors/05_final_scores/
+
+          git diff --cached --quiet || git commit -m "chore: grade basketball final results $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push
