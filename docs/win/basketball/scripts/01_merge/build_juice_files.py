@@ -16,7 +16,7 @@ import pandas as pd
 LEAGUE_SETTINGS = {
     "NBA": {
         "ML_EDGE":     0.020,
-        "TOTAL_EDGE":  0.020,
+        "TOTAL_EDGE":  0.030,
         "SPREAD_EDGE": 0.050,
         "TOTAL_STD":   19.1345,
         "SPREAD_STD":  14.1837,
@@ -24,7 +24,7 @@ LEAGUE_SETTINGS = {
     "NCAAM": {
         "ML_EDGE":     0.015,
         "TOTAL_EDGE":  0.03,
-        "SPREAD_EDGE": 0.050,
+        "SPREAD_EDGE": 0.100,
         "TOTAL_STD":   17.7495,
         "SPREAD_STD":  11.2375,
     },
