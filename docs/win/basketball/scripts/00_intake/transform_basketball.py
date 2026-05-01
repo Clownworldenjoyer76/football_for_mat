@@ -181,6 +181,12 @@ def process_final_scores(
         return
 
     for date_val, group in completed.groupby("game_date"):
+        path = f"{cfg['final_scores_dir']}/{date_val}_final_scores_{league_label}.csv"
+
+        if Path(path).exists():
+            log(league_key, f"SKIPPED existing final scores file: {path}")
+            continue
+
         rows = []
         for _, row in group.iterrows():
             try:
@@ -211,7 +217,6 @@ def process_final_scores(
             "home_team", "away_team", "home_score", "away_score",
             "total", "home_spread", "away_spread",
         ])
-        path = f"{cfg['final_scores_dir']}/{date_val}_final_scores_{league_label}.csv"
         save(out, path, files_written, league_key)
         stats["final_score_files_written"] += 1
         stats["final_score_rows_written"] += len(out)
