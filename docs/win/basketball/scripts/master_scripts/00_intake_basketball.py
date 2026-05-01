@@ -18,50 +18,14 @@ TODAY = datetime.now().strftime("%Y_%m_%d")
 
 JOBS = [
     {
-        "script": Path("docs/win/basketball/scripts/00_intake/cloudbet_ncaam_wnba_odds_pull.py"),
-        "skip": True,
+        "script": Path("docs/win/basketball/scripts/00_parsing/basketball_odds_parse_wnba.py"),
+        "skip": False,
         "checks": [
             {
-                "type": "file_exists",
-                "path": Path(f"docs/win/basketball/odds/ncaam/{TODAY}_ncaam.json"),
-            },
-            {
-                "type": "file_exists",
-                "path": Path(f"docs/win/basketball/odds/wnba/{TODAY}_wnba.json"),
-            },
-            {
-                "type": "json_list_has_rows",
-                "path": Path(f"docs/win/basketball/odds/ncaam/{TODAY}_ncaam.json"),
-                "min_rows": 1,
-            },
-            {
-                "type": "json_list_has_rows",
-                "path": Path(f"docs/win/basketball/odds/wnba/{TODAY}_wnba.json"),
-                "min_rows": 1,
-            },
-        ],
-    },
-    {
-        "script": Path("docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba_ncaam.py"),
-        "skip": True,
-        "checks": [
-            {
-                "type": "file_exists",
-                "path": Path(f"docs/win/basketball/00_intake/sportsbook/ncaam/{TODAY}_NCAAM_odds.csv"),
-            },
-            {
-                "type": "file_exists",
-                "path": Path(f"docs/win/basketball/00_intake/sportsbook/wnba/{TODAY}_WNBA_odds.csv"),
-            },
-            {
-                "type": "csv_has_rows",
-                "path": Path(f"docs/win/basketball/00_intake/sportsbook/ncaam/{TODAY}_NCAAM_odds.csv"),
-                "min_rows": 1,
-            },
-            {
-                "type": "csv_has_rows",
-                "path": Path(f"docs/win/basketball/00_intake/sportsbook/wnba/{TODAY}_WNBA_odds.csv"),
-                "min_rows": 1,
+                "type": "glob_count",
+                "path": Path("docs/win/basketball/00_intake/sportsbook/wnba"),
+                "pattern": "*_WNBA_odds.csv",
+                "min_count": 1,
             },
         ],
     },
