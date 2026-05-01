@@ -18,7 +18,7 @@ TODAY = datetime.now().strftime("%Y_%m_%d")
 
 JOBS = [
     {
-        "script": Path("docs/win/basketball/scripts/00_parsing/basketball_odds_parse_wnba.py"),
+        "script": Path("docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba.py"),
         "skip": False,
         "checks": [
             {
