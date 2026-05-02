@@ -37,9 +37,9 @@ markets:
       home:
         enabled: true
         odds_bands:           [[-10000, -150], [126, 500]]
-        ev_bands:             [[0.0184, 0.0399]]
+        ev_bands:             [[0.02, 0.0399]]
         kelly_bands:          [[0.0, 1.0]]
-        model_prob_bands:     [[0.0, 1.0]]
+        model_prob_bands:     [[0.3, 1.0]]
         edge_vs_market_bands: [[-100.0, 100.0]]
         months:               []
         exclude_days_of_week: []
@@ -62,7 +62,7 @@ markets:
       home:
         enabled: true
         line_bands:           [[-9.0, -6.0], [6.0, 9.0]]
-        odds_bands:           [[-10000, 10000]]
+        odds_bands:           [[-10000, -110]]
         ev_bands:             [[0.0, 1.0]]
         kelly_bands:          [[0.0, 1.0]]
         model_prob_bands:     [[0.0, 1.0]]
@@ -73,8 +73,8 @@ markets:
       away:
         enabled: true
         line_bands:           [[-9.0, 9.0]]
-        odds_bands:           [[-10000, 10000]]
-        ev_bands:             [[0.03, 1.0]]
+        odds_bands:           [[-10000, -110]]
+        ev_bands:             [[0.05, 1.0]]
         kelly_bands:          [[0.025, 1.0]]
         model_prob_bands:     [[0.0, 1.0]]
         edge_vs_market_bands: [[-100.0, 100.0]]
@@ -87,7 +87,7 @@ markets:
       pick_preference: { metric: ev, direction: max }
 
       over:
-        enabled: false
+        enabled: true
         line_bands:           [[150.0, 300.0]]
         odds_bands:           [[-10000, 10000]]
         ev_bands:             [[0.0, 1.0]]
