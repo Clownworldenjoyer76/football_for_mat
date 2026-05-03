@@ -1,152 +1,154 @@
-=== 00_intake_basketball RUN 2026-05-02T14:29:00.480572 ===
-2026-05-02T14:29:00.480632 | MASTER SCRIPT START
-2026-05-02T14:29:00.480699 | TODAY = 2026_05_02
-2026-05-02T14:29:00.480770 | ENSURED DIR: docs/win/basketball/errors/00_intake
-2026-05-02T14:29:00.480851 | ENSURED DIR: docs/win/basketball/odds/ncaam
-2026-05-02T14:29:00.480945 | ENSURED DIR: docs/win/basketball/odds/wnba
-2026-05-02T14:29:00.481015 | ENSURED DIR: docs/win/basketball/00_intake/predictions/nba
-2026-05-02T14:29:00.481080 | ENSURED DIR: docs/win/basketball/00_intake/predictions/ncaam
-2026-05-02T14:29:00.481138 | ENSURED DIR: docs/win/basketball/00_intake/predictions/wnba
-2026-05-02T14:29:00.481195 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/wnba
-2026-05-02T14:29:00.481248 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/ncaam
-2026-05-02T14:29:00.481330 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/nba
-2026-05-02T14:29:00.481383 | ENSURED DIR: docs/win/basketball/05_final_scores/results/nba
-2026-05-02T14:29:00.481433 | ENSURED DIR: docs/win/basketball/05_final_scores/results/ncaam
-2026-05-02T14:29:00.481483 | ENSURED DIR: docs/win/basketball/05_final_scores/results/wnba
-2026-05-02T14:29:00.481531 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/nba
-2026-05-02T14:29:00.481580 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/ncaam
-2026-05-02T14:29:00.481628 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/wnba
-2026-05-02T14:29:00.481679 | ENSURED DIR: docs/win/basketball/daily_games/wnba
-2026-05-02T14:29:00.481742 | ENSURED DIR: docs/win/basketball/daily_games/nba
-2026-05-02T14:29:00.481815 | ENSURED DIR: docs/win/basketball/daily_games/ncaam
-2026-05-02T14:29:00.481889 | ENSURED DIR: docs/win/basketball/00_intake/predictions/predictions_cleaned/nba
-2026-05-02T14:29:00.481958 | ENSURED DIR: docs/win/basketball/00_intake/predictions/predictions_cleaned/ncaam
-2026-05-02T14:29:00.482024 | ENSURED DIR: docs/win/basketball/00_intake/predictions/predictions_cleaned/wnba
-2026-05-02T14:29:00.482089 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/nba
-2026-05-02T14:29:00.482154 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/ncaam
-2026-05-02T14:29:00.482219 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/wnba
-2026-05-02T14:29:00.482360 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba.py
-2026-05-02T14:29:00.548914 | [STDOUT] [2026-05-02 14:29:00] READING: docs/win/basketball/odds/wnba/2026_05_08_wnba.json
-2026-05-02T14:29:00.548994 | [STDOUT] [2026-05-02 14:29:00] WROTE: docs/win/basketball/00_intake/sportsbook/wnba/2026_05_08_WNBA_odds.csv (3 rows)
-2026-05-02T14:29:00.549035 | [STDOUT] [2026-05-02 14:29:00] READING: docs/win/basketball/odds/wnba/2026_05_09_wnba.json
-2026-05-02T14:29:00.549072 | [STDOUT] [2026-05-02 14:29:00] WROTE: docs/win/basketball/00_intake/sportsbook/wnba/2026_05_09_WNBA_odds.csv (1 rows)
-2026-05-02T14:29:00.549111 | [STDOUT] [2026-05-02 14:29:00] SUCCESS: Parsed 2 file(s), wrote 4 row(s)
-2026-05-02T14:29:00.549152 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba.py
-2026-05-02T14:29:00.549779 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/wnba pattern=*_WNBA_odds.csv count=116
-2026-05-02T14:29:00.549860 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py
-2026-05-02T14:29:00.618462 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py
-2026-05-02T14:29:00.619212 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/nba pattern=*_NBA_odds.csv count=186
-2026-05-02T14:29:00.619327 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py
-2026-05-02T14:29:14.832977 | [STDOUT] Basketball drat scraper complete.
-2026-05-02T14:29:14.833081 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py
-2026-05-02T14:29:14.833153 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/nba/2026_05_02_nba_raw.json
-2026-05-02T14:29:14.833211 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/ncaam/2026_05_02_ncaam_raw.json
-2026-05-02T14:29:14.833310 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/wnba/2026_05_02_wnba_raw.json
-2026-05-02T14:29:14.835234 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/nba/2026_05_02_nba_raw.json rows=16
-2026-05-02T14:29:14.835463 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/ncaam/2026_05_02_ncaam_raw.json rows=16
-2026-05-02T14:29:14.835645 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/wnba/2026_05_02_wnba_raw.json rows=16
-2026-05-02T14:29:14.835697 | START SCRIPT: docs/win/basketball/scripts/00_intake/transform_basketball.py
-2026-05-02T14:29:15.712518 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_26_NBA_predictions.csv
-2026-05-02T14:29:15.712622 | [STDOUT]   Saved 10 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_27_NBA_predictions.csv
-2026-05-02T14:29:15.712663 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_28_NBA_predictions.csv
-2026-05-02T14:29:15.712694 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_29_NBA_predictions.csv
-2026-05-02T14:29:15.712751 | [STDOUT]   Saved 7 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_30_NBA_predictions.csv
-2026-05-02T14:29:15.712797 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_31_NBA_predictions.csv
-2026-05-02T14:29:15.712841 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_01_NBA_predictions.csv
-2026-05-02T14:29:15.712890 | [STDOUT]   Saved 6 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_02_NBA_predictions.csv
-2026-05-02T14:29:15.712934 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_03_NBA_predictions.csv
-2026-05-02T14:29:15.712976 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_04_NBA_predictions.csv
-2026-05-02T14:29:15.713020 | [STDOUT]   Saved 10 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_05_NBA_predictions.csv
-2026-05-02T14:29:15.713064 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_06_NBA_predictions.csv
-2026-05-02T14:29:15.713108 | [STDOUT]   Saved 9 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_07_NBA_predictions.csv
-2026-05-02T14:29:15.713152 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_08_NBA_predictions.csv
-2026-05-02T14:29:15.713195 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_09_NBA_predictions.csv
-2026-05-02T14:29:15.713238 | [STDOUT]   Saved 14 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_10_NBA_predictions.csv
-2026-05-02T14:29:15.713310 | [STDOUT]   Saved 14 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_12_NBA_predictions.csv
-2026-05-02T14:29:15.713359 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_14_NBA_predictions.csv
-2026-05-02T14:29:15.713403 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_14_NBA_predictions.csv
-2026-05-02T14:29:15.713448 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_15_NBA_predictions.csv
-2026-05-02T14:29:15.713491 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_17_NBA_predictions.csv
-2026-05-02T14:29:15.713535 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_17_NBA_predictions.csv
-2026-05-02T14:29:15.713580 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_18_NBA_predictions.csv
-2026-05-02T14:29:15.713623 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_19_NBA_predictions.csv
-2026-05-02T14:29:15.713665 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_20_NBA_predictions.csv
-2026-05-02T14:29:15.713710 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_21_NBA_predictions.csv
-2026-05-02T14:29:15.713760 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_22_NBA_predictions.csv
-2026-05-02T14:29:15.713809 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_23_NBA_predictions.csv
-2026-05-02T14:29:15.713851 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_24_NBA_predictions.csv
-2026-05-02T14:29:15.713896 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_25_NBA_predictions.csv
-2026-05-02T14:29:15.713942 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_26_NBA_predictions.csv
-2026-05-02T14:29:15.714005 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_27_NBA_predictions.csv
-2026-05-02T14:29:15.714042 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_28_NBA_predictions.csv
-2026-05-02T14:29:15.714070 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_29_NBA_predictions.csv
-2026-05-02T14:29:15.714099 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_30_NBA_predictions.csv
-2026-05-02T14:29:15.714127 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_05_01_NBA_predictions.csv
-2026-05-02T14:29:15.714154 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_26_NCAAM_predictions.csv
-2026-05-02T14:29:15.714181 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_27_NCAAM_predictions.csv
-2026-05-02T14:29:15.714210 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_28_NCAAM_predictions.csv
-2026-05-02T14:29:15.714237 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_29_NCAAM_predictions.csv
-2026-05-02T14:29:15.714291 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
-2026-05-02T14:29:15.714327 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
-2026-05-02T14:29:15.714356 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
-2026-05-02T14:29:15.714384 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_02_NCAAM_predictions.csv
-2026-05-02T14:29:15.714412 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_04_NCAAM_predictions.csv
-2026-05-02T14:29:15.714440 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_04_NCAAM_predictions.csv
-2026-05-02T14:29:15.714468 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_05_NCAAM_predictions.csv
-2026-05-02T14:29:15.714495 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_06_NCAAM_predictions.csv
-2026-05-02T14:29:15.714524 | [STDOUT] 
-2026-05-02T14:29:15.714553 | [STDOUT] Done.
-2026-05-02T14:29:15.714583 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/transform_basketball.py
-2026-05-02T14:29:15.715754 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/nba pattern=*_NBA_predictions.csv count=182
-2026-05-02T14:29:15.716400 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/ncaam pattern=*_NCAAM_predictions.csv count=130
-2026-05-02T14:29:15.716931 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/wnba pattern=*_WNBA_predictions.csv count=114
-2026-05-02T14:29:15.716997 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_name_normalization.py
-2026-05-02T14:29:15.891232 | [STDOUT] Basketball name normalization complete.
-2026-05-02T14:29:15.891366 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_name_normalization.py
-2026-05-02T14:29:15.891445 | CHECK OK file_exists: mappings/basketball/no_map/no_map_basketball.csv
-2026-05-02T14:29:15.891704 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/name_normalization.txt
-2026-05-02T14:29:15.891780 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/condensed_summary.txt
-2026-05-02T14:29:15.891837 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_daily_games.py
-2026-05-02T14:29:16.076755 | [STDOUT] Basketball daily games complete.
-2026-05-02T14:29:16.076837 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_daily_games.py
-2026-05-02T14:29:16.077447 | CHECK OK glob_count: docs/win/basketball/daily_games/nba pattern=*_NBA.csv count=186
-2026-05-02T14:29:16.077930 | CHECK OK glob_count: docs/win/basketball/daily_games/ncaam pattern=*_NCAAM.csv count=127
-2026-05-02T14:29:16.078339 | CHECK OK glob_count: docs/win/basketball/daily_games/wnba pattern=*_WNBA.csv count=116
-2026-05-02T14:29:16.078410 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_game_id.py
-2026-05-02T14:29:16.281837 | [STDOUT] Basketball game_id injection complete.
-2026-05-02T14:29:16.281918 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_game_id.py
-2026-05-02T14:29:16.296022 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/nba pattern=*.csv files=182 required_columns=['game_id', 'game_time']
-2026-05-02T14:29:16.320634 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/ncaam pattern=*.csv files=130 required_columns=['game_id', 'game_time']
-2026-05-02T14:29:16.326911 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/wnba pattern=*.csv files=114 required_columns=['game_id', 'game_time']
-2026-05-02T14:29:16.340133 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/nba pattern=*_final_scores_*.csv files=183 required_columns=['game_id']
-2026-05-02T14:29:16.367060 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/ncaam pattern=*_final_scores_*.csv files=146 required_columns=['game_id']
-2026-05-02T14:29:16.373230 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/wnba pattern=*_final_scores_*.csv files=114 required_columns=['game_id']
-2026-05-02T14:29:16.373339 | START SCRIPT: docs/win/basketball/scripts/00_intake/clean_basketball_inputs.py
-2026-05-02T14:29:16.769199 | [STDOUT] STATUS: SUCCESS
-2026-05-02T14:29:16.769308 | [STDOUT] bad_ml_rows_removed              : 127
-2026-05-02T14:29:16.769355 | [STDOUT] bad_total_rows_removed           : 7
-2026-05-02T14:29:16.769407 | [STDOUT] bad_spread_rows_removed          : 7
-2026-05-02T14:29:16.769451 | [STDOUT] bad_odds_rows_removed_total      : 141
-2026-05-02T14:29:16.769496 | [STDOUT] outlier_game_keys_found          : 829
-2026-05-02T14:29:16.769538 | [STDOUT] prediction_outlier_rows_removed  : 829
-2026-05-02T14:29:16.769581 | [STDOUT] sportsbook_outlier_rows_removed  : 829
-2026-05-02T14:29:16.769623 | [STDOUT] bias_files_with_adjusted_rows    : 424
-2026-05-02T14:29:16.769665 | [STDOUT] bias_rows_adjusted               : 5133
-2026-05-02T14:29:16.769706 | [STDOUT] bias_rows_skipped_already_flagged: 0
-2026-05-02T14:29:16.769746 | [STDOUT] prediction_files_written         : 426
-2026-05-02T14:29:16.769785 | [STDOUT] prediction_rows_written          : 5133
-2026-05-02T14:29:16.769824 | [STDOUT] sportsbook_files_written         : 429
-2026-05-02T14:29:16.769863 | [STDOUT] sportsbook_rows_written          : 4788
-2026-05-02T14:29:16.769902 | [STDOUT] log_file                         : docs/win/basketball/errors/00_intake/clean_basketball_inputs.txt
-2026-05-02T14:29:16.769944 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/clean_basketball_inputs.py
-2026-05-02T14:29:16.770005 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/clean_basketball_inputs.txt
-2026-05-02T14:29:16.775384 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/predictions_cleaned/nba pattern=*.csv files=182 required_columns=['bias_applied']
-2026-05-02T14:29:16.779666 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/predictions_cleaned/ncaam pattern=*.csv files=130 required_columns=['bias_applied']
-2026-05-02T14:29:16.782894 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/predictions_cleaned/wnba pattern=*.csv files=114 required_columns=['bias_applied']
-2026-05-02T14:29:16.783311 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/nba pattern=*.csv count=186
-2026-05-02T14:29:16.783628 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/ncaam pattern=*.csv count=127
-2026-05-02T14:29:16.783910 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/wnba pattern=*.csv count=116
-2026-05-02T14:29:16.783979 | --- SUMMARY ---
-2026-05-02T14:29:16.784033 | Jobs requested: 8
-2026-05-02T14:29:16.784077 | Jobs completed: 8
-2026-05-02T14:29:16.784126 | STATUS: SUCCESS
+=== 00_intake_basketball RUN 2026-05-03T13:44:08.715165 ===
+2026-05-03T13:44:08.715220 | MASTER SCRIPT START
+2026-05-03T13:44:08.715275 | TODAY = 2026_05_03
+2026-05-03T13:44:08.715346 | ENSURED DIR: docs/win/basketball/errors/00_intake
+2026-05-03T13:44:08.715410 | ENSURED DIR: docs/win/basketball/odds/ncaam
+2026-05-03T13:44:08.715494 | ENSURED DIR: docs/win/basketball/odds/wnba
+2026-05-03T13:44:08.715568 | ENSURED DIR: docs/win/basketball/00_intake/predictions/nba
+2026-05-03T13:44:08.715641 | ENSURED DIR: docs/win/basketball/00_intake/predictions/ncaam
+2026-05-03T13:44:08.715745 | ENSURED DIR: docs/win/basketball/00_intake/predictions/wnba
+2026-05-03T13:44:08.715827 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/wnba
+2026-05-03T13:44:08.715898 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/ncaam
+2026-05-03T13:44:08.715966 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/nba
+2026-05-03T13:44:08.716035 | ENSURED DIR: docs/win/basketball/05_final_scores/results/nba
+2026-05-03T13:44:08.716103 | ENSURED DIR: docs/win/basketball/05_final_scores/results/ncaam
+2026-05-03T13:44:08.716170 | ENSURED DIR: docs/win/basketball/05_final_scores/results/wnba
+2026-05-03T13:44:08.716237 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/nba
+2026-05-03T13:44:08.716306 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/ncaam
+2026-05-03T13:44:08.716375 | ENSURED DIR: docs/win/basketball/00_intake/drat_raw/wnba
+2026-05-03T13:44:08.716442 | ENSURED DIR: docs/win/basketball/daily_games/wnba
+2026-05-03T13:44:08.716519 | ENSURED DIR: docs/win/basketball/daily_games/nba
+2026-05-03T13:44:08.716587 | ENSURED DIR: docs/win/basketball/daily_games/ncaam
+2026-05-03T13:44:08.716653 | ENSURED DIR: docs/win/basketball/00_intake/predictions/predictions_cleaned/nba
+2026-05-03T13:44:08.716748 | ENSURED DIR: docs/win/basketball/00_intake/predictions/predictions_cleaned/ncaam
+2026-05-03T13:44:08.716833 | ENSURED DIR: docs/win/basketball/00_intake/predictions/predictions_cleaned/wnba
+2026-05-03T13:44:08.716893 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/nba
+2026-05-03T13:44:08.716949 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/ncaam
+2026-05-03T13:44:08.716998 | ENSURED DIR: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/wnba
+2026-05-03T13:44:08.717101 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba.py
+2026-05-03T13:44:08.794736 | [STDOUT] [2026-05-03 13:44:08] READING: docs/win/basketball/odds/wnba/2026_05_08_wnba.json
+2026-05-03T13:44:08.794805 | [STDOUT] [2026-05-03 13:44:08] WROTE: docs/win/basketball/00_intake/sportsbook/wnba/2026_05_08_WNBA_odds.csv (3 rows)
+2026-05-03T13:44:08.794839 | [STDOUT] [2026-05-03 13:44:08] READING: docs/win/basketball/odds/wnba/2026_05_09_wnba.json
+2026-05-03T13:44:08.794868 | [STDOUT] [2026-05-03 13:44:08] WROTE: docs/win/basketball/00_intake/sportsbook/wnba/2026_05_09_WNBA_odds.csv (1 rows)
+2026-05-03T13:44:08.794896 | [STDOUT] [2026-05-03 13:44:08] SUCCESS: Parsed 2 file(s), wrote 4 row(s)
+2026-05-03T13:44:08.794933 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_wnba.py
+2026-05-03T13:44:08.795680 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/wnba pattern=*_WNBA_odds.csv count=116
+2026-05-03T13:44:08.795773 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py
+2026-05-03T13:44:08.910859 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_odds_parse_nba.py
+2026-05-03T13:44:08.911628 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/nba pattern=*_NBA_odds.csv count=186
+2026-05-03T13:44:08.911764 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py
+2026-05-03T13:44:22.376512 | [STDOUT] Basketball drat scraper complete.
+2026-05-03T13:44:22.376592 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_drat_scraper.py
+2026-05-03T13:44:22.376672 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/nba/2026_05_03_nba_raw.json
+2026-05-03T13:44:22.376758 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/ncaam/2026_05_03_ncaam_raw.json
+2026-05-03T13:44:22.376827 | CHECK OK file_exists: docs/win/basketball/00_intake/drat_raw/wnba/2026_05_03_wnba_raw.json
+2026-05-03T13:44:22.378597 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/nba/2026_05_03_nba_raw.json rows=18
+2026-05-03T13:44:22.378813 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/ncaam/2026_05_03_ncaam_raw.json rows=16
+2026-05-03T13:44:22.378991 | CHECK OK json_list_has_rows: docs/win/basketball/00_intake/drat_raw/wnba/2026_05_03_wnba_raw.json rows=16
+2026-05-03T13:44:22.379031 | START SCRIPT: docs/win/basketball/scripts/00_intake/transform_basketball.py
+2026-05-03T13:44:23.297491 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_26_NBA_predictions.csv
+2026-05-03T13:44:23.297600 | [STDOUT]   Saved 10 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_27_NBA_predictions.csv
+2026-05-03T13:44:23.297654 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_28_NBA_predictions.csv
+2026-05-03T13:44:23.297724 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_29_NBA_predictions.csv
+2026-05-03T13:44:23.297784 | [STDOUT]   Saved 7 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_30_NBA_predictions.csv
+2026-05-03T13:44:23.297837 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_03_31_NBA_predictions.csv
+2026-05-03T13:44:23.297892 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_01_NBA_predictions.csv
+2026-05-03T13:44:23.297951 | [STDOUT]   Saved 6 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_02_NBA_predictions.csv
+2026-05-03T13:44:23.298001 | [STDOUT]   Saved 8 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_03_NBA_predictions.csv
+2026-05-03T13:44:23.298051 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_04_NBA_predictions.csv
+2026-05-03T13:44:23.298100 | [STDOUT]   Saved 10 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_05_NBA_predictions.csv
+2026-05-03T13:44:23.298150 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_06_NBA_predictions.csv
+2026-05-03T13:44:23.298200 | [STDOUT]   Saved 9 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_07_NBA_predictions.csv
+2026-05-03T13:44:23.298250 | [STDOUT]   Saved 5 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_08_NBA_predictions.csv
+2026-05-03T13:44:23.298299 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_09_NBA_predictions.csv
+2026-05-03T13:44:23.298349 | [STDOUT]   Saved 14 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_10_NBA_predictions.csv
+2026-05-03T13:44:23.298404 | [STDOUT]   Saved 14 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_12_NBA_predictions.csv
+2026-05-03T13:44:23.298448 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_14_NBA_predictions.csv
+2026-05-03T13:44:23.298489 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_14_NBA_predictions.csv
+2026-05-03T13:44:23.298530 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_15_NBA_predictions.csv
+2026-05-03T13:44:23.298570 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_17_NBA_predictions.csv
+2026-05-03T13:44:23.298610 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_17_NBA_predictions.csv
+2026-05-03T13:44:23.298652 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_18_NBA_predictions.csv
+2026-05-03T13:44:23.298693 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_19_NBA_predictions.csv
+2026-05-03T13:44:23.298764 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_20_NBA_predictions.csv
+2026-05-03T13:44:23.298806 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_21_NBA_predictions.csv
+2026-05-03T13:44:23.298854 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_22_NBA_predictions.csv
+2026-05-03T13:44:23.298896 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_23_NBA_predictions.csv
+2026-05-03T13:44:23.298937 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_24_NBA_predictions.csv
+2026-05-03T13:44:23.298977 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_25_NBA_predictions.csv
+2026-05-03T13:44:23.299017 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_26_NBA_predictions.csv
+2026-05-03T13:44:23.299075 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_27_NBA_predictions.csv
+2026-05-03T13:44:23.299115 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_28_NBA_predictions.csv
+2026-05-03T13:44:23.299146 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_29_NBA_predictions.csv
+2026-05-03T13:44:23.299177 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_04_30_NBA_predictions.csv
+2026-05-03T13:44:23.299211 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/nba/2026_05_01_NBA_predictions.csv
+2026-05-03T13:44:23.299243 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/nba/2026_05_03_NBA_predictions.csv
+2026-05-03T13:44:23.299273 | [STDOUT]   Saved 1 rows -> docs/win/basketball/05_final_scores/results/nba/2026_05_02_final_scores_NBA.csv
+2026-05-03T13:44:23.299302 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_26_NCAAM_predictions.csv
+2026-05-03T13:44:23.299331 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_27_NCAAM_predictions.csv
+2026-05-03T13:44:23.299360 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_28_NCAAM_predictions.csv
+2026-05-03T13:44:23.299389 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_03_29_NCAAM_predictions.csv
+2026-05-03T13:44:23.299420 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
+2026-05-03T13:44:23.299463 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
+2026-05-03T13:44:23.299485 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_01_NCAAM_predictions.csv
+2026-05-03T13:44:23.299503 | [STDOUT]   Saved 4 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_02_NCAAM_predictions.csv
+2026-05-03T13:44:23.299521 | [STDOUT]   Saved 2 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_04_NCAAM_predictions.csv
+2026-05-03T13:44:23.299547 | [STDOUT]   Saved 3 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_04_NCAAM_predictions.csv
+2026-05-03T13:44:23.299565 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_05_NCAAM_predictions.csv
+2026-05-03T13:44:23.299583 | [STDOUT]   Saved 1 rows -> docs/win/basketball/00_intake/predictions/ncaam/2026_04_06_NCAAM_predictions.csv
+2026-05-03T13:44:23.299601 | [STDOUT] 
+2026-05-03T13:44:23.299619 | [STDOUT] Done.
+2026-05-03T13:44:23.299640 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/transform_basketball.py
+2026-05-03T13:44:23.300253 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/nba pattern=*_NBA_predictions.csv count=183
+2026-05-03T13:44:23.300650 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/ncaam pattern=*_NCAAM_predictions.csv count=130
+2026-05-03T13:44:23.301028 | CHECK OK glob_count: docs/win/basketball/00_intake/predictions/wnba pattern=*_WNBA_predictions.csv count=114
+2026-05-03T13:44:23.301071 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_name_normalization.py
+2026-05-03T13:44:23.482264 | [STDOUT] Basketball name normalization complete.
+2026-05-03T13:44:23.482361 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_name_normalization.py
+2026-05-03T13:44:23.482461 | CHECK OK file_exists: mappings/basketball/no_map/no_map_basketball.csv
+2026-05-03T13:44:23.482535 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/name_normalization.txt
+2026-05-03T13:44:23.482590 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/condensed_summary.txt
+2026-05-03T13:44:23.482640 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_daily_games.py
+2026-05-03T13:44:23.682987 | [STDOUT] Basketball daily games complete.
+2026-05-03T13:44:23.683077 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_daily_games.py
+2026-05-03T13:44:23.683810 | CHECK OK glob_count: docs/win/basketball/daily_games/nba pattern=*_NBA.csv count=186
+2026-05-03T13:44:23.684298 | CHECK OK glob_count: docs/win/basketball/daily_games/ncaam pattern=*_NCAAM.csv count=127
+2026-05-03T13:44:23.684754 | CHECK OK glob_count: docs/win/basketball/daily_games/wnba pattern=*_WNBA.csv count=116
+2026-05-03T13:44:23.684829 | START SCRIPT: docs/win/basketball/scripts/00_intake/basketball_game_id.py
+2026-05-03T13:44:23.882936 | [STDOUT] Basketball game_id injection complete.
+2026-05-03T13:44:23.883028 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/basketball_game_id.py
+2026-05-03T13:44:23.897037 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/nba pattern=*.csv files=183 required_columns=['game_id', 'game_time']
+2026-05-03T13:44:23.921657 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/ncaam pattern=*.csv files=130 required_columns=['game_id', 'game_time']
+2026-05-03T13:44:23.928035 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/wnba pattern=*.csv files=114 required_columns=['game_id', 'game_time']
+2026-05-03T13:44:23.941056 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/nba pattern=*_final_scores_*.csv files=184 required_columns=['game_id']
+2026-05-03T13:44:23.968180 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/ncaam pattern=*_final_scores_*.csv files=146 required_columns=['game_id']
+2026-05-03T13:44:23.974362 | CHECK OK csv_has_columns: docs/win/basketball/05_final_scores/results/wnba pattern=*_final_scores_*.csv files=114 required_columns=['game_id']
+2026-05-03T13:44:23.974442 | START SCRIPT: docs/win/basketball/scripts/00_intake/clean_basketball_inputs.py
+2026-05-03T13:44:24.409316 | [STDOUT] STATUS: SUCCESS
+2026-05-03T13:44:24.409414 | [STDOUT] bad_ml_rows_removed              : 127
+2026-05-03T13:44:24.409468 | [STDOUT] bad_total_rows_removed           : 7
+2026-05-03T13:44:24.409510 | [STDOUT] bad_spread_rows_removed          : 7
+2026-05-03T13:44:24.409556 | [STDOUT] bad_odds_rows_removed_total      : 141
+2026-05-03T13:44:24.409592 | [STDOUT] outlier_game_keys_found          : 829
+2026-05-03T13:44:24.409629 | [STDOUT] prediction_outlier_rows_removed  : 829
+2026-05-03T13:44:24.409672 | [STDOUT] sportsbook_outlier_rows_removed  : 829
+2026-05-03T13:44:24.409751 | [STDOUT] bias_files_with_adjusted_rows    : 425
+2026-05-03T13:44:24.409800 | [STDOUT] bias_rows_adjusted               : 5135
+2026-05-03T13:44:24.409837 | [STDOUT] bias_rows_skipped_already_flagged: 0
+2026-05-03T13:44:24.409881 | [STDOUT] prediction_files_written         : 427
+2026-05-03T13:44:24.409922 | [STDOUT] prediction_rows_written          : 5135
+2026-05-03T13:44:24.409964 | [STDOUT] sportsbook_files_written         : 429
+2026-05-03T13:44:24.410003 | [STDOUT] sportsbook_rows_written          : 4789
+2026-05-03T13:44:24.410036 | [STDOUT] log_file                         : docs/win/basketball/errors/00_intake/clean_basketball_inputs.txt
+2026-05-03T13:44:24.410073 | SUCCESS SCRIPT: docs/win/basketball/scripts/00_intake/clean_basketball_inputs.py
+2026-05-03T13:44:24.410135 | CHECK OK file_exists: docs/win/basketball/errors/00_intake/clean_basketball_inputs.txt
+2026-05-03T13:44:24.415855 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/predictions_cleaned/nba pattern=*.csv files=183 required_columns=['bias_applied']
+2026-05-03T13:44:24.420201 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/predictions_cleaned/ncaam pattern=*.csv files=130 required_columns=['bias_applied']
+2026-05-03T13:44:24.423462 | CHECK OK csv_has_columns: docs/win/basketball/00_intake/predictions/predictions_cleaned/wnba pattern=*.csv files=114 required_columns=['bias_applied']
+2026-05-03T13:44:24.423983 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/nba pattern=*.csv count=186
+2026-05-03T13:44:24.424382 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/ncaam pattern=*.csv count=127
+2026-05-03T13:44:24.424784 | CHECK OK glob_count: docs/win/basketball/00_intake/sportsbook/sportsbook_cleaned/wnba pattern=*.csv count=116
+2026-05-03T13:44:24.424854 | --- SUMMARY ---
+2026-05-03T13:44:24.424897 | Jobs requested: 8
+2026-05-03T13:44:24.424935 | Jobs completed: 8
+2026-05-03T13:44:24.424972 | STATUS: SUCCESS
