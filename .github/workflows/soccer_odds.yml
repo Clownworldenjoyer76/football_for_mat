@@ -1,0 +1,53 @@
+name: Soccer Odds API Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  soccer-odds-api-test:
+    runs-on: ubuntu-latest
+
+    env:
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/win/soccer/00_intake/odds_api_raw
+          mkdir -p docs/win/soccer/errors/00_intake
+
+      - name: Run Soccer Odds API Pull
+        run: python docs/win/soccer/odds_api_soccer_pull.py
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/soccer/00_intake/odds_api_raw/
+          git add docs/win/soccer/errors/00_intake/
+
+          if git diff --cached --quiet; then
+            echo "No output changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: soccer odds API test run $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push
