@@ -2,6 +2,7 @@
 # docs/win/soccer/odds_api_soccer_pull.py
 
 import json
+import os
 import time
 import traceback
 from pathlib import Path
@@ -11,9 +12,9 @@ from zoneinfo import ZoneInfo
 import requests
 
 # Requires GitHub secret/env:
-#   ODDS_API_KEY
+#   API_ODDS
 
-API_KEY_ENV = "ODDS_API_KEY"
+API_KEY_ENV = "API_ODDS"
 BASE_URL = "https://api.odds-api.io/v3"
 
 ET = ZoneInfo("America/New_York")
@@ -63,8 +64,6 @@ def log(msg: str) -> None:
 
 
 def get_api_key() -> str:
-    import os
-
     key = os.environ.get(API_KEY_ENV, "").strip()
     if not key:
         raise RuntimeError(f"{API_KEY_ENV} environment variable is not set")
@@ -160,9 +159,6 @@ def parse_total_line(markets: list, target_line: float) -> tuple[str, str]:
     if not isinstance(odds, list):
         return "", ""
 
-    fallback_over = ""
-    fallback_under = ""
-
     for row in odds:
         if not isinstance(row, dict):
             continue
@@ -182,10 +178,6 @@ def parse_total_line(markets: list, target_line: float) -> tuple[str, str]:
         label = " ".join(str(v) for v in row.values()).lower()
         if str(target_line) in label:
             return over, under
-
-        if over and under and not fallback_over and not fallback_under:
-            fallback_over = over
-            fallback_under = under
 
     return "", ""
 
@@ -298,6 +290,7 @@ def main() -> None:
     out_path = OUT_DIR / f"{today}_soccer_odds.json"
 
     all_rows = []
+    league_errors = 0
 
     for league, cfg in LEAGUES.items():
         slug = cfg["slug"]
@@ -338,6 +331,7 @@ def main() -> None:
                 time.sleep(0.2)
 
         except Exception as e:
+            league_errors += 1
             log(f"ERROR league={league}: {e}")
             log(traceback.format_exc())
 
@@ -346,9 +340,14 @@ def main() -> None:
 
     log("--- SUMMARY ---")
     log(f"Rows written: {len(all_rows)}")
+    log(f"League errors: {league_errors}")
     log(f"Output: {out_path}")
-    log("STATUS: SUCCESS")
 
+    if league_errors == len(LEAGUES):
+        log("STATUS: FAILED")
+        raise RuntimeError("All soccer league pulls failed")
+
+    log("STATUS: SUCCESS")
     print(f"WROTE {out_path} rows={len(all_rows)}")
 
 
