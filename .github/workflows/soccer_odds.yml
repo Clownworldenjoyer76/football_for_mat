@@ -38,6 +38,7 @@ jobs:
       - name: Create output directories
         run: |
           mkdir -p docs/win/soccer/00_intake/odds_api_raw
+          mkdir -p docs/win/soccer/00_intake/sportsbook
           mkdir -p docs/win/soccer/errors/00_intake
 
       - name: Run Soccer Odds API Pull
@@ -49,6 +50,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add docs/win/soccer/00_intake/odds_api_raw/
+          git add docs/win/soccer/00_intake/sportsbook/
           git add docs/win/soccer/errors/00_intake/
 
           if git diff --cached --quiet; then
