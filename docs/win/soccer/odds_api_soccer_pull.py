@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # docs/win/soccer/odds_api_soccer_pull.py
 
+import csv
 import json
 import os
 import time
@@ -46,10 +47,31 @@ LEAGUES = {
     },
 }
 
-OUT_DIR = Path("docs/win/soccer/00_intake/odds_api_raw")
+FIELDS = [
+    "sport",
+    "league",
+    "game_id",
+    "match_date",
+    "match_time",
+    "home_team",
+    "away_team",
+    "dk_home_decimal",
+    "dk_draw_decimal",
+    "dk_away_decimal",
+    "dk_over25_decimal",
+    "dk_under25_decimal",
+    "dk_over35_decimal",
+    "dk_under35_decimal",
+    "btts_yes",
+    "btts_no",
+]
+
+RAW_OUT_DIR = Path("docs/win/soccer/00_intake/odds_api_raw")
+SPORTSBOOK_OUT_DIR = Path("docs/win/soccer/00_intake/sportsbook")
 LOG_DIR = Path("docs/win/soccer/errors/00_intake")
 
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+RAW_OUT_DIR.mkdir(parents=True, exist_ok=True)
+SPORTSBOOK_OUT_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = LOG_DIR / "odds_api_soccer_pull.txt"
@@ -284,10 +306,25 @@ def build_row(league: str, event: dict, odds_payload: dict, bookmaker: str) -> d
     }
 
 
+def write_json(path: Path, rows: list[dict]) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(rows, f, indent=2)
+
+
+def write_csv(path: Path, rows: list[dict]) -> None:
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDS)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in FIELDS})
+
+
 def main() -> None:
     api_key = get_api_key()
     today = datetime.now(ET).strftime("%Y_%m_%d")
-    out_path = OUT_DIR / f"{today}_soccer_odds.json"
+
+    json_out_path = RAW_OUT_DIR / f"{today}_soccer_odds.json"
+    csv_out_path = SPORTSBOOK_OUT_DIR / f"{today}_soccer.csv"
 
     all_rows = []
     league_errors = 0
@@ -335,20 +372,22 @@ def main() -> None:
             log(f"ERROR league={league}: {e}")
             log(traceback.format_exc())
 
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(all_rows, f, indent=2)
+    write_json(json_out_path, all_rows)
+    write_csv(csv_out_path, all_rows)
 
     log("--- SUMMARY ---")
     log(f"Rows written: {len(all_rows)}")
     log(f"League errors: {league_errors}")
-    log(f"Output: {out_path}")
+    log(f"JSON output: {json_out_path}")
+    log(f"CSV output: {csv_out_path}")
 
     if league_errors == len(LEAGUES):
         log("STATUS: FAILED")
         raise RuntimeError("All soccer league pulls failed")
 
     log("STATUS: SUCCESS")
-    print(f"WROTE {out_path} rows={len(all_rows)}")
+    print(f"WROTE {json_out_path} rows={len(all_rows)}")
+    print(f"WROTE {csv_out_path} rows={len(all_rows)}")
 
 
 if __name__ == "__main__":
