@@ -1,189 +1,87 @@
-=== odds_api_soccer_pull RUN 2026-05-03T17:28:38.341541-04:00 ===
-2026-05-03T17:28:38.341660-04:00 | START league=MLS slug=usa-mls bookmaker=FanDuel
-2026-05-03T17:28:38.796906-04:00 | EVENTS league=MLS count=16
-2026-05-03T17:28:39.145697-04:00 | ROW league=MLS game_id=66299116 Saint Louis City SC at Austin FC ML=(2.50,3.40,2.65) O25/U25=(,) O35/U35=(,) BTTS=(,)
-2026-05-03T17:28:39.555419-04:00 | ROW league=MLS game_id=66299122 Inter Miami CF at Toronto FC ML=(3.30,3.90,2.00) O25/U25=(,) O35/U35=(,) BTTS=(,)
-2026-05-03T17:28:39.951355-04:00 | ROW league=MLS game_id=66299118 New York Red Bulls at Chicago Fire ML=(1.59,4.40,4.80) O25/U25=(,) O35/U35=(,) BTTS=(,)
-2026-05-03T17:28:40.351218-04:00 | ROW league=MLS game_id=66299120 Orlando City SC at CF Montreal ML=(1.77,4.10,3.80) O25/U25=(,) O35/U35=(,) BTTS=(,)
-2026-05-03T17:28:40.760061-04:00 | ROW league=MLS game_id=66299124 Los Angeles Galaxy at Atlanta United FC ML=(2.55,3.70,2.50) O25/U25=(,) O35/U35=(,) BTTS=(,)
-2026-05-03T17:28:41.169557-04:00 | ROW league=MLS game_id=66299126 FC Cincinnati at Charlotte FC ML=(1.95,3.90,3.40) O25/U25=(,) O35/U35=(,) BTTS=(,)
-2026-05-03T17:28:41.565224-04:00 | ROW league=MLS game_id=66299128 Philadelphia Union at New England Revolution ML=(2.80,3.40,2.45) O25/U25=(,) O35/U35=(,) BTTS=(,)
-2026-05-03T17:28:41.969126-04:00 | ERROR odds league=MLS event_id=66299130: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 54 seconds."}
-2026-05-03T17:28:41.971584-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 54 seconds."}
-
-2026-05-03T17:28:42.365041-04:00 | ERROR odds league=MLS event_id=66299132: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 54 seconds."}
-2026-05-03T17:28:42.365304-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 54 seconds."}
-
-2026-05-03T17:28:42.981623-04:00 | ERROR odds league=MLS event_id=66299134: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 53 seconds."}
-2026-05-03T17:28:42.981883-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 53 seconds."}
-
-2026-05-03T17:28:43.388137-04:00 | ERROR odds league=MLS event_id=66299136: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 53 seconds."}
-2026-05-03T17:28:43.388382-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 53 seconds."}
-
-2026-05-03T17:28:43.808378-04:00 | ERROR odds league=MLS event_id=66299138: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 52 seconds."}
-2026-05-03T17:28:43.808647-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 52 seconds."}
-
-2026-05-03T17:28:44.195640-04:00 | ERROR odds league=MLS event_id=66299140: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 52 seconds."}
-2026-05-03T17:28:44.195874-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 52 seconds."}
-
-2026-05-03T17:28:44.742144-04:00 | ERROR odds league=MLS event_id=66299142: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 51 seconds."}
-2026-05-03T17:28:44.742389-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 51 seconds."}
-
-2026-05-03T17:28:45.142539-04:00 | ERROR odds league=MLS event_id=66299144: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 51 seconds."}
-2026-05-03T17:28:45.142779-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 51 seconds."}
-
-2026-05-03T17:28:45.550557-04:00 | ERROR odds league=MLS event_id=66299146: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 51 seconds."}
-2026-05-03T17:28:45.550785-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 349, in main
-    odds_payload = fetch_odds(api_key, event_id, bookmaker)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 262, in fetch_odds
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/odds | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 51 seconds."}
-
-2026-05-03T17:28:45.751932-04:00 | START league=EPL slug=england-premier-league bookmaker=DraftKings
-2026-05-03T17:28:45.937206-04:00 | ERROR league=EPL: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-2026-05-03T17:28:45.937417-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 339, in main
-    events = fetch_events(api_key, slug, bookmaker)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 242, in fetch_events
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-
-2026-05-03T17:28:45.938192-04:00 | START league=LIGUE_1 slug=france-ligue-1 bookmaker=DraftKings
-2026-05-03T17:28:46.123809-04:00 | ERROR league=LIGUE_1: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-2026-05-03T17:28:46.124027-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 339, in main
-    events = fetch_events(api_key, slug, bookmaker)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 242, in fetch_events
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-
-2026-05-03T17:28:46.124775-04:00 | START league=LA_LIGA slug=spain-laliga bookmaker=DraftKings
-2026-05-03T17:28:46.308593-04:00 | ERROR league=LA_LIGA: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-2026-05-03T17:28:46.308793-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 339, in main
-    events = fetch_events(api_key, slug, bookmaker)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 242, in fetch_events
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-
-2026-05-03T17:28:46.309550-04:00 | START league=SERIE_A slug=italy-serie-a bookmaker=DraftKings
-2026-05-03T17:28:46.504781-04:00 | ERROR league=SERIE_A: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-2026-05-03T17:28:46.504987-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 339, in main
-    events = fetch_events(api_key, slug, bookmaker)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 242, in fetch_events
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-
-2026-05-03T17:28:46.505783-04:00 | START league=BUNDESLIGA slug=germany-bundesliga bookmaker=DraftKings
-2026-05-03T17:28:46.726078-04:00 | ERROR league=BUNDESLIGA: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-2026-05-03T17:28:46.726284-04:00 | Traceback (most recent call last):
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 339, in main
-    events = fetch_events(api_key, slug, bookmaker)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 242, in fetch_events
-    payload = request_json(
-              ^^^^^^^^^^^^^
-  File "/home/runner/work/football_for_mat/football_for_mat/docs/win/soccer/odds_api_soccer_pull.py", line 100, in request_json
-    raise RuntimeError(
-RuntimeError: HTTP 429 for https://api.odds-api.io/v3/events | body={"error":"You have exceeded your rate limit of 100 requests per hour. It resets in 8 minutes and 50 seconds."}
-
-2026-05-03T17:28:46.727537-04:00 | --- SUMMARY ---
-2026-05-03T17:28:46.727559-04:00 | Rows written: 7
-2026-05-03T17:28:46.727575-04:00 | League errors: 5
-2026-05-03T17:28:46.727592-04:00 | JSON output: docs/win/soccer/00_intake/odds_api_raw/2026_05_03_soccer_odds.json
-2026-05-03T17:28:46.727606-04:00 | CSV output: docs/win/soccer/00_intake/sportsbook/2026_05_03_soccer.csv
-2026-05-03T17:28:46.727620-04:00 | STATUS: SUCCESS
+=== odds_api_soccer_pull RUN 2026-05-03T19:00:08.735650-04:00 ===
+2026-05-03T19:00:08.735818-04:00 | START league=MLS slug=usa-mls bookmaker=FanDuel
+2026-05-03T19:00:09.377901-04:00 | EVENTS league=MLS count=15
+2026-05-03T19:00:09.730984-04:00 | ROW league=MLS game_id=66299122 Inter Miami CF at Toronto FC ML=(3.30,3.90,2.00) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:10.227925-04:00 | ROW league=MLS game_id=66299118 New York Red Bulls at Chicago Fire ML=(1.53,4.40,5.10) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:10.714299-04:00 | ROW league=MLS game_id=66299120 Orlando City SC at CF Montreal ML=(1.77,4.10,3.80) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:11.505914-04:00 | ROW league=MLS game_id=66299124 Los Angeles Galaxy at Atlanta United FC ML=(2.55,3.70,2.50) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:11.997128-04:00 | ROW league=MLS game_id=66299126 FC Cincinnati at Charlotte FC ML=(2.05,3.80,3.30) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:12.477745-04:00 | ROW league=MLS game_id=66299128 Philadelphia Union at New England Revolution ML=(2.65,3.40,2.60) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:13.022527-04:00 | ROW league=MLS game_id=66299130 Real Salt Lake at FC Dallas ML=(2.15,3.80,2.90) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:13.629185-04:00 | ROW league=MLS game_id=66299132 DC United at Nashville SC ML=(1.48,4.30,6.50) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:14.335254-04:00 | ROW league=MLS game_id=66299134 Saint Louis City SC at Colorado Rapids ML=(2.05,3.80,3.30) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:14.795923-04:00 | ROW league=MLS game_id=66299136 Sporting Kansas City at Portland Timbers ML=(1.48,4.80,5.50) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:15.301395-04:00 | ROW league=MLS game_id=66299138 Vancouver Whitecaps FC at San Jose Earthquakes ML=(2.95,3.70,2.15) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:15.792129-04:00 | ROW league=MLS game_id=66299140 San Diego FC at Seattle Sounders ML=(1.69,3.90,4.30) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:16.287426-04:00 | ROW league=MLS game_id=66299142 Columbus Crew at New York City FC ML=(2.30,3.60,2.80) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:16.860654-04:00 | ROW league=MLS game_id=66299144 Austin FC at Minnesota United FC ML=(1.61,4.00,4.60) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:17.466557-04:00 | ROW league=MLS game_id=66299146 Houston Dynamo at Los Angeles FC ML=(1.59,4.20,5.10) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:17.666775-04:00 | START league=EPL slug=england-premier-league bookmaker=DraftKings
+2026-05-03T19:00:17.940111-04:00 | EVENTS league=EPL count=12
+2026-05-03T19:00:18.201726-04:00 | ROW league=EPL game_id=61301209 Nottingham Forest at Chelsea FC ML=(1.68,4.00,4.90) O25/U25=(1.71,2.10) O35/U35=(2.80,1.43) BTTS=(1.68,2.15)
+2026-05-03T19:00:18.752709-04:00 | ROW league=EPL game_id=61301211 Manchester City at Everton FC ML=(6.50,4.70,1.46) O25/U25=(1.62,2.25) O35/U35=(2.60,1.48) BTTS=(1.76,2.05)
+2026-05-03T19:00:19.241137-04:00 | ROW league=EPL game_id=61301233 Chelsea FC at Liverpool FC ML=(1.90,3.80,3.70) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:19.710211-04:00 | ROW league=EPL game_id=61301231 AFC Bournemouth at Fulham FC ML=(2.70,3.65,2.45) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:20.434222-04:00 | ROW league=EPL game_id=61301241 Manchester United at Sunderland AFC ML=(3.95,3.80,1.86) O25/U25=(1.74,2.05) O35/U35=(2.85,1.40) BTTS=(1.66,2.15)
+2026-05-03T19:00:20.919973-04:00 | ROW league=EPL game_id=61301225 Wolverhampton Wanderers at Brighton & Hove Albion ML=(1.31,5.50,8.50) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:21.454750-04:00 | ROW league=EPL game_id=61301235 Brentford FC at Manchester City ML=(1.33,5.75,7.50) O25/U25=(,) O35/U35=(2.05,1.71) BTTS=(,)
+2026-05-03T19:00:22.144158-04:00 | ROW league=EPL game_id=61301227 Aston Villa at Burnley FC ML=(5.00,4.20,1.60) O25/U25=(1.68,2.10) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:22.616579-04:00 | ROW league=EPL game_id=61301229 Everton FC at Crystal Palace ML=(2.70,3.20,2.70) O25/U25=(2.00,1.76) O35/U35=(3.50,1.28) BTTS=(,)
+2026-05-03T19:00:23.201247-04:00 | ROW league=EPL game_id=61301237 Newcastle United at Nottingham Forest ML=(2.45,3.40,2.80) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:23.756102-04:00 | ROW league=EPL game_id=61301245 Arsenal FC at West Ham United ML=(5.00,4.10,1.62) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:24.351619-04:00 | ROW league=EPL game_id=61301243 Leeds United at Tottenham Hotspur ML=(1.80,4.00,3.95) O25/U25=(1.68,2.10) O35/U35=(2.75,1.42) BTTS=(1.62,2.20)
+2026-05-03T19:00:24.551807-04:00 | START league=LIGUE_1 slug=france-ligue-1 bookmaker=DraftKings
+2026-05-03T19:00:24.905545-04:00 | EVENTS league=LIGUE_1 count=9
+2026-05-03T19:00:25.321822-04:00 | ROW league=LIGUE_1 game_id=61526576 FC Nantes at Racing Club De Lens ML=(1.35,5.25,7.50) O25/U25=(1.52,2.45) O35/U35=(2.35,1.57) BTTS=(1.80,1.95)
+2026-05-03T19:00:25.805171-04:00 | ROW league=LIGUE_1 game_id=61526572 Olympique Marseille at Le Havre AC ML=(3.50,3.65,1.95) O25/U25=(2.55,1.45) O35/U35=(2.55,1.45) BTTS=(,)
+2026-05-03T19:00:26.473052-04:00 | ROW league=LIGUE_1 game_id=61526574 Olympique Lyon at Toulouse FC ML=(4.30,3.75,1.74) O25/U25=(1.76,1.95) O35/U35=(2.95,1.35) BTTS=(1.71,2.00)
+2026-05-03T19:00:26.995161-04:00 | ROW league=LIGUE_1 game_id=61526578 OGC Nice at AJ Auxerre ML=(2.35,3.30,2.90) O25/U25=(1.83,1.86) O35/U35=(3.10,1.32) BTTS=(,)
+2026-05-03T19:00:27.507576-04:00 | ROW league=LIGUE_1 game_id=61526584 Paris FC at Stade Rennais FC ML=(1.46,4.70,5.75) O25/U25=(,) O35/U35=(3.50,1.26) BTTS=(,)
+2026-05-03T19:00:28.450424-04:00 | ROW league=LIGUE_1 game_id=61526586 FC Lorient at FC Metz ML=(3.05,3.55,2.15) O25/U25=(1.66,2.10) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:28.935181-04:00 | ROW league=LIGUE_1 game_id=61526588 Strasbourg Alsace at Angers SCO ML=(3.40,3.35,2.10) O25/U25=(1.86,1.80) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:30.091140-04:00 | ROW league=LIGUE_1 game_id=61526570 Stade Brest 29 at Paris Saint-Germain ML=(1.15,8.00,13.00) O25/U25=(,) O35/U35=(1.83,1.86) BTTS=(,)
+2026-05-03T19:00:31.157171-04:00 | ROW league=LIGUE_1 game_id=61526590 Lille OSC at AS Monaco ML=(2.25,3.75,2.75) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:31.357386-04:00 | START league=LA_LIGA slug=spain-laliga bookmaker=DraftKings
+2026-05-03T19:00:31.700813-04:00 | EVENTS league=LA_LIGA count=11
+2026-05-03T19:00:31.938893-04:00 | ROW league=LA_LIGA game_id=61624616 Real Sociedad San Sebastian at Sevilla FC ML=(2.40,3.45,2.90) O25/U25=(1.90,1.86) O35/U35=(,) BTTS=(1.71,2.10)
+2026-05-03T19:00:32.566882-04:00 | ROW league=LA_LIGA game_id=61624624 CA Osasuna at Levante UD ML=(2.65,3.10,2.80) O25/U25=(1.95,1.80) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:33.432242-04:00 | ROW league=LA_LIGA game_id=61624628 Deportivo Alaves at Elche CF ML=(2.25,3.30,3.25) O25/U25=(1.83,1.90) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:34.159438-04:00 | ROW league=LA_LIGA game_id=61624632 Espanyol Barcelona at Sevilla FC ML=(2.05,3.40,3.60) O25/U25=(2.00,1.74) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:34.810474-04:00 | ROW league=LA_LIGA game_id=61624620 RC Celta de Vigo at Atletico Madrid ML=(2.15,3.15,3.65) O25/U25=(1.76,1.95) O35/U35=(2.90,1.39) BTTS=(1.54,2.40)
+2026-05-03T19:00:35.918832-04:00 | ROW league=LA_LIGA game_id=61624630 Real Betis Seville at Real Sociedad San Sebastian ML=(2.20,3.45,3.15) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:36.449611-04:00 | ROW league=LA_LIGA game_id=61624626 Villarreal CF at RCD Mallorca ML=(2.50,3.55,2.65) O25/U25=(1.74,2.00) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:37.040893-04:00 | ROW league=LA_LIGA game_id=61624618 Valencia CF at Athletic Bilbao ML=(1.74,3.75,4.50) O25/U25=(1.90,1.83) O35/U35=(,) BTTS=(1.80,1.90)
+2026-05-03T19:00:37.535259-04:00 | ROW league=LA_LIGA game_id=61624634 Getafe CF at Real Oviedo ML=(3.35,3.10,2.25) O25/U25=(2.50,1.48) O35/U35=(4.90,1.15) BTTS=(2.05,1.71)
+2026-05-03T19:00:38.080837-04:00 | ROW league=LA_LIGA game_id=61624622 Real Madrid at FC Barcelona ML=(1.80,4.10,3.85) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:38.672782-04:00 | ROW league=LA_LIGA game_id=61624636 Girona FC at Rayo Vallecano ML=(2.15,3.50,3.20) O25/U25=(1.74,2.00) O35/U35=(2.85,1.39) BTTS=(1.58,2.25)
+2026-05-03T19:00:38.873018-04:00 | START league=SERIE_A slug=italy-serie-a bookmaker=DraftKings
+2026-05-03T19:00:39.307416-04:00 | EVENTS league=SERIE_A count=12
+2026-05-03T19:00:39.776744-04:00 | ROW league=SERIE_A game_id=61061631 Lazio Rome at US Cremonese ML=(2.90,3.05,2.40) O25/U25=(,) O35/U35=(3.80,1.26) BTTS=(1.80,2.00)
+2026-05-03T19:00:40.295111-04:00 | ROW league=SERIE_A game_id=61061639 ACF Fiorentina at AS Roma ML=(1.57,3.95,5.25) O25/U25=(1.86,1.90) O35/U35=(3.25,1.33) BTTS=(1.90,1.86)
+2026-05-03T19:00:40.772987-04:00 | ROW league=SERIE_A game_id=61061661 Sassuolo Calcio at Torino FC ML=(2.25,3.00,3.15) O25/U25=(1.95,1.80) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:41.306057-04:00 | ROW league=SERIE_A game_id=61061645 Udinese Calcio at Cagliari Calcio ML=(2.40,3.00,2.90) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:41.764475-04:00 | ROW league=SERIE_A game_id=61061651 Inter Milano at Lazio Rome ML=(4.40,3.60,1.71) O25/U25=(1.74,2.00) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:42.319625-04:00 | ROW league=SERIE_A game_id=61061653 Juventus Turin at US Lecce ML=(6.00,4.00,1.48) O25/U25=(1.74,2.00) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:42.786082-04:00 | ROW league=SERIE_A game_id=61061663 Como 1907 at Hellas Verona ML=(6.50,4.40,1.40) O25/U25=(1.83,1.90) O35/U35=(3.15,1.33) BTTS=(,)
+2026-05-03T19:00:43.257282-04:00 | ROW league=SERIE_A game_id=61061649 Genoa CFC at ACF Fiorentina ML=(1.95,3.20,3.70) O25/U25=(2.05,1.71) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:43.774331-04:00 | ROW league=SERIE_A game_id=61061647 Pisa SC at US Cremonese ML=(1.64,3.70,4.60) O25/U25=(,) O35/U35=(,) BTTS=(2.10,1.68)
+2026-05-03T19:00:44.266263-04:00 | ROW league=SERIE_A game_id=61061659 AS Roma at Parma Calcio ML=(4.30,3.55,1.74) O25/U25=(2.05,1.71) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:44.804572-04:00 | ROW league=SERIE_A game_id=61061655 Atalanta BC at AC Milan ML=(2.00,3.25,3.50) O25/U25=(1.76,1.95) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:45.526152-04:00 | ROW league=SERIE_A game_id=61061657 Bologna FC at SSC Napoli ML=(1.51,4.00,5.50) O25/U25=(1.86,1.86) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:45.726353-04:00 | START league=BUNDESLIGA slug=germany-bundesliga bookmaker=DraftKings
+2026-05-03T19:00:46.009224-04:00 | EVENTS league=BUNDESLIGA count=9
+2026-05-03T19:00:46.275399-04:00 | ROW league=BUNDESLIGA game_id=61514184 Eintracht Frankfurt at Borussia Dortmund ML=(1.47,4.60,5.00) O25/U25=(,) O35/U35=(1.90,1.83) BTTS=(,)
+2026-05-03T19:00:46.879023-04:00 | ROW league=BUNDESLIGA game_id=61514188 FC St. Pauli at RB Leipzig ML=(1.37,4.80,6.50) O25/U25=(,) O35/U35=(2.30,1.57) BTTS=(,)
+2026-05-03T19:00:47.367648-04:00 | ROW league=BUNDESLIGA game_id=61514190 Bayer Leverkusen at VfB Stuttgart ML=(2.05,3.80,2.90) O25/U25=(,) O35/U35=(1.90,1.83) BTTS=(,)
+2026-05-03T19:00:47.897351-04:00 | ROW league=BUNDESLIGA game_id=61514194 Borussia Monchengladbach at FC Augsburg ML=(2.25,3.40,2.85) O25/U25=(1.62,2.20) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:48.589547-04:00 | ROW league=BUNDESLIGA game_id=61514196 Werder Bremen at TSG Hoffenheim ML=(1.45,4.70,5.25) O25/U25=(1.36,3.00) O35/U35=(1.95,1.80) BTTS=(1.50,2.50)
+2026-05-03T19:00:49.107306-04:00 | ROW league=BUNDESLIGA game_id=61514192 Bayern Munich at VFL Wolfsburg ML=(4.10,4.30,1.62) O25/U25=(2.55,1.47) O35/U35=(1.68,2.10) BTTS=(1.30,3.30)
+2026-05-03T19:00:49.600131-04:00 | ROW league=BUNDESLIGA game_id=61514200 SC Freiburg at Hamburger SV ML=(2.60,3.50,2.35) O25/U25=(,) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:50.181240-04:00 | ROW league=BUNDESLIGA game_id=61514198 1. FC Heidenheim at 1. FC Cologne ML=(1.71,3.95,3.95) O25/U25=(1.50,2.50) O35/U35=(2.25,1.58) BTTS=(1.48,2.55)
+2026-05-03T19:00:50.702557-04:00 | ROW league=BUNDESLIGA game_id=61514186 Union Berlin at FSV Mainz ML=(1.76,3.60,3.95) O25/U25=(1.76,2.00) O35/U35=(,) BTTS=(,)
+2026-05-03T19:00:50.904340-04:00 | --- SUMMARY ---
+2026-05-03T19:00:50.904372-04:00 | Rows written: 68
+2026-05-03T19:00:50.904385-04:00 | League errors: 0
+2026-05-03T19:00:50.904403-04:00 | JSON output: docs/win/soccer/00_intake/odds_api_raw/2026_05_03_soccer_odds.json
+2026-05-03T19:00:50.904415-04:00 | CSV output: docs/win/soccer/00_intake/sportsbook/2026_05_03_soccer.csv
+2026-05-03T19:00:50.904442-04:00 | STATUS: SUCCESS
