@@ -4,6 +4,7 @@ import json
 import time
 import random
 import traceback
+import re
 from pathlib import Path
 from datetime import datetime
 import pytz
@@ -25,6 +26,7 @@ LOG_FILE = ERROR_DIR / "basketball_drat_scraper.txt"
 with open(LOG_FILE, "w", encoding="utf-8") as f:
     f.write(f"=== basketball_drat_scraper RUN {datetime.now(ET).isoformat()} ===\n")
 
+
 def log(msg: str) -> None:
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"{datetime.now(ET).isoformat()} | {msg}\n")
@@ -38,6 +40,32 @@ def convert_utc_to_et(date_time_str: str) -> str:
         return dt_et.strftime("%m/%d/%Y %I:%M %p")
     except Exception:
         return date_time_str
+
+
+def split_pair(value: str):
+    value = (value or "").strip()
+
+    if not value:
+        return "", ""
+
+    if "\n" in value:
+        parts = [p.strip() for p in value.split("\n") if p.strip()]
+    elif "|" in value:
+        parts = [p.strip() for p in value.split("|") if p.strip()]
+    else:
+        parts = [value.strip()]
+
+    if len(parts) >= 2:
+        return parts[0], parts[1]
+
+    if len(parts) == 1:
+        return parts[0], ""
+
+    return "", ""
+
+
+def strip_wnba_record(team: str) -> str:
+    return re.sub(r"\s*\(\d+-\d+\)\s*$", "", (team or "").strip()).strip()
 
 
 def is_game_row(row):
@@ -55,6 +83,7 @@ def is_score(s):
 def parse_nba_ncaa(row, sport):
     if not is_game_row(row):
         return None
+
     try:
         date_time = convert_utc_to_et(row[0].replace("\n", " "))
 
@@ -79,6 +108,7 @@ def parse_nba_ncaa(row, sport):
             total = row[6]
             ou = row[7].split("\n")
             over_line, under_line = ou[0], ou[1]
+
         elif len(row) >= 9 and not is_score(row[5]):
             total = row[5]
             ou = row[6].split("\n")
@@ -86,6 +116,7 @@ def parse_nba_ncaa(row, sport):
             game_status = " ".join(row[7].split("\n"))
             sc = row[8].split("\n")
             score1, score2 = sc[0], sc[1]
+
         elif len(row) >= 7:
             sc = row[5].split("\n")
             score1 = sc[0].strip()
@@ -114,8 +145,102 @@ def parse_nba_ncaa(row, sport):
             "score2":          score2,
             "game_status":     game_status,
         }
-    except:
+
+    except Exception:
         return None
+
+
+def parse_wnba(row):
+    """
+    WNBA-specific parser.
+
+    Confirmed WNBA page shapes:
+      Future rows:    10 cells
+        0 date/time
+        1 teams, with records
+        2 win %
+        3 blank/moneyline
+        4 blank/spread
+        5 projected scores
+        6 total
+        7 blank/O-U
+        8 blank
+        9 blank
+
+      Completed rows: 8 cells
+        0 date/time
+        1 teams
+        2 win %
+        3 moneyline
+        4 spread
+        5 final score
+        6 rating/stat junk
+        7 rating/stat junk
+
+      Summary rows:   6 cells
+        rejected
+    """
+    if len(row) not in (8, 10):
+        return None
+
+    try:
+        date_time = convert_utc_to_et(row[0].replace("\n", " "))
+
+        team1, team2 = split_pair(row[1])
+        team1 = strip_wnba_record(team1)
+        team2 = strip_wnba_record(team2)
+
+        if not team1 or not team2:
+            return None
+
+        if team1.lower() == "sportsbooks" or team1.lower() == "dratings":
+            return None
+
+        wp1, wp2 = split_pair(row[2])
+        ml1, ml2 = split_pair(row[3]) if len(row) > 3 else ("", "")
+        sp1, sp2 = split_pair(row[4]) if len(row) > 4 else ("", "")
+
+        proj1 = proj2 = total = over_line = under_line = ""
+        score1 = score2 = game_status = ""
+
+        if len(row) == 10:
+            proj1, proj2 = split_pair(row[5])
+            total = row[6].strip() if len(row) > 6 else ""
+            over_line, under_line = split_pair(row[7]) if len(row) > 7 else ("", "")
+
+        elif len(row) == 8:
+            score1, score2 = split_pair(row[5])
+
+        return {
+            "sport":           "wnba",
+            "date_time":       date_time,
+            "team1":           team1,
+            "team2":           team2,
+            "team1_win_pct":   wp1,
+            "team2_win_pct":   wp2,
+            "team1_moneyline": ml1,
+            "team2_moneyline": ml2,
+            "team1_spread":    sp1,
+            "team2_spread":    sp2,
+            "proj_score_1":    proj1,
+            "proj_score_2":    proj2,
+            "total":           total,
+            "over_line":       over_line,
+            "under_line":      under_line,
+            "score1":          score1,
+            "score2":          score2,
+            "game_status":     game_status,
+        }
+
+    except Exception:
+        return None
+
+
+def parse_row(row, sport):
+    if sport == "wnba":
+        return parse_wnba(row)
+
+    return parse_nba_ncaa(row, sport)
 
 
 def scrape_page(page, url):
@@ -145,9 +270,12 @@ def main():
 
             for sport, url in URLS.items():
                 log(f"Scraping {sport.upper()}")
+
                 try:
                     raw = scrape_page(page, url)
-                    games = [parse_nba_ncaa(r, sport) for r in raw]
+                    log(f"  RAW ROWS: {len(raw)}")
+
+                    games = [parse_row(r, sport) for r in raw]
                     games = [g for g in games if g]
 
                     label = "ncaam" if sport == "ncaa" else sport
@@ -171,8 +299,10 @@ def main():
 
         log("--- SUMMARY ---")
         log(f"Files written: {len(files_written)}")
+
         for path, count in files_written:
             log(f"  FILE: {path} ({count} games)")
+
         log("STATUS: SUCCESS")
 
     except Exception as e:
