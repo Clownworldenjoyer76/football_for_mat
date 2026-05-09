@@ -1,0 +1,76 @@
+name: Pipeline UFC
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+
+      - name: Pull model files from model-data branch
+        run: |
+          git fetch origin model-data
+          git checkout origin/model-data -- data/model/fighter_attributes.json
+          git checkout origin/model-data -- data/model/fighter_history.json
+          git checkout origin/model-data -- data/model/fighter_historical_stats.parquet
+          git checkout origin/model-data -- data/model/ufc_master_clean.parquet
+          git checkout origin/model-data -- data/model/ufc_model.pkl
+          echo "Model files pulled:"
+          ls -lh data/model/
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --retries 5 playwright pandas pyarrow numpy scikit-learn xgboost pyyaml
+          playwright install chromium
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/win/mma/ufc/00_intake/sportsbook
+          mkdir -p docs/win/mma/ufc/00_intake/predictions
+          mkdir -p docs/win/mma/ufc/01_feature_engineering
+          mkdir -p docs/win/mma/ufc/02_edges
+          mkdir -p docs/win/mma/ufc/03_select
+          mkdir -p mappings/mma/ufc
+
+      - name: 00 - Scrape odds
+        run: python docs/win/mma/ufc/scripts/00_intake/00_scrape_odds.py
+
+      - name: 00 - Scrape predictions
+        run: python docs/win/mma/ufc/scripts/00_intake/00_scrape_predictions.py
+
+      - name: 00 - Normalize fighter names
+        run: python docs/win/mma/ufc/scripts/00_intake/00_name_normalization.py
+
+      - name: 01 - Build features
+        run: python docs/win/mma/ufc/scripts/01_feature_engineering/01_build_features.py
+
+      - name: 02 - Compute edges
+        run: python docs/win/mma/ufc/scripts/02_edges/02_edges.py
+
+      - name: 03 - Select picks
+        run: python docs/win/mma/ufc/scripts/03_select/03_select.py
+
+      - name: Commit and push all output files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/win/mma/ufc/00_intake/sportsbook/*_ufc_odds.csv
+          git add docs/win/mma/ufc/00_intake/predictions/*_ufc_predictions.csv
+          git add mappings/mma/ufc/no_map_fighter_name.csv
+          git add docs/win/mma/ufc/01_feature_engineering/*_ufc_features.csv
+          git add docs/win/mma/ufc/02_edges/*_ufc_edges.csv
+          git add docs/win/mma/ufc/03_select/*_ufc_select.csv
+          git diff --cached --quiet || git commit -m "chore: ufc pipeline run $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push origin main
