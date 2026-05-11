@@ -1,0 +1,83 @@
+name: 05 Manual Basketball Final Scores Full Pipeline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  basketball-final-scores:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/win/basketball/05_final_scores/results/nba/graded/
+          mkdir -p docs/win/basketball/05_final_scores/results/ncaam/graded/
+          mkdir -p docs/win/basketball/05_final_scores/results/wnba/graded/
+
+          mkdir -p docs/win/basketball/05_final_scores/reports/nba/moneyline/
+          mkdir -p docs/win/basketball/05_final_scores/reports/nba/spread/
+          mkdir -p docs/win/basketball/05_final_scores/reports/nba/total/
+          mkdir -p docs/win/basketball/05_final_scores/reports/nba/overview/
+
+          mkdir -p docs/win/basketball/05_final_scores/reports/ncaam/moneyline/
+          mkdir -p docs/win/basketball/05_final_scores/reports/ncaam/spread/
+          mkdir -p docs/win/basketball/05_final_scores/reports/ncaam/total/
+          mkdir -p docs/win/basketball/05_final_scores/reports/ncaam/overview/
+
+          mkdir -p docs/win/basketball/05_final_scores/reports/wnba/moneyline/
+          mkdir -p docs/win/basketball/05_final_scores/reports/wnba/spread/
+          mkdir -p docs/win/basketball/05_final_scores/reports/wnba/total/
+          mkdir -p docs/win/basketball/05_final_scores/reports/wnba/overview/
+
+          mkdir -p docs/win/basketball/errors/05_final_scores/
+          mkdir -p docs/
+
+      - name: Run basketball results grading
+        run: python docs/win/basketball/scripts/05_final_scores/01_basketball_results_grade.py
+
+      - name: Run basketball results analysis
+        run: python docs/win/basketball/scripts/05_final_scores/02_basketball_results_analyze.py
+
+      - name: Run basketball results reports
+        run: python docs/win/basketball/scripts/05_final_scores/03_basketball_results_reports.py
+
+      - name: Run basketball dashboard
+        run: python docs/win/basketball/scripts/05_final_scores/04_basketball_results_dashboard.py
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/basketball/05_final_scores/results/nba/graded/
+          git add docs/win/basketball/05_final_scores/results/ncaam/graded/
+          git add docs/win/basketball/05_final_scores/results/wnba/graded/
+
+          git add docs/win/basketball/05_final_scores/work_nba.csv
+          git add docs/win/basketball/05_final_scores/work_ncaam.csv
+          git add docs/win/basketball/05_final_scores/work_wnba.csv
+
+          git add docs/win/basketball/05_final_scores/*_summary_overall.csv
+          git add docs/win/basketball/05_final_scores/*_summary_grand_total.csv
+          git add docs/win/basketball/05_final_scores/reports/
+
+          git add docs/basketball_dashboard.html
+          git add docs/win/basketball/errors/05_final_scores/
+
+          git diff --cached --quiet || git commit -m "chore: run basketball final scores pipeline $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push
