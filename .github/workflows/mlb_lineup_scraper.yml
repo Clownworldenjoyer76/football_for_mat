@@ -1,0 +1,54 @@
+name: Yank MLB Lineup Auto Scraper
+
+on:
+ # schedule:
+ #   - cron: "0 * * * *"   # every hour on the hour (UTC)
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Date to scrape (YYYY-MM-DD). Defaults to today."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pandas requests
+
+      - name: Resolve target date
+        id: date
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            echo "TARGET_DATE=${{ github.event.inputs.date }}" >> "$GITHUB_ENV"
+          else
+            echo "TARGET_DATE=$(date -u +'%Y-%m-%d')" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run lineup scraper
+        run: python docs/win/baseball/scripts/00_intake/scrape_mlb_raw.py "$TARGET_DATE"
+
+      - name: Run game context enrichment
+        run: python docs/win/baseball/scripts/00_intake/enrich_game_context.py
+
+      - name: Commit output if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/win/baseball/00_intake/mlb_raw/
+          git add docs/win/baseball/data/
+          git diff --cached --quiet || git commit -m "chore: mlb raw + context $TARGET_DATE"
+          git push

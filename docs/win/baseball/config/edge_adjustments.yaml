@@ -1,0 +1,58 @@
+# config/baseball/mlb/edge_adjustments.yaml
+#
+# Parameters for contextual edge adjustments in compute_edges.py.
+# All scale factors are multiplicative nudges on top of the base edge.
+# Tune after tracking results.
+
+mlb:
+
+  # ── Park Factor ─────────────────────────────────────────────
+  # Applied to all three markets.
+  #
+  # Totals:
+  #   edge * (1 + (park_R - 100) * park_edge_scale)
+  #   over edge nudged up when park_R > 100, under nudged up when park_R < 100
+  #
+  # Moneyline / Run Line:
+  #   park_nudge = (park_factor - 100) * park_edge_scale * sign(lineup_xwoba_diff)
+  #   home edge += park_nudge, away edge -= park_nudge
+  #park_edge_scale: 0.002
+  park_edge_scale: 0.99
+
+
+  # ── SP xwOBA Adjustment ──────────────────────────────────────
+  # sp_xwoba_diff = home_sp_xwoba - away_sp_xwoba
+  # Positive = home pitcher weaker → nudge away edges up, home edges down
+  # Applied to moneyline and run line.
+  # nudge = sp_xwoba_diff * sp_xwoba_scale
+  #sp_xwoba_scale: 0.5
+  sp_xwoba_scale: 0.99
+
+  # ── Lineup xwOBA Adjustment ──────────────────────────────────
+  # lineup_xwoba_diff = home_lineup_xwoba - away_lineup_xwoba
+  # Positive = home lineup stronger → nudge home edges up, away edges down
+  # Applied to moneyline and run line.
+  # nudge = lineup_xwoba_diff * lineup_xwoba_scale
+  #lineup_xwoba_scale: 0.3
+  lineup_xwoba_scale: 0.99
+
+  # ── Weather ─────────────────────────────────────────────────
+  # Only applied when weather_applicable = 1.
+  # Applied to totals only.
+  #
+  # Wind (proportional to speed):
+  #   wind_nudge = (wind_mph / 20) * wind_nudge_scale
+  #   Blowing out → over edge up, under edge down
+  #   Blowing in  → under edge up, over edge down
+  #wind_nudge_threshold: 12       # mph — minimum to apply wind nudge
+  wind_nudge_threshold: 5
+  #wind_nudge_scale: 0.005        # nudge at 20 mph; proportional below
+  wind_nudge_scale: 0.99
+
+  # Temperature (proportional to distance from threshold):
+  #   cold: nudge = (cold_threshold - temp_f) / cold_threshold * temp_nudge_scale → over down
+  #   hot:  nudge = (temp_f - hot_threshold) / hot_threshold * temp_nudge_scale  → over up
+  temp_cold_threshold: 50        # °F
+  temp_hot_threshold: 80         # °F
+  #temp_nudge_scale: 0.003
+  temp_nudge_scale: 0.99

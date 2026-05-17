@@ -1,0 +1,123 @@
+markets:
+
+  mlb:
+
+    # ── Context / Environment Settings ──────────────────────────
+    rain_chance_max: 90          # skip bets above this % rain chance threshold  
+    lineup_low_sample_warn: 3    # flag bet as low_confidence if this many batters have low sample
+
+    ###################################################
+    # ── Filters applied earlier in pipeline  ──────────────────────────
+
+   # sp_min_pa: 50                # minimum pitcher PA in current season to avoid low-sample exclusion
+   # wind_nudge_threshold: 12     # mph minimum to apply directional wind nudge
+   # temp_cold_threshold: 50      # °F below which cold-weather suppression applies
+   # temp_hot_threshold: 80       # °F above which heat offense boost applies
+   # park_edge_scale: 0.002       # multiplier for park factor edge adjustment (tune after tracking results)
+
+   # select script now supports:
+   # prob_bands:
+   # - [0.50, 0.55]
+   # - [0.60, 0.65]
+
+###################################################
+    moneyline:
+      enabled: true
+      pick_preference: best_ev
+
+      home:
+        enabled: true
+        odds_bands:
+          - [-300, -1]
+          - [-0.9, 300]
+        ev_bands:
+          - [0.03, 0.04]
+          - [0.05, 0.06]
+          - [0.07, 0.099]
+        kelly_bands:
+          - [0.00, 0.99]
+        prob_min: 0.20
+        prob_max: 0.92
+
+###################################################
+      away:
+        enabled: true
+        odds_bands:
+          - [-145, -125]
+          - [115, 150]
+        ev_bands:
+          - [0.03, 0.045]
+          - [0.065, 0.134]
+        kelly_bands:
+          - [0.00, 0.99]
+
+###################################################
+    run_line:
+      enabled: true
+      pick_preference: best_prob
+
+      home:
+        enabled: true
+        line_bands:
+          - [-1.5, 1.5]
+        odds_bands:
+          - [-300, -150]
+          - [-100, 300]
+        ev_bands:
+          - [0.01, 0.02]
+          - [0.03, 0.04]
+        kelly_bands:
+          - [0.00, 0.99]
+        prob_min: 0.40
+
+      away:
+        enabled: true
+        line_bands:
+          - [-1.5, 1.5]
+        odds_bands:
+          - [-300, -150]
+          - [-100, 300]
+        ev_bands:
+          - [0.075, 0.99]
+        kelly_bands:
+          - [0.00, 0.99]
+        prob_min: 0.40
+
+###################################################
+    total:
+      enabled: true
+      pick_preference: best_ev
+
+      over:
+        enabled: true
+        line_bands:
+          - [6.0, 9.0]
+        odds_bands:
+          - [-300, -121]
+          - [-114, 300]
+        ev_bands:
+          - [0.01, 0.02]
+          - [0.05, 0.07]
+          - [0.1, 0.99]
+        kelly_bands:
+          - [0.00, 0.99]
+        prob_bands:
+          - [0.20, 0.35]
+          - [0.50, 0.65]
+          - [0.75, 0.99]
+
+###################################################
+      under:
+        enabled: true
+        line_bands:
+          - [6.0, 8.5]
+          - [9.5, 9.9]
+        odds_bands:
+          - [-300, -113]
+          - [-108, -106]
+          - [-104, 300]
+        ev_bands:
+          - [0.04, 0.08]
+        kelly_bands:
+          - [0.05, 0.22]
+        prob_max: 0.79

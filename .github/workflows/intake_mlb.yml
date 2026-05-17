@@ -1,0 +1,100 @@
+name: Intake MLB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  baseball-intake:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set date
+        run: echo "DATE=$(TZ='America/New_York' date +%Y_%m_%d)" >> $GITHUB_ENV
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('requirements.txt') }}
+
+      - name: Install Playwright system deps
+        run: playwright install-deps chromium
+
+      - name: Install Playwright browsers
+        run: playwright install chromium
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/win/baseball/00_intake/sportsbook/
+          mkdir -p docs/win/baseball/00_intake/drat_raw/
+          mkdir -p docs/win/baseball/00_intake/predictions/
+          mkdir -p docs/win/baseball/00_intake/predictions/pred_with_game_id/
+          mkdir -p docs/win/baseball/00_intake/games/
+          mkdir -p docs/win/baseball/00_intake/mlb_raw/
+          mkdir -p docs/win/final_scores/results/mlb/final_scores/
+          mkdir -p docs/win/baseball/05_final_scores/results/final_scores/
+          mkdir -p docs/win/baseball/errors/00_intake/
+          mkdir -p mappings/baseball/no_map/
+          mkdir -p docs/win/baseball/data/weather/
+
+      - name: Baseball Odds Parse
+        run: python docs/win/baseball/scripts/00_intake/odds_parse.py docs/win/baseball/odds/${DATE}.json
+
+      - name: Baseball Name Normalization Pre
+        run: python docs/win/baseball/scripts/00_intake/name_normalization.py
+
+      - name: Baseball Scraper
+        run: python docs/win/baseball/scripts/00_intake/baseball_drat_scraper.py
+
+      - name: Baseball Transform
+        run: python docs/win/baseball/scripts/00_intake/transform_baseball.py
+
+      - name: Baseball Name Normalization Post
+        run: python docs/win/baseball/scripts/00_intake/name_normalization.py
+
+      - name: Baseball Build Games List
+        run: python docs/win/baseball/scripts/00_intake/build_games_list.py
+
+      - name: Baseball Fetch Weather
+        env:
+          WEATHER_API: ${{ secrets.WEATHER_API }}
+        run: python docs/win/baseball/scripts/00_intake/fetch_weather.py
+
+      - name: Baseball Inject Game IDs Into Predictions
+        run: python docs/win/baseball/scripts/00_intake/game_id_pred.py
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/baseball/00_intake/sportsbook/
+          git add docs/win/baseball/00_intake/drat_raw/
+          git add docs/win/baseball/00_intake/predictions/
+          git add docs/win/baseball/00_intake/predictions/pred_with_game_id/
+          git add docs/win/baseball/00_intake/games/
+          git add docs/win/baseball/00_intake/mlb_raw/
+          git add docs/win/final_scores/results/mlb/final_scores/
+          git add docs/win/baseball/05_final_scores/results/final_scores/
+          git add docs/win/baseball/errors/00_intake/
+          git add mappings/baseball/no_map/
+          git add docs/win/baseball/data/weather/
+
+          git diff --cached --quiet || git commit -m "chore: baseball intake run $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push

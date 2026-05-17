@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+# docs/win/baseball/scripts/03_edges/compute_edges.py
+
+import traceback
+from datetime import datetime, UTC
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import yaml
+
+INPUT_DIR   = Path("docs/win/baseball/02_juice")
+OUTPUT_DIR  = Path("docs/win/baseball/03_edges")
+ERROR_DIR   = Path("docs/win/baseball/errors/03_edges")
+LOG_FILE    = ERROR_DIR / "compute_edges.txt"
+CONFIG_PATH = Path("docs/win/baseball/config/edge_adjustments.yaml")
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+ERROR_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# =========================
+# LOGGING
+# =========================
+
+def _now():
+    return datetime.now(UTC).isoformat()
+
+
+def _log(msg: str, level: str = "INFO"):
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{_now()} | {level:<5} | {msg.rstrip()}\n")
+
+
+def _write_summary(summary: dict, per_file: list) -> None:
+    lines = [
+        "",
+        "=" * 60,
+        f"SUMMARY  {_now()}",
+        "=" * 60,
+        f"  files_processed  : {summary['files_processed']}",
+        f"  rows_processed   : {summary['rows_processed']}",
+        f"  moneyline_files  : {summary['moneyline_files']}",
+        f"  run_line_files   : {summary['run_line_files']}",
+        f"  total_files      : {summary['total_files']}",
+        f"  skipped          : {summary['skipped']}",
+        f"  null_edges       : {summary['null_edges']}",
+        f"  errors           : {summary['errors']}",
+        "",
+        f"  {'file':<48} {'market':<12} {'rows':>5} {'null_edges':>10} {'status':>10}",
+    ]
+    for pf in per_file:
+        lines.append(
+            f"  {pf['name']:<48} {pf['market']:<12} {pf['rows']:>5} "
+            f"{pf['null_edges']:>10} {pf['status']:>10}"
+        )
+    status = "SUCCESS" if summary["errors"] == 0 else "COMPLETED WITH ERRORS"
+    lines += ["", f"STATUS: {status}", "=" * 60]
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+# =========================
+# HELPERS
+# =========================
+
+def safe_edge(dk, p):
+    dk  = pd.to_numeric(dk, errors="coerce")
+    p   = pd.to_numeric(p,  errors="coerce")
+    out = pd.Series(np.nan, index=dk.index, dtype="float64")
+    valid = (dk > 1) & (p > 0) & (p < 1) & np.isfinite(dk) & np.isfinite(p)
+    out.loc[valid] = p.loc[valid] * dk.loc[valid] - 1
+    return out
+
+
+def count_null_edges(df, cols):
+    return sum(df[col].isna().sum() for col in cols if col in df.columns)
+
+
+def _col(df, name):
+    """Return column as float series, NaN if missing."""
+    if name not in df.columns:
+        return pd.Series(np.nan, index=df.index, dtype="float64")
+    return pd.to_numeric(df[name], errors="coerce")
+
+
+# =========================
+# BASE EDGE COMPUTATION
+# =========================
+
+def compute_moneyline(df):
+    df["home_edge_decimal_moneyline"] = safe_edge(
+        df["home_dk_decimal_moneyline"], df["home_normalized_prob_moneyline"]
+    )
+    df["away_edge_decimal_moneyline"] = safe_edge(
+        df["away_dk_decimal_moneyline"], df["away_normalized_prob_moneyline"]
+    )
+    null_edges = count_null_edges(df, [
+        "home_edge_decimal_moneyline",
+        "away_edge_decimal_moneyline",
+    ])
+    return df, null_edges
+
+
+def compute_run_line(df):
+    df["home_edge_decimal_run_line"] = safe_edge(
+        df["home_dk_run_line_decimal"], df["home_normalized_prob_run_line"]
+    )
+    df["away_edge_decimal_run_line"] = safe_edge(
+        df["away_dk_run_line_decimal"], df["away_normalized_prob_run_line"]
+    )
+    null_edges = count_null_edges(df, [
+        "home_edge_decimal_run_line",
+        "away_edge_decimal_run_line",
+    ])
+    return df, null_edges
+
+
+def compute_total(df):
+    df["over_prob"]  = 1 / pd.to_numeric(df["fair_total_over_decimal"],  errors="coerce")
+    df["under_prob"] = 1 / pd.to_numeric(df["fair_total_under_decimal"], errors="coerce")
+
+    df["over_edge_decimal_total"]  = safe_edge(df["dk_total_over_decimal"],  df["over_normalized_prob_total"])
+    df["under_edge_decimal_total"] = safe_edge(df["dk_total_under_decimal"], df["under_normalized_prob_total"])
+
+    null_edges = count_null_edges(df, [
+        "over_edge_decimal_total",
+        "under_edge_decimal_total",
+    ])
+    return df, null_edges
+
+
+# =========================
+# CONTEXTUAL ADJUSTMENTS
+# =========================
+
+def adjust_moneyline_run_line(df: pd.DataFrame, cfg: dict, market: str) -> pd.DataFrame:
+    """
+    Apply SP xwOBA, lineup xwOBA, and park factor adjustments
+    to moneyline or run line edges.
+    """
+    park_scale    = cfg.get("park_edge_scale",    0.002)
+    sp_scale      = cfg.get("sp_xwoba_scale",     0.5)
+    lineup_scale  = cfg.get("lineup_xwoba_scale", 0.3)
+
+    if market == "moneyline":
+        home_col = "home_edge_decimal_moneyline"
+        away_col = "away_edge_decimal_moneyline"
+    else:
+        home_col = "home_edge_decimal_run_line"
+        away_col = "away_edge_decimal_run_line"
+
+    home_edge = _col(df, home_col)
+    away_edge = _col(df, away_col)
+
+    # ── SP xwOBA adjustment ──────────────────────────────────
+    # sp_xwoba_diff > 0 = home pitcher weaker → away up, home down
+    home_sp_xwoba = _col(df, "home_sp_xwoba")
+    away_sp_xwoba = _col(df, "away_sp_xwoba")
+    sp_diff       = home_sp_xwoba - away_sp_xwoba
+    sp_valid      = sp_diff.notna() & np.isfinite(sp_diff)
+
+    sp_nudge = sp_diff * sp_scale
+    home_edge = home_edge.where(~sp_valid, home_edge - sp_nudge)
+    away_edge = away_edge.where(~sp_valid, away_edge + sp_nudge)
+
+    # ── Lineup xwOBA adjustment ──────────────────────────────
+    # lineup_diff > 0 = home lineup stronger → home up, away down
+    home_lu = _col(df, "home_lineup_xwoba")
+    away_lu = _col(df, "away_lineup_xwoba")
+    lu_diff  = home_lu - away_lu
+    lu_valid = lu_diff.notna() & np.isfinite(lu_diff)
+
+    lu_nudge  = lu_diff * lineup_scale
+    home_edge = home_edge.where(~lu_valid, home_edge + lu_nudge)
+    away_edge = away_edge.where(~lu_valid, away_edge - lu_nudge)
+
+    # ── Park factor adjustment ───────────────────────────────
+    # Direction determined by sign of lineup_xwoba_diff
+    # park_nudge = (park_factor - 100) * park_scale * sign(lineup_diff)
+    park_factor = _col(df, "park_factor")
+    park_valid  = park_factor.notna() & np.isfinite(park_factor) & lu_valid
+
+    sign        = np.sign(lu_diff)
+    park_nudge  = (park_factor - 100) * park_scale * sign
+    home_edge   = home_edge.where(~park_valid, home_edge + park_nudge)
+    away_edge   = away_edge.where(~park_valid, away_edge - park_nudge)
+
+    df[home_col] = home_edge
+    df[away_col] = away_edge
+    return df
+
+
+def adjust_totals(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """
+    Apply park factor and weather adjustments to over/under total edges.
+    """
+    park_scale    = cfg.get("park_edge_scale",    0.002)
+    wind_thresh   = cfg.get("wind_nudge_threshold", 12)
+    wind_scale    = cfg.get("wind_nudge_scale",   0.005)
+    cold_thresh   = cfg.get("temp_cold_threshold", 50)
+    hot_thresh    = cfg.get("temp_hot_threshold",  80)
+    temp_scale    = cfg.get("temp_nudge_scale",   0.003)
+
+    over_edge  = _col(df, "over_edge_decimal_total")
+    under_edge = _col(df, "under_edge_decimal_total")
+
+    # ── Park factor (park_R) ─────────────────────────────────
+    park_R      = _col(df, "park_R")
+    park_valid  = park_R.notna() & np.isfinite(park_R)
+
+    park_over_mult  = 1 + (park_R - 100) * park_scale
+    park_under_mult = 1 - (park_R - 100) * park_scale
+
+    over_edge  = over_edge.where(~park_valid,  over_edge  * park_over_mult)
+    under_edge = under_edge.where(~park_valid, under_edge * park_under_mult)
+
+    # ── Weather ──────────────────────────────────────────────
+    applicable = _col(df, "weather_applicable")
+    wind_mph   = _col(df, "wind_mph")
+    wind_out   = _col(df, "wind_blowing_out")
+    temp_f     = _col(df, "temp_f")
+
+    weather_on = applicable == 1
+
+    # Wind — proportional to speed, applied above threshold
+    wind_active   = weather_on & wind_mph.notna() & (wind_mph > wind_thresh)
+    wind_nudge    = (wind_mph / 20) * wind_scale
+
+    wind_out_cond = wind_active & (wind_out == 1)
+    wind_in_cond  = wind_active & (wind_out == 0)
+
+    over_edge  = over_edge.where(~wind_out_cond,  over_edge  + wind_nudge)
+    under_edge = under_edge.where(~wind_out_cond, under_edge - wind_nudge)
+    over_edge  = over_edge.where(~wind_in_cond,   over_edge  - wind_nudge)
+    under_edge = under_edge.where(~wind_in_cond,  under_edge + wind_nudge)
+
+    # Temperature — proportional to distance from threshold
+    temp_valid = weather_on & temp_f.notna()
+
+    cold_cond  = temp_valid & (temp_f < cold_thresh)
+    hot_cond   = temp_valid & (temp_f > hot_thresh)
+
+    cold_nudge = (cold_thresh - temp_f) / cold_thresh * temp_scale
+    hot_nudge  = (temp_f - hot_thresh) / hot_thresh  * temp_scale
+
+    over_edge  = over_edge.where(~cold_cond, over_edge - cold_nudge)
+    over_edge  = over_edge.where(~hot_cond,  over_edge + hot_nudge)
+
+    df["over_edge_decimal_total"]  = over_edge
+    df["under_edge_decimal_total"] = under_edge
+    return df
+
+
+# =========================
+# MAIN
+# =========================
+
+def main():
+    with open(LOG_FILE, "w", encoding="utf-8") as f:
+        f.write(f"=== compute_edges RUN {_now()} ===\n")
+
+    # Load config
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            cfg = yaml.safe_load(f)["mlb"]
+        _log(f"Config loaded: {CONFIG_PATH}")
+    except Exception as e:
+        _log(f"FATAL: could not load config {CONFIG_PATH}: {e}", "ERROR")
+        return
+
+    summary = {
+        "files_processed": 0,
+        "rows_processed":  0,
+        "moneyline_files": 0,
+        "run_line_files":  0,
+        "total_files":     0,
+        "skipped":         0,
+        "null_edges":      0,
+        "errors":          0,
+    }
+    per_file = []
+
+    _log(f"INPUT_DIR : {INPUT_DIR}")
+    _log(f"OUTPUT_DIR: {OUTPUT_DIR}")
+
+    input_files = sorted(INPUT_DIR.glob("*.csv"))
+    _log(f"Files found: {len(input_files)}")
+
+    for out_file in OUTPUT_DIR.glob("*.csv"):
+        out_file.unlink()
+
+    for input_file in input_files:
+        name   = input_file.name.lower()
+        market = None
+        pf = {
+            "name":       input_file.name,
+            "market":     "unknown",
+            "rows":       0,
+            "null_edges": 0,
+            "status":     "ok",
+        }
+
+        if "moneyline" in name:
+            market = "moneyline"
+        elif "run_line" in name:
+            market = "run_line"
+        elif "total" in name:
+            market = "total"
+        else:
+            _log(f"SKIP unrecognized file: {input_file.name}")
+            pf["status"] = "skipped"
+            summary["skipped"] += 1
+            per_file.append(pf)
+            continue
+
+        pf["market"] = market
+        _log(f"--- FILE: {input_file.name}  market={market}")
+
+        try:
+            df = pd.read_csv(input_file)
+
+            if df.empty:
+                _log(f"{input_file.name} empty — skipping")
+                pf["status"] = "empty"
+                summary["skipped"] += 1
+                per_file.append(pf)
+                continue
+
+            pf["rows"] = len(df)
+            summary["rows_processed"] += len(df)
+
+            # Base edge computation
+            if market == "moneyline":
+                df, null_edges = compute_moneyline(df)
+                summary["moneyline_files"] += 1
+            elif market == "run_line":
+                df, null_edges = compute_run_line(df)
+                summary["run_line_files"] += 1
+            else:
+                df, null_edges = compute_total(df)
+                summary["total_files"] += 1
+
+            # Contextual adjustments
+            if market in ("moneyline", "run_line"):
+                if "sp_data_available" in df.columns and "lineup_data_available" in df.columns:
+                    missing_sp     = int((df["sp_data_available"]     == 0).sum())
+                    missing_lineup = int((df["lineup_data_available"] == 0).sum())
+                    if missing_sp > 0:
+                        _log(f"{input_file.name} | {missing_sp} rows missing SP data — SP adjustment will use 0 diff", "WARN")
+                    if missing_lineup > 0:
+                        _log(f"{input_file.name} | {missing_lineup} rows missing lineup data — lineup/park adjustments will use 0 diff", "WARN")
+                else:
+                    _log(f"{input_file.name} | data availability columns not present — adjustments applied without indicators", "WARN")
+                df = adjust_moneyline_run_line(df, cfg, market)
+            else:
+                df = adjust_totals(df, cfg)
+
+            pf["null_edges"] = null_edges
+            summary["null_edges"] += null_edges
+
+            if null_edges > 0:
+                _log(f"{input_file.name} | {null_edges} null edges", "WARN")
+
+            output_path = OUTPUT_DIR / input_file.name
+            df.to_csv(output_path, index=False)
+
+            summary["files_processed"] += 1
+            _log(f"WROTE: {output_path} ({len(df)} rows, {null_edges} null edges)")
+
+        except Exception as e:
+            _log(f"{input_file.name} FAILED: {e}\n{traceback.format_exc()}", "ERROR")
+            pf["status"] = "error"
+            summary["errors"] += 1
+
+        per_file.append(pf)
+
+    _write_summary(summary, per_file)
+    print("compute_edges complete.")
+
+
+if __name__ == "__main__":
+    main()

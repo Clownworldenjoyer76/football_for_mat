@@ -1,0 +1,19 @@
+**New context keys (top of `mlb:`):**
+
+- `rain_chance_max: 40` — if `chance_of_rain` exceeds 40% or `will_it_rain = 1`, the entire game is skipped across all markets. Lower = stricter rain avoidance.
+- `sp_min_pa: 50` — defined here for documentation but not currently used in the script (filter uses `sample_flag = 'low'` from Statcast instead). Placeholder for future use.
+- `lineup_low_sample_warn: 3` — if more than 3 batters in either lineup lack sufficient Statcast data, the bet passes but gets `low_confidence = 1` in output. Higher = more permissive flagging.
+- `wind_nudge_threshold: 12` — minimum wind speed in mph before directional wind adjustment is applied to total edges in `compute_edges.py`. Higher = fewer games affected by wind.
+- `temp_cold_threshold: 50` / `temp_hot_threshold: 80` — temperature boundaries in °F for over edge suppression (cold) and boost (hot) in `compute_edges.py`.
+- `park_edge_scale: 0.002` — how strongly park factor nudges edges. At 0.002, a park with factor 110 produces a 2% edge multiplier. Higher = park has more influence on final edges.
+
+**Existing market keys (unchanged):**
+
+Each market (moneyline/run_line/total) has `home`/`away` or `over`/`under` sides with:
+- `odds_bands` — American odds ranges the DK line must fall in to be considered
+- `ev_bands` — EV ranges the model edge must fall in
+- `kelly_bands` — Kelly criterion ranges
+- `line_bands` — run line or total line ranges (run line and total only)
+- `prob_min` — minimum model probability to qualify
+
+**TLDR:** `markets.yaml` is the single control file for both what bets get selected (EV/Kelly/odds/line filters) and how aggressively the pipeline adjusts for context (park, weather, lineup quality). The new keys at the top don't change which market bands are active — they tune the environmental signal strength and safety filters layered on top.
