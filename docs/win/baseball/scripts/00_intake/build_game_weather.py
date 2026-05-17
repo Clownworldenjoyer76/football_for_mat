@@ -8,9 +8,10 @@
 # Writes:
 #   docs/win/baseball/data/weather/{date}_weather.csv
 #
-# Output columns match old fetch_weather.py:
+# Output columns:
 #   gamePk,venue_id,weather_applicable,weather_time,temp_f,wind_mph,wind_dir,
-#   gust_mph,precip_in,humidity,chance_of_rain,will_it_rain,wind_blowing_out
+#   precip_in,humidity,will_it_rain,wind_blowing_out,
+#   air_pressure_at_sea_level,dew_point_f,symbol_code
 
 import re
 from datetime import datetime, UTC
@@ -46,12 +47,13 @@ OUTPUT_COLUMNS = [
     "temp_f",
     "wind_mph",
     "wind_dir",
-    "gust_mph",
     "precip_in",
     "humidity",
-    "chance_of_rain",
     "will_it_rain",
     "wind_blowing_out",
+    "air_pressure_at_sea_level",
+    "dew_point_f",
+    "symbol_code",
 ]
 
 COMPASS_16 = [
@@ -72,6 +74,8 @@ COMPASS_16 = [
     "NW",
     "NNW",
 ]
+
+HPA_TO_INHG = 0.0295299830714
 
 # ─────────────────────────────────────────────
 # LOGGING
@@ -142,6 +146,13 @@ def c_to_f(celsius):
     if value is None:
         return ""
     return _round((value * 9 / 5) + 32, 1)
+
+
+def hpa_to_inhg(hpa):
+    value = _to_float(hpa)
+    if value is None:
+        return ""
+    return _round(value * HPA_TO_INHG, 2)
 
 
 def ms_to_mph(ms):
@@ -220,7 +231,7 @@ def get_weather_applicable(row: dict) -> int:
         return 0
 
 
-def get_will_it_rain(precipitation_amount) -> str:
+def get_will_it_rain(precipitation_amount):
     value = _to_float(precipitation_amount)
     if value is None:
         return ""
@@ -253,12 +264,13 @@ def build_output_row(raw_row: dict, venue_map: dict) -> dict:
             "temp_f": "",
             "wind_mph": "",
             "wind_dir": "",
-            "gust_mph": "",
             "precip_in": "",
             "humidity": "",
-            "chance_of_rain": "",
             "will_it_rain": "",
             "wind_blowing_out": "",
+            "air_pressure_at_sea_level": "",
+            "dew_point_f": "",
+            "symbol_code": "",
         }
 
     wind_dir = degrees_to_compass(raw_row.get("wind_from_direction"))
@@ -275,16 +287,17 @@ def build_output_row(raw_row: dict, venue_map: dict) -> dict:
         "temp_f": c_to_f(raw_row.get("air_temperature")),
         "wind_mph": ms_to_mph(raw_row.get("wind_speed")),
         "wind_dir": wind_dir,
-        "gust_mph": "",
         "precip_in": mm_to_inches(raw_row.get("precipitation_amount")),
         "humidity": _round(_to_float(raw_row.get("relative_humidity")), 1),
-        "chance_of_rain": "",
         "will_it_rain": get_will_it_rain(raw_row.get("precipitation_amount")),
         "wind_blowing_out": get_wind_blowing_out(
             wind_dir=wind_dir,
             wind_out_direction=wind_out_direction,
             weather_applicable=weather_applicable,
         ),
+        "air_pressure_at_sea_level": hpa_to_inhg(raw_row.get("air_pressure_at_sea_level")),
+        "dew_point_f": c_to_f(raw_row.get("dew_point_temperature")),
+        "symbol_code": _clean(raw_row.get("symbol_code")),
     }
 
 
