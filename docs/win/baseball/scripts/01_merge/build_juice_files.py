@@ -46,10 +46,12 @@ CONTEXT_COLS = [
     "park_factor", "park_wOBAcon", "park_xwOBAcon", "park_HR", "park_R",
     "park_factor_B", "park_wOBAcon_B", "park_xwOBAcon_B", "park_HR_B", "park_R_B",
     "weather_applicable", "weather_time",
-    "temp_f", "wind_mph", "wind_dir", "gust_mph",
-    "precip_in", "humidity", "chance_of_rain", "will_it_rain", "wind_blowing_out",
+    "temp_f", "wind_mph", "wind_dir",
+    "precip_in", "humidity", "will_it_rain", "wind_blowing_out",
+    "air_pressure_at_sea_level", "dew_point_f", "symbol_code",
     "sp_data_available", "lineup_data_available",
 ]
+
 MONEYLINE_REQUIRED_COLUMNS = [
     "game_id","sport","league","game_date","game_time","home_team","away_team",
     "away_run_line","home_run_line","total",
