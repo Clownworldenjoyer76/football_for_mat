@@ -51,6 +51,7 @@ jobs:
           mkdir -p docs/win/baseball/errors/00_intake/
           mkdir -p mappings/baseball/no_map/
           mkdir -p docs/win/baseball/data/weather/
+          mkdir -p docs/win/baseball/data/weather/metno_raw/
 
       - name: Baseball Odds Parse
         run: python docs/win/baseball/scripts/00_intake/odds_parse.py docs/win/baseball/odds/${DATE}.json
@@ -70,10 +71,13 @@ jobs:
       - name: Baseball Build Games List
         run: python docs/win/baseball/scripts/00_intake/build_games_list.py
 
-      - name: Baseball Fetch Weather
+      - name: Baseball Fetch Park Weather
         env:
-          WEATHER_API: ${{ secrets.WEATHER_API }}
-        run: python docs/win/baseball/scripts/00_intake/fetch_weather.py
+          METNO_USER_AGENT: "MatsPicksWeather/1.0 local-dev"
+        run: python docs/win/baseball/scripts/00_intake/fetch_park_weather.py
+
+      - name: Baseball Build Game Weather
+        run: python docs/win/baseball/scripts/00_intake/build_game_weather.py
 
       - name: Baseball Inject Game IDs Into Predictions
         run: python docs/win/baseball/scripts/00_intake/game_id_pred.py
