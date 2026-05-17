@@ -438,12 +438,13 @@ def process_date(date_str: str, venue_map: dict, pitcher_map: dict, batter_map: 
             "temp_f":                     w.get("temp_f"),
             "wind_mph":                   w.get("wind_mph"),
             "wind_dir":                   w.get("wind_dir"),
-            "gust_mph":                   w.get("gust_mph"),
             "precip_in":                  w.get("precip_in"),
             "humidity":                   w.get("humidity"),
-            "chance_of_rain":             w.get("chance_of_rain"),
             "will_it_rain":               w.get("will_it_rain"),
             "wind_blowing_out":           w.get("wind_blowing_out"),
+            "air_pressure_at_sea_level":  w.get("air_pressure_at_sea_level"),
+            "dew_point_f":                w.get("dew_point_f"),
+            "symbol_code":                w.get("symbol_code"),
         })
 
     if output_rows:
