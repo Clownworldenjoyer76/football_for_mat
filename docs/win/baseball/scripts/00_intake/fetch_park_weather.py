@@ -6,6 +6,8 @@
 # Calls MET Norway Locationforecast /complete for each outdoor game location
 # Writes raw selected MET Norway API fields to:
 # docs/win/baseball/data/weather/metno_raw/{date}_metno_raw.csv
+#
+# Only processes games files dated today or in the future.
 
 import os
 import re
@@ -193,6 +195,32 @@ def parse_metno_time_utc(value: str):
         return None
 
 
+def parse_games_file_date(games_file: Path):
+    try:
+        date_part = games_file.stem.replace("_games", "")
+        return datetime.strptime(date_part, "%Y_%m_%d").date()
+    except Exception:
+        return None
+
+
+def get_today_and_future_games_files():
+    today = datetime.now().date()
+
+    games_files = []
+
+    for games_file in sorted(GAMES_DIR.glob("*_games.csv")):
+        file_date = parse_games_file_date(games_file)
+
+        if file_date is None:
+            _log(f"{games_file.name} | could not parse date from filename — skipping", "WARN")
+            continue
+
+        if file_date >= today:
+            games_files.append(games_file)
+
+    return games_files
+
+
 def call_metno(lat: float, lon: float) -> dict:
     headers = {
         "User-Agent": METNO_USER_AGENT,
@@ -235,14 +263,20 @@ def select_timeseries_item(payload: dict, target_utc):
     if exact is not None:
         return exact
 
+    valid_items = []
+
+    for item in timeseries:
+        item_time = parse_metno_time_utc(_clean(item.get("time")))
+        if item_time is not None:
+            valid_items.append((item, item_time))
+
+    if not valid_items:
+        return None
+
     return min(
-        timeseries,
-        key=lambda item: abs(
-            parse_metno_time_utc(_clean(item.get("time"))) - target_utc
-        )
-        if parse_metno_time_utc(_clean(item.get("time"))) is not None
-        else pd.Timedelta.max,
-    )
+        valid_items,
+        key=lambda pair: abs(pair[1] - target_utc),
+    )[0]
 
 
 def extract_raw_fields(item: dict) -> dict:
@@ -403,8 +437,8 @@ def process_date(date_str: str, venue_map: dict, summary: dict) -> None:
                 status = getattr(e.response, "status_code", "")
                 _log(f"{game_pk} | MET Norway HTTP error status={status}", "ERROR")
                 summary["errors"] += 1
-            except Exception:
-                _log(f"{game_pk} | MET Norway fetch/parse failed", "ERROR")
+            except Exception as e:
+                _log(f"{game_pk} | MET Norway fetch/parse failed: {type(e).__name__}", "ERROR")
                 summary["errors"] += 1
 
         rows.append(
@@ -441,15 +475,15 @@ def main() -> None:
         venue_map = load_venue_map()
         _log(f"Venue map loaded: {len(venue_map)} entries")
 
-        games_files = sorted(GAMES_DIR.glob("*_games.csv"))
-        _log(f"Games files found: {len(games_files)}")
+        games_files = get_today_and_future_games_files()
+        _log(f"Today/future games files found: {len(games_files)}")
 
         for games_file in games_files:
             date_str = games_file.stem.replace("_games", "")
             process_date(date_str, venue_map, summary)
 
-    except Exception:
-        _log("FATAL", "ERROR")
+    except Exception as e:
+        _log(f"FATAL: {type(e).__name__}", "ERROR")
         summary["errors"] += 1
 
     status = "SUCCESS" if summary["errors"] == 0 else "COMPLETED WITH ERRORS"
