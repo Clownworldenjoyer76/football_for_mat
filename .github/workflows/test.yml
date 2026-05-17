@@ -1,0 +1,48 @@
+# .github/workflows/fetch-park-weather.yml
+
+name: test Fetch Park Weather
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-park-weather:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas requests
+
+      - name: Run fetch_park_weather.py
+        env:
+          METNO_USER_AGENT: "MatsPicksWeather/1.0 local-dev"
+        run: |
+          python docs/win/baseball/scripts/00_intake/fetch_park_weather.py
+
+      - name: Commit weather output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/baseball/data/weather/metno_raw/
+          git add docs/win/baseball/errors/00_intake/fetch_park_weather.txt
+
+          if git diff --cached --quiet; then
+            echo "No weather changes to commit."
+          else
+            git commit -m "Update park weather data"
+            git push
+          fi
