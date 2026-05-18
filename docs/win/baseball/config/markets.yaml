@@ -3,7 +3,16 @@ markets:
   mlb:
 
     # ── Context / Environment Settings ──────────────────────────
-    rain_chance_max: 90          # skip bets above this % rain chance threshold  
+    rain_exclude_on_will_it_rain: true
+    rain_symbol_terms:
+      - rain
+      - heavyrain
+      - lightrain
+      - sleet
+      - snow
+      - thunder
+
+    sp_sample_exclude_totals: true
     lineup_low_sample_warn: 3    # flag bet as low_confidence if this many batters have low sample
 
     ###################################################
