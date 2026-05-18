@@ -1,672 +1,672 @@
-=== compute_ev_kelly RUN 2026-05-18T13:25:25.798388+00:00 ===
-2026-05-18T13:25:25.798510+00:00 | INFO  | INPUT_DIR : docs/win/baseball/03_edges
-2026-05-18T13:25:25.798547+00:00 | INFO  | OUTPUT_DIR: docs/win/baseball/03_edges/ev_kelly
-2026-05-18T13:25:25.799404+00:00 | INFO  | Files found: 162
-2026-05-18T13:25:25.804005+00:00 | INFO  | --- FILE: 2026_03_26_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:25.812036+00:00 | WARN  | 2026_03_26_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2124)
-2026-05-18T13:25:25.813633+00:00 | WARN  | 2026_03_26_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1651)
-2026-05-18T13:25:25.816190+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_26_mlb_moneyline.csv (11 rows, 18 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.816231+00:00 | INFO  | --- FILE: 2026_03_26_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:25.823307+00:00 | WARN  | 2026_03_26_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.8096)
-2026-05-18T13:25:25.824763+00:00 | WARN  | 2026_03_26_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-1.0199)
-2026-05-18T13:25:25.826906+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_26_mlb_run_line.csv (11 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.826942+00:00 | INFO  | --- FILE: 2026_03_26_mlb_total.csv  market=total
-2026-05-18T13:25:25.833263+00:00 | WARN  | 2026_03_26_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.5594)
-2026-05-18T13:25:25.834745+00:00 | WARN  | 2026_03_26_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.4608)
-2026-05-18T13:25:25.836874+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_26_mlb_total.csv (11 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.836911+00:00 | INFO  | --- FILE: 2026_03_27_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:25.842755+00:00 | WARN  | 2026_03_27_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.3380)
-2026-05-18T13:25:25.844167+00:00 | WARN  | 2026_03_27_mlb_moneyline.csv | 5 negative Kelly values clipped to 0 (min=-0.1758)
-2026-05-18T13:25:25.845992+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_27_mlb_moneyline.csv (8 rows, 11 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.846029+00:00 | INFO  | --- FILE: 2026_03_27_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:25.851566+00:00 | WARN  | 2026_03_27_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.9380)
-2026-05-18T13:25:25.852927+00:00 | WARN  | 2026_03_27_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-1.0348)
-2026-05-18T13:25:25.854714+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_27_mlb_run_line.csv (8 rows, 13 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.854751+00:00 | INFO  | --- FILE: 2026_03_27_mlb_total.csv  market=total
-2026-05-18T13:25:25.860738+00:00 | WARN  | 2026_03_27_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.2828)
-2026-05-18T13:25:25.862074+00:00 | WARN  | 2026_03_27_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.1765)
-2026-05-18T13:25:25.863905+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_27_mlb_total.csv (8 rows, 12 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.863942+00:00 | INFO  | --- FILE: 2026_03_28_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:25.869661+00:00 | WARN  | 2026_03_28_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1856)
-2026-05-18T13:25:25.870997+00:00 | WARN  | 2026_03_28_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1418)
-2026-05-18T13:25:25.873241+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_28_mlb_moneyline.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.873278+00:00 | INFO  | --- FILE: 2026_03_28_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:25.879278+00:00 | WARN  | 2026_03_28_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-0.8078)
-2026-05-18T13:25:25.880671+00:00 | WARN  | 2026_03_28_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9285)
-2026-05-18T13:25:25.882993+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_28_mlb_run_line.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.883028+00:00 | INFO  | --- FILE: 2026_03_28_mlb_total.csv  market=total
-2026-05-18T13:25:25.889159+00:00 | WARN  | 2026_03_28_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.3259)
-2026-05-18T13:25:25.890541+00:00 | WARN  | 2026_03_28_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.4060)
-2026-05-18T13:25:25.892874+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_28_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.892910+00:00 | INFO  | --- FILE: 2026_03_29_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:25.899377+00:00 | WARN  | 2026_03_29_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1972)
-2026-05-18T13:25:25.901704+00:00 | WARN  | 2026_03_29_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1602)
-2026-05-18T13:25:25.904575+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_29_mlb_moneyline.csv (12 rows, 16 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.904613+00:00 | INFO  | --- FILE: 2026_03_29_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:25.910231+00:00 | WARN  | 2026_03_29_mlb_run_line.csv | 5 negative Kelly values clipped to 0 (min=-0.7086)
-2026-05-18T13:25:25.911598+00:00 | WARN  | 2026_03_29_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.8679)
-2026-05-18T13:25:25.913523+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_29_mlb_run_line.csv (12 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.913559+00:00 | INFO  | --- FILE: 2026_03_29_mlb_total.csv  market=total
-2026-05-18T13:25:25.919502+00:00 | WARN  | 2026_03_29_mlb_total.csv | 5 negative Kelly values clipped to 0 (min=-0.2890)
-2026-05-18T13:25:25.920852+00:00 | WARN  | 2026_03_29_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.7275)
-2026-05-18T13:25:25.922962+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_29_mlb_total.csv (12 rows, 16 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.922998+00:00 | INFO  | --- FILE: 2026_03_30_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:25.928620+00:00 | WARN  | 2026_03_30_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1766)
-2026-05-18T13:25:25.929943+00:00 | WARN  | 2026_03_30_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1191)
-2026-05-18T13:25:25.932105+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_30_mlb_moneyline.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.932141+00:00 | INFO  | --- FILE: 2026_03_30_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:25.937844+00:00 | WARN  | 2026_03_30_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8751)
-2026-05-18T13:25:25.939175+00:00 | WARN  | 2026_03_30_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9476)
-2026-05-18T13:25:25.941389+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_30_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.941427+00:00 | INFO  | --- FILE: 2026_03_30_mlb_total.csv  market=total
-2026-05-18T13:25:25.947505+00:00 | WARN  | 2026_03_30_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4223)
-2026-05-18T13:25:25.948832+00:00 | WARN  | 2026_03_30_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4751)
-2026-05-18T13:25:25.951070+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_30_mlb_total.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.951105+00:00 | INFO  | --- FILE: 2026_03_31_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:25.956765+00:00 | WARN  | 2026_03_31_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.3195)
-2026-05-18T13:25:25.958106+00:00 | WARN  | 2026_03_31_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2220)
-2026-05-18T13:25:25.960262+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_31_mlb_moneyline.csv (14 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.960299+00:00 | INFO  | --- FILE: 2026_03_31_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:25.966109+00:00 | WARN  | 2026_03_31_mlb_run_line.csv | 8 negative Kelly values clipped to 0 (min=-0.8245)
-2026-05-18T13:25:25.968429+00:00 | WARN  | 2026_03_31_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9126)
-2026-05-18T13:25:25.971102+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_31_mlb_run_line.csv (14 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.971138+00:00 | INFO  | --- FILE: 2026_03_31_mlb_total.csv  market=total
-2026-05-18T13:25:25.977299+00:00 | WARN  | 2026_03_31_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.3678)
-2026-05-18T13:25:25.978720+00:00 | WARN  | 2026_03_31_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4389)
-2026-05-18T13:25:25.980978+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_31_mlb_total.csv (14 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.981014+00:00 | INFO  | --- FILE: 2026_04_01_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:25.986813+00:00 | WARN  | 2026_04_01_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.3702)
-2026-05-18T13:25:25.988142+00:00 | WARN  | 2026_04_01_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.3433)
-2026-05-18T13:25:25.990388+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_01_mlb_moneyline.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.990426+00:00 | INFO  | --- FILE: 2026_04_01_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:25.996025+00:00 | WARN  | 2026_04_01_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7199)
-2026-05-18T13:25:25.997363+00:00 | WARN  | 2026_04_01_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-1.0352)
-2026-05-18T13:25:25.999494+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_01_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:25.999530+00:00 | INFO  | --- FILE: 2026_04_01_mlb_total.csv  market=total
-2026-05-18T13:25:26.005618+00:00 | WARN  | 2026_04_01_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4350)
-2026-05-18T13:25:26.006955+00:00 | WARN  | 2026_04_01_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4119)
-2026-05-18T13:25:26.009179+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_01_mlb_total.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.009214+00:00 | INFO  | --- FILE: 2026_04_02_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.014635+00:00 | WARN  | 2026_04_02_mlb_moneyline.csv | 2 negative Kelly values clipped to 0 (min=-0.0565)
-2026-05-18T13:25:26.015949+00:00 | WARN  | 2026_04_02_mlb_moneyline.csv | 3 negative Kelly values clipped to 0 (min=-0.1113)
-2026-05-18T13:25:26.017350+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_02_mlb_moneyline.csv (3 rows, 5 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.017387+00:00 | INFO  | --- FILE: 2026_04_02_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.022829+00:00 | WARN  | 2026_04_02_mlb_run_line.csv | 2 negative Kelly values clipped to 0 (min=-0.7041)
-2026-05-18T13:25:26.024147+00:00 | WARN  | 2026_04_02_mlb_run_line.csv | 3 negative Kelly values clipped to 0 (min=-0.8373)
-2026-05-18T13:25:26.025588+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_02_mlb_run_line.csv (3 rows, 5 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.025623+00:00 | INFO  | --- FILE: 2026_04_02_mlb_total.csv  market=total
-2026-05-18T13:25:26.031536+00:00 | WARN  | 2026_04_02_mlb_total.csv | 3 negative Kelly values clipped to 0 (min=-0.1254)
-2026-05-18T13:25:26.032880+00:00 | WARN  | 2026_04_02_mlb_total.csv | 1 negative Kelly values clipped to 0 (min=-0.3452)
-2026-05-18T13:25:26.034372+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_02_mlb_total.csv (3 rows, 4 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.034409+00:00 | INFO  | --- FILE: 2026_04_03_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.040210+00:00 | WARN  | 2026_04_03_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2312)
-2026-05-18T13:25:26.041562+00:00 | WARN  | 2026_04_03_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.2395)
-2026-05-18T13:25:26.043769+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_03_mlb_moneyline.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.043805+00:00 | INFO  | --- FILE: 2026_04_03_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.049350+00:00 | WARN  | 2026_04_03_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.7740)
-2026-05-18T13:25:26.050692+00:00 | WARN  | 2026_04_03_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.8007)
-2026-05-18T13:25:26.052797+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_03_mlb_run_line.csv (15 rows, 27 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.052832+00:00 | INFO  | --- FILE: 2026_04_03_mlb_total.csv  market=total
-2026-05-18T13:25:26.056810+00:00 | WARN  | 2026_04_03_mlb_total.csv | 13 rows missing adjusted EV in over_edge_decimal_total; using raw EV fallback for those rows
-2026-05-18T13:25:26.057447+00:00 | WARN  | 2026_04_03_mlb_total.csv | 13 rows missing adjusted EV in under_edge_decimal_total; using raw EV fallback for those rows
-2026-05-18T13:25:26.058947+00:00 | WARN  | 2026_04_03_mlb_total.csv | 1 negative Kelly values clipped to 0 (min=-0.1227)
-2026-05-18T13:25:26.060542+00:00 | WARN  | 2026_04_03_mlb_total.csv | 1 negative Kelly values clipped to 0 (min=-0.1300)
-2026-05-18T13:25:26.062789+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_03_mlb_total.csv (15 rows, 2 kelly clipped, 26 adjusted EV fallback)
-2026-05-18T13:25:26.062824+00:00 | INFO  | --- FILE: 2026_04_04_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.068273+00:00 | WARN  | 2026_04_04_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2100)
-2026-05-18T13:25:26.069613+00:00 | WARN  | 2026_04_04_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.3240)
-2026-05-18T13:25:26.071881+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_04_mlb_moneyline.csv (16 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.071918+00:00 | INFO  | --- FILE: 2026_04_04_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.077427+00:00 | WARN  | 2026_04_04_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.8291)
-2026-05-18T13:25:26.078731+00:00 | WARN  | 2026_04_04_mlb_run_line.csv | 16 negative Kelly values clipped to 0 (min=-0.9258)
-2026-05-18T13:25:26.080919+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_04_mlb_run_line.csv (16 rows, 29 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.080953+00:00 | INFO  | --- FILE: 2026_04_04_mlb_total.csv  market=total
-2026-05-18T13:25:26.086875+00:00 | WARN  | 2026_04_04_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.4546)
-2026-05-18T13:25:26.088197+00:00 | WARN  | 2026_04_04_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.5700)
-2026-05-18T13:25:26.090567+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_04_mlb_total.csv (16 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.090603+00:00 | INFO  | --- FILE: 2026_04_05_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.096105+00:00 | WARN  | 2026_04_05_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2020)
-2026-05-18T13:25:26.097469+00:00 | WARN  | 2026_04_05_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.2114)
-2026-05-18T13:25:26.099715+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_05_mlb_moneyline.csv (16 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.099757+00:00 | INFO  | --- FILE: 2026_04_05_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.105296+00:00 | WARN  | 2026_04_05_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9958)
-2026-05-18T13:25:26.106659+00:00 | WARN  | 2026_04_05_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-1.0145)
-2026-05-18T13:25:26.108922+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_05_mlb_run_line.csv (16 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.108957+00:00 | INFO  | --- FILE: 2026_04_05_mlb_total.csv  market=total
-2026-05-18T13:25:26.115006+00:00 | WARN  | 2026_04_05_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.3655)
-2026-05-18T13:25:26.116322+00:00 | WARN  | 2026_04_05_mlb_total.csv | 15 negative Kelly values clipped to 0 (min=-0.7329)
-2026-05-18T13:25:26.118780+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_05_mlb_total.csv (16 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.118818+00:00 | INFO  | --- FILE: 2026_04_06_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.124383+00:00 | WARN  | 2026_04_06_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.1713)
-2026-05-18T13:25:26.125734+00:00 | WARN  | 2026_04_06_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2412)
-2026-05-18T13:25:26.127780+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_06_mlb_moneyline.csv (13 rows, 18 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.127816+00:00 | INFO  | --- FILE: 2026_04_06_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.133282+00:00 | WARN  | 2026_04_06_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9684)
-2026-05-18T13:25:26.134633+00:00 | WARN  | 2026_04_06_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.9685)
-2026-05-18T13:25:26.136679+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_06_mlb_run_line.csv (13 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.136714+00:00 | INFO  | --- FILE: 2026_04_06_mlb_total.csv  market=total
-2026-05-18T13:25:26.142612+00:00 | WARN  | 2026_04_06_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.3576)
-2026-05-18T13:25:26.143935+00:00 | WARN  | 2026_04_06_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4376)
-2026-05-18T13:25:26.146072+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_06_mlb_total.csv (13 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.146106+00:00 | INFO  | --- FILE: 2026_04_07_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.151658+00:00 | WARN  | 2026_04_07_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2831)
-2026-05-18T13:25:26.152977+00:00 | WARN  | 2026_04_07_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.2170)
-2026-05-18T13:25:26.155088+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_07_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.155123+00:00 | INFO  | --- FILE: 2026_04_07_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.160741+00:00 | WARN  | 2026_04_07_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.8819)
-2026-05-18T13:25:26.162076+00:00 | WARN  | 2026_04_07_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.9079)
-2026-05-18T13:25:26.164170+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_07_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.164205+00:00 | INFO  | --- FILE: 2026_04_07_mlb_total.csv  market=total
-2026-05-18T13:25:26.170155+00:00 | WARN  | 2026_04_07_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.2787)
-2026-05-18T13:25:26.171510+00:00 | WARN  | 2026_04_07_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.4953)
-2026-05-18T13:25:26.173688+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_07_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.173729+00:00 | INFO  | --- FILE: 2026_04_08_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.179223+00:00 | WARN  | 2026_04_08_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1774)
-2026-05-18T13:25:26.180560+00:00 | WARN  | 2026_04_08_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1598)
-2026-05-18T13:25:26.182720+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_08_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.182756+00:00 | INFO  | --- FILE: 2026_04_08_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.188402+00:00 | WARN  | 2026_04_08_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.7782)
-2026-05-18T13:25:26.189756+00:00 | WARN  | 2026_04_08_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.8503)
-2026-05-18T13:25:26.191895+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_08_mlb_run_line.csv (15 rows, 27 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.191932+00:00 | INFO  | --- FILE: 2026_04_08_mlb_total.csv  market=total
-2026-05-18T13:25:26.197864+00:00 | WARN  | 2026_04_08_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.3783)
-2026-05-18T13:25:26.199183+00:00 | WARN  | 2026_04_08_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.3025)
-2026-05-18T13:25:26.201438+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_08_mlb_total.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.201475+00:00 | INFO  | --- FILE: 2026_04_09_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.206868+00:00 | WARN  | 2026_04_09_mlb_moneyline.csv | 5 negative Kelly values clipped to 0 (min=-0.2289)
-2026-05-18T13:25:26.208224+00:00 | WARN  | 2026_04_09_mlb_moneyline.csv | 4 negative Kelly values clipped to 0 (min=-0.0949)
-2026-05-18T13:25:26.209780+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_09_mlb_moneyline.csv (6 rows, 9 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.209815+00:00 | INFO  | --- FILE: 2026_04_09_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.215124+00:00 | WARN  | 2026_04_09_mlb_run_line.csv | 3 negative Kelly values clipped to 0 (min=-0.6336)
-2026-05-18T13:25:26.216480+00:00 | WARN  | 2026_04_09_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.8431)
-2026-05-18T13:25:26.218107+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_09_mlb_run_line.csv (6 rows, 9 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.218143+00:00 | INFO  | --- FILE: 2026_04_09_mlb_total.csv  market=total
-2026-05-18T13:25:26.223842+00:00 | WARN  | 2026_04_09_mlb_total.csv | 3 negative Kelly values clipped to 0 (min=-0.2673)
-2026-05-18T13:25:26.225182+00:00 | WARN  | 2026_04_09_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.4634)
-2026-05-18T13:25:26.226791+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_09_mlb_total.csv (6 rows, 9 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.226825+00:00 | INFO  | --- FILE: 2026_04_10_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.232510+00:00 | WARN  | 2026_04_10_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1942)
-2026-05-18T13:25:26.233859+00:00 | WARN  | 2026_04_10_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1753)
-2026-05-18T13:25:26.236050+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_10_mlb_moneyline.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.236086+00:00 | INFO  | --- FILE: 2026_04_10_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.241796+00:00 | WARN  | 2026_04_10_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.7038)
-2026-05-18T13:25:26.243144+00:00 | WARN  | 2026_04_10_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9450)
-2026-05-18T13:25:26.245389+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_10_mlb_run_line.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.245427+00:00 | INFO  | --- FILE: 2026_04_10_mlb_total.csv  market=total
-2026-05-18T13:25:26.251582+00:00 | WARN  | 2026_04_10_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.5565)
-2026-05-18T13:25:26.252950+00:00 | WARN  | 2026_04_10_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4506)
-2026-05-18T13:25:26.255312+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_10_mlb_total.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.255372+00:00 | INFO  | --- FILE: 2026_04_11_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.261013+00:00 | WARN  | 2026_04_11_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.1278)
-2026-05-18T13:25:26.262325+00:00 | WARN  | 2026_04_11_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2412)
-2026-05-18T13:25:26.264240+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_11_mlb_moneyline.csv (11 rows, 18 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.264276+00:00 | INFO  | --- FILE: 2026_04_11_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.269729+00:00 | WARN  | 2026_04_11_mlb_run_line.csv | 4 negative Kelly values clipped to 0 (min=-0.7317)
-2026-05-18T13:25:26.271069+00:00 | WARN  | 2026_04_11_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.9559)
-2026-05-18T13:25:26.272907+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_11_mlb_run_line.csv (11 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.272942+00:00 | INFO  | --- FILE: 2026_04_11_mlb_total.csv  market=total
-2026-05-18T13:25:26.278746+00:00 | WARN  | 2026_04_11_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.2909)
-2026-05-18T13:25:26.280077+00:00 | WARN  | 2026_04_11_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.4237)
-2026-05-18T13:25:26.282051+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_11_mlb_total.csv (11 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.282087+00:00 | INFO  | --- FILE: 2026_04_12_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.287685+00:00 | WARN  | 2026_04_12_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1950)
-2026-05-18T13:25:26.288996+00:00 | WARN  | 2026_04_12_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2213)
-2026-05-18T13:25:26.291120+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_12_mlb_moneyline.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.291155+00:00 | INFO  | --- FILE: 2026_04_12_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.296746+00:00 | WARN  | 2026_04_12_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-0.7167)
-2026-05-18T13:25:26.298058+00:00 | WARN  | 2026_04_12_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8863)
-2026-05-18T13:25:26.300215+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_12_mlb_run_line.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.300250+00:00 | INFO  | --- FILE: 2026_04_12_mlb_total.csv  market=total
-2026-05-18T13:25:26.306272+00:00 | WARN  | 2026_04_12_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.5750)
-2026-05-18T13:25:26.307607+00:00 | WARN  | 2026_04_12_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.3080)
-2026-05-18T13:25:26.309888+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_12_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.309924+00:00 | INFO  | --- FILE: 2026_04_13_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.315377+00:00 | WARN  | 2026_04_13_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1828)
-2026-05-18T13:25:26.316705+00:00 | WARN  | 2026_04_13_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1392)
-2026-05-18T13:25:26.318503+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_13_mlb_moneyline.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.318539+00:00 | INFO  | --- FILE: 2026_04_13_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.323979+00:00 | WARN  | 2026_04_13_mlb_run_line.csv | 5 negative Kelly values clipped to 0 (min=-0.8049)
-2026-05-18T13:25:26.325309+00:00 | WARN  | 2026_04_13_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9559)
-2026-05-18T13:25:26.327122+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_13_mlb_run_line.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.327157+00:00 | INFO  | --- FILE: 2026_04_13_mlb_total.csv  market=total
-2026-05-18T13:25:26.332932+00:00 | WARN  | 2026_04_13_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.3731)
-2026-05-18T13:25:26.334234+00:00 | WARN  | 2026_04_13_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.3116)
-2026-05-18T13:25:26.336087+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_13_mlb_total.csv (10 rows, 16 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.336121+00:00 | INFO  | --- FILE: 2026_04_14_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.341697+00:00 | WARN  | 2026_04_14_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2198)
-2026-05-18T13:25:26.343028+00:00 | WARN  | 2026_04_14_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2203)
-2026-05-18T13:25:26.345188+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_14_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.345222+00:00 | INFO  | --- FILE: 2026_04_14_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.348789+00:00 | WARN  | 2026_04_14_mlb_run_line.csv | 1 rows missing adjusted EV in home_edge_decimal_run_line; using raw EV fallback for those rows
-2026-05-18T13:25:26.349427+00:00 | WARN  | 2026_04_14_mlb_run_line.csv | 1 rows missing adjusted EV in away_edge_decimal_run_line; using raw EV fallback for those rows
-2026-05-18T13:25:26.350944+00:00 | WARN  | 2026_04_14_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8615)
-2026-05-18T13:25:26.352484+00:00 | WARN  | 2026_04_14_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.9813)
-2026-05-18T13:25:26.354790+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_14_mlb_run_line.csv (15 rows, 22 kelly clipped, 2 adjusted EV fallback)
-2026-05-18T13:25:26.354827+00:00 | INFO  | --- FILE: 2026_04_14_mlb_total.csv  market=total
-2026-05-18T13:25:26.358848+00:00 | WARN  | 2026_04_14_mlb_total.csv | 1 rows missing adjusted EV in over_edge_decimal_total; using raw EV fallback for those rows
-2026-05-18T13:25:26.359494+00:00 | WARN  | 2026_04_14_mlb_total.csv | 1 rows missing adjusted EV in under_edge_decimal_total; using raw EV fallback for those rows
-2026-05-18T13:25:26.361000+00:00 | WARN  | 2026_04_14_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.4445)
-2026-05-18T13:25:26.362548+00:00 | WARN  | 2026_04_14_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.4404)
-2026-05-18T13:25:26.364960+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_14_mlb_total.csv (15 rows, 18 kelly clipped, 2 adjusted EV fallback)
-2026-05-18T13:25:26.364996+00:00 | INFO  | --- FILE: 2026_04_15_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.370596+00:00 | WARN  | 2026_04_15_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1772)
-2026-05-18T13:25:26.371944+00:00 | WARN  | 2026_04_15_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1735)
-2026-05-18T13:25:26.374195+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_15_mlb_moneyline.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.374230+00:00 | INFO  | --- FILE: 2026_04_15_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.379828+00:00 | WARN  | 2026_04_15_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.8309)
-2026-05-18T13:25:26.381149+00:00 | WARN  | 2026_04_15_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8710)
-2026-05-18T13:25:26.383296+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_15_mlb_run_line.csv (15 rows, 26 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.383360+00:00 | INFO  | --- FILE: 2026_04_15_mlb_total.csv  market=total
-2026-05-18T13:25:26.389406+00:00 | WARN  | 2026_04_15_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.3436)
-2026-05-18T13:25:26.390730+00:00 | WARN  | 2026_04_15_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.2945)
-2026-05-18T13:25:26.393069+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_15_mlb_total.csv (15 rows, 26 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.393104+00:00 | INFO  | --- FILE: 2026_04_16_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.398565+00:00 | WARN  | 2026_04_16_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.3198)
-2026-05-18T13:25:26.399920+00:00 | WARN  | 2026_04_16_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1220)
-2026-05-18T13:25:26.401758+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_16_mlb_moneyline.csv (10 rows, 16 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.401792+00:00 | INFO  | --- FILE: 2026_04_16_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.407118+00:00 | WARN  | 2026_04_16_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-0.8113)
-2026-05-18T13:25:26.408460+00:00 | WARN  | 2026_04_16_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.9740)
-2026-05-18T13:25:26.410231+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_16_mlb_run_line.csv (10 rows, 16 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.410267+00:00 | INFO  | --- FILE: 2026_04_16_mlb_total.csv  market=total
-2026-05-18T13:25:26.416173+00:00 | WARN  | 2026_04_16_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.4150)
-2026-05-18T13:25:26.417519+00:00 | WARN  | 2026_04_16_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.2701)
-2026-05-18T13:25:26.419400+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_16_mlb_total.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.419435+00:00 | INFO  | --- FILE: 2026_04_17_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.424999+00:00 | WARN  | 2026_04_17_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1718)
-2026-05-18T13:25:26.426307+00:00 | WARN  | 2026_04_17_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2672)
-2026-05-18T13:25:26.428513+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_17_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.428548+00:00 | INFO  | --- FILE: 2026_04_17_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.434110+00:00 | WARN  | 2026_04_17_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.7396)
-2026-05-18T13:25:26.435455+00:00 | WARN  | 2026_04_17_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-1.0036)
-2026-05-18T13:25:26.437623+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_17_mlb_run_line.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.437659+00:00 | INFO  | --- FILE: 2026_04_17_mlb_total.csv  market=total
-2026-05-18T13:25:26.443681+00:00 | WARN  | 2026_04_17_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.7923)
-2026-05-18T13:25:26.445002+00:00 | WARN  | 2026_04_17_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.1723)
-2026-05-18T13:25:26.447351+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_17_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.447388+00:00 | INFO  | --- FILE: 2026_04_18_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.452940+00:00 | WARN  | 2026_04_18_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.2650)
-2026-05-18T13:25:26.454317+00:00 | WARN  | 2026_04_18_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2525)
-2026-05-18T13:25:26.456487+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_18_mlb_moneyline.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.456527+00:00 | INFO  | --- FILE: 2026_04_18_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.462077+00:00 | WARN  | 2026_04_18_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.8456)
-2026-05-18T13:25:26.463399+00:00 | WARN  | 2026_04_18_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-1.0090)
-2026-05-18T13:25:26.465509+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_18_mlb_run_line.csv (15 rows, 26 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.465545+00:00 | INFO  | --- FILE: 2026_04_18_mlb_total.csv  market=total
-2026-05-18T13:25:26.471648+00:00 | WARN  | 2026_04_18_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.5721)
-2026-05-18T13:25:26.472980+00:00 | WARN  | 2026_04_18_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.3686)
-2026-05-18T13:25:26.475359+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_18_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.475396+00:00 | INFO  | --- FILE: 2026_04_19_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.481058+00:00 | WARN  | 2026_04_19_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2361)
-2026-05-18T13:25:26.482402+00:00 | WARN  | 2026_04_19_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3863)
-2026-05-18T13:25:26.484619+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_19_mlb_moneyline.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.484656+00:00 | INFO  | --- FILE: 2026_04_19_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.490227+00:00 | WARN  | 2026_04_19_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.9150)
-2026-05-18T13:25:26.491607+00:00 | WARN  | 2026_04_19_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9936)
-2026-05-18T13:25:26.493708+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_19_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.493744+00:00 | INFO  | --- FILE: 2026_04_19_mlb_total.csv  market=total
-2026-05-18T13:25:26.499798+00:00 | WARN  | 2026_04_19_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.4031)
-2026-05-18T13:25:26.501167+00:00 | WARN  | 2026_04_19_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4299)
-2026-05-18T13:25:26.503444+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_19_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.503479+00:00 | INFO  | --- FILE: 2026_04_20_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.509041+00:00 | WARN  | 2026_04_20_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.1962)
-2026-05-18T13:25:26.510432+00:00 | WARN  | 2026_04_20_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2369)
-2026-05-18T13:25:26.512208+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_20_mlb_moneyline.csv (10 rows, 14 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.512249+00:00 | INFO  | --- FILE: 2026_04_20_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.517636+00:00 | WARN  | 2026_04_20_mlb_run_line.csv | 8 negative Kelly values clipped to 0 (min=-0.7746)
-2026-05-18T13:25:26.518964+00:00 | WARN  | 2026_04_20_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8281)
-2026-05-18T13:25:26.520826+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_20_mlb_run_line.csv (10 rows, 18 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.520861+00:00 | INFO  | --- FILE: 2026_04_20_mlb_total.csv  market=total
-2026-05-18T13:25:26.526676+00:00 | WARN  | 2026_04_20_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.5633)
-2026-05-18T13:25:26.528010+00:00 | WARN  | 2026_04_20_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.5911)
-2026-05-18T13:25:26.529940+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_20_mlb_total.csv (10 rows, 14 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.529980+00:00 | INFO  | --- FILE: 2026_04_21_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.535593+00:00 | WARN  | 2026_04_21_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.1834)
-2026-05-18T13:25:26.536911+00:00 | WARN  | 2026_04_21_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1823)
-2026-05-18T13:25:26.539088+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_21_mlb_moneyline.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.539124+00:00 | INFO  | --- FILE: 2026_04_21_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.544760+00:00 | WARN  | 2026_04_21_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8997)
-2026-05-18T13:25:26.546121+00:00 | WARN  | 2026_04_21_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.9872)
-2026-05-18T13:25:26.548389+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_21_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.548426+00:00 | INFO  | --- FILE: 2026_04_21_mlb_total.csv  market=total
-2026-05-18T13:25:26.554598+00:00 | WARN  | 2026_04_21_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.6742)
-2026-05-18T13:25:26.555945+00:00 | WARN  | 2026_04_21_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.4689)
-2026-05-18T13:25:26.558289+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_21_mlb_total.csv (15 rows, 16 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.558326+00:00 | INFO  | --- FILE: 2026_04_22_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.564034+00:00 | WARN  | 2026_04_22_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.2755)
-2026-05-18T13:25:26.565389+00:00 | WARN  | 2026_04_22_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3015)
-2026-05-18T13:25:26.567682+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_22_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.567724+00:00 | INFO  | --- FILE: 2026_04_22_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.573312+00:00 | WARN  | 2026_04_22_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.7134)
-2026-05-18T13:25:26.574669+00:00 | WARN  | 2026_04_22_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9792)
-2026-05-18T13:25:26.576839+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_22_mlb_run_line.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.576881+00:00 | INFO  | --- FILE: 2026_04_22_mlb_total.csv  market=total
-2026-05-18T13:25:26.582869+00:00 | WARN  | 2026_04_22_mlb_total.csv | 15 negative Kelly values clipped to 0 (min=-0.6924)
-2026-05-18T13:25:26.584197+00:00 | WARN  | 2026_04_22_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.3406)
-2026-05-18T13:25:26.586583+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_22_mlb_total.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.586620+00:00 | INFO  | --- FILE: 2026_04_23_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.592262+00:00 | WARN  | 2026_04_23_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.1412)
-2026-05-18T13:25:26.593627+00:00 | WARN  | 2026_04_23_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1443)
-2026-05-18T13:25:26.595418+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_23_mlb_moneyline.csv (9 rows, 14 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.595454+00:00 | INFO  | --- FILE: 2026_04_23_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.600893+00:00 | WARN  | 2026_04_23_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.7216)
-2026-05-18T13:25:26.602204+00:00 | WARN  | 2026_04_23_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8469)
-2026-05-18T13:25:26.603954+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_23_mlb_run_line.csv (9 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.603993+00:00 | INFO  | --- FILE: 2026_04_23_mlb_total.csv  market=total
-2026-05-18T13:25:26.609828+00:00 | WARN  | 2026_04_23_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.4150)
-2026-05-18T13:25:26.611163+00:00 | WARN  | 2026_04_23_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.2900)
-2026-05-18T13:25:26.612946+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_23_mlb_total.csv (9 rows, 14 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.612979+00:00 | INFO  | --- FILE: 2026_04_24_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.618652+00:00 | WARN  | 2026_04_24_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1757)
-2026-05-18T13:25:26.619981+00:00 | WARN  | 2026_04_24_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2549)
-2026-05-18T13:25:26.622138+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_24_mlb_moneyline.csv (14 rows, 19 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.622172+00:00 | INFO  | --- FILE: 2026_04_24_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.627722+00:00 | WARN  | 2026_04_24_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7757)
-2026-05-18T13:25:26.629030+00:00 | WARN  | 2026_04_24_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.9415)
-2026-05-18T13:25:26.631102+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_24_mlb_run_line.csv (14 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.631137+00:00 | INFO  | --- FILE: 2026_04_24_mlb_total.csv  market=total
-2026-05-18T13:25:26.637073+00:00 | WARN  | 2026_04_24_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4342)
-2026-05-18T13:25:26.638434+00:00 | WARN  | 2026_04_24_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.3643)
-2026-05-18T13:25:26.640596+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_24_mlb_total.csv (14 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.640630+00:00 | INFO  | --- FILE: 2026_04_25_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.646171+00:00 | WARN  | 2026_04_25_mlb_moneyline.csv | 15 negative Kelly values clipped to 0 (min=-0.2628)
-2026-05-18T13:25:26.647497+00:00 | WARN  | 2026_04_25_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.0847)
-2026-05-18T13:25:26.649631+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_25_mlb_moneyline.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.649666+00:00 | INFO  | --- FILE: 2026_04_25_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.655184+00:00 | WARN  | 2026_04_25_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7974)
-2026-05-18T13:25:26.656508+00:00 | WARN  | 2026_04_25_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9322)
-2026-05-18T13:25:26.658568+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_25_mlb_run_line.csv (15 rows, 26 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.658604+00:00 | INFO  | --- FILE: 2026_04_25_mlb_total.csv  market=total
-2026-05-18T13:25:26.664552+00:00 | WARN  | 2026_04_25_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.9994)
-2026-05-18T13:25:26.665858+00:00 | WARN  | 2026_04_25_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.5683)
-2026-05-18T13:25:26.668145+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_25_mlb_total.csv (15 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.668182+00:00 | INFO  | --- FILE: 2026_04_26_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.673699+00:00 | WARN  | 2026_04_26_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2393)
-2026-05-18T13:25:26.675023+00:00 | WARN  | 2026_04_26_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1506)
-2026-05-18T13:25:26.677258+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_26_mlb_moneyline.csv (16 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.677299+00:00 | INFO  | --- FILE: 2026_04_26_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.682910+00:00 | WARN  | 2026_04_26_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.7052)
-2026-05-18T13:25:26.684230+00:00 | WARN  | 2026_04_26_mlb_run_line.csv | 16 negative Kelly values clipped to 0 (min=-0.9380)
-2026-05-18T13:25:26.686497+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_26_mlb_run_line.csv (16 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.686533+00:00 | INFO  | --- FILE: 2026_04_26_mlb_total.csv  market=total
-2026-05-18T13:25:26.690482+00:00 | WARN  | 2026_04_26_mlb_total.csv | 1 rows missing adjusted EV in over_edge_decimal_total; using raw EV fallback for those rows
-2026-05-18T13:25:26.691096+00:00 | WARN  | 2026_04_26_mlb_total.csv | 1 rows missing adjusted EV in under_edge_decimal_total; using raw EV fallback for those rows
-2026-05-18T13:25:26.692623+00:00 | WARN  | 2026_04_26_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-1.0377)
-2026-05-18T13:25:26.693934+00:00 | WARN  | 2026_04_26_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.3593)
-2026-05-18T13:25:26.696315+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_26_mlb_total.csv (16 rows, 22 kelly clipped, 2 adjusted EV fallback)
-2026-05-18T13:25:26.696369+00:00 | INFO  | --- FILE: 2026_04_27_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.701829+00:00 | WARN  | 2026_04_27_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.2366)
-2026-05-18T13:25:26.703140+00:00 | WARN  | 2026_04_27_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.2298)
-2026-05-18T13:25:26.704843+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_27_mlb_moneyline.csv (8 rows, 13 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.704878+00:00 | INFO  | --- FILE: 2026_04_27_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.710190+00:00 | WARN  | 2026_04_27_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.7134)
-2026-05-18T13:25:26.711520+00:00 | WARN  | 2026_04_27_mlb_run_line.csv | 8 negative Kelly values clipped to 0 (min=-1.0418)
-2026-05-18T13:25:26.713127+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_27_mlb_run_line.csv (8 rows, 14 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.713161+00:00 | INFO  | --- FILE: 2026_04_27_mlb_total.csv  market=total
-2026-05-18T13:25:26.718863+00:00 | WARN  | 2026_04_27_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.5894)
-2026-05-18T13:25:26.720238+00:00 | WARN  | 2026_04_27_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.3273)
-2026-05-18T13:25:26.722030+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_27_mlb_total.csv (8 rows, 12 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.722064+00:00 | INFO  | --- FILE: 2026_04_28_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.727585+00:00 | WARN  | 2026_04_28_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3514)
-2026-05-18T13:25:26.728913+00:00 | WARN  | 2026_04_28_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2261)
-2026-05-18T13:25:26.731096+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_28_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.731132+00:00 | INFO  | --- FILE: 2026_04_28_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.736840+00:00 | WARN  | 2026_04_28_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.7527)
-2026-05-18T13:25:26.738174+00:00 | WARN  | 2026_04_28_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8445)
-2026-05-18T13:25:26.740285+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_28_mlb_run_line.csv (15 rows, 28 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.740320+00:00 | INFO  | --- FILE: 2026_04_28_mlb_total.csv  market=total
-2026-05-18T13:25:26.746380+00:00 | WARN  | 2026_04_28_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.6056)
-2026-05-18T13:25:26.747768+00:00 | WARN  | 2026_04_28_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4866)
-2026-05-18T13:25:26.750106+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_28_mlb_total.csv (15 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.750141+00:00 | INFO  | --- FILE: 2026_04_29_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.755784+00:00 | WARN  | 2026_04_29_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1902)
-2026-05-18T13:25:26.757102+00:00 | WARN  | 2026_04_29_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1803)
-2026-05-18T13:25:26.759213+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_29_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.759248+00:00 | INFO  | --- FILE: 2026_04_29_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.764883+00:00 | WARN  | 2026_04_29_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8784)
-2026-05-18T13:25:26.766217+00:00 | WARN  | 2026_04_29_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.9493)
-2026-05-18T13:25:26.768324+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_29_mlb_run_line.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.768401+00:00 | INFO  | --- FILE: 2026_04_29_mlb_total.csv  market=total
-2026-05-18T13:25:26.774459+00:00 | WARN  | 2026_04_29_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.5785)
-2026-05-18T13:25:26.775788+00:00 | WARN  | 2026_04_29_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4933)
-2026-05-18T13:25:26.778116+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_29_mlb_total.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.778151+00:00 | INFO  | --- FILE: 2026_04_30_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.783746+00:00 | WARN  | 2026_04_30_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2052)
-2026-05-18T13:25:26.785086+00:00 | WARN  | 2026_04_30_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1645)
-2026-05-18T13:25:26.786910+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_30_mlb_moneyline.csv (10 rows, 16 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.786945+00:00 | INFO  | --- FILE: 2026_04_30_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.792387+00:00 | WARN  | 2026_04_30_mlb_run_line.csv | 5 negative Kelly values clipped to 0 (min=-0.7467)
-2026-05-18T13:25:26.793720+00:00 | WARN  | 2026_04_30_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9935)
-2026-05-18T13:25:26.795554+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_30_mlb_run_line.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.795589+00:00 | INFO  | --- FILE: 2026_04_30_mlb_total.csv  market=total
-2026-05-18T13:25:26.801431+00:00 | WARN  | 2026_04_30_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.2655)
-2026-05-18T13:25:26.802742+00:00 | WARN  | 2026_04_30_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.5472)
-2026-05-18T13:25:26.804582+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_30_mlb_total.csv (10 rows, 14 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.804616+00:00 | INFO  | --- FILE: 2026_05_01_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.810138+00:00 | WARN  | 2026_05_01_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1300)
-2026-05-18T13:25:26.811483+00:00 | WARN  | 2026_05_01_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1554)
-2026-05-18T13:25:26.813604+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_01_mlb_moneyline.csv (14 rows, 20 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.813641+00:00 | INFO  | --- FILE: 2026_05_01_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.819191+00:00 | WARN  | 2026_05_01_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.7518)
-2026-05-18T13:25:26.820578+00:00 | WARN  | 2026_05_01_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9086)
-2026-05-18T13:25:26.822694+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_01_mlb_run_line.csv (14 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.822730+00:00 | INFO  | --- FILE: 2026_05_01_mlb_total.csv  market=total
-2026-05-18T13:25:26.828670+00:00 | WARN  | 2026_05_01_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4353)
-2026-05-18T13:25:26.830010+00:00 | WARN  | 2026_05_01_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.3294)
-2026-05-18T13:25:26.832191+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_01_mlb_total.csv (14 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.832226+00:00 | INFO  | --- FILE: 2026_05_02_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.837807+00:00 | WARN  | 2026_05_02_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1703)
-2026-05-18T13:25:26.839118+00:00 | WARN  | 2026_05_02_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1834)
-2026-05-18T13:25:26.841249+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_02_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.841283+00:00 | INFO  | --- FILE: 2026_05_02_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.846879+00:00 | WARN  | 2026_05_02_mlb_run_line.csv | 8 negative Kelly values clipped to 0 (min=-0.7447)
-2026-05-18T13:25:26.848196+00:00 | WARN  | 2026_05_02_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-1.0046)
-2026-05-18T13:25:26.850323+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_02_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.850397+00:00 | INFO  | --- FILE: 2026_05_02_mlb_total.csv  market=total
-2026-05-18T13:25:26.856428+00:00 | WARN  | 2026_05_02_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.2882)
-2026-05-18T13:25:26.857760+00:00 | WARN  | 2026_05_02_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.3356)
-2026-05-18T13:25:26.860097+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_02_mlb_total.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.860133+00:00 | INFO  | --- FILE: 2026_05_03_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.865755+00:00 | WARN  | 2026_05_03_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1476)
-2026-05-18T13:25:26.867077+00:00 | WARN  | 2026_05_03_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1160)
-2026-05-18T13:25:26.869223+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_03_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.869258+00:00 | INFO  | --- FILE: 2026_05_03_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.874890+00:00 | WARN  | 2026_05_03_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.8345)
-2026-05-18T13:25:26.876200+00:00 | WARN  | 2026_05_03_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9200)
-2026-05-18T13:25:26.878377+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_03_mlb_run_line.csv (15 rows, 27 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.878418+00:00 | INFO  | --- FILE: 2026_05_03_mlb_total.csv  market=total
-2026-05-18T13:25:26.884369+00:00 | WARN  | 2026_05_03_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.3998)
-2026-05-18T13:25:26.885710+00:00 | WARN  | 2026_05_03_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.2569)
-2026-05-18T13:25:26.887969+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_03_mlb_total.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.888003+00:00 | INFO  | --- FILE: 2026_05_04_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.893538+00:00 | WARN  | 2026_05_04_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2810)
-2026-05-18T13:25:26.894861+00:00 | WARN  | 2026_05_04_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.3122)
-2026-05-18T13:25:26.896852+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_04_mlb_moneyline.csv (12 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.896888+00:00 | INFO  | --- FILE: 2026_05_04_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.902395+00:00 | WARN  | 2026_05_04_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.8866)
-2026-05-18T13:25:26.903716+00:00 | WARN  | 2026_05_04_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7858)
-2026-05-18T13:25:26.905585+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_04_mlb_run_line.csv (12 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.905618+00:00 | INFO  | --- FILE: 2026_05_04_mlb_total.csv  market=total
-2026-05-18T13:25:26.911425+00:00 | WARN  | 2026_05_04_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.5184)
-2026-05-18T13:25:26.912760+00:00 | WARN  | 2026_05_04_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.2860)
-2026-05-18T13:25:26.914800+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_04_mlb_total.csv (12 rows, 17 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.914835+00:00 | INFO  | --- FILE: 2026_05_05_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.920354+00:00 | WARN  | 2026_05_05_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1458)
-2026-05-18T13:25:26.921693+00:00 | WARN  | 2026_05_05_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1521)
-2026-05-18T13:25:26.923797+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_05_mlb_moneyline.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.923832+00:00 | INFO  | --- FILE: 2026_05_05_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.927444+00:00 | WARN  | 2026_05_05_mlb_run_line.csv | 1 rows missing adjusted EV in home_edge_decimal_run_line; using raw EV fallback for those rows
-2026-05-18T13:25:26.928064+00:00 | WARN  | 2026_05_05_mlb_run_line.csv | 1 rows missing adjusted EV in away_edge_decimal_run_line; using raw EV fallback for those rows
-2026-05-18T13:25:26.929593+00:00 | WARN  | 2026_05_05_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7965)
-2026-05-18T13:25:26.931139+00:00 | WARN  | 2026_05_05_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-1.0086)
-2026-05-18T13:25:26.933507+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_05_mlb_run_line.csv (15 rows, 25 kelly clipped, 2 adjusted EV fallback)
-2026-05-18T13:25:26.933544+00:00 | INFO  | --- FILE: 2026_05_05_mlb_total.csv  market=total
-2026-05-18T13:25:26.937644+00:00 | WARN  | 2026_05_05_mlb_total.csv | 1 rows missing adjusted EV in over_edge_decimal_total; using raw EV fallback for those rows
-2026-05-18T13:25:26.938268+00:00 | WARN  | 2026_05_05_mlb_total.csv | 1 rows missing adjusted EV in under_edge_decimal_total; using raw EV fallback for those rows
-2026-05-18T13:25:26.939799+00:00 | WARN  | 2026_05_05_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.5171)
-2026-05-18T13:25:26.941322+00:00 | WARN  | 2026_05_05_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4898)
-2026-05-18T13:25:26.943908+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_05_mlb_total.csv (15 rows, 24 kelly clipped, 2 adjusted EV fallback)
-2026-05-18T13:25:26.943945+00:00 | INFO  | --- FILE: 2026_05_06_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.950156+00:00 | WARN  | 2026_05_06_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3090)
-2026-05-18T13:25:26.951569+00:00 | WARN  | 2026_05_06_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1767)
-2026-05-18T13:25:26.953768+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_06_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.953805+00:00 | INFO  | --- FILE: 2026_05_06_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.959665+00:00 | WARN  | 2026_05_06_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.7836)
-2026-05-18T13:25:26.961000+00:00 | WARN  | 2026_05_06_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-1.0462)
-2026-05-18T13:25:26.963205+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_06_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.963240+00:00 | INFO  | --- FILE: 2026_05_06_mlb_total.csv  market=total
-2026-05-18T13:25:26.969649+00:00 | WARN  | 2026_05_06_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.4245)
-2026-05-18T13:25:26.970989+00:00 | WARN  | 2026_05_06_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4689)
-2026-05-18T13:25:26.973386+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_06_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.973424+00:00 | INFO  | --- FILE: 2026_05_07_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:26.978953+00:00 | WARN  | 2026_05_07_mlb_moneyline.csv | 4 negative Kelly values clipped to 0 (min=-0.0835)
-2026-05-18T13:25:26.980282+00:00 | WARN  | 2026_05_07_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2101)
-2026-05-18T13:25:26.982095+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_07_mlb_moneyline.csv (10 rows, 14 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.982130+00:00 | INFO  | --- FILE: 2026_05_07_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:26.987674+00:00 | WARN  | 2026_05_07_mlb_run_line.csv | 5 negative Kelly values clipped to 0 (min=-0.7714)
-2026-05-18T13:25:26.989004+00:00 | WARN  | 2026_05_07_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8961)
-2026-05-18T13:25:26.990831+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_07_mlb_run_line.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:26.990866+00:00 | INFO  | --- FILE: 2026_05_07_mlb_total.csv  market=total
-2026-05-18T13:25:26.996699+00:00 | WARN  | 2026_05_07_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.5951)
-2026-05-18T13:25:26.998041+00:00 | WARN  | 2026_05_07_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.3633)
-2026-05-18T13:25:26.999963+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_07_mlb_total.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27+00:00 | INFO  | --- FILE: 2026_05_08_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.005645+00:00 | WARN  | 2026_05_08_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2186)
-2026-05-18T13:25:27.006966+00:00 | WARN  | 2026_05_08_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1616)
-2026-05-18T13:25:27.009113+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_08_mlb_moneyline.csv (14 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.009148+00:00 | INFO  | --- FILE: 2026_05_08_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.014745+00:00 | WARN  | 2026_05_08_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.7921)
-2026-05-18T13:25:27.016065+00:00 | WARN  | 2026_05_08_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9662)
-2026-05-18T13:25:27.018114+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_08_mlb_run_line.csv (14 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.018149+00:00 | INFO  | --- FILE: 2026_05_08_mlb_total.csv  market=total
-2026-05-18T13:25:27.024099+00:00 | WARN  | 2026_05_08_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.3859)
-2026-05-18T13:25:27.025431+00:00 | WARN  | 2026_05_08_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.5711)
-2026-05-18T13:25:27.027658+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_08_mlb_total.csv (14 rows, 20 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.027696+00:00 | INFO  | --- FILE: 2026_05_09_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.033429+00:00 | WARN  | 2026_05_09_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3312)
-2026-05-18T13:25:27.034775+00:00 | WARN  | 2026_05_09_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1589)
-2026-05-18T13:25:27.036966+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_09_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.037004+00:00 | INFO  | --- FILE: 2026_05_09_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.042596+00:00 | WARN  | 2026_05_09_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8287)
-2026-05-18T13:25:27.043900+00:00 | WARN  | 2026_05_09_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8979)
-2026-05-18T13:25:27.045986+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_09_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.046022+00:00 | INFO  | --- FILE: 2026_05_09_mlb_total.csv  market=total
-2026-05-18T13:25:27.051996+00:00 | WARN  | 2026_05_09_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4208)
-2026-05-18T13:25:27.053417+00:00 | WARN  | 2026_05_09_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.6279)
-2026-05-18T13:25:27.055662+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_09_mlb_total.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.055698+00:00 | INFO  | --- FILE: 2026_05_10_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.061328+00:00 | WARN  | 2026_05_10_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2813)
-2026-05-18T13:25:27.062686+00:00 | WARN  | 2026_05_10_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2249)
-2026-05-18T13:25:27.064880+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_10_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.064917+00:00 | INFO  | --- FILE: 2026_05_10_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.070517+00:00 | WARN  | 2026_05_10_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.7900)
-2026-05-18T13:25:27.071847+00:00 | WARN  | 2026_05_10_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-1.0754)
-2026-05-18T13:25:27.074042+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_10_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.074078+00:00 | INFO  | --- FILE: 2026_05_10_mlb_total.csv  market=total
-2026-05-18T13:25:27.080118+00:00 | WARN  | 2026_05_10_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4406)
-2026-05-18T13:25:27.081496+00:00 | WARN  | 2026_05_10_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.3781)
-2026-05-18T13:25:27.083783+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_10_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.083819+00:00 | INFO  | --- FILE: 2026_05_11_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.089302+00:00 | WARN  | 2026_05_11_mlb_moneyline.csv | 4 negative Kelly values clipped to 0 (min=-0.1797)
-2026-05-18T13:25:27.090697+00:00 | WARN  | 2026_05_11_mlb_moneyline.csv | 4 negative Kelly values clipped to 0 (min=-0.1495)
-2026-05-18T13:25:27.092241+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_11_mlb_moneyline.csv (6 rows, 8 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.092276+00:00 | INFO  | --- FILE: 2026_05_11_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.097674+00:00 | WARN  | 2026_05_11_mlb_run_line.csv | 4 negative Kelly values clipped to 0 (min=-0.5644)
-2026-05-18T13:25:27.098987+00:00 | WARN  | 2026_05_11_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-1.0112)
-2026-05-18T13:25:27.100559+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_11_mlb_run_line.csv (6 rows, 10 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.100594+00:00 | INFO  | --- FILE: 2026_05_11_mlb_total.csv  market=total
-2026-05-18T13:25:27.106307+00:00 | WARN  | 2026_05_11_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.3970)
-2026-05-18T13:25:27.107683+00:00 | WARN  | 2026_05_11_mlb_total.csv | 2 negative Kelly values clipped to 0 (min=-0.2380)
-2026-05-18T13:25:27.109262+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_11_mlb_total.csv (6 rows, 8 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.109297+00:00 | INFO  | --- FILE: 2026_05_12_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.114874+00:00 | WARN  | 2026_05_12_mlb_moneyline.csv | 15 negative Kelly values clipped to 0 (min=-0.1866)
-2026-05-18T13:25:27.116187+00:00 | WARN  | 2026_05_12_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.0967)
-2026-05-18T13:25:27.118421+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_12_mlb_moneyline.csv (15 rows, 29 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.118458+00:00 | INFO  | --- FILE: 2026_05_12_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.124071+00:00 | WARN  | 2026_05_12_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.7490)
-2026-05-18T13:25:27.125404+00:00 | WARN  | 2026_05_12_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9236)
-2026-05-18T13:25:27.127592+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_12_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.127627+00:00 | INFO  | --- FILE: 2026_05_12_mlb_total.csv  market=total
-2026-05-18T13:25:27.133688+00:00 | WARN  | 2026_05_12_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.3592)
-2026-05-18T13:25:27.135015+00:00 | WARN  | 2026_05_12_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.2724)
-2026-05-18T13:25:27.137416+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_12_mlb_total.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.137453+00:00 | INFO  | --- FILE: 2026_05_13_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.143149+00:00 | WARN  | 2026_05_13_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.2570)
-2026-05-18T13:25:27.144544+00:00 | WARN  | 2026_05_13_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.1787)
-2026-05-18T13:25:27.146742+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_13_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.146778+00:00 | INFO  | --- FILE: 2026_05_13_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.152487+00:00 | WARN  | 2026_05_13_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9055)
-2026-05-18T13:25:27.153812+00:00 | WARN  | 2026_05_13_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-1.0488)
-2026-05-18T13:25:27.156065+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_13_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.156101+00:00 | INFO  | --- FILE: 2026_05_13_mlb_total.csv  market=total
-2026-05-18T13:25:27.162250+00:00 | WARN  | 2026_05_13_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.5856)
-2026-05-18T13:25:27.163563+00:00 | WARN  | 2026_05_13_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4888)
-2026-05-18T13:25:27.165846+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_13_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.165882+00:00 | INFO  | --- FILE: 2026_05_14_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.171537+00:00 | WARN  | 2026_05_14_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2595)
-2026-05-18T13:25:27.172877+00:00 | WARN  | 2026_05_14_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.1992)
-2026-05-18T13:25:27.174856+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_14_mlb_moneyline.csv (11 rows, 15 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.174891+00:00 | INFO  | --- FILE: 2026_05_14_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.180535+00:00 | WARN  | 2026_05_14_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-0.8864)
-2026-05-18T13:25:27.181865+00:00 | WARN  | 2026_05_14_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8394)
-2026-05-18T13:25:27.183750+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_14_mlb_run_line.csv (11 rows, 16 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.183784+00:00 | INFO  | --- FILE: 2026_05_14_mlb_total.csv  market=total
-2026-05-18T13:25:27.189655+00:00 | WARN  | 2026_05_14_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.4126)
-2026-05-18T13:25:27.190996+00:00 | WARN  | 2026_05_14_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.4092)
-2026-05-18T13:25:27.193006+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_14_mlb_total.csv (11 rows, 14 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.193042+00:00 | INFO  | --- FILE: 2026_05_15_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.198662+00:00 | WARN  | 2026_05_15_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1878)
-2026-05-18T13:25:27.200015+00:00 | WARN  | 2026_05_15_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.3116)
-2026-05-18T13:25:27.202117+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_15_mlb_moneyline.csv (14 rows, 18 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.202152+00:00 | INFO  | --- FILE: 2026_05_15_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.205876+00:00 | WARN  | 2026_05_15_mlb_run_line.csv | 1 rows missing adjusted EV in home_edge_decimal_run_line; using raw EV fallback for those rows
-2026-05-18T13:25:27.206547+00:00 | WARN  | 2026_05_15_mlb_run_line.csv | 1 rows missing adjusted EV in away_edge_decimal_run_line; using raw EV fallback for those rows
-2026-05-18T13:25:27.208062+00:00 | WARN  | 2026_05_15_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.8289)
-2026-05-18T13:25:27.209606+00:00 | WARN  | 2026_05_15_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-1.0412)
-2026-05-18T13:25:27.211957+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_15_mlb_run_line.csv (14 rows, 23 kelly clipped, 2 adjusted EV fallback)
-2026-05-18T13:25:27.211992+00:00 | INFO  | --- FILE: 2026_05_15_mlb_total.csv  market=total
-2026-05-18T13:25:27.217921+00:00 | WARN  | 2026_05_15_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.5908)
-2026-05-18T13:25:27.219281+00:00 | WARN  | 2026_05_15_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.6390)
-2026-05-18T13:25:27.221543+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_15_mlb_total.csv (14 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.221579+00:00 | INFO  | --- FILE: 2026_05_16_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.227195+00:00 | WARN  | 2026_05_16_mlb_moneyline.csv | 15 negative Kelly values clipped to 0 (min=-0.1225)
-2026-05-18T13:25:27.228540+00:00 | WARN  | 2026_05_16_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.0841)
-2026-05-18T13:25:27.230700+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_16_mlb_moneyline.csv (15 rows, 28 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.230736+00:00 | INFO  | --- FILE: 2026_05_16_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.236364+00:00 | WARN  | 2026_05_16_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8062)
-2026-05-18T13:25:27.237698+00:00 | WARN  | 2026_05_16_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8982)
-2026-05-18T13:25:27.239862+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_16_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.239898+00:00 | INFO  | --- FILE: 2026_05_16_mlb_total.csv  market=total
-2026-05-18T13:25:27.245964+00:00 | WARN  | 2026_05_16_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.3320)
-2026-05-18T13:25:27.247298+00:00 | WARN  | 2026_05_16_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.2969)
-2026-05-18T13:25:27.249699+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_16_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.249735+00:00 | INFO  | --- FILE: 2026_05_17_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.255285+00:00 | WARN  | 2026_05_17_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2492)
-2026-05-18T13:25:27.256697+00:00 | WARN  | 2026_05_17_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1735)
-2026-05-18T13:25:27.258531+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_17_mlb_moneyline.csv (14 rows, 19 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.258565+00:00 | INFO  | --- FILE: 2026_05_17_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.265136+00:00 | WARN  | 2026_05_17_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9323)
-2026-05-18T13:25:27.266470+00:00 | WARN  | 2026_05_17_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.8841)
-2026-05-18T13:25:27.268226+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_17_mlb_run_line.csv (14 rows, 22 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.268260+00:00 | INFO  | --- FILE: 2026_05_17_mlb_total.csv  market=total
-2026-05-18T13:25:27.274114+00:00 | WARN  | 2026_05_17_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.5065)
-2026-05-18T13:25:27.275456+00:00 | WARN  | 2026_05_17_mlb_total.csv | 4 negative Kelly values clipped to 0 (min=-0.2334)
-2026-05-18T13:25:27.277352+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_17_mlb_total.csv (14 rows, 18 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.277389+00:00 | INFO  | --- FILE: 2026_05_18_mlb_moneyline.csv  market=moneyline
-2026-05-18T13:25:27.282763+00:00 | WARN  | 2026_05_18_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.1035)
-2026-05-18T13:25:27.284255+00:00 | WARN  | 2026_05_18_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.0880)
-2026-05-18T13:25:27.285982+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_18_mlb_moneyline.csv (14 rows, 28 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.286016+00:00 | INFO  | --- FILE: 2026_05_18_mlb_run_line.csv  market=run_line
-2026-05-18T13:25:27.291803+00:00 | WARN  | 2026_05_18_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7212)
-2026-05-18T13:25:27.293524+00:00 | WARN  | 2026_05_18_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.8428)
-2026-05-18T13:25:27.295657+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_18_mlb_run_line.csv (14 rows, 25 kelly clipped, 0 adjusted EV fallback)
-2026-05-18T13:25:27.295691+00:00 | INFO  | --- FILE: 2026_05_18_mlb_total.csv  market=total
-2026-05-18T13:25:27.302521+00:00 | WARN  | 2026_05_18_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.3762)
-2026-05-18T13:25:27.304045+00:00 | WARN  | 2026_05_18_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.1818)
-2026-05-18T13:25:27.306242+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_18_mlb_total.csv (14 rows, 24 kelly clipped, 0 adjusted EV fallback)
+=== compute_ev_kelly RUN 2026-05-18T13:30:59.229269+00:00 ===
+2026-05-18T13:30:59.229381+00:00 | INFO  | INPUT_DIR : docs/win/baseball/03_edges
+2026-05-18T13:30:59.229419+00:00 | INFO  | OUTPUT_DIR: docs/win/baseball/03_edges/ev_kelly
+2026-05-18T13:30:59.230267+00:00 | INFO  | Files found: 162
+2026-05-18T13:30:59.235025+00:00 | INFO  | --- FILE: 2026_03_26_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.243408+00:00 | WARN  | 2026_03_26_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2124)
+2026-05-18T13:30:59.245386+00:00 | WARN  | 2026_03_26_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1651)
+2026-05-18T13:30:59.247818+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_26_mlb_moneyline.csv (11 rows, 18 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.247860+00:00 | INFO  | --- FILE: 2026_03_26_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.255013+00:00 | WARN  | 2026_03_26_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.8096)
+2026-05-18T13:30:59.256777+00:00 | WARN  | 2026_03_26_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-1.0199)
+2026-05-18T13:30:59.258742+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_26_mlb_run_line.csv (11 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.258779+00:00 | INFO  | --- FILE: 2026_03_26_mlb_total.csv  market=total
+2026-05-18T13:30:59.265636+00:00 | WARN  | 2026_03_26_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.5594)
+2026-05-18T13:30:59.267352+00:00 | WARN  | 2026_03_26_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.4608)
+2026-05-18T13:30:59.269270+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_26_mlb_total.csv (11 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.269306+00:00 | INFO  | --- FILE: 2026_03_27_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.275479+00:00 | WARN  | 2026_03_27_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.3380)
+2026-05-18T13:30:59.277208+00:00 | WARN  | 2026_03_27_mlb_moneyline.csv | 5 negative Kelly values clipped to 0 (min=-0.1758)
+2026-05-18T13:30:59.278966+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_27_mlb_moneyline.csv (8 rows, 11 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.279005+00:00 | INFO  | --- FILE: 2026_03_27_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.285041+00:00 | WARN  | 2026_03_27_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.9380)
+2026-05-18T13:30:59.286722+00:00 | WARN  | 2026_03_27_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-1.0348)
+2026-05-18T13:30:59.288373+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_27_mlb_run_line.csv (8 rows, 13 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.288410+00:00 | INFO  | --- FILE: 2026_03_27_mlb_total.csv  market=total
+2026-05-18T13:30:59.294985+00:00 | WARN  | 2026_03_27_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.2828)
+2026-05-18T13:30:59.296695+00:00 | WARN  | 2026_03_27_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.1765)
+2026-05-18T13:30:59.298386+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_27_mlb_total.csv (8 rows, 12 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.298423+00:00 | INFO  | --- FILE: 2026_03_28_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.304590+00:00 | WARN  | 2026_03_28_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1856)
+2026-05-18T13:30:59.306255+00:00 | WARN  | 2026_03_28_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1418)
+2026-05-18T13:30:59.308336+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_28_mlb_moneyline.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.308373+00:00 | INFO  | --- FILE: 2026_03_28_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.314719+00:00 | WARN  | 2026_03_28_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-0.8078)
+2026-05-18T13:30:59.316395+00:00 | WARN  | 2026_03_28_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9285)
+2026-05-18T13:30:59.318513+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_28_mlb_run_line.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.318549+00:00 | INFO  | --- FILE: 2026_03_28_mlb_total.csv  market=total
+2026-05-18T13:30:59.325331+00:00 | WARN  | 2026_03_28_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.3259)
+2026-05-18T13:30:59.327058+00:00 | WARN  | 2026_03_28_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.4060)
+2026-05-18T13:30:59.329149+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_28_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.329184+00:00 | INFO  | --- FILE: 2026_03_29_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.335227+00:00 | WARN  | 2026_03_29_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1972)
+2026-05-18T13:30:59.336938+00:00 | WARN  | 2026_03_29_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1602)
+2026-05-18T13:30:59.338760+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_29_mlb_moneyline.csv (12 rows, 16 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.338795+00:00 | INFO  | --- FILE: 2026_03_29_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.344836+00:00 | WARN  | 2026_03_29_mlb_run_line.csv | 5 negative Kelly values clipped to 0 (min=-0.7086)
+2026-05-18T13:30:59.346568+00:00 | WARN  | 2026_03_29_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.8679)
+2026-05-18T13:30:59.348451+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_29_mlb_run_line.csv (12 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.348491+00:00 | INFO  | --- FILE: 2026_03_29_mlb_total.csv  market=total
+2026-05-18T13:30:59.355072+00:00 | WARN  | 2026_03_29_mlb_total.csv | 5 negative Kelly values clipped to 0 (min=-0.2890)
+2026-05-18T13:30:59.356735+00:00 | WARN  | 2026_03_29_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.7275)
+2026-05-18T13:30:59.358709+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_29_mlb_total.csv (12 rows, 16 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.358745+00:00 | INFO  | --- FILE: 2026_03_30_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.364949+00:00 | WARN  | 2026_03_30_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1766)
+2026-05-18T13:30:59.366655+00:00 | WARN  | 2026_03_30_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1191)
+2026-05-18T13:30:59.368720+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_30_mlb_moneyline.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.368756+00:00 | INFO  | --- FILE: 2026_03_30_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.374889+00:00 | WARN  | 2026_03_30_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8751)
+2026-05-18T13:30:59.376593+00:00 | WARN  | 2026_03_30_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9476)
+2026-05-18T13:30:59.378619+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_30_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.378654+00:00 | INFO  | --- FILE: 2026_03_30_mlb_total.csv  market=total
+2026-05-18T13:30:59.385259+00:00 | WARN  | 2026_03_30_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4223)
+2026-05-18T13:30:59.386980+00:00 | WARN  | 2026_03_30_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4751)
+2026-05-18T13:30:59.389068+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_30_mlb_total.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.389103+00:00 | INFO  | --- FILE: 2026_03_31_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.395198+00:00 | WARN  | 2026_03_31_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.3195)
+2026-05-18T13:30:59.396909+00:00 | WARN  | 2026_03_31_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2220)
+2026-05-18T13:30:59.398908+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_31_mlb_moneyline.csv (14 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.398943+00:00 | INFO  | --- FILE: 2026_03_31_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.405032+00:00 | WARN  | 2026_03_31_mlb_run_line.csv | 8 negative Kelly values clipped to 0 (min=-0.8245)
+2026-05-18T13:30:59.406773+00:00 | WARN  | 2026_03_31_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9126)
+2026-05-18T13:30:59.408733+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_31_mlb_run_line.csv (14 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.408768+00:00 | INFO  | --- FILE: 2026_03_31_mlb_total.csv  market=total
+2026-05-18T13:30:59.415296+00:00 | WARN  | 2026_03_31_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.3678)
+2026-05-18T13:30:59.417010+00:00 | WARN  | 2026_03_31_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4389)
+2026-05-18T13:30:59.419090+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_03_31_mlb_total.csv (14 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.419126+00:00 | INFO  | --- FILE: 2026_04_01_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.425293+00:00 | WARN  | 2026_04_01_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.3702)
+2026-05-18T13:30:59.427021+00:00 | WARN  | 2026_04_01_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.3433)
+2026-05-18T13:30:59.429086+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_01_mlb_moneyline.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.429122+00:00 | INFO  | --- FILE: 2026_04_01_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.435270+00:00 | WARN  | 2026_04_01_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7199)
+2026-05-18T13:30:59.437057+00:00 | WARN  | 2026_04_01_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-1.0352)
+2026-05-18T13:30:59.439080+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_01_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.439116+00:00 | INFO  | --- FILE: 2026_04_01_mlb_total.csv  market=total
+2026-05-18T13:30:59.445702+00:00 | WARN  | 2026_04_01_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4350)
+2026-05-18T13:30:59.447409+00:00 | WARN  | 2026_04_01_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4119)
+2026-05-18T13:30:59.449522+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_01_mlb_total.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.449558+00:00 | INFO  | --- FILE: 2026_04_02_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.455550+00:00 | WARN  | 2026_04_02_mlb_moneyline.csv | 2 negative Kelly values clipped to 0 (min=-0.0565)
+2026-05-18T13:30:59.457203+00:00 | WARN  | 2026_04_02_mlb_moneyline.csv | 3 negative Kelly values clipped to 0 (min=-0.1113)
+2026-05-18T13:30:59.458691+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_02_mlb_moneyline.csv (3 rows, 5 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.458727+00:00 | INFO  | --- FILE: 2026_04_02_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.464592+00:00 | WARN  | 2026_04_02_mlb_run_line.csv | 2 negative Kelly values clipped to 0 (min=-0.7041)
+2026-05-18T13:30:59.466274+00:00 | WARN  | 2026_04_02_mlb_run_line.csv | 3 negative Kelly values clipped to 0 (min=-0.8373)
+2026-05-18T13:30:59.467685+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_02_mlb_run_line.csv (3 rows, 5 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.467721+00:00 | INFO  | --- FILE: 2026_04_02_mlb_total.csv  market=total
+2026-05-18T13:30:59.474075+00:00 | WARN  | 2026_04_02_mlb_total.csv | 3 negative Kelly values clipped to 0 (min=-0.1254)
+2026-05-18T13:30:59.475780+00:00 | WARN  | 2026_04_02_mlb_total.csv | 1 negative Kelly values clipped to 0 (min=-0.3452)
+2026-05-18T13:30:59.477230+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_02_mlb_total.csv (3 rows, 4 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.477265+00:00 | INFO  | --- FILE: 2026_04_03_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.483368+00:00 | WARN  | 2026_04_03_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2312)
+2026-05-18T13:30:59.485046+00:00 | WARN  | 2026_04_03_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.2395)
+2026-05-18T13:30:59.487146+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_03_mlb_moneyline.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.487181+00:00 | INFO  | --- FILE: 2026_04_03_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.493513+00:00 | WARN  | 2026_04_03_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.7740)
+2026-05-18T13:30:59.495224+00:00 | WARN  | 2026_04_03_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.8007)
+2026-05-18T13:30:59.497268+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_03_mlb_run_line.csv (15 rows, 27 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.497304+00:00 | INFO  | --- FILE: 2026_04_03_mlb_total.csv  market=total
+2026-05-18T13:30:59.501528+00:00 | WARN  | 2026_04_03_mlb_total.csv | 13 rows missing adjusted EV in over_edge_decimal_total; using raw EV fallback for those rows
+2026-05-18T13:30:59.502205+00:00 | WARN  | 2026_04_03_mlb_total.csv | 13 rows missing adjusted EV in under_edge_decimal_total; using raw EV fallback for those rows
+2026-05-18T13:30:59.504066+00:00 | WARN  | 2026_04_03_mlb_total.csv | 1 negative Kelly values clipped to 0 (min=-0.1227)
+2026-05-18T13:30:59.506077+00:00 | WARN  | 2026_04_03_mlb_total.csv | 1 negative Kelly values clipped to 0 (min=-0.1300)
+2026-05-18T13:30:59.508309+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_03_mlb_total.csv (15 rows, 2 kelly clipped, 26 adjusted EV fallback)
+2026-05-18T13:30:59.508344+00:00 | INFO  | --- FILE: 2026_04_04_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.514550+00:00 | WARN  | 2026_04_04_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2100)
+2026-05-18T13:30:59.516205+00:00 | WARN  | 2026_04_04_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.3240)
+2026-05-18T13:30:59.518366+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_04_mlb_moneyline.csv (16 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.518402+00:00 | INFO  | --- FILE: 2026_04_04_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.524513+00:00 | WARN  | 2026_04_04_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.8291)
+2026-05-18T13:30:59.526188+00:00 | WARN  | 2026_04_04_mlb_run_line.csv | 16 negative Kelly values clipped to 0 (min=-0.9258)
+2026-05-18T13:30:59.528315+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_04_mlb_run_line.csv (16 rows, 29 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.528351+00:00 | INFO  | --- FILE: 2026_04_04_mlb_total.csv  market=total
+2026-05-18T13:30:59.534925+00:00 | WARN  | 2026_04_04_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.4546)
+2026-05-18T13:30:59.536658+00:00 | WARN  | 2026_04_04_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.5700)
+2026-05-18T13:30:59.538859+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_04_mlb_total.csv (16 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.538894+00:00 | INFO  | --- FILE: 2026_04_05_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.545112+00:00 | WARN  | 2026_04_05_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2020)
+2026-05-18T13:30:59.546871+00:00 | WARN  | 2026_04_05_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.2114)
+2026-05-18T13:30:59.549067+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_05_mlb_moneyline.csv (16 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.549108+00:00 | INFO  | --- FILE: 2026_04_05_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.555254+00:00 | WARN  | 2026_04_05_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9958)
+2026-05-18T13:30:59.557000+00:00 | WARN  | 2026_04_05_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-1.0145)
+2026-05-18T13:30:59.559120+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_05_mlb_run_line.csv (16 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.559156+00:00 | INFO  | --- FILE: 2026_04_05_mlb_total.csv  market=total
+2026-05-18T13:30:59.565853+00:00 | WARN  | 2026_04_05_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.3655)
+2026-05-18T13:30:59.567590+00:00 | WARN  | 2026_04_05_mlb_total.csv | 15 negative Kelly values clipped to 0 (min=-0.7329)
+2026-05-18T13:30:59.569782+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_05_mlb_total.csv (16 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.569818+00:00 | INFO  | --- FILE: 2026_04_06_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.575969+00:00 | WARN  | 2026_04_06_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.1713)
+2026-05-18T13:30:59.577716+00:00 | WARN  | 2026_04_06_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2412)
+2026-05-18T13:30:59.579663+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_06_mlb_moneyline.csv (13 rows, 18 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.579699+00:00 | INFO  | --- FILE: 2026_04_06_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.585759+00:00 | WARN  | 2026_04_06_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9684)
+2026-05-18T13:30:59.587419+00:00 | WARN  | 2026_04_06_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.9685)
+2026-05-18T13:30:59.589346+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_06_mlb_run_line.csv (13 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.589381+00:00 | INFO  | --- FILE: 2026_04_06_mlb_total.csv  market=total
+2026-05-18T13:30:59.595983+00:00 | WARN  | 2026_04_06_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.3576)
+2026-05-18T13:30:59.597709+00:00 | WARN  | 2026_04_06_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4376)
+2026-05-18T13:30:59.599709+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_06_mlb_total.csv (13 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.599744+00:00 | INFO  | --- FILE: 2026_04_07_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.605889+00:00 | WARN  | 2026_04_07_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2831)
+2026-05-18T13:30:59.607618+00:00 | WARN  | 2026_04_07_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.2170)
+2026-05-18T13:30:59.609645+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_07_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.609680+00:00 | INFO  | --- FILE: 2026_04_07_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.615824+00:00 | WARN  | 2026_04_07_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.8819)
+2026-05-18T13:30:59.617556+00:00 | WARN  | 2026_04_07_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.9079)
+2026-05-18T13:30:59.619575+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_07_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.619611+00:00 | INFO  | --- FILE: 2026_04_07_mlb_total.csv  market=total
+2026-05-18T13:30:59.626276+00:00 | WARN  | 2026_04_07_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.2787)
+2026-05-18T13:30:59.627999+00:00 | WARN  | 2026_04_07_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.4953)
+2026-05-18T13:30:59.630098+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_07_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.630138+00:00 | INFO  | --- FILE: 2026_04_08_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.636256+00:00 | WARN  | 2026_04_08_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1774)
+2026-05-18T13:30:59.638050+00:00 | WARN  | 2026_04_08_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1598)
+2026-05-18T13:30:59.640069+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_08_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.640104+00:00 | INFO  | --- FILE: 2026_04_08_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.646207+00:00 | WARN  | 2026_04_08_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.7782)
+2026-05-18T13:30:59.647939+00:00 | WARN  | 2026_04_08_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.8503)
+2026-05-18T13:30:59.649945+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_08_mlb_run_line.csv (15 rows, 27 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.649981+00:00 | INFO  | --- FILE: 2026_04_08_mlb_total.csv  market=total
+2026-05-18T13:30:59.656537+00:00 | WARN  | 2026_04_08_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.3783)
+2026-05-18T13:30:59.658223+00:00 | WARN  | 2026_04_08_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.3025)
+2026-05-18T13:30:59.660296+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_08_mlb_total.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.660331+00:00 | INFO  | --- FILE: 2026_04_09_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.666358+00:00 | WARN  | 2026_04_09_mlb_moneyline.csv | 5 negative Kelly values clipped to 0 (min=-0.2289)
+2026-05-18T13:30:59.668053+00:00 | WARN  | 2026_04_09_mlb_moneyline.csv | 4 negative Kelly values clipped to 0 (min=-0.0949)
+2026-05-18T13:30:59.669651+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_09_mlb_moneyline.csv (6 rows, 9 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.669687+00:00 | INFO  | --- FILE: 2026_04_09_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.675586+00:00 | WARN  | 2026_04_09_mlb_run_line.csv | 3 negative Kelly values clipped to 0 (min=-0.6336)
+2026-05-18T13:30:59.677244+00:00 | WARN  | 2026_04_09_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.8431)
+2026-05-18T13:30:59.678787+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_09_mlb_run_line.csv (6 rows, 9 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.678822+00:00 | INFO  | --- FILE: 2026_04_09_mlb_total.csv  market=total
+2026-05-18T13:30:59.685193+00:00 | WARN  | 2026_04_09_mlb_total.csv | 3 negative Kelly values clipped to 0 (min=-0.2673)
+2026-05-18T13:30:59.686877+00:00 | WARN  | 2026_04_09_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.4634)
+2026-05-18T13:30:59.688465+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_09_mlb_total.csv (6 rows, 9 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.688503+00:00 | INFO  | --- FILE: 2026_04_10_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.694582+00:00 | WARN  | 2026_04_10_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1942)
+2026-05-18T13:30:59.696243+00:00 | WARN  | 2026_04_10_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1753)
+2026-05-18T13:30:59.698235+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_10_mlb_moneyline.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.698270+00:00 | INFO  | --- FILE: 2026_04_10_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.704454+00:00 | WARN  | 2026_04_10_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.7038)
+2026-05-18T13:30:59.706132+00:00 | WARN  | 2026_04_10_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9450)
+2026-05-18T13:30:59.708167+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_10_mlb_run_line.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.708202+00:00 | INFO  | --- FILE: 2026_04_10_mlb_total.csv  market=total
+2026-05-18T13:30:59.714791+00:00 | WARN  | 2026_04_10_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.5565)
+2026-05-18T13:30:59.716535+00:00 | WARN  | 2026_04_10_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4506)
+2026-05-18T13:30:59.718648+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_10_mlb_total.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.718684+00:00 | INFO  | --- FILE: 2026_04_11_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.724723+00:00 | WARN  | 2026_04_11_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.1278)
+2026-05-18T13:30:59.726404+00:00 | WARN  | 2026_04_11_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2412)
+2026-05-18T13:30:59.728237+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_11_mlb_moneyline.csv (11 rows, 18 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.728271+00:00 | INFO  | --- FILE: 2026_04_11_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.734290+00:00 | WARN  | 2026_04_11_mlb_run_line.csv | 4 negative Kelly values clipped to 0 (min=-0.7317)
+2026-05-18T13:30:59.735974+00:00 | WARN  | 2026_04_11_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.9559)
+2026-05-18T13:30:59.737771+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_11_mlb_run_line.csv (11 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.737806+00:00 | INFO  | --- FILE: 2026_04_11_mlb_total.csv  market=total
+2026-05-18T13:30:59.744289+00:00 | WARN  | 2026_04_11_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.2909)
+2026-05-18T13:30:59.745989+00:00 | WARN  | 2026_04_11_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.4237)
+2026-05-18T13:30:59.747882+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_11_mlb_total.csv (11 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.747916+00:00 | INFO  | --- FILE: 2026_04_12_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.753964+00:00 | WARN  | 2026_04_12_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1950)
+2026-05-18T13:30:59.755687+00:00 | WARN  | 2026_04_12_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2213)
+2026-05-18T13:30:59.757699+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_12_mlb_moneyline.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.757735+00:00 | INFO  | --- FILE: 2026_04_12_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.763867+00:00 | WARN  | 2026_04_12_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-0.7167)
+2026-05-18T13:30:59.765618+00:00 | WARN  | 2026_04_12_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8863)
+2026-05-18T13:30:59.767626+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_12_mlb_run_line.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.767662+00:00 | INFO  | --- FILE: 2026_04_12_mlb_total.csv  market=total
+2026-05-18T13:30:59.774347+00:00 | WARN  | 2026_04_12_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.5750)
+2026-05-18T13:30:59.776105+00:00 | WARN  | 2026_04_12_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.3080)
+2026-05-18T13:30:59.778188+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_12_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.778223+00:00 | INFO  | --- FILE: 2026_04_13_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.784297+00:00 | WARN  | 2026_04_13_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1828)
+2026-05-18T13:30:59.786034+00:00 | WARN  | 2026_04_13_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1392)
+2026-05-18T13:30:59.787829+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_13_mlb_moneyline.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.787863+00:00 | INFO  | --- FILE: 2026_04_13_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.794087+00:00 | WARN  | 2026_04_13_mlb_run_line.csv | 5 negative Kelly values clipped to 0 (min=-0.8049)
+2026-05-18T13:30:59.795846+00:00 | WARN  | 2026_04_13_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9559)
+2026-05-18T13:30:59.797618+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_13_mlb_run_line.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.797652+00:00 | INFO  | --- FILE: 2026_04_13_mlb_total.csv  market=total
+2026-05-18T13:30:59.804136+00:00 | WARN  | 2026_04_13_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.3731)
+2026-05-18T13:30:59.805843+00:00 | WARN  | 2026_04_13_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.3116)
+2026-05-18T13:30:59.807647+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_13_mlb_total.csv (10 rows, 16 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.807683+00:00 | INFO  | --- FILE: 2026_04_14_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.813836+00:00 | WARN  | 2026_04_14_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2198)
+2026-05-18T13:30:59.815522+00:00 | WARN  | 2026_04_14_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2203)
+2026-05-18T13:30:59.817872+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_14_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.817908+00:00 | INFO  | --- FILE: 2026_04_14_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.821828+00:00 | WARN  | 2026_04_14_mlb_run_line.csv | 1 rows missing adjusted EV in home_edge_decimal_run_line; using raw EV fallback for those rows
+2026-05-18T13:30:59.822545+00:00 | WARN  | 2026_04_14_mlb_run_line.csv | 1 rows missing adjusted EV in away_edge_decimal_run_line; using raw EV fallback for those rows
+2026-05-18T13:30:59.824401+00:00 | WARN  | 2026_04_14_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8615)
+2026-05-18T13:30:59.826519+00:00 | WARN  | 2026_04_14_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.9813)
+2026-05-18T13:30:59.828806+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_14_mlb_run_line.csv (15 rows, 22 kelly clipped, 2 adjusted EV fallback)
+2026-05-18T13:30:59.828842+00:00 | INFO  | --- FILE: 2026_04_14_mlb_total.csv  market=total
+2026-05-18T13:30:59.833127+00:00 | WARN  | 2026_04_14_mlb_total.csv | 1 rows missing adjusted EV in over_edge_decimal_total; using raw EV fallback for those rows
+2026-05-18T13:30:59.833849+00:00 | WARN  | 2026_04_14_mlb_total.csv | 1 rows missing adjusted EV in under_edge_decimal_total; using raw EV fallback for those rows
+2026-05-18T13:30:59.835758+00:00 | WARN  | 2026_04_14_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.4445)
+2026-05-18T13:30:59.837781+00:00 | WARN  | 2026_04_14_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.4404)
+2026-05-18T13:30:59.840098+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_14_mlb_total.csv (15 rows, 18 kelly clipped, 2 adjusted EV fallback)
+2026-05-18T13:30:59.840133+00:00 | INFO  | --- FILE: 2026_04_15_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.846326+00:00 | WARN  | 2026_04_15_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1772)
+2026-05-18T13:30:59.848013+00:00 | WARN  | 2026_04_15_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1735)
+2026-05-18T13:30:59.850071+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_15_mlb_moneyline.csv (15 rows, 20 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.850106+00:00 | INFO  | --- FILE: 2026_04_15_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.856266+00:00 | WARN  | 2026_04_15_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.8309)
+2026-05-18T13:30:59.858021+00:00 | WARN  | 2026_04_15_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8710)
+2026-05-18T13:30:59.860041+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_15_mlb_run_line.csv (15 rows, 26 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.860081+00:00 | INFO  | --- FILE: 2026_04_15_mlb_total.csv  market=total
+2026-05-18T13:30:59.866775+00:00 | WARN  | 2026_04_15_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.3436)
+2026-05-18T13:30:59.868471+00:00 | WARN  | 2026_04_15_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.2945)
+2026-05-18T13:30:59.870592+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_15_mlb_total.csv (15 rows, 26 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.870628+00:00 | INFO  | --- FILE: 2026_04_16_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.876760+00:00 | WARN  | 2026_04_16_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.3198)
+2026-05-18T13:30:59.878490+00:00 | WARN  | 2026_04_16_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1220)
+2026-05-18T13:30:59.880303+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_16_mlb_moneyline.csv (10 rows, 16 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.880337+00:00 | INFO  | --- FILE: 2026_04_16_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.886401+00:00 | WARN  | 2026_04_16_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-0.8113)
+2026-05-18T13:30:59.888120+00:00 | WARN  | 2026_04_16_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.9740)
+2026-05-18T13:30:59.889863+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_16_mlb_run_line.csv (10 rows, 16 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.889898+00:00 | INFO  | --- FILE: 2026_04_16_mlb_total.csv  market=total
+2026-05-18T13:30:59.896409+00:00 | WARN  | 2026_04_16_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.4150)
+2026-05-18T13:30:59.898122+00:00 | WARN  | 2026_04_16_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.2701)
+2026-05-18T13:30:59.899952+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_16_mlb_total.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.899987+00:00 | INFO  | --- FILE: 2026_04_17_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.906157+00:00 | WARN  | 2026_04_17_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1718)
+2026-05-18T13:30:59.907851+00:00 | WARN  | 2026_04_17_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2672)
+2026-05-18T13:30:59.910484+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_17_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.910539+00:00 | INFO  | --- FILE: 2026_04_17_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.917170+00:00 | WARN  | 2026_04_17_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.7396)
+2026-05-18T13:30:59.918956+00:00 | WARN  | 2026_04_17_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-1.0036)
+2026-05-18T13:30:59.921027+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_17_mlb_run_line.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.921063+00:00 | INFO  | --- FILE: 2026_04_17_mlb_total.csv  market=total
+2026-05-18T13:30:59.927766+00:00 | WARN  | 2026_04_17_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.7923)
+2026-05-18T13:30:59.929461+00:00 | WARN  | 2026_04_17_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.1723)
+2026-05-18T13:30:59.931651+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_17_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.931688+00:00 | INFO  | --- FILE: 2026_04_18_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.937990+00:00 | WARN  | 2026_04_18_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.2650)
+2026-05-18T13:30:59.939741+00:00 | WARN  | 2026_04_18_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2525)
+2026-05-18T13:30:59.941832+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_18_mlb_moneyline.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.941874+00:00 | INFO  | --- FILE: 2026_04_18_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.948074+00:00 | WARN  | 2026_04_18_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.8456)
+2026-05-18T13:30:59.949808+00:00 | WARN  | 2026_04_18_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-1.0090)
+2026-05-18T13:30:59.951860+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_18_mlb_run_line.csv (15 rows, 26 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.951896+00:00 | INFO  | --- FILE: 2026_04_18_mlb_total.csv  market=total
+2026-05-18T13:30:59.958546+00:00 | WARN  | 2026_04_18_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.5721)
+2026-05-18T13:30:59.960257+00:00 | WARN  | 2026_04_18_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.3686)
+2026-05-18T13:30:59.962352+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_18_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.962389+00:00 | INFO  | --- FILE: 2026_04_19_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.968619+00:00 | WARN  | 2026_04_19_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2361)
+2026-05-18T13:30:59.970287+00:00 | WARN  | 2026_04_19_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3863)
+2026-05-18T13:30:59.972325+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_19_mlb_moneyline.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.972360+00:00 | INFO  | --- FILE: 2026_04_19_mlb_run_line.csv  market=run_line
+2026-05-18T13:30:59.978551+00:00 | WARN  | 2026_04_19_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.9150)
+2026-05-18T13:30:59.980237+00:00 | WARN  | 2026_04_19_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9936)
+2026-05-18T13:30:59.982266+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_19_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.982301+00:00 | INFO  | --- FILE: 2026_04_19_mlb_total.csv  market=total
+2026-05-18T13:30:59.988998+00:00 | WARN  | 2026_04_19_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.4031)
+2026-05-18T13:30:59.990750+00:00 | WARN  | 2026_04_19_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4299)
+2026-05-18T13:30:59.993201+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_19_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:30:59.993236+00:00 | INFO  | --- FILE: 2026_04_20_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:30:59.999371+00:00 | WARN  | 2026_04_20_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.1962)
+2026-05-18T13:31:00.001087+00:00 | WARN  | 2026_04_20_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2369)
+2026-05-18T13:31:00.002866+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_20_mlb_moneyline.csv (10 rows, 14 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.002901+00:00 | INFO  | --- FILE: 2026_04_20_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.008917+00:00 | WARN  | 2026_04_20_mlb_run_line.csv | 8 negative Kelly values clipped to 0 (min=-0.7746)
+2026-05-18T13:31:00.010615+00:00 | WARN  | 2026_04_20_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8281)
+2026-05-18T13:31:00.012369+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_20_mlb_run_line.csv (10 rows, 18 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.012406+00:00 | INFO  | --- FILE: 2026_04_20_mlb_total.csv  market=total
+2026-05-18T13:31:00.019044+00:00 | WARN  | 2026_04_20_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.5633)
+2026-05-18T13:31:00.020750+00:00 | WARN  | 2026_04_20_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.5911)
+2026-05-18T13:31:00.022636+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_20_mlb_total.csv (10 rows, 14 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.022677+00:00 | INFO  | --- FILE: 2026_04_21_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.028960+00:00 | WARN  | 2026_04_21_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.1834)
+2026-05-18T13:31:00.030678+00:00 | WARN  | 2026_04_21_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1823)
+2026-05-18T13:31:00.032720+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_21_mlb_moneyline.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.032755+00:00 | INFO  | --- FILE: 2026_04_21_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.038915+00:00 | WARN  | 2026_04_21_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8997)
+2026-05-18T13:31:00.040623+00:00 | WARN  | 2026_04_21_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.9872)
+2026-05-18T13:31:00.042632+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_21_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.042667+00:00 | INFO  | --- FILE: 2026_04_21_mlb_total.csv  market=total
+2026-05-18T13:31:00.049370+00:00 | WARN  | 2026_04_21_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.6742)
+2026-05-18T13:31:00.051098+00:00 | WARN  | 2026_04_21_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.4689)
+2026-05-18T13:31:00.053202+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_21_mlb_total.csv (15 rows, 16 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.053237+00:00 | INFO  | --- FILE: 2026_04_22_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.059664+00:00 | WARN  | 2026_04_22_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.2755)
+2026-05-18T13:31:00.061328+00:00 | WARN  | 2026_04_22_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3015)
+2026-05-18T13:31:00.063392+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_22_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.063427+00:00 | INFO  | --- FILE: 2026_04_22_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.069947+00:00 | WARN  | 2026_04_22_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.7134)
+2026-05-18T13:31:00.071634+00:00 | WARN  | 2026_04_22_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9792)
+2026-05-18T13:31:00.073657+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_22_mlb_run_line.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.073693+00:00 | INFO  | --- FILE: 2026_04_22_mlb_total.csv  market=total
+2026-05-18T13:31:00.080481+00:00 | WARN  | 2026_04_22_mlb_total.csv | 15 negative Kelly values clipped to 0 (min=-0.6924)
+2026-05-18T13:31:00.082194+00:00 | WARN  | 2026_04_22_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.3406)
+2026-05-18T13:31:00.084326+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_22_mlb_total.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.084361+00:00 | INFO  | --- FILE: 2026_04_23_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.090530+00:00 | WARN  | 2026_04_23_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.1412)
+2026-05-18T13:31:00.092223+00:00 | WARN  | 2026_04_23_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1443)
+2026-05-18T13:31:00.093932+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_23_mlb_moneyline.csv (9 rows, 14 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.093966+00:00 | INFO  | --- FILE: 2026_04_23_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.100252+00:00 | WARN  | 2026_04_23_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.7216)
+2026-05-18T13:31:00.101995+00:00 | WARN  | 2026_04_23_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8469)
+2026-05-18T13:31:00.103705+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_23_mlb_run_line.csv (9 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.103746+00:00 | INFO  | --- FILE: 2026_04_23_mlb_total.csv  market=total
+2026-05-18T13:31:00.110306+00:00 | WARN  | 2026_04_23_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.4150)
+2026-05-18T13:31:00.112013+00:00 | WARN  | 2026_04_23_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.2900)
+2026-05-18T13:31:00.113767+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_23_mlb_total.csv (9 rows, 14 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.113802+00:00 | INFO  | --- FILE: 2026_04_24_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.119895+00:00 | WARN  | 2026_04_24_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1757)
+2026-05-18T13:31:00.121668+00:00 | WARN  | 2026_04_24_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2549)
+2026-05-18T13:31:00.123745+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_24_mlb_moneyline.csv (14 rows, 19 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.123781+00:00 | INFO  | --- FILE: 2026_04_24_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.129928+00:00 | WARN  | 2026_04_24_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7757)
+2026-05-18T13:31:00.131654+00:00 | WARN  | 2026_04_24_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.9415)
+2026-05-18T13:31:00.133635+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_24_mlb_run_line.csv (14 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.133671+00:00 | INFO  | --- FILE: 2026_04_24_mlb_total.csv  market=total
+2026-05-18T13:31:00.140373+00:00 | WARN  | 2026_04_24_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4342)
+2026-05-18T13:31:00.142101+00:00 | WARN  | 2026_04_24_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.3643)
+2026-05-18T13:31:00.144187+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_24_mlb_total.csv (14 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.144223+00:00 | INFO  | --- FILE: 2026_04_25_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.150401+00:00 | WARN  | 2026_04_25_mlb_moneyline.csv | 15 negative Kelly values clipped to 0 (min=-0.2628)
+2026-05-18T13:31:00.152111+00:00 | WARN  | 2026_04_25_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.0847)
+2026-05-18T13:31:00.154142+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_25_mlb_moneyline.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.154177+00:00 | INFO  | --- FILE: 2026_04_25_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.160457+00:00 | WARN  | 2026_04_25_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7974)
+2026-05-18T13:31:00.162130+00:00 | WARN  | 2026_04_25_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9322)
+2026-05-18T13:31:00.164171+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_25_mlb_run_line.csv (15 rows, 26 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.164206+00:00 | INFO  | --- FILE: 2026_04_25_mlb_total.csv  market=total
+2026-05-18T13:31:00.170948+00:00 | WARN  | 2026_04_25_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.9994)
+2026-05-18T13:31:00.172711+00:00 | WARN  | 2026_04_25_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.5683)
+2026-05-18T13:31:00.174838+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_25_mlb_total.csv (15 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.174874+00:00 | INFO  | --- FILE: 2026_04_26_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.181090+00:00 | WARN  | 2026_04_26_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2393)
+2026-05-18T13:31:00.182788+00:00 | WARN  | 2026_04_26_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1506)
+2026-05-18T13:31:00.184963+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_26_mlb_moneyline.csv (16 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.185006+00:00 | INFO  | --- FILE: 2026_04_26_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.191173+00:00 | WARN  | 2026_04_26_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.7052)
+2026-05-18T13:31:00.192911+00:00 | WARN  | 2026_04_26_mlb_run_line.csv | 16 negative Kelly values clipped to 0 (min=-0.9380)
+2026-05-18T13:31:00.195063+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_26_mlb_run_line.csv (16 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.195100+00:00 | INFO  | --- FILE: 2026_04_26_mlb_total.csv  market=total
+2026-05-18T13:31:00.199370+00:00 | WARN  | 2026_04_26_mlb_total.csv | 1 rows missing adjusted EV in over_edge_decimal_total; using raw EV fallback for those rows
+2026-05-18T13:31:00.200092+00:00 | WARN  | 2026_04_26_mlb_total.csv | 1 rows missing adjusted EV in under_edge_decimal_total; using raw EV fallback for those rows
+2026-05-18T13:31:00.201991+00:00 | WARN  | 2026_04_26_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-1.0377)
+2026-05-18T13:31:00.203786+00:00 | WARN  | 2026_04_26_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.3593)
+2026-05-18T13:31:00.206040+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_26_mlb_total.csv (16 rows, 22 kelly clipped, 2 adjusted EV fallback)
+2026-05-18T13:31:00.206078+00:00 | INFO  | --- FILE: 2026_04_27_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.212193+00:00 | WARN  | 2026_04_27_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.2366)
+2026-05-18T13:31:00.213893+00:00 | WARN  | 2026_04_27_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.2298)
+2026-05-18T13:31:00.215561+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_27_mlb_moneyline.csv (8 rows, 13 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.215616+00:00 | INFO  | --- FILE: 2026_04_27_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.221623+00:00 | WARN  | 2026_04_27_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-0.7134)
+2026-05-18T13:31:00.223300+00:00 | WARN  | 2026_04_27_mlb_run_line.csv | 8 negative Kelly values clipped to 0 (min=-1.0418)
+2026-05-18T13:31:00.224965+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_27_mlb_run_line.csv (8 rows, 14 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.225002+00:00 | INFO  | --- FILE: 2026_04_27_mlb_total.csv  market=total
+2026-05-18T13:31:00.231467+00:00 | WARN  | 2026_04_27_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.5894)
+2026-05-18T13:31:00.233130+00:00 | WARN  | 2026_04_27_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.3273)
+2026-05-18T13:31:00.234845+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_27_mlb_total.csv (8 rows, 12 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.234881+00:00 | INFO  | --- FILE: 2026_04_28_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.241041+00:00 | WARN  | 2026_04_28_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3514)
+2026-05-18T13:31:00.242778+00:00 | WARN  | 2026_04_28_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2261)
+2026-05-18T13:31:00.244831+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_28_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.244867+00:00 | INFO  | --- FILE: 2026_04_28_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.251073+00:00 | WARN  | 2026_04_28_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.7527)
+2026-05-18T13:31:00.252797+00:00 | WARN  | 2026_04_28_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8445)
+2026-05-18T13:31:00.254842+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_28_mlb_run_line.csv (15 rows, 28 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.254877+00:00 | INFO  | --- FILE: 2026_04_28_mlb_total.csv  market=total
+2026-05-18T13:31:00.261577+00:00 | WARN  | 2026_04_28_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.6056)
+2026-05-18T13:31:00.263307+00:00 | WARN  | 2026_04_28_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4866)
+2026-05-18T13:31:00.265426+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_28_mlb_total.csv (15 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.265486+00:00 | INFO  | --- FILE: 2026_04_29_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.271729+00:00 | WARN  | 2026_04_29_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1902)
+2026-05-18T13:31:00.273389+00:00 | WARN  | 2026_04_29_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1803)
+2026-05-18T13:31:00.275388+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_29_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.275423+00:00 | INFO  | --- FILE: 2026_04_29_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.281696+00:00 | WARN  | 2026_04_29_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8784)
+2026-05-18T13:31:00.283354+00:00 | WARN  | 2026_04_29_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-0.9493)
+2026-05-18T13:31:00.285477+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_29_mlb_run_line.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.285513+00:00 | INFO  | --- FILE: 2026_04_29_mlb_total.csv  market=total
+2026-05-18T13:31:00.292243+00:00 | WARN  | 2026_04_29_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.5785)
+2026-05-18T13:31:00.294050+00:00 | WARN  | 2026_04_29_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4933)
+2026-05-18T13:31:00.296169+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_29_mlb_total.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.296203+00:00 | INFO  | --- FILE: 2026_04_30_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.302348+00:00 | WARN  | 2026_04_30_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.2052)
+2026-05-18T13:31:00.304018+00:00 | WARN  | 2026_04_30_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1645)
+2026-05-18T13:31:00.305773+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_30_mlb_moneyline.csv (10 rows, 16 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.305808+00:00 | INFO  | --- FILE: 2026_04_30_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.311848+00:00 | WARN  | 2026_04_30_mlb_run_line.csv | 5 negative Kelly values clipped to 0 (min=-0.7467)
+2026-05-18T13:31:00.313529+00:00 | WARN  | 2026_04_30_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9935)
+2026-05-18T13:31:00.315249+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_30_mlb_run_line.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.315284+00:00 | INFO  | --- FILE: 2026_04_30_mlb_total.csv  market=total
+2026-05-18T13:31:00.321752+00:00 | WARN  | 2026_04_30_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.2655)
+2026-05-18T13:31:00.323450+00:00 | WARN  | 2026_04_30_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.5472)
+2026-05-18T13:31:00.325243+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_04_30_mlb_total.csv (10 rows, 14 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.325277+00:00 | INFO  | --- FILE: 2026_05_01_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.331375+00:00 | WARN  | 2026_05_01_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1300)
+2026-05-18T13:31:00.333070+00:00 | WARN  | 2026_05_01_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1554)
+2026-05-18T13:31:00.335096+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_01_mlb_moneyline.csv (14 rows, 20 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.335132+00:00 | INFO  | --- FILE: 2026_05_01_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.341370+00:00 | WARN  | 2026_05_01_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.7518)
+2026-05-18T13:31:00.343134+00:00 | WARN  | 2026_05_01_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9086)
+2026-05-18T13:31:00.345186+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_01_mlb_run_line.csv (14 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.345221+00:00 | INFO  | --- FILE: 2026_05_01_mlb_total.csv  market=total
+2026-05-18T13:31:00.351952+00:00 | WARN  | 2026_05_01_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4353)
+2026-05-18T13:31:00.353713+00:00 | WARN  | 2026_05_01_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.3294)
+2026-05-18T13:31:00.355800+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_01_mlb_total.csv (14 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.355835+00:00 | INFO  | --- FILE: 2026_05_02_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.362033+00:00 | WARN  | 2026_05_02_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1703)
+2026-05-18T13:31:00.363719+00:00 | WARN  | 2026_05_02_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1834)
+2026-05-18T13:31:00.365774+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_02_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.365810+00:00 | INFO  | --- FILE: 2026_05_02_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.372052+00:00 | WARN  | 2026_05_02_mlb_run_line.csv | 8 negative Kelly values clipped to 0 (min=-0.7447)
+2026-05-18T13:31:00.373771+00:00 | WARN  | 2026_05_02_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-1.0046)
+2026-05-18T13:31:00.375842+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_02_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.375878+00:00 | INFO  | --- FILE: 2026_05_02_mlb_total.csv  market=total
+2026-05-18T13:31:00.382621+00:00 | WARN  | 2026_05_02_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.2882)
+2026-05-18T13:31:00.384336+00:00 | WARN  | 2026_05_02_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.3356)
+2026-05-18T13:31:00.386602+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_02_mlb_total.csv (15 rows, 24 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.386637+00:00 | INFO  | --- FILE: 2026_05_03_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.392874+00:00 | WARN  | 2026_05_03_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1476)
+2026-05-18T13:31:00.394565+00:00 | WARN  | 2026_05_03_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1160)
+2026-05-18T13:31:00.396617+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_03_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.396652+00:00 | INFO  | --- FILE: 2026_05_03_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.402892+00:00 | WARN  | 2026_05_03_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.8345)
+2026-05-18T13:31:00.404651+00:00 | WARN  | 2026_05_03_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9200)
+2026-05-18T13:31:00.406724+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_03_mlb_run_line.csv (15 rows, 27 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.406759+00:00 | INFO  | --- FILE: 2026_05_03_mlb_total.csv  market=total
+2026-05-18T13:31:00.413476+00:00 | WARN  | 2026_05_03_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.3998)
+2026-05-18T13:31:00.415239+00:00 | WARN  | 2026_05_03_mlb_total.csv | 8 negative Kelly values clipped to 0 (min=-0.2569)
+2026-05-18T13:31:00.417371+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_03_mlb_total.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.417406+00:00 | INFO  | --- FILE: 2026_05_04_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.423609+00:00 | WARN  | 2026_05_04_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2810)
+2026-05-18T13:31:00.425306+00:00 | WARN  | 2026_05_04_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.3122)
+2026-05-18T13:31:00.427190+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_04_mlb_moneyline.csv (12 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.427225+00:00 | INFO  | --- FILE: 2026_05_04_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.433390+00:00 | WARN  | 2026_05_04_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.8866)
+2026-05-18T13:31:00.435149+00:00 | WARN  | 2026_05_04_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7858)
+2026-05-18T13:31:00.437024+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_04_mlb_run_line.csv (12 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.437059+00:00 | INFO  | --- FILE: 2026_05_04_mlb_total.csv  market=total
+2026-05-18T13:31:00.443629+00:00 | WARN  | 2026_05_04_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.5184)
+2026-05-18T13:31:00.445307+00:00 | WARN  | 2026_05_04_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.2860)
+2026-05-18T13:31:00.447247+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_04_mlb_total.csv (12 rows, 17 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.447281+00:00 | INFO  | --- FILE: 2026_05_05_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.453515+00:00 | WARN  | 2026_05_05_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.1458)
+2026-05-18T13:31:00.455189+00:00 | WARN  | 2026_05_05_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1521)
+2026-05-18T13:31:00.457211+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_05_mlb_moneyline.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.457246+00:00 | INFO  | --- FILE: 2026_05_05_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.461013+00:00 | WARN  | 2026_05_05_mlb_run_line.csv | 1 rows missing adjusted EV in home_edge_decimal_run_line; using raw EV fallback for those rows
+2026-05-18T13:31:00.461749+00:00 | WARN  | 2026_05_05_mlb_run_line.csv | 1 rows missing adjusted EV in away_edge_decimal_run_line; using raw EV fallback for those rows
+2026-05-18T13:31:00.463629+00:00 | WARN  | 2026_05_05_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7965)
+2026-05-18T13:31:00.465610+00:00 | WARN  | 2026_05_05_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-1.0086)
+2026-05-18T13:31:00.467884+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_05_mlb_run_line.csv (15 rows, 25 kelly clipped, 2 adjusted EV fallback)
+2026-05-18T13:31:00.467919+00:00 | INFO  | --- FILE: 2026_05_05_mlb_total.csv  market=total
+2026-05-18T13:31:00.472144+00:00 | WARN  | 2026_05_05_mlb_total.csv | 1 rows missing adjusted EV in over_edge_decimal_total; using raw EV fallback for those rows
+2026-05-18T13:31:00.472856+00:00 | WARN  | 2026_05_05_mlb_total.csv | 1 rows missing adjusted EV in under_edge_decimal_total; using raw EV fallback for those rows
+2026-05-18T13:31:00.474744+00:00 | WARN  | 2026_05_05_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.5171)
+2026-05-18T13:31:00.476732+00:00 | WARN  | 2026_05_05_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4898)
+2026-05-18T13:31:00.479082+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_05_mlb_total.csv (15 rows, 24 kelly clipped, 2 adjusted EV fallback)
+2026-05-18T13:31:00.479118+00:00 | INFO  | --- FILE: 2026_05_06_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.485278+00:00 | WARN  | 2026_05_06_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3090)
+2026-05-18T13:31:00.487008+00:00 | WARN  | 2026_05_06_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.1767)
+2026-05-18T13:31:00.489059+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_06_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.489094+00:00 | INFO  | --- FILE: 2026_05_06_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.495281+00:00 | WARN  | 2026_05_06_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.7836)
+2026-05-18T13:31:00.497058+00:00 | WARN  | 2026_05_06_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-1.0462)
+2026-05-18T13:31:00.499133+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_06_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.499168+00:00 | INFO  | --- FILE: 2026_05_06_mlb_total.csv  market=total
+2026-05-18T13:31:00.505827+00:00 | WARN  | 2026_05_06_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.4245)
+2026-05-18T13:31:00.507561+00:00 | WARN  | 2026_05_06_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4689)
+2026-05-18T13:31:00.509653+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_06_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.509691+00:00 | INFO  | --- FILE: 2026_05_07_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.515866+00:00 | WARN  | 2026_05_07_mlb_moneyline.csv | 4 negative Kelly values clipped to 0 (min=-0.0835)
+2026-05-18T13:31:00.517612+00:00 | WARN  | 2026_05_07_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2101)
+2026-05-18T13:31:00.519333+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_07_mlb_moneyline.csv (10 rows, 14 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.519367+00:00 | INFO  | --- FILE: 2026_05_07_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.525425+00:00 | WARN  | 2026_05_07_mlb_run_line.csv | 5 negative Kelly values clipped to 0 (min=-0.7714)
+2026-05-18T13:31:00.527135+00:00 | WARN  | 2026_05_07_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8961)
+2026-05-18T13:31:00.528878+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_07_mlb_run_line.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.528913+00:00 | INFO  | --- FILE: 2026_05_07_mlb_total.csv  market=total
+2026-05-18T13:31:00.535369+00:00 | WARN  | 2026_05_07_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.5951)
+2026-05-18T13:31:00.537075+00:00 | WARN  | 2026_05_07_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.3633)
+2026-05-18T13:31:00.538906+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_07_mlb_total.csv (10 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.538942+00:00 | INFO  | --- FILE: 2026_05_08_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.545077+00:00 | WARN  | 2026_05_08_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2186)
+2026-05-18T13:31:00.546754+00:00 | WARN  | 2026_05_08_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.1616)
+2026-05-18T13:31:00.548745+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_08_mlb_moneyline.csv (14 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.548781+00:00 | INFO  | --- FILE: 2026_05_08_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.554953+00:00 | WARN  | 2026_05_08_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.7921)
+2026-05-18T13:31:00.556685+00:00 | WARN  | 2026_05_08_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.9662)
+2026-05-18T13:31:00.558674+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_08_mlb_run_line.csv (14 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.558710+00:00 | INFO  | --- FILE: 2026_05_08_mlb_total.csv  market=total
+2026-05-18T13:31:00.565448+00:00 | WARN  | 2026_05_08_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.3859)
+2026-05-18T13:31:00.567183+00:00 | WARN  | 2026_05_08_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.5711)
+2026-05-18T13:31:00.569277+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_08_mlb_total.csv (14 rows, 20 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.569313+00:00 | INFO  | --- FILE: 2026_05_09_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.575565+00:00 | WARN  | 2026_05_09_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.3312)
+2026-05-18T13:31:00.577279+00:00 | WARN  | 2026_05_09_mlb_moneyline.csv | 11 negative Kelly values clipped to 0 (min=-0.1589)
+2026-05-18T13:31:00.579268+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_09_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.579303+00:00 | INFO  | --- FILE: 2026_05_09_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.585575+00:00 | WARN  | 2026_05_09_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8287)
+2026-05-18T13:31:00.587276+00:00 | WARN  | 2026_05_09_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8979)
+2026-05-18T13:31:00.589298+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_09_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.589335+00:00 | INFO  | --- FILE: 2026_05_09_mlb_total.csv  market=total
+2026-05-18T13:31:00.596124+00:00 | WARN  | 2026_05_09_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4208)
+2026-05-18T13:31:00.597895+00:00 | WARN  | 2026_05_09_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.6279)
+2026-05-18T13:31:00.600021+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_09_mlb_total.csv (15 rows, 19 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.600056+00:00 | INFO  | --- FILE: 2026_05_10_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.606295+00:00 | WARN  | 2026_05_10_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2813)
+2026-05-18T13:31:00.608065+00:00 | WARN  | 2026_05_10_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.2249)
+2026-05-18T13:31:00.610124+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_10_mlb_moneyline.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.610160+00:00 | INFO  | --- FILE: 2026_05_10_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.616394+00:00 | WARN  | 2026_05_10_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.7900)
+2026-05-18T13:31:00.618132+00:00 | WARN  | 2026_05_10_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-1.0754)
+2026-05-18T13:31:00.620183+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_10_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.620219+00:00 | INFO  | --- FILE: 2026_05_10_mlb_total.csv  market=total
+2026-05-18T13:31:00.626971+00:00 | WARN  | 2026_05_10_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.4406)
+2026-05-18T13:31:00.628675+00:00 | WARN  | 2026_05_10_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.3781)
+2026-05-18T13:31:00.630788+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_10_mlb_total.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.630823+00:00 | INFO  | --- FILE: 2026_05_11_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.636942+00:00 | WARN  | 2026_05_11_mlb_moneyline.csv | 4 negative Kelly values clipped to 0 (min=-0.1797)
+2026-05-18T13:31:00.638701+00:00 | WARN  | 2026_05_11_mlb_moneyline.csv | 4 negative Kelly values clipped to 0 (min=-0.1495)
+2026-05-18T13:31:00.640236+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_11_mlb_moneyline.csv (6 rows, 8 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.640271+00:00 | INFO  | --- FILE: 2026_05_11_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.646288+00:00 | WARN  | 2026_05_11_mlb_run_line.csv | 4 negative Kelly values clipped to 0 (min=-0.5644)
+2026-05-18T13:31:00.647983+00:00 | WARN  | 2026_05_11_mlb_run_line.csv | 6 negative Kelly values clipped to 0 (min=-1.0112)
+2026-05-18T13:31:00.649542+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_11_mlb_run_line.csv (6 rows, 10 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.649577+00:00 | INFO  | --- FILE: 2026_05_11_mlb_total.csv  market=total
+2026-05-18T13:31:00.656140+00:00 | WARN  | 2026_05_11_mlb_total.csv | 6 negative Kelly values clipped to 0 (min=-0.3970)
+2026-05-18T13:31:00.657851+00:00 | WARN  | 2026_05_11_mlb_total.csv | 2 negative Kelly values clipped to 0 (min=-0.2380)
+2026-05-18T13:31:00.659455+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_11_mlb_total.csv (6 rows, 8 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.659494+00:00 | INFO  | --- FILE: 2026_05_12_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.665670+00:00 | WARN  | 2026_05_12_mlb_moneyline.csv | 15 negative Kelly values clipped to 0 (min=-0.1866)
+2026-05-18T13:31:00.667345+00:00 | WARN  | 2026_05_12_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.0967)
+2026-05-18T13:31:00.669395+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_12_mlb_moneyline.csv (15 rows, 29 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.669464+00:00 | INFO  | --- FILE: 2026_05_12_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.675766+00:00 | WARN  | 2026_05_12_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.7490)
+2026-05-18T13:31:00.677500+00:00 | WARN  | 2026_05_12_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.9236)
+2026-05-18T13:31:00.679580+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_12_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.679616+00:00 | INFO  | --- FILE: 2026_05_12_mlb_total.csv  market=total
+2026-05-18T13:31:00.686298+00:00 | WARN  | 2026_05_12_mlb_total.csv | 13 negative Kelly values clipped to 0 (min=-0.3592)
+2026-05-18T13:31:00.688045+00:00 | WARN  | 2026_05_12_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.2724)
+2026-05-18T13:31:00.690203+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_12_mlb_total.csv (15 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.690240+00:00 | INFO  | --- FILE: 2026_05_13_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.696560+00:00 | WARN  | 2026_05_13_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.2570)
+2026-05-18T13:31:00.698266+00:00 | WARN  | 2026_05_13_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.1787)
+2026-05-18T13:31:00.700318+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_13_mlb_moneyline.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.700354+00:00 | INFO  | --- FILE: 2026_05_13_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.706632+00:00 | WARN  | 2026_05_13_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9055)
+2026-05-18T13:31:00.708314+00:00 | WARN  | 2026_05_13_mlb_run_line.csv | 13 negative Kelly values clipped to 0 (min=-1.0488)
+2026-05-18T13:31:00.710423+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_13_mlb_run_line.csv (15 rows, 23 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.710483+00:00 | INFO  | --- FILE: 2026_05_13_mlb_total.csv  market=total
+2026-05-18T13:31:00.717257+00:00 | WARN  | 2026_05_13_mlb_total.csv | 11 negative Kelly values clipped to 0 (min=-0.5856)
+2026-05-18T13:31:00.719059+00:00 | WARN  | 2026_05_13_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.4888)
+2026-05-18T13:31:00.721184+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_13_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.721220+00:00 | INFO  | --- FILE: 2026_05_14_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.727464+00:00 | WARN  | 2026_05_14_mlb_moneyline.csv | 9 negative Kelly values clipped to 0 (min=-0.2595)
+2026-05-18T13:31:00.729145+00:00 | WARN  | 2026_05_14_mlb_moneyline.csv | 6 negative Kelly values clipped to 0 (min=-0.1992)
+2026-05-18T13:31:00.730962+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_14_mlb_moneyline.csv (11 rows, 15 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.730997+00:00 | INFO  | --- FILE: 2026_05_14_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.737072+00:00 | WARN  | 2026_05_14_mlb_run_line.csv | 7 negative Kelly values clipped to 0 (min=-0.8864)
+2026-05-18T13:31:00.738790+00:00 | WARN  | 2026_05_14_mlb_run_line.csv | 9 negative Kelly values clipped to 0 (min=-0.8394)
+2026-05-18T13:31:00.740581+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_14_mlb_run_line.csv (11 rows, 16 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.740618+00:00 | INFO  | --- FILE: 2026_05_14_mlb_total.csv  market=total
+2026-05-18T13:31:00.747362+00:00 | WARN  | 2026_05_14_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.4126)
+2026-05-18T13:31:00.749084+00:00 | WARN  | 2026_05_14_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.4092)
+2026-05-18T13:31:00.751058+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_14_mlb_total.csv (11 rows, 14 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.751094+00:00 | INFO  | --- FILE: 2026_05_15_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.757306+00:00 | WARN  | 2026_05_15_mlb_moneyline.csv | 8 negative Kelly values clipped to 0 (min=-0.1878)
+2026-05-18T13:31:00.759075+00:00 | WARN  | 2026_05_15_mlb_moneyline.csv | 10 negative Kelly values clipped to 0 (min=-0.3116)
+2026-05-18T13:31:00.761113+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_15_mlb_moneyline.csv (14 rows, 18 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.761148+00:00 | INFO  | --- FILE: 2026_05_15_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.764964+00:00 | WARN  | 2026_05_15_mlb_run_line.csv | 1 rows missing adjusted EV in home_edge_decimal_run_line; using raw EV fallback for those rows
+2026-05-18T13:31:00.765681+00:00 | WARN  | 2026_05_15_mlb_run_line.csv | 1 rows missing adjusted EV in away_edge_decimal_run_line; using raw EV fallback for those rows
+2026-05-18T13:31:00.767595+00:00 | WARN  | 2026_05_15_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.8289)
+2026-05-18T13:31:00.769577+00:00 | WARN  | 2026_05_15_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-1.0412)
+2026-05-18T13:31:00.771800+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_15_mlb_run_line.csv (14 rows, 23 kelly clipped, 2 adjusted EV fallback)
+2026-05-18T13:31:00.771836+00:00 | INFO  | --- FILE: 2026_05_15_mlb_total.csv  market=total
+2026-05-18T13:31:00.778538+00:00 | WARN  | 2026_05_15_mlb_total.csv | 12 negative Kelly values clipped to 0 (min=-0.5908)
+2026-05-18T13:31:00.780237+00:00 | WARN  | 2026_05_15_mlb_total.csv | 9 negative Kelly values clipped to 0 (min=-0.6390)
+2026-05-18T13:31:00.782304+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_15_mlb_total.csv (14 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.782339+00:00 | INFO  | --- FILE: 2026_05_16_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.788610+00:00 | WARN  | 2026_05_16_mlb_moneyline.csv | 15 negative Kelly values clipped to 0 (min=-0.1225)
+2026-05-18T13:31:00.790287+00:00 | WARN  | 2026_05_16_mlb_moneyline.csv | 13 negative Kelly values clipped to 0 (min=-0.0841)
+2026-05-18T13:31:00.792416+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_16_mlb_moneyline.csv (15 rows, 28 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.792498+00:00 | INFO  | --- FILE: 2026_05_16_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.798722+00:00 | WARN  | 2026_05_16_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.8062)
+2026-05-18T13:31:00.800416+00:00 | WARN  | 2026_05_16_mlb_run_line.csv | 15 negative Kelly values clipped to 0 (min=-0.8982)
+2026-05-18T13:31:00.802543+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_16_mlb_run_line.csv (15 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.802579+00:00 | INFO  | --- FILE: 2026_05_16_mlb_total.csv  market=total
+2026-05-18T13:31:00.809212+00:00 | WARN  | 2026_05_16_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.3320)
+2026-05-18T13:31:00.810957+00:00 | WARN  | 2026_05_16_mlb_total.csv | 7 negative Kelly values clipped to 0 (min=-0.2969)
+2026-05-18T13:31:00.813143+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_16_mlb_total.csv (15 rows, 21 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.813187+00:00 | INFO  | --- FILE: 2026_05_17_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.819390+00:00 | WARN  | 2026_05_17_mlb_moneyline.csv | 12 negative Kelly values clipped to 0 (min=-0.2492)
+2026-05-18T13:31:00.821128+00:00 | WARN  | 2026_05_17_mlb_moneyline.csv | 7 negative Kelly values clipped to 0 (min=-0.1735)
+2026-05-18T13:31:00.822945+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_17_mlb_moneyline.csv (14 rows, 19 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.822980+00:00 | INFO  | --- FILE: 2026_05_17_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.829222+00:00 | WARN  | 2026_05_17_mlb_run_line.csv | 10 negative Kelly values clipped to 0 (min=-0.9323)
+2026-05-18T13:31:00.830921+00:00 | WARN  | 2026_05_17_mlb_run_line.csv | 12 negative Kelly values clipped to 0 (min=-0.8841)
+2026-05-18T13:31:00.832715+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_17_mlb_run_line.csv (14 rows, 22 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.832749+00:00 | INFO  | --- FILE: 2026_05_17_mlb_total.csv  market=total
+2026-05-18T13:31:00.839323+00:00 | WARN  | 2026_05_17_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.5065)
+2026-05-18T13:31:00.841020+00:00 | WARN  | 2026_05_17_mlb_total.csv | 4 negative Kelly values clipped to 0 (min=-0.2334)
+2026-05-18T13:31:00.842895+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_17_mlb_total.csv (14 rows, 18 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.842930+00:00 | INFO  | --- FILE: 2026_05_18_mlb_moneyline.csv  market=moneyline
+2026-05-18T13:31:00.848986+00:00 | WARN  | 2026_05_18_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.1035)
+2026-05-18T13:31:00.850680+00:00 | WARN  | 2026_05_18_mlb_moneyline.csv | 14 negative Kelly values clipped to 0 (min=-0.0880)
+2026-05-18T13:31:00.852387+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_18_mlb_moneyline.csv (14 rows, 28 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.852422+00:00 | INFO  | --- FILE: 2026_05_18_mlb_run_line.csv  market=run_line
+2026-05-18T13:31:00.858467+00:00 | WARN  | 2026_05_18_mlb_run_line.csv | 11 negative Kelly values clipped to 0 (min=-0.7212)
+2026-05-18T13:31:00.860145+00:00 | WARN  | 2026_05_18_mlb_run_line.csv | 14 negative Kelly values clipped to 0 (min=-0.8428)
+2026-05-18T13:31:00.861899+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_18_mlb_run_line.csv (14 rows, 25 kelly clipped, 0 adjusted EV fallback)
+2026-05-18T13:31:00.861934+00:00 | INFO  | --- FILE: 2026_05_18_mlb_total.csv  market=total
+2026-05-18T13:31:00.868367+00:00 | WARN  | 2026_05_18_mlb_total.csv | 14 negative Kelly values clipped to 0 (min=-0.3762)
+2026-05-18T13:31:00.870267+00:00 | WARN  | 2026_05_18_mlb_total.csv | 10 negative Kelly values clipped to 0 (min=-0.1818)
+2026-05-18T13:31:00.872118+00:00 | INFO  | WROTE: docs/win/baseball/03_edges/ev_kelly/2026_05_18_mlb_total.csv (14 rows, 24 kelly clipped, 0 adjusted EV fallback)
 
 ============================================================
-SUMMARY  2026-05-18T13:25:27.306260+00:00
+SUMMARY  2026-05-18T13:31:00.872138+00:00
 ============================================================
   files_processed  : 162
   rows_processed   : 2133
