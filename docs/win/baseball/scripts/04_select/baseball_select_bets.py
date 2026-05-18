@@ -254,20 +254,21 @@ def rain_excluded(row) -> bool:
     will_it_rain = iv(row.get("will_it_rain"))
     symbol_code  = sv(row.get("symbol_code"))
 
-    if will_it_rain == 1:
+    if FILTERS.get("rain_exclude_on_will_it_rain", True) and will_it_rain == 1:
         return True
+
+    rain_terms = FILTERS.get("rain_symbol_terms", [
+        "rain",
+        "heavyrain",
+        "lightrain",
+        "sleet",
+        "snow",
+        "thunder",
+    ])
 
     if symbol_code:
         symbol = symbol_code.lower()
-        rain_terms = (
-            "rain",
-            "heavyrain",
-            "lightrain",
-            "sleet",
-            "snow",
-            "thunder",
-        )
-        if any(term in symbol for term in rain_terms):
+        if any(str(term).lower() in symbol for term in rain_terms):
             return True
 
     return False
@@ -459,7 +460,8 @@ def main():
     _log(f"INPUT_DIR : {INPUT_DIR}")
     _log(f"OUTPUT_DIR: {OUTPUT_DIR}")
     _log(
-        f"Rain filter: will_it_rain/symbol_code | "
+        f"Rain filter: will_it_rain={FILTERS.get('rain_exclude_on_will_it_rain', True)} "
+        f"symbol_terms={FILTERS.get('rain_symbol_terms')} | "
         f"SP sample exclude totals: {FILTERS.get('sp_sample_exclude_totals')} | "
         f"Lineup low sample warn: {FILTERS.get('lineup_low_sample_warn')}"
     )
