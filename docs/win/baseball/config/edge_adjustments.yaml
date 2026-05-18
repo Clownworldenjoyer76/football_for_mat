@@ -3,10 +3,6 @@
 # Parameters for contextual edge adjustments in:
 #   docs/win/baseball/scripts/03_edges/compute_edges.py
 #
-# This file does not control bet selection filters.
-# Rain exclusion is handled later in:
-#   docs/win/baseball/config/markets.yaml
-#   docs/win/baseball/scripts/04_select/baseball_select_bets.py
 #
 # Weather columns currently used by compute_edges.py:
 #   weather_applicable
@@ -14,18 +10,7 @@
 #   wind_mph
 #   wind_blowing_out
 #
-# Weather columns not used by compute_edges.py:
-#   weather_time
-#   wind_dir
-#   precip_in
-#   humidity
-#   will_it_rain
-#   air_pressure_at_sea_level
-#   dew_point_f
-#   symbol_code
-#
 # All scale factors are edge nudges applied after base edge calculation.
-# Tune only after reviewing tracked results.
 
 mlb:
 
@@ -97,9 +82,6 @@ mlb:
   # Weather adjustments are only applied when:
   #   weather_applicable = 1
   #
-  # This script does not use rain probability/chance columns.
-  # Rain exclusion is handled in select_bets.py using markets.yaml.
-
 
   # ── Wind Adjustment ─────────────────────────────────────────
   # Uses:
