@@ -243,19 +243,33 @@ def rain_excluded(row) -> bool:
     """
     Return True (exclude bet) if rain conditions are met.
     Always returns False for dome/indoor venues.
+    Uses current weather schema:
+      will_it_rain
+      symbol_code
     """
     weather_applicable = iv(row.get("weather_applicable"))
     if weather_applicable == 0:
         return False
 
-    will_it_rain   = iv(row.get("will_it_rain"))
-    chance_of_rain = fv(row.get("chance_of_rain"))
-    rain_max       = FILTERS.get("rain_chance_max", 40)
+    will_it_rain = iv(row.get("will_it_rain"))
+    symbol_code  = sv(row.get("symbol_code"))
 
     if will_it_rain == 1:
         return True
-    if chance_of_rain is not None and chance_of_rain > rain_max:
-        return True
+
+    if symbol_code:
+        symbol = symbol_code.lower()
+        rain_terms = (
+            "rain",
+            "heavyrain",
+            "lightrain",
+            "sleet",
+            "snow",
+            "thunder",
+        )
+        if any(term in symbol for term in rain_terms):
+            return True
+
     return False
 
 
@@ -445,7 +459,7 @@ def main():
     _log(f"INPUT_DIR : {INPUT_DIR}")
     _log(f"OUTPUT_DIR: {OUTPUT_DIR}")
     _log(
-        f"Rain max: {FILTERS.get('rain_chance_max')}% | "
+        f"Rain filter: will_it_rain/symbol_code | "
         f"SP sample exclude totals: {FILTERS.get('sp_sample_exclude_totals')} | "
         f"Lineup low sample warn: {FILTERS.get('lineup_low_sample_warn')}"
     )
@@ -537,7 +551,7 @@ def main():
                         _log(
                             f"  {game_id} rain excluded "
                             f"(will_it_rain={iv(row.get('will_it_rain'))} "
-                            f"chance={fv(row.get('chance_of_rain'))}%)",
+                            f"symbol_code={sv(row.get('symbol_code'))})",
                             "WARN"
                         )
                         continue
