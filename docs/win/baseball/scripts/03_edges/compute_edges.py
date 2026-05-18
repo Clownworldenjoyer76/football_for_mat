@@ -194,13 +194,40 @@ def adjust_moneyline_run_line(df: pd.DataFrame, cfg: dict, market: str) -> pd.Da
 def adjust_totals(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """
     Apply park factor and weather adjustments to over/under total edges.
+
+    Current weather columns used:
+      weather_applicable
+      temp_f
+      wind_mph
+      wind_blowing_out
+      precip_in
+      humidity
+      air_pressure_at_sea_level
+      dew_point_f
     """
-    park_scale    = cfg.get("park_edge_scale",    0.002)
-    wind_thresh   = cfg.get("wind_nudge_threshold", 12)
-    wind_scale    = cfg.get("wind_nudge_scale",   0.005)
-    cold_thresh   = cfg.get("temp_cold_threshold", 50)
-    hot_thresh    = cfg.get("temp_hot_threshold",  80)
-    temp_scale    = cfg.get("temp_nudge_scale",   0.003)
+    park_scale = cfg.get("park_edge_scale", 0.002)
+
+    wind_thresh = cfg.get("wind_nudge_threshold", 12)
+    wind_scale  = cfg.get("wind_nudge_scale", 0.005)
+
+    cold_thresh = cfg.get("temp_cold_threshold", 50)
+    hot_thresh  = cfg.get("temp_hot_threshold", 80)
+    temp_scale  = cfg.get("temp_nudge_scale", 0.003)
+
+    pressure_low_thresh  = cfg.get("pressure_low_threshold", 1010)
+    pressure_high_thresh = cfg.get("pressure_high_threshold", 1020)
+    pressure_scale       = cfg.get("pressure_nudge_scale", 0.003)
+
+    dew_low_thresh  = cfg.get("dew_point_low_threshold", 45)
+    dew_high_thresh = cfg.get("dew_point_high_threshold", 65)
+    dew_scale       = cfg.get("dew_point_nudge_scale", 0.003)
+
+    precip_thresh = cfg.get("precip_nudge_threshold", 0.02)
+    precip_scale  = cfg.get("precip_nudge_scale", 0.004)
+
+    humidity_low_thresh  = cfg.get("humidity_low_threshold", 35)
+    humidity_high_thresh = cfg.get("humidity_high_threshold", 70)
+    humidity_scale       = cfg.get("humidity_nudge_scale", 0.0015)
 
     over_edge  = _col(df, "over_edge_decimal_total")
     under_edge = _col(df, "under_edge_decimal_total")
@@ -215,17 +242,24 @@ def adjust_totals(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     over_edge  = over_edge.where(~park_valid,  over_edge  * park_over_mult)
     under_edge = under_edge.where(~park_valid, under_edge * park_under_mult)
 
-    # ── Weather ──────────────────────────────────────────────
+    # ── Weather base columns ─────────────────────────────────
     applicable = _col(df, "weather_applicable")
-    wind_mph   = _col(df, "wind_mph")
-    wind_out   = _col(df, "wind_blowing_out")
-    temp_f     = _col(df, "temp_f")
-
     weather_on = applicable == 1
 
-    # Wind — proportional to speed, applied above threshold
-    wind_active   = weather_on & wind_mph.notna() & (wind_mph > wind_thresh)
-    wind_nudge    = (wind_mph / 20) * wind_scale
+    wind_mph = _col(df, "wind_mph")
+    wind_out = _col(df, "wind_blowing_out")
+    temp_f   = _col(df, "temp_f")
+
+    pressure  = _col(df, "air_pressure_at_sea_level")
+    dew_point = _col(df, "dew_point_f")
+    precip    = _col(df, "precip_in")
+    humidity  = _col(df, "humidity")
+
+    # ── Wind ─────────────────────────────────────────────────
+    # Blowing out: over up, under down.
+    # Blowing in: over down, under up.
+    wind_active = weather_on & wind_mph.notna() & np.isfinite(wind_mph) & (wind_mph > wind_thresh)
+    wind_nudge  = (wind_mph / 20) * wind_scale
 
     wind_out_cond = wind_active & (wind_out == 1)
     wind_in_cond  = wind_active & (wind_out == 0)
@@ -235,17 +269,95 @@ def adjust_totals(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     over_edge  = over_edge.where(~wind_in_cond,   over_edge  - wind_nudge)
     under_edge = under_edge.where(~wind_in_cond,  under_edge + wind_nudge)
 
-    # Temperature — proportional to distance from threshold
-    temp_valid = weather_on & temp_f.notna()
+    # ── Temperature ──────────────────────────────────────────
+    # Cold: over down.
+    # Hot: over up.
+    temp_valid = weather_on & temp_f.notna() & np.isfinite(temp_f)
 
     cold_cond  = temp_valid & (temp_f < cold_thresh)
     hot_cond   = temp_valid & (temp_f > hot_thresh)
 
     cold_nudge = (cold_thresh - temp_f) / cold_thresh * temp_scale
-    hot_nudge  = (temp_f - hot_thresh) / hot_thresh  * temp_scale
+    hot_nudge  = (temp_f - hot_thresh) / hot_thresh * temp_scale
 
     over_edge  = over_edge.where(~cold_cond, over_edge - cold_nudge)
+    under_edge = under_edge.where(~cold_cond, under_edge + cold_nudge)
     over_edge  = over_edge.where(~hot_cond,  over_edge + hot_nudge)
+    under_edge = under_edge.where(~hot_cond,  under_edge - hot_nudge)
+
+    # ── Air pressure ─────────────────────────────────────────
+    # Low pressure: over up, under down.
+    # High pressure: over down, under up.
+    pressure_valid = weather_on & pressure.notna() & np.isfinite(pressure)
+
+    low_pressure_cond  = pressure_valid & (pressure < pressure_low_thresh)
+    high_pressure_cond = pressure_valid & (pressure > pressure_high_thresh)
+
+    low_pressure_nudge = (
+        (pressure_low_thresh - pressure) / pressure_low_thresh * pressure_scale
+    )
+    high_pressure_nudge = (
+        (pressure - pressure_high_thresh) / pressure_high_thresh * pressure_scale
+    )
+
+    over_edge  = over_edge.where(~low_pressure_cond,  over_edge  + low_pressure_nudge)
+    under_edge = under_edge.where(~low_pressure_cond, under_edge - low_pressure_nudge)
+    over_edge  = over_edge.where(~high_pressure_cond, over_edge  - high_pressure_nudge)
+    under_edge = under_edge.where(~high_pressure_cond, under_edge + high_pressure_nudge)
+
+    # ── Dew point ────────────────────────────────────────────
+    # High dew point: over up.
+    # Low dew point: over down.
+    dew_valid = weather_on & dew_point.notna() & np.isfinite(dew_point)
+
+    low_dew_cond  = dew_valid & (dew_point < dew_low_thresh)
+    high_dew_cond = dew_valid & (dew_point > dew_high_thresh)
+
+    low_dew_nudge = (
+        (dew_low_thresh - dew_point) / dew_low_thresh * dew_scale
+    )
+    high_dew_nudge = (
+        (dew_point - dew_high_thresh) / dew_high_thresh * dew_scale
+    )
+
+    over_edge  = over_edge.where(~low_dew_cond,  over_edge  - low_dew_nudge)
+    under_edge = under_edge.where(~low_dew_cond, under_edge + low_dew_nudge)
+    over_edge  = over_edge.where(~high_dew_cond, over_edge  + high_dew_nudge)
+    under_edge = under_edge.where(~high_dew_cond, under_edge - high_dew_nudge)
+
+    # ── Precipitation ────────────────────────────────────────
+    # Measurable precipitation: over down, under up.
+    precip_valid = weather_on & precip.notna() & np.isfinite(precip)
+    precip_cond  = precip_valid & (precip > precip_thresh)
+
+    if precip_thresh and precip_thresh > 0:
+        precip_nudge = (precip / precip_thresh) * precip_scale
+    else:
+        precip_nudge = precip * precip_scale
+
+    over_edge  = over_edge.where(~precip_cond,  over_edge  - precip_nudge)
+    under_edge = under_edge.where(~precip_cond, under_edge + precip_nudge)
+
+    # ── Humidity ─────────────────────────────────────────────
+    # Intentionally weaker than dew point.
+    # High humidity: over up slightly.
+    # Low humidity: over down slightly.
+    humidity_valid = weather_on & humidity.notna() & np.isfinite(humidity)
+
+    low_humidity_cond  = humidity_valid & (humidity < humidity_low_thresh)
+    high_humidity_cond = humidity_valid & (humidity > humidity_high_thresh)
+
+    low_humidity_nudge = (
+        (humidity_low_thresh - humidity) / humidity_low_thresh * humidity_scale
+    )
+    high_humidity_nudge = (
+        (humidity - humidity_high_thresh) / humidity_high_thresh * humidity_scale
+    )
+
+    over_edge  = over_edge.where(~low_humidity_cond,  over_edge  - low_humidity_nudge)
+    under_edge = under_edge.where(~low_humidity_cond, under_edge + low_humidity_nudge)
+    over_edge  = over_edge.where(~high_humidity_cond, over_edge  + high_humidity_nudge)
+    under_edge = under_edge.where(~high_humidity_cond, under_edge - high_humidity_nudge)
 
     df["over_edge_decimal_total"]  = over_edge
     df["under_edge_decimal_total"] = under_edge
