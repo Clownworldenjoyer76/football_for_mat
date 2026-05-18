@@ -62,7 +62,7 @@ markets:
       enabled: true
       # best_prob allows the more likely RL side when both pass.
       # Use all if you want maximum volume.
-      pick_preference: best_prob
+      pick_preference: all
 
       home:
         enabled: true
@@ -71,7 +71,7 @@ markets:
         odds_bands:
           - [-350, 350]
         ev_bands:
-          - [0.005, 0.99]
+          - [0.04, 0.99]
         kelly_bands:
           - [0.001, 0.99]
         prob_bands:
@@ -84,7 +84,7 @@ markets:
         odds_bands:
           - [-350, 350]
         ev_bands:
-          - [0.005, 0.99]
+          - [0.05, 0.99]
         kelly_bands:
           - [0.001, 0.99]
         prob_bands:
@@ -98,7 +98,7 @@ markets:
       enabled: true
       # best_ev = one total side max per game.
       # all = can select both over and under if both pass.
-      pick_preference: best_ev
+      pick_preference: all
 
       over:
         enabled: true
