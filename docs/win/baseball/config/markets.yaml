@@ -69,7 +69,8 @@ markets:
         line_bands:
           - [-2.5, 2.5]
         odds_bands:
-          - [-350, 350]
+          - [-130, -100]
+          - [110, 130]
         ev_bands:
           - [0.04, 0.99]
         kelly_bands:
@@ -82,7 +83,8 @@ markets:
         line_bands:
           - [-2.5, 2.5]
         odds_bands:
-          - [-350, 350]
+          - [-350, 130]
+          - [150, 350]
         ev_bands:
           - [0.05, 0.99]
         kelly_bands:
@@ -104,25 +106,28 @@ markets:
         enabled: true
         # MLB totals usually live here, but this is intentionally broad.
         line_bands:
-          - [5.0, 13.5]
+          - [5.0, 9.5]
         odds_bands:
           - [-350, 350]
         ev_bands:
           - [0.005, 0.99]
         kelly_bands:
-          - [0.001, 0.99]
+          - [0.001, 0.05]
+          - [0.15, 0.99]
         prob_bands:
           - [0.20, 0.99]
 
       under:
         enabled: true
         line_bands:
-          - [5.0, 13.5]
+          - [8.0, 9.5]
+          - [10.5, 12.5]
         odds_bands:
           - [-350, 350]
         ev_bands:
           - [0.005, 0.99]
         kelly_bands:
-          - [0.001, 0.99]
+          - [0.001, 0.10]
+          - [0.30, 0.99]
         prob_bands:
           - [0.20, 0.99]
