@@ -1,58 +1,156 @@
-# config/baseball/mlb/edge_adjustments.yaml
+# docs/win/baseball/config/edge_adjustments.yaml
 #
-# Parameters for contextual edge adjustments in compute_edges.py.
-# All scale factors are multiplicative nudges on top of the base edge.
-# Tune after tracking results.
+# Parameters for contextual edge adjustments in:
+#   docs/win/baseball/scripts/03_edges/compute_edges.py
+#
+# This file does not control bet selection filters.
+# Rain exclusion is handled later in:
+#   docs/win/baseball/config/markets.yaml
+#   docs/win/baseball/scripts/04_select/baseball_select_bets.py
+#
+# Weather columns currently used by compute_edges.py:
+#   weather_applicable
+#   temp_f
+#   wind_mph
+#   wind_blowing_out
+#
+# Weather columns not used by compute_edges.py:
+#   weather_time
+#   wind_dir
+#   precip_in
+#   humidity
+#   will_it_rain
+#   air_pressure_at_sea_level
+#   dew_point_f
+#   symbol_code
+#
+# All scale factors are edge nudges applied after base edge calculation.
+# Tune only after reviewing tracked results.
 
 mlb:
 
   # ── Park Factor ─────────────────────────────────────────────
-  # Applied to all three markets.
+  # Applied to moneyline, run line, and totals.
   #
   # Totals:
-  #   edge * (1 + (park_R - 100) * park_edge_scale)
-  #   over edge nudged up when park_R > 100, under nudged up when park_R < 100
+  #   Uses park_R.
+  #   over_edge  *= 1 + (park_R - 100) * park_edge_scale
+  #   under_edge *= 1 - (park_R - 100) * park_edge_scale
   #
   # Moneyline / Run Line:
+  #   Uses park_factor and lineup_xwoba_diff.
+  #   lineup_xwoba_diff = home_lineup_xwoba - away_lineup_xwoba
   #   park_nudge = (park_factor - 100) * park_edge_scale * sign(lineup_xwoba_diff)
-  #   home edge += park_nudge, away edge -= park_nudge
-  #park_edge_scale: 0.002
+  #   home edge += park_nudge
+  #   away edge -= park_nudge
+  #
+  # Suggested starting value:
+  # park_edge_scale: 0.002
   park_edge_scale: 0.99
 
 
-  # ── SP xwOBA Adjustment ──────────────────────────────────────
+  # ── SP xwOBA Adjustment ─────────────────────────────────────
+  # Applied to moneyline and run line only.
+  #
+  # Uses:
+  #   home_sp_xwoba
+  #   away_sp_xwoba
+  #
   # sp_xwoba_diff = home_sp_xwoba - away_sp_xwoba
-  # Positive = home pitcher weaker → nudge away edges up, home edges down
-  # Applied to moneyline and run line.
+  #
+  # Positive diff:
+  #   home pitcher weaker
+  #   away edge nudged up
+  #   home edge nudged down
+  #
   # nudge = sp_xwoba_diff * sp_xwoba_scale
-  #sp_xwoba_scale: 0.5
+  #
+  # Suggested starting value:
+  # sp_xwoba_scale: 0.5
   sp_xwoba_scale: 0.99
 
-  # ── Lineup xwOBA Adjustment ──────────────────────────────────
+
+  # ── Lineup xwOBA Adjustment ─────────────────────────────────
+  # Applied to moneyline and run line only.
+  #
+  # Uses:
+  #   home_lineup_xwoba
+  #   away_lineup_xwoba
+  #
   # lineup_xwoba_diff = home_lineup_xwoba - away_lineup_xwoba
-  # Positive = home lineup stronger → nudge home edges up, away edges down
-  # Applied to moneyline and run line.
+  #
+  # Positive diff:
+  #   home lineup stronger
+  #   home edge nudged up
+  #   away edge nudged down
+  #
   # nudge = lineup_xwoba_diff * lineup_xwoba_scale
-  #lineup_xwoba_scale: 0.3
+  #
+  # Suggested starting value:
+  # lineup_xwoba_scale: 0.3
   lineup_xwoba_scale: 0.99
 
-  # ── Weather ─────────────────────────────────────────────────
-  # Only applied when weather_applicable = 1.
+
+  # ── Weather Adjustments ─────────────────────────────────────
   # Applied to totals only.
   #
-  # Wind (proportional to speed):
-  #   wind_nudge = (wind_mph / 20) * wind_nudge_scale
-  #   Blowing out → over edge up, under edge down
-  #   Blowing in  → under edge up, over edge down
-  #wind_nudge_threshold: 12       # mph — minimum to apply wind nudge
+  # Weather adjustments are only applied when:
+  #   weather_applicable = 1
+  #
+  # This script does not use rain probability/chance columns.
+  # Rain exclusion is handled in select_bets.py using markets.yaml.
+
+
+  # ── Wind Adjustment ─────────────────────────────────────────
+  # Uses:
+  #   wind_mph
+  #   wind_blowing_out
+  #
+  # Applied only when:
+  #   weather_applicable = 1
+  #   wind_mph > wind_nudge_threshold
+  #
+  # wind_nudge = (wind_mph / 20) * wind_nudge_scale
+  #
+  # If wind_blowing_out = 1:
+  #   over edge nudged up
+  #   under edge nudged down
+  #
+  # If wind_blowing_out = 0:
+  #   over edge nudged down
+  #   under edge nudged up
+  #
+  # Suggested starting values:
+  # wind_nudge_threshold: 12
+  # wind_nudge_scale: 0.005
   wind_nudge_threshold: 5
-  #wind_nudge_scale: 0.005        # nudge at 20 mph; proportional below
   wind_nudge_scale: 0.99
 
-  # Temperature (proportional to distance from threshold):
-  #   cold: nudge = (cold_threshold - temp_f) / cold_threshold * temp_nudge_scale → over down
-  #   hot:  nudge = (temp_f - hot_threshold) / hot_threshold * temp_nudge_scale  → over up
-  temp_cold_threshold: 50        # °F
-  temp_hot_threshold: 80         # °F
-  #temp_nudge_scale: 0.003
+
+  # ── Temperature Adjustment ──────────────────────────────────
+  # Uses:
+  #   temp_f
+  #
+  # Applied only when:
+  #   weather_applicable = 1
+  #
+  # Cold:
+  #   temp_f < temp_cold_threshold
+  #   cold_nudge = (temp_cold_threshold - temp_f) / temp_cold_threshold * temp_nudge_scale
+  #   over edge nudged down
+  #
+  # Hot:
+  #   temp_f > temp_hot_threshold
+  #   hot_nudge = (temp_f - temp_hot_threshold) / temp_hot_threshold * temp_nudge_scale
+  #   over edge nudged up
+  #
+  # Current compute_edges.py only directly changes over edge for temperature.
+  # Under edge is not directly temperature-adjusted in the current script.
+  #
+  # Suggested starting values:
+  # temp_cold_threshold: 50
+  # temp_hot_threshold: 80
+  # temp_nudge_scale: 0.003
+  temp_cold_threshold: 50
+  temp_hot_threshold: 80
   temp_nudge_scale: 0.99
