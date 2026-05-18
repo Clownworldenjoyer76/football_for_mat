@@ -3,7 +3,11 @@
 # Parameters for contextual edge adjustments in compute_edges.py.
 # All scale factors are nudges applied on top of the base edge.
 #
-# Tune these after tracking results.
+# This version is meant for realistic but noticeable testing:
+#   - no extreme 0.99 multipliers
+#   - weather still matters
+#   - park/SP/lineup adjustments can move marginal bets
+#   - totals get moderate environment nudges
 
 mlb:
 
@@ -19,9 +23,12 @@ mlb:
   #   home edge += park_nudge
   #   away edge -= park_nudge
   #
-  # Normal starting value:
-  # park_edge_scale: 0.002
-  park_edge_scale: 0.99
+  # Practical range:
+  #   0.0005 = very light
+  #   0.0010 = light
+  #   0.0015 = noticeable
+  #   0.0020 = aggressive
+  park_edge_scale: 0.0015
 
 
   # ── SP xwOBA Adjustment ─────────────────────────────────────
@@ -36,9 +43,12 @@ mlb:
   #
   # nudge = sp_xwoba_diff * sp_xwoba_scale
   #
-  # Normal starting value:
-  # sp_xwoba_scale: 0.5
-  sp_xwoba_scale: 0.99
+  # Practical range:
+  #   0.25 = light
+  #   0.40 = moderate
+  #   0.50 = normal/aggressive
+  #   0.65 = very aggressive
+  sp_xwoba_scale: 0.50
 
 
   # ── Lineup xwOBA Adjustment ─────────────────────────────────
@@ -53,9 +63,12 @@ mlb:
   #
   # nudge = lineup_xwoba_diff * lineup_xwoba_scale
   #
-  # Normal starting value:
-  # lineup_xwoba_scale: 0.3
-  lineup_xwoba_scale: 0.99
+  # Practical range:
+  #   0.15 = light
+  #   0.25 = moderate
+  #   0.30 = normal
+  #   0.40 = aggressive
+  lineup_xwoba_scale: 0.30
 
 
   # ── Weather: Wind ───────────────────────────────────────────
@@ -76,11 +89,11 @@ mlb:
   #
   # wind_nudge = (wind_mph / 20) * wind_nudge_scale
   #
-  # Normal starting values:
-  # wind_nudge_threshold: 12
-  # wind_nudge_scale: 0.005
-  wind_nudge_threshold: 5
-  wind_nudge_scale: 0.99
+  # Practical range:
+  #   threshold 8-12 mph
+  #   scale 0.003-0.008
+  wind_nudge_threshold: 8
+  wind_nudge_scale: 0.006
 
 
   # ── Weather: Temperature ────────────────────────────────────
@@ -101,13 +114,11 @@ mlb:
   # cold_nudge = (temp_cold_threshold - temp_f) / temp_cold_threshold * temp_nudge_scale
   # hot_nudge  = (temp_f - temp_hot_threshold) / temp_hot_threshold * temp_nudge_scale
   #
-  # Normal starting values:
-  # temp_cold_threshold: 50
-  # temp_hot_threshold: 80
-  # temp_nudge_scale: 0.003
+  # Practical range:
+  #   scale 0.002-0.006
   temp_cold_threshold: 50
   temp_hot_threshold: 80
-  temp_nudge_scale: 0.99
+  temp_nudge_scale: 0.004
 
 
   # ── Weather: Air Pressure ───────────────────────────────────
@@ -117,7 +128,7 @@ mlb:
   # Uses:
   #   air_pressure_at_sea_level
   #
-  # Lower pressure can mean thinner air / better carry:
+  # Lower pressure can mean better carry:
   #   pressure below pressure_low_threshold
   #   over edge up
   #   under edge down
@@ -130,13 +141,11 @@ mlb:
   # low_nudge  = (pressure_low_threshold - pressure) / pressure_low_threshold * pressure_nudge_scale
   # high_nudge = (pressure - pressure_high_threshold) / pressure_high_threshold * pressure_nudge_scale
   #
-  # Normal starting values:
-  # pressure_low_threshold: 1010
-  # pressure_high_threshold: 1020
-  # pressure_nudge_scale: 0.003
-  pressure_low_threshold: 1010
-  pressure_high_threshold: 1020
-  pressure_nudge_scale: 0.003
+  # Practical range:
+  #   scale 0.0015-0.004
+  pressure_low_threshold: 1000
+  pressure_high_threshold: 1022
+  pressure_nudge_scale: 0.0025
 
 
   # ── Weather: Dew Point ──────────────────────────────────────
@@ -146,24 +155,22 @@ mlb:
   # Uses:
   #   dew_point_f
   #
-  # High dew point can indicate heavy/moist air and better carry conditions:
-  #   dew_point_f above dew_point_high_threshold
+  # High dew point:
   #   over edge up
+  #   under edge down
   #
-  # Low dew point can indicate dry/cooler carry conditions:
-  #   dew_point_f below dew_point_low_threshold
+  # Low dew point:
   #   over edge down
+  #   under edge up
   #
   # low_nudge  = (dew_point_low_threshold - dew_point_f) / dew_point_low_threshold * dew_point_nudge_scale
   # high_nudge = (dew_point_f - dew_point_high_threshold) / dew_point_high_threshold * dew_point_nudge_scale
   #
-  # Normal starting values:
-  # dew_point_low_threshold: 45
-  # dew_point_high_threshold: 65
-  # dew_point_nudge_scale: 0.003
+  # Practical range:
+  #   scale 0.002-0.006
   dew_point_low_threshold: 45
   dew_point_high_threshold: 65
-  dew_point_nudge_scale: 0.003
+  dew_point_nudge_scale: 0.004
 
 
   # ── Weather: Precipitation ──────────────────────────────────
@@ -173,17 +180,17 @@ mlb:
   # Uses:
   #   precip_in
   #
-  # Measurable precipitation suppresses scoring conditions:
+  # Measurable precipitation:
   #   over edge down
   #   under edge up
   #
   # precip_nudge = (precip_in / precip_nudge_threshold) * precip_nudge_scale
   #
-  # Normal starting values:
-  # precip_nudge_threshold: 0.02
-  # precip_nudge_scale: 0.004
-  precip_nudge_threshold: 0.02
-  precip_nudge_scale: 0.004
+  # Practical range:
+  #   threshold 0.02-0.05
+  #   scale 0.003-0.008
+  precip_nudge_threshold: 0.03
+  precip_nudge_scale: 0.005
 
 
   # ── Weather: Humidity ───────────────────────────────────────
@@ -193,21 +200,21 @@ mlb:
   # Uses:
   #   humidity
   #
-  # This is intentionally weaker than dew point because humidity alone is noisier.
+  # Humidity is weaker than dew point because humidity alone is noisier.
   #
   # High humidity:
   #   over edge up slightly
+  #   under edge down slightly
   #
   # Low humidity:
   #   over edge down slightly
+  #   under edge up slightly
   #
   # low_nudge  = (humidity_low_threshold - humidity) / humidity_low_threshold * humidity_nudge_scale
   # high_nudge = (humidity - humidity_high_threshold) / humidity_high_threshold * humidity_nudge_scale
   #
-  # Normal starting values:
-  # humidity_low_threshold: 35
-  # humidity_high_threshold: 70
-  # humidity_nudge_scale: 0.0015
+  # Practical range:
+  #   scale 0.001-0.003
   humidity_low_threshold: 35
-  humidity_high_threshold: 70
-  humidity_nudge_scale: 0.0015
+  humidity_high_threshold: 75
+  humidity_nudge_scale: 0.002
