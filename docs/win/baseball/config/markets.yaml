@@ -1,14 +1,9 @@
 # docs/win/baseball/config/markets.yaml
-
-
 markets:
 
   mlb:
-
     # ── Context / Environment Settings ──────────────────────────
     rain_exclude_on_will_it_rain: false
-
-    # Used by baseball_select_bets.py rain_excluded().
     # If symbol_code contains one of these terms, the game is excluded.
     rain_symbol_terms:
       - rain
@@ -17,59 +12,42 @@ markets:
       - sleet
       - snow
       - thunder
-
     # Set false to allow more totals through even when one/both SP samples are low.
     sp_sample_exclude_totals: false
-
     # Flag only. Does not exclude bets.
     lineup_low_sample_warn: 4
-
-
+    
     ###################################################
     # ── Moneyline ────────────────────────────────────
     ###################################################
 
     moneyline:
       enabled: true
-
-      # Wide-open testing:
       #   best_ev = one ML side max per game
       #   all = can select both if both pass
       pick_preference: best_ev
-
       home:
         enabled: true
-
-        # Avoid only extreme longshots/favorites.
         odds_bands:
           - [-350, 350]
-
-        # Lower EV floor to increase volume.
         ev_bands:
           - [0.005, 0.99]
-
-        # Allow tiny Kelly through for testing.
         kelly_bands:
-          - [0.001, 0.99]
-
-        # Basic probability guardrails.
-        prob_min: 0.15
-        prob_max: 0.90
+          - [0.001, 0.10]
+          - [0.15, 0.99]
+       prob_bands:
+          - [0.10, 0.99]
 
       away:
         enabled: true
-
         odds_bands:
           - [-350, 350]
-
         ev_bands:
           - [0.005, 0.99]
-
         kelly_bands:
-          - [0.001, 0.99]
-
-        prob_min: 0.15
-        prob_max: 0.90
+          - [0.10, 0.99]
+         prob_bands:
+          - [0.10, 0.99]
 
 
     ###################################################
@@ -98,8 +76,8 @@ markets:
         kelly_bands:
           - [0.001, 0.99]
 
-        prob_min: 0.25
-        prob_max: 0.85
+         prob_bands:
+          - [0.20, 0.35]
 
       away:
         enabled: true
@@ -116,8 +94,8 @@ markets:
         kelly_bands:
           - [0.001, 0.99]
 
-        prob_min: 0.25
-        prob_max: 0.85
+         prob_bands:
+          - [0.20, 0.35]
 
 
     ###################################################
@@ -147,8 +125,8 @@ markets:
         kelly_bands:
           - [0.001, 0.99]
 
-        prob_min: 0.20
-        prob_max: 0.85
+         prob_bands:
+          - [0.20, 0.35]
 
       under:
         enabled: true
@@ -165,5 +143,5 @@ markets:
         kelly_bands:
           - [0.001, 0.99]
 
-        prob_min: 0.20
-        prob_max: 0.85
+         prob_bands:
+          - [0.20, 0.35]
