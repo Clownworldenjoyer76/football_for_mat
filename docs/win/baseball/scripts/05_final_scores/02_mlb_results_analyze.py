@@ -198,6 +198,27 @@ def model_prob_bucket(value):
     return "80_plus"
 
 
+def total_range_bucket(value):
+    value = to_float(value)
+    if pd.isna(value):
+        return "UNBUCKETED"
+    import math
+    floor = math.floor(float(value) * 2) / 2
+    hi = floor + 0.5
+    return f"{floor:.1f}_to_{hi:.1f}"
+
+
+def run_line_side_bucket(value):
+    value = to_float(value)
+    if pd.isna(value):
+        return "UNBUCKETED"
+    if value > 0:
+        return "+1.5"
+    if value < 0:
+        return "-1.5"
+    return "0"
+
+
 ###############################################################
 ######################## PREPARE ##############################
 ###############################################################
@@ -227,12 +248,15 @@ def prepare(df):
     )
 
     # Bucket columns
-    work["ev_bucket"]         = work["ev_value"].apply(ev_bucket)
-    work["odds_bucket"]       = work["moneyline_odds_value"].apply(odds_bucket)
-    work["run_line_bucket"]   = work["run_line_value"].apply(run_line_bucket)
-    work["total_bucket"]      = work["total_value"].apply(total_bucket)
-    work["kelly_bucket"]      = work["kelly_value"].apply(kelly_bucket)
-    work["model_prob_bucket"] = work["model_prob_value"].apply(model_prob_bucket)
+    work["ev_bucket"]            = work["ev_value"].apply(ev_bucket)
+    work["odds_bucket"]          = work["moneyline_odds_value"].apply(odds_bucket)
+    work["run_line_bucket"]      = work["run_line_value"].apply(run_line_bucket)
+    work["total_bucket"]         = work["total_value"].apply(total_bucket)
+    work["kelly_bucket"]         = work["kelly_value"].apply(kelly_bucket)
+    work["model_prob_bucket"]    = work["model_prob_value"].apply(model_prob_bucket)
+    work["win_prob_bucket"]      = work["model_prob_value"].apply(model_prob_bucket)
+    work["total_range_bucket"]   = work["total_value"].apply(total_range_bucket)
+    work["run_line_side"]        = work["run_line_value"].apply(run_line_side_bucket)
 
     return work
 

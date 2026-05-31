@@ -4,6 +4,10 @@
 # Reads raw Savant files from data/ subfolders, cleans them,
 # and writes _clean versions to the same subfolders.
 # Run once when Savant data is refreshed.
+#
+# NOTE:
+# This script intentionally does nothing to:
+# docs/win/baseball/data/park_factors
 
 import traceback
 from datetime import datetime, UTC
@@ -20,7 +24,6 @@ BATTING_DIR     = BASE_DIR / "batting"
 PITCHING_DIR    = BASE_DIR / "pitching"
 FIELDING_DIR    = BASE_DIR / "fielding"
 BASERUNNING_DIR = BASE_DIR / "baserunning"
-PARK_DIR        = BASE_DIR / "park_factors"
 
 ERROR_DIR = Path("docs/win/baseball/errors/00_parsing")
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
@@ -94,35 +97,6 @@ FIELDING_DROP = [
     "outs_2", "outs_3", "outs_4", "outs_5",
     "outs_6", "outs_7", "outs_8", "outs_9",
 ]
-
-# ─────────────────────────────────────────────
-# PARK FACTORS CONFIG
-# ─────────────────────────────────────────────
-
-PARK_DROP = [
-    "Year",
-    "BACON",
-    "xBACON",
-    "OBP",
-    "H",
-    "1B",
-    "2B",
-    "3B",
-    "BB",
-    "SO",
-    "PA",
-]
-
-# Derive bat_side and condition from filename
-# e.g. park_L_day.csv → bat_side=L, condition=day
-def _parse_park_filename(stem: str):
-    # stem format: park_{side}_{condition}
-    parts = stem.split("_", 2)
-    if len(parts) != 3:
-        return None, None
-    _, side, condition = parts
-    return side, condition
-
 
 # ─────────────────────────────────────────────
 # HELPERS
@@ -290,69 +264,6 @@ def clean_baserunning(filepath: Path, summary: dict) -> None:
 
 
 # ─────────────────────────────────────────────
-# PARK FACTORS CLEANER
-# ─────────────────────────────────────────────
-
-def clean_park_factors(filepath: Path, summary: dict) -> None:
-    label = filepath.name
-    _log(f"--- {label}")
-
-    bat_side, condition = _parse_park_filename(filepath.stem)
-    if bat_side is None or condition is None:
-        _log(f"  Cannot parse bat_side/condition from filename — skipping", "WARN")
-        summary["skipped"] += 1
-        return
-
-    try:
-        # PA column has comma-formatted numbers in quotes e.g. "9,589"
-        df = pd.read_csv(filepath, thousands=",")
-    except Exception as e:
-        _log(f"  READ ERROR: {e}", "ERROR")
-        summary["errors"] += 1
-        return
-
-    rows_raw = len(df)
-    _log(f"  Rows raw: {rows_raw} | bat_side={bat_side} | condition={condition}")
-
-    # Check for venue_id and team_id (must be added manually per Issue #5)
-    missing_ids = []
-    if "venue_id" not in df.columns:
-        missing_ids.append("venue_id")
-    if "team_id" not in df.columns:
-        missing_ids.append("team_id")
-    if missing_ids:
-        _log(f"  MISSING columns {missing_ids} — these must be added manually (Issue #5) before cleaning", "WARN")
-        _log(f"  Skipping {label} until IDs are present", "WARN")
-        summary["skipped"] += 1
-        return
-
-    # Add bat_side and condition columns
-    df["bat_side"]  = bat_side
-    df["condition"] = condition
-
-    # Drop columns
-    cols_to_drop = [c for c in PARK_DROP if c in df.columns]
-    # Also drop Team and Venue after IDs are confirmed present
-    for c in ["Team", "Venue"]:
-        if c in df.columns and c not in cols_to_drop:
-            cols_to_drop.append(c)
-    df.drop(columns=cols_to_drop, inplace=True)
-    _log(f"  Dropped columns: {cols_to_drop}")
-
-    # Reorder for clarity
-    lead_cols = ["team_id", "venue_id", "bat_side", "condition"]
-    remaining = [c for c in df.columns if c not in lead_cols]
-    df = df[lead_cols + remaining]
-
-    # Write clean file
-    out_path = filepath.parent / (filepath.stem + "_clean.csv")
-    df.to_csv(out_path, index=False)
-    _log(f"  WROTE: {out_path.name} ({len(df)} rows)")
-    summary["files_written"] += 1
-    summary["rows_written"] += len(df)
-
-
-# ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
 
@@ -419,15 +330,7 @@ def main():
 
     # ── Park Factors ──────────────────────────
     _log("=== PARK FACTORS ===")
-    park_files = sorted(PARK_DIR.glob("park_*.csv"))
-    park_files = [f for f in park_files if "_clean" not in f.stem]
-    _log(f"Files found: {len(park_files)}")
-    for fp in park_files:
-        try:
-            clean_park_factors(fp, summary)
-        except Exception as e:
-            _log(f"UNHANDLED ERROR {fp.name}: {e}\n{traceback.format_exc()}", "ERROR")
-            summary["errors"] += 1
+    _log("Skipped intentionally. This script does not read, write, clean, or modify docs/win/baseball/data/park_factors.")
 
     # ── Summary ───────────────────────────────
     status = "SUCCESS" if summary["errors"] == 0 else "COMPLETED WITH ERRORS"
@@ -454,3 +357,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

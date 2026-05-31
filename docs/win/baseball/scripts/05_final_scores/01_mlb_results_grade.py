@@ -38,6 +38,22 @@ def log_summary(msg):
     with open(GRADE_SUMMARY_LOG, "a", encoding="utf-8") as f:
         f.write(f"[{datetime.now(UTC).isoformat()}] {msg}\n")
 
+def clear_output_files():
+    deleted = 0
+
+    master_path = OUTPUT_DIR / "MLB_final.csv"
+    if master_path.exists():
+        master_path.unlink()
+        deleted += 1
+        log_summary(f"DELETED OLD OUTPUT | {master_path}")
+
+    for old_file in sorted(DAILY_DIR.glob("*_MLB_final.csv")):
+        old_file.unlink()
+        deleted += 1
+        log_summary(f"DELETED OLD OUTPUT | {old_file}")
+
+    log_summary(f"OLD GRADED OUTPUT FILES DELETED | count={deleted}")
+
 def safe_read(path):
     try:
         path = Path(path)
@@ -222,6 +238,7 @@ def grade_league():
 def main():
     reset_logs()
     log_summary("START 01_mlb_results_grade.py")
+    clear_output_files()
     grade_league()
     log_summary("END 01_mlb_results_grade.py")
     print("MLB grading complete.")

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # docs/win/baseball/scripts/05_final_scores/03_mlb_results_reports.py
 
+import shutil
 import pandas as pd
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from pathlib import Path
 INPUT_FILE = Path("docs/win/baseball/05_final_scores/intermediate/work_mlb.csv")
 
 SUMMARY_DIR  = Path("docs/win/baseball/05_final_scores")
+REPORTS_DIR  = Path("docs/win/baseball/05_final_scores/reports")
 OVERVIEW_DIR = Path("docs/win/baseball/05_final_scores/reports/overview")
 ML_DIR       = Path("docs/win/baseball/05_final_scores/reports/moneyline")
 RL_DIR       = Path("docs/win/baseball/05_final_scores/reports/run_line")
@@ -24,6 +26,14 @@ LEAGUE = "MLB"
 ###############################################################
 ######################## HELPERS ##############################
 ###############################################################
+
+def clear_report_outputs():
+    if REPORTS_DIR.exists():
+        shutil.rmtree(REPORTS_DIR)
+
+    for d in [OVERVIEW_DIR, ML_DIR, RL_DIR, TOT_DIR]:
+        d.mkdir(parents=True, exist_ok=True)
+
 
 def to_float(value):
     try:
@@ -54,101 +64,6 @@ def units_won(odds, result):
 
 
 ###############################################################
-######################## BUCKET FUNCTIONS #####################
-###############################################################
-
-def ev_bucket(value):
-    v = to_float(value)
-    if v is None:
-        return "UNBUCKETED"
-    # 0.01-wide bands; below 0 grouped, 0.10+ grouped
-    if v < 0:
-        return "<0.00"
-    floor = int(v * 100)          # e.g. 0.032 -> 3
-    lo = floor / 100              # 0.03
-    hi = (floor + 1) / 100        # 0.04
-    if lo >= 0.10:
-        return "0.10_plus"
-    return f"{lo:.2f}_to_{hi:.2f}"
-
-
-def odds_bucket(value):
-    v = to_float(value)
-    if v is None:
-        return "UNBUCKETED"
-    # 10-point bands
-    import math
-    if v < 0:
-        # e.g. -143 -> floor(-143/10)*10 = -150, band -150 to -140
-        floor = math.floor(v / 10) * 10
-        return f"{floor}_to_{floor + 10}"
-    else:
-        floor = math.floor(v / 10) * 10
-        return f"+{floor}_to_+{floor + 10}"
-
-
-def kelly_bucket(value):
-    v = to_float(value)
-    if v is None:
-        return "UNBUCKETED"
-    if v <= 0:
-        return "zero_or_below"
-    # 0.05-wide bands
-    import math
-    floor = math.floor(v / 0.05) * 0.05
-    hi    = floor + 0.05
-    if floor >= 0.30:
-        return "0.30_plus"
-    return f"{floor:.2f}_to_{hi:.2f}"
-
-
-def win_prob_bucket(value):
-    v = to_float(value)
-    if v is None:
-        return "UNBUCKETED"
-
-    # normalize to 0-1 scale
-    if v > 1.0:
-        v = v / 100.0
-
-    import math
-
-    # 0.05-wide bands
-    if v < 0.0:
-        return "<0.00"
-    if v >= 1.0:
-        return "1.00_plus"
-
-    bucket_size = 0.05
-    floor = math.floor(v / bucket_size) * bucket_size
-    hi    = floor + bucket_size
-
-    return f"{floor:.2f}_to_{hi:.2f}"
-
-
-def total_range_bucket(value):
-    """True 0.5-step buckets: 7.5–8.0, 8.0–8.5, etc."""
-    v = to_float(value)
-    if v is None:
-        return "UNBUCKETED"
-    import math
-    floor = math.floor(v * 2) / 2      # nearest 0.5 below
-    hi    = floor + 0.5
-    return f"{floor:.1f}_to_{hi:.1f}"
-
-
-def run_line_side_bucket(value):
-    v = to_float(value)
-    if v is None:
-        return "UNBUCKETED"
-    if v > 0:
-        return "+1.5"
-    if v < 0:
-        return "-1.5"
-    return "0"
-
-
-###############################################################
 ######################## ENRICH ###############################
 ###############################################################
 
@@ -174,20 +89,6 @@ def enrich(df):
     # Units won per bet
     df["bet_units"] = df.apply(
         lambda r: units_won(r.get("dk_odds_american"), r["bet_result"]), axis=1
-    )
-
-    # Bucket columns
-    df["ev_bucket"]          = df["ev"].apply(ev_bucket)
-    df["odds_bucket"]        = df["dk_odds_american"].apply(odds_bucket)
-    df["kelly_bucket"]       = df["kelly"].apply(kelly_bucket)
-    df["win_prob_bucket"]    = df["model_prob"].apply(win_prob_bucket)
-    df["total_range_bucket"] = df.get("total_value", df.get("total", pd.Series(dtype=str))).apply(total_range_bucket)
-
-    df["run_line_side"] = df.apply(
-        lambda r: run_line_side_bucket(
-            r.get("home_run_line") if r.get("side_group") == "HOME" else r.get("away_run_line")
-        ),
-        axis=1
     )
 
     return df
@@ -372,6 +273,9 @@ def build_moneyline(df):
         if src.empty:
             return
 
+        if bucket_col not in src.columns:
+            return
+
         src = src[src[bucket_col] != "UNBUCKETED"].copy()
 
         if home_away:
@@ -413,6 +317,9 @@ def build_run_line(df):
 
     def _write(src, bucket_col, fname, home_away=False):
         if src.empty:
+            return
+
+        if bucket_col not in src.columns:
             return
 
         src = src[src[bucket_col] != "UNBUCKETED"].copy()
@@ -460,6 +367,9 @@ def build_totals(df):
         if src.empty:
             return
 
+        if bucket_col not in src.columns:
+            return
+
         src = src[src[bucket_col] != "UNBUCKETED"].copy()
 
         if home_away:
@@ -499,6 +409,8 @@ def build_totals(df):
 ###############################################################
 
 def run():
+    clear_report_outputs()
+
     if not INPUT_FILE.exists():
         print(f"ERROR: input file not found: {INPUT_FILE}")
         return
