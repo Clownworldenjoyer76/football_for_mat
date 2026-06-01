@@ -205,11 +205,44 @@ def enforce_unmatched_cols(df):
     return df[UNMATCHED_COLS].copy()
 
 
+def normalize_unmatched_selected_rows(unmatched):
+    if unmatched.empty:
+        return unmatched
+
+    out = unmatched.copy()
+
+    selected_preferred = [
+        "sport",
+        "league",
+        "game_date",
+        "game_time",
+        "home_team",
+        "away_team",
+        "source_file",
+        "take_bet",
+    ]
+
+    for base in selected_preferred:
+        bet_col = f"{base}_bet"
+        score_col = f"{base}_score"
+
+        if bet_col in out.columns:
+            out[base] = out[bet_col]
+        elif base not in out.columns and score_col in out.columns:
+            out[base] = out[score_col]
+
+    if "game_date" in out.columns:
+        out["game_date"] = out["game_date"].apply(normalize_date)
+
+    return out
+
+
 def write_unmatched(unmatched):
     if unmatched.empty:
         return None
 
-    unmatched = enforce_unmatched_cols(unmatched.copy())
+    unmatched = normalize_unmatched_selected_rows(unmatched.copy())
+    unmatched = enforce_unmatched_cols(unmatched)
     unmatched_path = UNMATCHED_DIR / "MLB_unmatched_selected_bets.csv"
     write_csv_checked(unmatched, unmatched_path, "unmatched selected bets output")
     return unmatched_path
