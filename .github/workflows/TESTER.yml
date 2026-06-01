@@ -1,0 +1,146 @@
+name: Grade MLB Bets Debug
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  grade-mlb-bets:
+    name: Grade MLB Bets With Logs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pandas numpy
+
+      - name: Show input file counts before grading
+        run: |
+          echo "=== SELECT FILES ==="
+          find docs/win/baseball/04_select -maxdepth 1 -type f -name "*MLB*.csv" | sort | wc -l
+          find docs/win/baseball/04_select -maxdepth 1 -type f -name "*MLB*.csv" | sort | head -20
+
+          echo ""
+          echo "=== FINAL SCORE FILES ==="
+          find docs/win/baseball/05_final_scores/results/final_scores -maxdepth 1 -type f -name "*_final_scores_MLB.csv" | sort | wc -l
+          find docs/win/baseball/05_final_scores/results/final_scores -maxdepth 1 -type f -name "*_final_scores_MLB.csv" | sort | head -20
+
+      - name: Run MLB grading script
+        id: grade
+        continue-on-error: true
+        run: |
+          python docs/win/baseball/scripts/05_final_scores/01_mlb_results_grade.py
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Show MLB grading logs
+        if: always()
+        run: |
+          echo "=== MLB GRADING ERROR LOG ==="
+          if [ -f docs/win/baseball/errors/05_final_scores/mlb_results_grade_errors.txt ]; then
+            cat docs/win/baseball/errors/05_final_scores/mlb_results_grade_errors.txt
+          else
+            echo "Missing error log: docs/win/baseball/errors/05_final_scores/mlb_results_grade_errors.txt"
+          fi
+
+          echo ""
+          echo "=== MLB GRADING SUMMARY LOG ==="
+          if [ -f docs/win/baseball/errors/05_final_scores/mlb_results_grade_summary.txt ]; then
+            cat docs/win/baseball/errors/05_final_scores/mlb_results_grade_summary.txt
+          else
+            echo "Missing summary log: docs/win/baseball/errors/05_final_scores/mlb_results_grade_summary.txt"
+          fi
+
+      - name: Show unmatched selected bets
+        if: always()
+        run: |
+          echo "=== UNMATCHED OUTPUT FILES ==="
+          if [ -d docs/win/baseball/05_final_scores/results/unmatched ]; then
+            find docs/win/baseball/05_final_scores/results/unmatched -type f -name "*.csv" | sort || true
+
+            echo ""
+            echo "=== UNMATCHED ROW COUNTS ==="
+            for f in $(find docs/win/baseball/05_final_scores/results/unmatched -type f -name "*.csv" | sort); do
+              echo "$f"
+              python - "$f" <<'PY'
+import sys
+import pandas as pd
+
+path = sys.argv[1]
+try:
+    df = pd.read_csv(path, dtype=str)
+    print(f"rows={len(df)}")
+    print("columns=" + ",".join(df.columns))
+    if "unmatched_reason" in df.columns:
+        print("reasons=" + str(df["unmatched_reason"].value_counts(dropna=False).to_dict()))
+    print(df.head(20).to_string(index=False))
+except Exception as e:
+    print(f"READ_ERROR: {e}")
+PY
+              echo ""
+            done
+          else
+            echo "No unmatched directory found."
+          fi
+
+      - name: Show graded output counts
+        if: always()
+        run: |
+          echo "=== GRADED OUTPUT FILES ==="
+          if [ -d docs/win/baseball/05_final_scores/results/graded ]; then
+            find docs/win/baseball/05_final_scores/results/graded -type f -name "*.csv" | sort || true
+
+            echo ""
+            echo "=== MASTER FINAL COUNT ==="
+            if [ -f docs/win/baseball/05_final_scores/results/graded/MLB_final.csv ]; then
+              python - <<'PY'
+import pandas as pd
+
+path = "docs/win/baseball/05_final_scores/results/graded/MLB_final.csv"
+df = pd.read_csv(path, dtype=str)
+print(f"{path}: rows={len(df)}")
+print("columns=" + ",".join(df.columns))
+if "bet_result" in df.columns:
+    print("bet_result_counts=" + str(df["bet_result"].value_counts(dropna=False).to_dict()))
+if "market_type" in df.columns:
+    print("market_counts=" + str(df["market_type"].value_counts(dropna=False).to_dict()))
+PY
+            else
+              echo "Missing master graded file."
+            fi
+          else
+            echo "No graded output directory found."
+          fi
+
+      - name: Upload MLB grading debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlb-grading-debug
+          if-no-files-found: ignore
+          path: |
+            docs/win/baseball/errors/05_final_scores/*.txt
+            docs/win/baseball/05_final_scores/results/unmatched/*.csv
+            docs/win/baseball/05_final_scores/results/graded/MLB_final.csv
+            docs/win/baseball/05_final_scores/results/graded/daily/*.csv
+
+      - name: Fail if grading failed
+        if: always()
+        run: |
+          if [ "${{ steps.grade.outputs.exit_code }}" != "0" ]; then
+            echo "MLB grading failed. Logs and artifacts printed above."
+            exit 1
+          fi
+
+          echo "MLB grading completed successfully."
