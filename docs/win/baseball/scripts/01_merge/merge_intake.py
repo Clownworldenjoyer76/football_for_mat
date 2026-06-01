@@ -183,8 +183,6 @@ REQUIRED_PRED_COLS = [
     "away_pitcher",
     "home_prob",
     "away_prob",
-    "home_prob_run_line",
-    "away_prob_run_line",
     "away_projected_runs",
     "home_projected_runs",
     "total_projected_runs",
@@ -444,8 +442,6 @@ def process_date(date, summary):
             p.get("away_projected_runs", ""),
             p.get("home_projected_runs", ""),
             p.get("total_projected_runs", ""),
-            p.get("home_prob_run_line", ""),
-            p.get("away_prob_run_line", ""),
         ] + ctx_vals)
 
         over_raw = american_to_prob(b.get("dk_total_over_american", ""))
@@ -525,7 +521,6 @@ def process_date(date, summary):
         "away_dk_run_line_decimal", "home_dk_run_line_decimal",
         "home_pitcher", "away_pitcher", "home_prob", "away_prob",
         "away_projected_runs", "home_projected_runs", "total_projected_runs",
-        "home_prob_run_line", "away_prob_run_line",
     ]
 
     base_tot_header = [
