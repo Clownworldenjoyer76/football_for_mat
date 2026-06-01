@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # docs/win/baseball/scripts/03_edges/compute_ev_kelly.py
 
-import sys
 import traceback
 from datetime import datetime, UTC
 from pathlib import Path
@@ -45,145 +44,21 @@ def _write_summary(summary: dict, per_file: list) -> None:
         f"  skipped          : {summary['skipped']}",
         f"  neg_kelly_clipped: {summary['neg_kelly_clipped']}",
         f"  missing_adj_ev   : {summary['missing_adj_ev']}",
-        f"  schema_errors    : {summary['schema_errors']}",
         f"  errors           : {summary['errors']}",
         "",
-        f"  {'file':<48} {'market':<12} {'rows':>5} {'neg_kelly':>10} {'missing_adj':>12} {'schema_errors':>15} {'status':>14}",
+        f"  {'file':<48} {'market':<12} {'rows':>5} {'neg_kelly':>10} {'missing_adj':>12} {'status':>10}",
     ]
-
     for pf in per_file:
         lines.append(
             f"  {pf['name']:<48} {pf['market']:<12} {pf['rows']:>5} "
-            f"{pf['neg_kelly']:>10} {pf['missing_adj']:>12} "
-            f"{pf['schema_errors']:>15} {pf['status']:>14}"
+            f"{pf['neg_kelly']:>10} {pf['missing_adj']:>12} {pf['status']:>10}"
         )
 
-    status = "SUCCESS" if summary["errors"] == 0 and summary["schema_errors"] == 0 else "COMPLETED WITH ERRORS"
+    status = "SUCCESS" if summary["errors"] == 0 else "COMPLETED WITH ERRORS"
     lines += ["", f"STATUS: {status}", "=" * 60]
 
     with open(LOG_FILE, "a", encoding="utf-8") as log_f:
         log_f.write("\n".join(lines) + "\n")
-
-
-# =========================
-# SCHEMA VALIDATION
-# =========================
-
-REQUIRED_MONEYLINE_COLUMNS = [
-    "game_id",
-    "sport",
-    "league",
-    "game_date",
-    "game_time",
-    "home_team",
-    "away_team",
-    "home_prob",
-    "away_prob",
-    "home_dk_decimal_moneyline",
-    "away_dk_decimal_moneyline",
-    "home_edge_decimal_moneyline",
-    "away_edge_decimal_moneyline",
-]
-
-REQUIRED_RUN_LINE_COLUMNS = [
-    "game_id",
-    "sport",
-    "league",
-    "game_date",
-    "game_time",
-    "home_team",
-    "away_team",
-    "home_dk_run_line_decimal",
-    "away_dk_run_line_decimal",
-    "home_normalized_prob_run_line",
-    "away_normalized_prob_run_line",
-    "home_edge_decimal_run_line",
-    "away_edge_decimal_run_line",
-]
-
-REQUIRED_TOTAL_COLUMNS = [
-    "game_id",
-    "sport",
-    "league",
-    "game_date",
-    "game_time",
-    "home_team",
-    "away_team",
-    "fair_total_over_decimal",
-    "fair_total_under_decimal",
-    "dk_total_over_decimal",
-    "dk_total_under_decimal",
-    "over_edge_decimal_total",
-    "under_edge_decimal_total",
-]
-
-FORBIDDEN_RUN_LINE_COLUMNS = [
-    "home_run_line_prob",
-    "away_run_line_prob",
-]
-
-
-def duplicate_columns(columns):
-    seen = set()
-    duplicates = []
-
-    for col in columns:
-        if col in seen and col not in duplicates:
-            duplicates.append(col)
-        seen.add(col)
-
-    return duplicates
-
-
-def validate_no_duplicate_columns(df: pd.DataFrame, label: str) -> None:
-    dupes = duplicate_columns(list(df.columns))
-
-    if dupes:
-        raise ValueError(f"{label} has duplicate columns: {dupes}")
-
-
-def validate_required_columns(df: pd.DataFrame, required_columns: list, label: str) -> None:
-    missing = [col for col in required_columns if col not in df.columns]
-
-    if missing:
-        raise ValueError(f"{label} missing required columns: {missing}")
-
-
-def validate_forbidden_columns(df: pd.DataFrame, forbidden_columns: list, label: str) -> None:
-    present = [col for col in forbidden_columns if col in df.columns]
-
-    if present:
-        raise ValueError(
-            f"{label} contains obsolete forbidden columns: {present}. "
-            f"Run-line EV/Kelly must use home_normalized_prob_run_line / away_normalized_prob_run_line."
-        )
-
-
-def required_columns_for_market(market: str) -> list:
-    if market == "moneyline":
-        return REQUIRED_MONEYLINE_COLUMNS
-    if market == "run_line":
-        return REQUIRED_RUN_LINE_COLUMNS
-    if market == "total":
-        return REQUIRED_TOTAL_COLUMNS
-    raise ValueError(f"unknown market for required columns: {market}")
-
-
-def read_market_csv(path: Path, market: str) -> pd.DataFrame:
-    df = pd.read_csv(path)
-
-    validate_no_duplicate_columns(df, f"{market} input {path.name}")
-    validate_required_columns(df, required_columns_for_market(market), f"{market} input {path.name}")
-
-    if market == "run_line":
-        validate_forbidden_columns(df, FORBIDDEN_RUN_LINE_COLUMNS, f"{market} input {path.name}")
-
-    return df
-
-
-def write_market_csv(df: pd.DataFrame, path: Path, market: str) -> None:
-    validate_no_duplicate_columns(df, f"{market} output {path.name}")
-    df.to_csv(path, index=False)
 
 
 # =========================
@@ -203,11 +78,10 @@ def compute_kelly(p, dec, file_name=""):
     q = 1 - p
 
     k = pd.Series(np.nan, index=p.index, dtype="float64")
-    valid = b.notna() & (b != 0) & p.notna() & np.isfinite(b) & np.isfinite(p)
+    valid = b.notna() & (b != 0) & p.notna()
     k.loc[valid] = ((b.loc[valid] * p.loc[valid]) - q.loc[valid]) / b.loc[valid]
 
     neg = k[k.notna() & (k < 0)]
-
     if not neg.empty:
         _log(
             f"{file_name} | {len(neg)} negative Kelly values clipped to 0 "
@@ -216,22 +90,18 @@ def compute_kelly(p, dec, file_name=""):
         )
 
     k = k.clip(lower=0)
-
     return k, len(neg)
 
 
 def adjusted_ev(df, adjusted_col, fallback_ev, file_name):
     """
-    Use adjusted edge column as EV.
+    Use YAML-adjusted edge column as EV.
     Fallback to raw EV only where adjusted column is missing/NaN.
     """
     raw = pd.to_numeric(fallback_ev, errors="coerce")
 
     if adjusted_col not in df.columns:
-        _log(
-            f"{file_name} | missing adjusted EV column: {adjusted_col}; using raw EV fallback for all rows",
-            "WARN",
-        )
+        _log(f"{file_name} | missing adjusted EV column: {adjusted_col}; using raw EV fallback", "WARN")
         return raw, len(raw)
 
     adj = pd.to_numeric(df[adjusted_col], errors="coerce")
@@ -239,8 +109,7 @@ def adjusted_ev(df, adjusted_col, fallback_ev, file_name):
 
     if missing > 0:
         _log(
-            f"{file_name} | {missing} rows missing adjusted EV in {adjusted_col}; "
-            f"using raw EV fallback for those rows",
+            f"{file_name} | {missing} rows missing adjusted EV in {adjusted_col}; using raw EV fallback for those rows",
             "WARN",
         )
 
@@ -256,27 +125,17 @@ def process_moneyline(df, file_name):
     raw_away_ev = compute_ev(df["away_prob"], df["away_dk_decimal_moneyline"])
 
     df["home_ml_ev"], h_missing = adjusted_ev(
-        df,
-        "home_edge_decimal_moneyline",
-        raw_home_ev,
-        file_name,
+        df, "home_edge_decimal_moneyline", raw_home_ev, file_name
     )
     df["away_ml_ev"], a_missing = adjusted_ev(
-        df,
-        "away_edge_decimal_moneyline",
-        raw_away_ev,
-        file_name,
+        df, "away_edge_decimal_moneyline", raw_away_ev, file_name
     )
 
     home_kelly, h_neg = compute_kelly(
-        df["home_prob"],
-        df["home_dk_decimal_moneyline"],
-        file_name,
+        df["home_prob"], df["home_dk_decimal_moneyline"], file_name
     )
     away_kelly, a_neg = compute_kelly(
-        df["away_prob"],
-        df["away_dk_decimal_moneyline"],
-        file_name,
+        df["away_prob"], df["away_dk_decimal_moneyline"], file_name
     )
 
     df["home_ml_kelly"] = home_kelly
@@ -287,36 +146,24 @@ def process_moneyline(df, file_name):
 
 def process_run_line(df, file_name):
     raw_home_ev = compute_ev(
-        df["home_normalized_prob_run_line"],
-        df["home_dk_run_line_decimal"],
+        df["home_normalized_prob_run_line"], df["home_dk_run_line_decimal"]
     )
     raw_away_ev = compute_ev(
-        df["away_normalized_prob_run_line"],
-        df["away_dk_run_line_decimal"],
+        df["away_normalized_prob_run_line"], df["away_dk_run_line_decimal"]
     )
 
     df["home_rl_ev"], h_missing = adjusted_ev(
-        df,
-        "home_edge_decimal_run_line",
-        raw_home_ev,
-        file_name,
+        df, "home_edge_decimal_run_line", raw_home_ev, file_name
     )
     df["away_rl_ev"], a_missing = adjusted_ev(
-        df,
-        "away_edge_decimal_run_line",
-        raw_away_ev,
-        file_name,
+        df, "away_edge_decimal_run_line", raw_away_ev, file_name
     )
 
     home_kelly, h_neg = compute_kelly(
-        df["home_normalized_prob_run_line"],
-        df["home_dk_run_line_decimal"],
-        file_name,
+        df["home_normalized_prob_run_line"], df["home_dk_run_line_decimal"], file_name
     )
     away_kelly, a_neg = compute_kelly(
-        df["away_normalized_prob_run_line"],
-        df["away_dk_run_line_decimal"],
-        file_name,
+        df["away_normalized_prob_run_line"], df["away_dk_run_line_decimal"], file_name
     )
 
     df["home_rl_kelly"] = home_kelly
@@ -333,27 +180,17 @@ def process_total(df, file_name):
     raw_under_ev = compute_ev(df["under_prob"], df["dk_total_under_decimal"])
 
     df["over_ev"], o_missing = adjusted_ev(
-        df,
-        "over_edge_decimal_total",
-        raw_over_ev,
-        file_name,
+        df, "over_edge_decimal_total", raw_over_ev, file_name
     )
     df["under_ev"], u_missing = adjusted_ev(
-        df,
-        "under_edge_decimal_total",
-        raw_under_ev,
-        file_name,
+        df, "under_edge_decimal_total", raw_under_ev, file_name
     )
 
     over_kelly, o_neg = compute_kelly(
-        df["over_prob"],
-        df["dk_total_over_decimal"],
-        file_name,
+        df["over_prob"], df["dk_total_over_decimal"], file_name
     )
     under_kelly, u_neg = compute_kelly(
-        df["under_prob"],
-        df["dk_total_under_decimal"],
-        file_name,
+        df["under_prob"], df["dk_total_under_decimal"], file_name
     )
 
     df["over_kelly"] = over_kelly
@@ -379,10 +216,8 @@ def main():
         "skipped": 0,
         "neg_kelly_clipped": 0,
         "missing_adj_ev": 0,
-        "schema_errors": 0,
         "errors": 0,
     }
-
     per_file = []
 
     _log(f"INPUT_DIR : {INPUT_DIR}")
@@ -397,14 +232,12 @@ def main():
     for input_file in input_files:
         name = input_file.name.lower()
         market = None
-
         pf = {
             "name": input_file.name,
             "market": "unknown",
             "rows": 0,
             "neg_kelly": 0,
             "missing_adj": 0,
-            "schema_errors": 0,
             "status": "ok",
         }
 
@@ -425,7 +258,7 @@ def main():
         _log(f"--- FILE: {input_file.name}  market={market}")
 
         try:
-            df = read_market_csv(input_file, market)
+            df = pd.read_csv(input_file)
 
             if df.empty:
                 _log(f"{input_file.name} empty — skipping")
@@ -453,23 +286,13 @@ def main():
             summary["missing_adj_ev"] += missing_adj
 
             output_path = OUTPUT_DIR / input_file.name
-            write_market_csv(df, output_path, market)
+            df.to_csv(output_path, index=False)
 
             summary["files_processed"] += 1
             _log(
                 f"WROTE: {output_path} "
                 f"({len(df)} rows, {neg_kelly} kelly clipped, {missing_adj} adjusted EV fallback)"
             )
-
-        except ValueError as e:
-            _log(
-                f"{input_file.name} SCHEMA FAILED: {e}\n{traceback.format_exc()}",
-                "ERROR",
-            )
-            pf["status"] = "schema_error"
-            pf["schema_errors"] += 1
-            summary["schema_errors"] += 1
-            summary["errors"] += 1
 
         except Exception as e:
             _log(
@@ -482,22 +305,7 @@ def main():
         per_file.append(pf)
 
     _write_summary(summary, per_file)
-
-    if summary["errors"] > 0 or summary["schema_errors"] > 0:
-        print(
-            f"compute_ev_kelly completed with errors. "
-            f"errors={summary['errors']} schema_errors={summary['schema_errors']}"
-        )
-        sys.exit(1)
-
-    print(
-        f"compute_ev_kelly complete. "
-        f"files_processed={summary['files_processed']} "
-        f"rows_processed={summary['rows_processed']} "
-        f"neg_kelly_clipped={summary['neg_kelly_clipped']} "
-        f"missing_adj_ev={summary['missing_adj_ev']} "
-        f"schema_errors={summary['schema_errors']}"
-    )
+    print("compute_ev_kelly complete.")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,83 @@
+name: Intake NHL
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nhl-intake:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set date
+        run: echo "DATE=$(TZ='America/New_York' date +%Y_%m_%d)" >> $GITHUB_ENV
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('requirements.txt') }}
+
+      - name: Install Playwright system deps
+        run: playwright install-deps chromium
+
+      - name: Install Playwright browsers
+        run: playwright install chromium
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/win/hockey/00_intake/sportsbook/
+          mkdir -p docs/win/hockey/00_intake/drat_raw/
+          mkdir -p docs/win/hockey/00_intake/predictions/
+          mkdir -p docs/win/hockey/00_intake/predictions/scraper/
+          mkdir -p docs/win/final_scores/results/nhl/final_scores/
+          mkdir -p docs/win/hockey/errors/00_intake/
+          mkdir -p mappings/hockey/no_map/
+
+      - name: Hockey Odds Parse
+        run: python docs/win/hockey/scripts/00_intake/odds_parse.py
+
+      - name: Hockey Name Normalization Pre
+        run: python docs/win/hockey/scripts/00_intake/name_normalization.py
+
+      - name: Hockey Drat Scraper
+        run: python docs/win/hockey/scripts/00_intake/hockey_drat_scraper.py
+
+      - name: Hockey Transform
+        run: |
+          python docs/win/hockey/scripts/00_intake/transform_hockey.py \
+            --nhl docs/win/hockey/00_intake/drat_raw/${DATE}_nhl_raw.json
+
+      - name: Hockey Name Normalization Post
+        run: python docs/win/hockey/scripts/00_intake/name_normalization.py
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/hockey/00_intake/sportsbook/
+          git add docs/win/hockey/00_intake/drat_raw/
+          git add docs/win/hockey/00_intake/predictions/
+          git add docs/win/hockey/00_intake/predictions/scraper/
+          git add docs/win/final_scores/results/nhl/final_scores/
+          git add docs/win/hockey/errors/00_intake/
+          git add mappings/hockey/no_map/
+
+          git diff --cached --quiet || git commit -m "chore: hockey intake run $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push

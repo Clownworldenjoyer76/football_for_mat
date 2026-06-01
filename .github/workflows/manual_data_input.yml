@@ -1,0 +1,169 @@
+name: _Manual Data Intake
+
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        required: true
+        type: string
+      market:
+        required: true
+        type: string
+      source:
+        required: true
+        type: string
+      raw_text:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install dependencies
+        run: pip install pandas numpy
+
+      # =========================
+      # BASKETBALL
+      # =========================
+      - name: Run Basketball
+        if: ${{ github.event.inputs.league == 'basketball' }}
+        run: |
+          printf "%s" "${{ github.event.inputs.raw_text }}" > dump.txt
+          BASE="docs/win/basketball/scripts/00_parsing"
+          if [ "${{ github.event.inputs.source }}" = "DraftKings" ]; then
+            python "$BASE/dk.py" basketball "${{ github.event.inputs.market }}" dump.txt
+          else
+            python "$BASE/drat.py" basketball "${{ github.event.inputs.market }}" dump.txt
+          fi
+          python "$BASE/name_normalization.py"
+          python "$BASE/dedupe.py"
+
+      # =========================
+      # HOCKEY
+      # =========================
+      - name: Run Hockey
+        if: ${{ github.event.inputs.league == 'hockey' }}
+        run: |
+          printf "%s" "${{ github.event.inputs.raw_text }}" > dump.txt
+          BASE="docs/win/hockey/scripts/00_parsing"
+          if [ "${{ github.event.inputs.source }}" = "DraftKings" ]; then
+            python "$BASE/dk.py" hockey "${{ github.event.inputs.market }}" dump.txt
+          else
+            python "$BASE/drat.py" hockey "${{ github.event.inputs.market }}" dump.txt
+          fi
+          python "$BASE/name_normalization.py"
+          python "$BASE/dedupe.py"
+
+      # =========================
+      # SOCCER
+      # =========================
+      - name: Run Soccer
+        if: ${{ github.event.inputs.league == 'soccer' }}
+        run: |
+          printf "%s" "${{ github.event.inputs.raw_text }}" > dump.txt
+          BASE="docs/win/soccer/scripts/00_parsing"
+
+          if [ "${{ github.event.inputs.source }}" = "Soccer Totals" ]; then
+            mkdir -p docs/win/soccer/00_intake/sportsbook/totals_odds
+            python "$BASE/soccer_totals_odds.py"
+          elif [ "${{ github.event.inputs.source }}" = "DraftKings" ]; then
+            python "$BASE/dk.py" soccer "${{ github.event.inputs.market }}" dump.txt
+          else
+            python "$BASE/drat.py" soccer "${{ github.event.inputs.market }}" dump.txt
+          fi
+
+          python "$BASE/name_normalization.py"
+          python "$BASE/dedupe.py"
+          python "$BASE/soccer_fill.py"
+
+      # =========================
+      # MMA / UFC PREDICTIONS
+      # =========================
+      - name: Run MMA UFC Predictions
+        if: ${{ github.event.inputs.league == 'mma' && github.event.inputs.market == 'UFC' && github.event.inputs.source == 'Predictions' }}
+        run: |
+          printf "%s" "${{ github.event.inputs.raw_text }}" > docs/manual_data.html
+          BASE="docs/win/mma/ufc/scripts/00_parsing"
+          python "$BASE/ufc_input.py"
+
+      # =========================
+      # FINAL SCORES
+      # =========================
+      - name: Run Final Scores
+        if: ${{ github.event.inputs.league == 'final_scores' }}
+        run: |
+          printf "%s" "${{ github.event.inputs.raw_text }}" > dump.txt
+          BASE="docs/win/final_scores/scripts/00_parsing"
+          python "$BASE/scores.py" "${{ github.event.inputs.market }}" dump.txt
+          python "$BASE/dedupe.py"
+          python "$BASE/dk_puck.py"
+
+      # =========================
+      # FINAL SOCCER SCORES
+      # =========================
+      - name: Run Final Soccer Scores
+        if: ${{ github.event.inputs.league == 'final_soccer_scores' }}
+        run: |
+          printf "%s" "${{ github.event.inputs.raw_text }}" > dump.txt
+          BASE="docs/win/final_scores/scripts/00_parsing"
+          python "$BASE/soccer_scores.py" "${{ github.event.inputs.market }}" dump.txt
+
+      # =========================
+      # COMMIT
+      # =========================
+      - name: Commit Changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          # =========================
+          # INTAKE OUTPUTS
+          # =========================
+          git add docs/win/basketball/00_intake/sportsbook/ 2>/dev/null || true
+          git add docs/win/basketball/00_intake/predictions/ 2>/dev/null || true
+          git add docs/win/hockey/00_intake/sportsbook/ 2>/dev/null || true
+          git add docs/win/hockey/00_intake/predictions/ 2>/dev/null || true
+          git add docs/win/soccer/00_intake/sportsbook/ 2>/dev/null || true
+          git add docs/win/soccer/00_intake/sportsbook/totals_odds/ 2>/dev/null || true
+          git add docs/win/mma/ufc/00_intake/sportsbook/ 2>/dev/null || true
+          git add docs/win/mma/ufc/00_intake/predictions/ 2>/dev/null || true
+          git add docs/win/final_scores/results/ 2>/dev/null || true
+          git add docs/win/final_scores/graded/ 2>/dev/null || true
+          git add docs/win/final_scores/intermediate/ 2>/dev/null || true
+          git add docs/win/final_scores/*.csv 2>/dev/null || true
+
+          # =========================
+          # MAPPINGS
+          # =========================
+          git add mappings/basketball/no_map/ 2>/dev/null || true
+          git add mappings/hockey/no_map/ 2>/dev/null || true
+          git add mappings/soccer/no_map/ 2>/dev/null || true
+          git add mappings/mma/ufc/no_map_fighter_name.csv 2>/dev/null || true
+
+          # =========================
+          # ERROR LOGS
+          # =========================
+          git add docs/win/basketball/errors/ 2>/dev/null || true
+          git add docs/win/hockey/errors/ 2>/dev/null || true
+          git add docs/win/soccer/errors/ 2>/dev/null || true
+          git add docs/win/mma/ufc/errors/ 2>/dev/null || true
+          git add docs/win/final_scores/errors/ 2>/dev/null || true
+
+          git commit -m "manual data intake: ${{ github.event.inputs.league }} - ${{ github.event.inputs.market }}" || echo "No changes"
+          git push

@@ -1,0 +1,104 @@
+name: _Email Alerts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  email-alerts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run filecount checks
+        run: |
+          rm -f alert_body_filecount.txt
+          python scripts/email_alert_future_files.py
+          if [ -f alert_body.txt ]; then
+            mv alert_body.txt alert_body_filecount.txt
+          fi
+
+      - name: Run win percent checks
+        run: |
+          rm -f alert_body_win_pct.txt
+          python scripts/email_alert_win_pct.py
+          if [ -f alert_body.txt ]; then
+            mv alert_body.txt alert_body_win_pct.txt
+          fi
+
+      - name: Run workflow failure checks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          rm -f alert_body_workflow_failures.txt
+          python scripts/email_alert_workflow_failures.py
+          if [ -f alert_body.txt ]; then
+            mv alert_body.txt alert_body_workflow_failures.txt
+          fi
+
+      - name: Build combined alert body
+        run: |
+          rm -f alert_body.txt
+
+          if [ -f alert_body_filecount.txt ]; then
+            {
+              echo "=============================="
+              echo "FILECOUNT ALERTS"
+              echo "=============================="
+              cat alert_body_filecount.txt
+              echo ""
+              echo ""
+            } >> alert_body.txt
+          fi
+
+          if [ -f alert_body_win_pct.txt ]; then
+            {
+              echo "=============================="
+              echo "WIN PERCENT ALERTS"
+              echo "=============================="
+              cat alert_body_win_pct.txt
+              echo ""
+              echo ""
+            } >> alert_body.txt
+          fi
+
+          if [ -f alert_body_workflow_failures.txt ]; then
+            {
+              echo "=============================="
+              echo "WORKFLOW FAILURE ALERTS"
+              echo "=============================="
+              cat alert_body_workflow_failures.txt
+              echo ""
+              echo ""
+            } >> alert_body.txt
+          fi
+
+      - name: Show alert body
+        if: hashFiles('alert_body.txt') != ''
+        run: |
+          echo "=== alert_body.txt ==="
+          cat alert_body.txt
+
+      - name: Send alert email
+        if: hashFiles('alert_body.txt') != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.ALERT_EMAIL_USERNAME }}
+          password: ${{ secrets.ALERT_EMAIL_PASSWORD }}
+          subject: "[Betting Alerts] Daily alert summary"
+          to: ${{ secrets.ALERT_EMAIL_TO }}
+          from: ${{ secrets.ALERT_EMAIL_FROM }}
+          body: file://alert_body.txt

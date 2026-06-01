@@ -1,0 +1,114 @@
+name: Pipeline NHL
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  NHL_Pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Create output directories
+        run: |
+          # Hockey
+          mkdir -p docs/win/hockey/01_merge/
+          mkdir -p docs/win/hockey/01_merge/01_merguiced/
+          mkdir -p docs/win/hockey/errors/01_merge/
+          mkdir -p docs/win/hockey/errors/02_juice/
+          mkdir -p docs/win/hockey/02_juice/
+          mkdir -p docs/win/hockey/errors/03_edges/
+          mkdir -p docs/win/hockey/03_edges/
+          mkdir -p docs/win/hockey/03_edges/ev_kelly/
+          mkdir -p docs/win/hockey/04_select/
+          mkdir -p docs/win/hockey/errors/04_select/
+
+          # Final scores
+          mkdir -p docs/win/final_scores/intermediate/
+          mkdir -p docs/win/final_scores/errors/
+          mkdir -p docs/win/final_scores/results/nhl/graded/
+          mkdir -p docs/win/final_scores/deeper_summaries/nhl/
+          mkdir -p docs/win/final_scores/deeper_summaries/nhl/by_market/
+
+      # -------------------------
+      # HOCKEY PIPELINE
+      # -------------------------
+
+      - name: Hockey Merge Intake
+        run: python docs/win/hockey/scripts/01_merge/merge_intake.py
+
+      - name: Hockey Build Juice Files
+        run: python docs/win/hockey/scripts/01_merge/build_juice_files.py
+
+      - name: Hockey Moneyline Juice
+        run: python docs/win/hockey/scripts/02_juice/apply_moneyline_juice.py
+
+      - name: Hockey Puck Line Juice
+        run: python docs/win/hockey/scripts/02_juice/apply_puck_line_juice.py
+
+      - name: Hockey Total Juice
+        run: python docs/win/hockey/scripts/02_juice/apply_total_juice.py
+
+      - name: Hockey Edges
+        run: python docs/win/hockey/scripts/03_edges/compute_edges.py
+
+      - name: Hockey EV Kelly
+        run: python docs/win/hockey/scripts/03_edges/compute_ev_kelly.py
+
+      - name: Hockey Select
+        run: python docs/win/hockey/scripts/04_select/hockey_select_bets.py
+
+      # -------------------------
+      # FINAL SCORES
+      # -------------------------
+
+      - name: Normalize final score team names
+        run: python docs/win/final_scores/scripts/05_results/00_normalize_final_score_team_names.py
+
+      - name: Run hockey results grade
+        run: python docs/win/final_scores/scripts/05_results/hockey/01_nhl_results_grade.py
+
+      - name: Run hockey results analyze
+        run: python docs/win/final_scores/scripts/05_results/hockey/02_nhl_results_analyze.py
+
+      - name: Run hockey results reports
+        run: python docs/win/final_scores/scripts/05_results/hockey/03_nhl_results_reports.py
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/hockey/01_merge/
+          git add docs/win/hockey/errors/01_merge/
+          git add docs/win/hockey/errors/02_juice/
+          git add docs/win/hockey/02_juice/
+          git add docs/win/hockey/errors/03_edges/
+          git add docs/win/hockey/03_edges/
+          git add docs/win/hockey/04_select/
+          git add docs/win/hockey/errors/04_select/
+          git add docs/win/final_scores/
+
+          if git diff --cached --quiet; then
+            echo "No output changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: NHL Pipeline run $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push

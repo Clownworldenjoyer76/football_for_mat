@@ -1,0 +1,125 @@
+name: Pipeline Soccer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pipeline-soccer
+  cancel-in-progress: false
+
+jobs:
+  Soccer_Pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Create output directories
+        run: |
+          # Soccer merge
+          mkdir -p docs/win/soccer/01_merge/
+          mkdir -p docs/win/soccer/01_merge/01_merguiced/
+          mkdir -p docs/win/soccer/errors/01_merge/
+
+          # Soccer juice
+          mkdir -p docs/win/soccer/02_juice/
+          mkdir -p docs/win/soccer/errors/02_juice/
+
+          # Soccer edges
+          mkdir -p docs/win/soccer/03_edges/
+          mkdir -p docs/win/soccer/errors/03_edges/
+
+          # Soccer select
+          mkdir -p docs/win/soccer/04_select/
+          mkdir -p docs/win/soccer/errors/04_select/
+
+          # Soccer final scores
+          mkdir -p docs/win/soccer/05_final_scores/
+          mkdir -p docs/win/soccer/05_final_scores/intermediate/
+          mkdir -p docs/win/soccer/05_final_scores/errors/
+          mkdir -p docs/win/soccer/05_final_scores/results/
+          mkdir -p docs/win/soccer/05_final_scores/results/final_scores_dirty/
+          mkdir -p docs/win/soccer/05_final_scores/results/final_scores/
+          mkdir -p docs/win/soccer/05_final_scores/results/graded/
+          mkdir -p docs/win/soccer/05_final_scores/deeper_summaries/
+          mkdir -p docs/win/soccer/05_final_scores/deeper_summaries/soccer/
+
+          touch docs/win/soccer/05_final_scores/soccer_market_tally.csv
+
+      # -------------------------
+      # SOCCER PIPELINE
+      # -------------------------
+      - name: Soccer Merge Intake
+        run: python docs/win/soccer/scripts/01_merge/merge_intake.py
+
+      - name: Soccer Build Juice Files
+        run: python docs/win/soccer/scripts/01_merge/build_juice_files.py
+
+      - name: Soccer Juice
+        run: python docs/win/soccer/scripts/02_juice/apply_juice.py
+
+      - name: Soccer Edges
+        run: python docs/win/soccer/scripts/03_edges/build_edges.py
+
+      - name: Soccer Select
+        run: python docs/win/soccer/scripts/04_select/soccer_select_bets.py
+
+      - name: Run soccer results grade
+        run: python docs/win/soccer/scripts/05_final_scores/01_soccer_results_grade.py
+
+      - name: Run soccer results analyze
+        run: python docs/win/soccer/scripts/05_final_scores/02_soccer_results_analyze.py
+
+      - name: Run soccer results reports
+        run: python docs/win/soccer/scripts/05_final_scores/03_soccer_results_reports.py
+
+      - name: Show soccer final score logs
+        run: |
+          echo "Grade logs:"
+          cat docs/win/soccer/05_final_scores/errors/soccer_results_grade_summary.txt || true
+          cat docs/win/soccer/05_final_scores/errors/soccer_results_grade_errors.txt || true
+
+          echo "Analyze logs:"
+          cat docs/win/soccer/05_final_scores/errors/soccer_results_analyze_summary.txt || true
+          cat docs/win/soccer/05_final_scores/errors/soccer_results_analyze_errors.txt || true
+
+          echo "Reports logs:"
+          cat docs/win/soccer/05_final_scores/errors/soccer_results_reports_summary.txt || true
+          cat docs/win/soccer/05_final_scores/errors/soccer_results_reports_errors.txt || true
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "Changed files before staging:"
+          git status --short
+
+          git add -A docs/win/soccer/
+
+          echo "Changed files after staging:"
+          git status --short
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: Soccer Pipeline run $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git pull --rebase origin main
+            git push origin main
+          fi

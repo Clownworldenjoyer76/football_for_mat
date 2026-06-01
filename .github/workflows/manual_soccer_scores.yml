@@ -1,0 +1,63 @@
+name: _Manual Soccer Scores
+
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        description: "League"
+        required: true
+        type: string
+      market:
+        description: "Market"
+        required: true
+        type: string
+      source:
+        description: "Source"
+        required: true
+        type: string
+      raw_text:
+        description: "Raw pasted soccer scores text"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-soccer-score-csv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Write raw text to temp file
+        shell: bash
+        env:
+          RAW_TEXT: ${{ github.event.inputs.raw_text }}
+        run: |
+          RAW_FILE="$RUNNER_TEMP/manual_soccer_scores_raw.txt"
+          printf '%s\n' "$RAW_TEXT" > "$RAW_FILE"
+          echo "RAW_FILE=$RAW_FILE" >> "$GITHUB_ENV"
+
+      - name: Create soccer score CSV files
+        shell: bash
+        run: |
+          python docs/win/soccer/scripts/00_intake/manual_soccer_scores.py \
+            --market "${{ github.event.inputs.market }}" \
+            --raw-file "$RAW_FILE"
+
+      - name: Commit output files
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/win/soccer/05_final_scores/results/final_scores_dirty/
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Add manual soccer final scores"
+            git push
+          fi

@@ -1,4 +1,4 @@
-name: WNBA Odds API
+name: Odds Basketball WNBA
 
 on:
   workflow_dispatch:
@@ -12,15 +12,14 @@ jobs:
 
     env:
       API_ODDS: ${{ secrets.API_ODDS }}
+      TZ: America/New_York
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -29,24 +28,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Ensure output folders exist
+      - name: Create WNBA odds output folders
         run: |
           mkdir -p docs/win/basketball/odds/wnba
           mkdir -p docs/win/basketball/errors/00_intake
 
-      - name: Run WNBA odds API script
+      - name: Run WNBA odds API pull
         run: |
           python docs/win/basketball/scripts/00_parsing/wnba_odds_api.py
 
-      - name: Show output files
-        if: always()
+      - name: Show WNBA odds outputs
         run: |
-          echo "WNBA odds outputs:"
-          find docs/win/basketball/odds/wnba -type f -maxdepth 1 | sort || true
+          echo "=== WNBA JSON outputs ==="
+          find docs/win/basketball/odds/wnba -maxdepth 1 -type f -name "*.json" -print
 
-          echo ""
-          echo "WNBA odds log:"
-          cat docs/win/basketball/errors/00_intake/wnba_odds_api.txt || true
+          echo "=== WNBA odds log ==="
+          find docs/win/basketball/errors/00_intake -maxdepth 1 -type f -name "wnba_odds_api.txt" -print
 
       - name: Commit WNBA odds outputs
         run: |
@@ -56,9 +53,5 @@ jobs:
           git add docs/win/basketball/odds/wnba/
           git add docs/win/basketball/errors/00_intake/wnba_odds_api.txt
 
-          if git diff --cached --quiet; then
-            echo "No WNBA odds changes to commit."
-          else
-            git commit -m "Update WNBA odds API outputs"
-            git push
-          fi
+          git diff --cached --quiet && echo "No WNBA odds output changes to commit." || git commit -m "Update WNBA odds API outputs"
+          git push
