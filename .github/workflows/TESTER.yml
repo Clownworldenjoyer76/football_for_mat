@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   grade-mlb-bets-debug:
@@ -77,3 +77,20 @@ jobs:
           fi
 
           exit "$GRADE_EXIT"
+
+      - name: Commit MLB grading outputs
+        if: success()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/win/baseball/05_final_scores/results/graded/
+          git add docs/win/baseball/05_final_scores/results/unmatched/
+          git add docs/win/baseball/errors/05_final_scores/
+
+          if git diff --cached --quiet; then
+            echo "No MLB grading output changes to commit."
+          else
+            git commit -m "Update MLB grading outputs"
+            git push
+          fi
