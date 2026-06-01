@@ -18,7 +18,10 @@ OUTPUT_DIR = INPUT_DIR / "01_merguiced"
 ERROR_DIR = Path("docs/win/baseball/errors/01_merge")
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
+<<<<<<< HEAD
 RUN_TS = datetime.now(UTC).isoformat()
+=======
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 LOG_FILE = ERROR_DIR / "build_juice_files.txt"
 
 with open(LOG_FILE, "w", encoding="utf-8") as f:
@@ -55,6 +58,7 @@ CONTEXT_COLS = [
 ]
 
 MONEYLINE_REQUIRED_COLUMNS = [
+<<<<<<< HEAD
     "last_run",
     "game_id", "sport", "league", "game_date", "game_time", "home_team", "away_team",
     "away_run_line", "home_run_line", "total",
@@ -84,7 +88,85 @@ TOTAL_REQUIRED_COLUMNS = [
     "home_pitcher", "away_pitcher", "home_prob", "away_prob",
     "away_projected_runs", "home_projected_runs", "total_projected_runs",
     "total_runs_over_prob", "total_runs_under_prob",
+=======
+    "game_id",
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "home_team",
+    "away_team",
+    "away_run_line",
+    "home_run_line",
+    "total",
+    "away_dk_moneyline_american",
+    "home_dk_moneyline_american",
+    "away_dk_moneyline_decimal",
+    "home_dk_moneyline_decimal",
+    "home_pitcher",
+    "away_pitcher",
+    "home_prob",
+    "away_prob",
+    "away_projected_runs",
+    "home_projected_runs",
+    "total_projected_runs",
 ] + CONTEXT_COLS
+
+RUN_LINE_REQUIRED_COLUMNS = [
+    "game_id",
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "home_team",
+    "away_team",
+    "away_run_line",
+    "home_run_line",
+    "total",
+    "away_dk_run_line_american",
+    "home_dk_run_line_american",
+    "away_dk_run_line_decimal",
+    "home_dk_run_line_decimal",
+    "home_pitcher",
+    "away_pitcher",
+    "home_prob",
+    "away_prob",
+    "away_projected_runs",
+    "home_projected_runs",
+    "total_projected_runs",
+] + CONTEXT_COLS
+
+TOTAL_REQUIRED_COLUMNS = [
+    "game_id",
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "home_team",
+    "away_team",
+    "away_run_line",
+    "home_run_line",
+    "total",
+    "dk_total_over_american",
+    "dk_total_under_american",
+    "dk_total_over_decimal",
+    "dk_total_under_decimal",
+    "home_pitcher",
+    "away_pitcher",
+    "home_prob",
+    "away_prob",
+    "away_projected_runs",
+    "home_projected_runs",
+    "total_projected_runs",
+    "total_runs_over_prob",
+    "total_runs_under_prob",
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
+] + CONTEXT_COLS
+
+FORBIDDEN_RUN_LINE_COLUMNS = [
+    "home_run_line_prob",
+    "away_run_line_prob",
+]
 
 
 def log(msg):
@@ -92,6 +174,7 @@ def log(msg):
         f.write(f"{datetime.now(UTC).isoformat()} | {msg}\n")
 
 
+<<<<<<< HEAD
 def reset_output_dir():
     """
     Permanently deletes docs/win/baseball/01_merge/01_merguiced before rebuilding.
@@ -117,6 +200,59 @@ def reset_output_dir():
 
     log(f"CREATED EMPTY OUTPUT DIRECTORY: {OUTPUT_DIR}")
     log("CONFIRMED: docs/win/baseball/01_merge/01_merguiced has zero CSV files before rebuild")
+=======
+def duplicate_columns(columns):
+    seen = set()
+    duplicates = []
+
+    for col in columns:
+        if col in seen and col not in duplicates:
+            duplicates.append(col)
+        seen.add(col)
+
+    return duplicates
+
+
+def validate_no_duplicate_columns(df, label):
+    dupes = duplicate_columns(list(df.columns))
+
+    if dupes:
+        raise ValueError(f"{label} has duplicate columns: {dupes}")
+
+
+def validate_required_columns(df, required_columns, label):
+    missing_cols = [c for c in required_columns if c not in df.columns]
+
+    if missing_cols:
+        raise ValueError(f"{label} missing required columns: {missing_cols}")
+
+
+def validate_forbidden_columns(df, forbidden_columns, label):
+    present = [c for c in forbidden_columns if c in df.columns]
+
+    if present:
+        raise ValueError(
+            f"{label} contains obsolete forbidden columns: {present}. "
+            f"Use home_prob_run_line / away_prob_run_line only."
+        )
+
+
+def read_csv_validated(file_path, required_columns, label, forbidden_columns=None):
+    df = pd.read_csv(file_path)
+
+    validate_no_duplicate_columns(df, f"{label} input")
+    validate_required_columns(df, required_columns, f"{label} input")
+
+    if forbidden_columns:
+        validate_forbidden_columns(df, forbidden_columns, f"{label} input")
+
+    return df
+
+
+def write_csv_validated(df, out_path, label):
+    validate_no_duplicate_columns(df, f"{label} output")
+    df.to_csv(out_path, index=False)
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
 
 def american_to_decimal(odds):
@@ -153,6 +289,7 @@ def parse_slate_date_and_market(file_path: str):
     return None, None
 
 
+<<<<<<< HEAD
 def validate_schema(df, required_columns, file_path):
     missing_cols = [c for c in required_columns if c not in df.columns]
 
@@ -163,6 +300,8 @@ def validate_schema(df, required_columns, file_path):
     return True
 
 
+=======
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 def coerce_numeric(df, cols):
     for col in cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -175,12 +314,21 @@ def stamp_last_run(df):
 
 def process_moneyline(file_path, summary):
     try:
+<<<<<<< HEAD
         df = pd.read_csv(file_path)
+=======
+        df = read_csv_validated(
+            file_path,
+            MONEYLINE_REQUIRED_COLUMNS,
+            f"moneyline {file_path}",
+        )
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
         if df.empty:
             log(f"EMPTY: {file_path} — skipping")
             summary["empty"] += 1
             return
+<<<<<<< HEAD
 
         if not validate_schema(df, MONEYLINE_REQUIRED_COLUMNS, file_path):
             summary["schema_errors"] += 1
@@ -192,6 +340,22 @@ def process_moneyline(file_path, summary):
             "away_run_line", "home_run_line", "total",
             "away_dk_moneyline_american", "home_dk_moneyline_american",
             "away_dk_moneyline_decimal", "home_dk_moneyline_decimal",
+=======
+
+        coerce_numeric(df, [
+            "home_prob",
+            "away_prob",
+            "home_projected_runs",
+            "away_projected_runs",
+            "total_projected_runs",
+            "away_run_line",
+            "home_run_line",
+            "total",
+            "away_dk_moneyline_american",
+            "home_dk_moneyline_american",
+            "away_dk_moneyline_decimal",
+            "home_dk_moneyline_decimal",
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
         ])
 
         for i, r in df.iterrows():
@@ -200,11 +364,16 @@ def process_moneyline(file_path, summary):
                 summary["row_issues"] += 1
 
         ml = df.copy()
+<<<<<<< HEAD
         ml = stamp_last_run(ml)
 
         ml["away_dk_decimal_moneyline"] = ml["away_dk_moneyline_american"].apply(american_to_decimal)
         ml["home_dk_decimal_moneyline"] = ml["home_dk_moneyline_american"].apply(american_to_decimal)
 
+=======
+        ml["away_dk_decimal_moneyline"] = ml["away_dk_moneyline_american"].apply(american_to_decimal)
+        ml["home_dk_decimal_moneyline"] = ml["home_dk_moneyline_american"].apply(american_to_decimal)
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
         ml["away_fair_decimal_moneyline"] = ml["away_prob"].apply(
             lambda x: 1 / x if pd.notna(x) and x > 0 else None
         )
@@ -220,11 +389,23 @@ def process_moneyline(file_path, summary):
             return
 
         out = OUTPUT_DIR / f"{slate_date}_mlb_moneyline.csv"
+<<<<<<< HEAD
         ml.to_csv(out, index=False)
 
         log(f"WROTE {out} ({len(ml)} rows) last_run={RUN_TS}")
         summary["files_written"] += 1
         summary["rows_written"] += len(ml)
+=======
+        write_csv_validated(ml, out, f"moneyline {out}")
+
+        log(f"WROTE {out} ({len(ml)} rows)")
+        summary["files_written"] += 1
+        summary["rows_written"] += len(ml)
+
+    except ValueError as e:
+        log(f"SCHEMA ERROR moneyline {file_path}: {e}\n{traceback.format_exc()}")
+        summary["schema_errors"] += 1
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
     except Exception as e:
         log(f"ERROR moneyline {file_path}: {e}\n{traceback.format_exc()}")
@@ -233,12 +414,21 @@ def process_moneyline(file_path, summary):
 
 def process_total(file_path, summary):
     try:
+<<<<<<< HEAD
         df = pd.read_csv(file_path)
+=======
+        df = read_csv_validated(
+            file_path,
+            TOTAL_REQUIRED_COLUMNS,
+            f"total {file_path}",
+        )
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
         if df.empty:
             log(f"EMPTY: {file_path} — skipping")
             summary["empty"] += 1
             return
+<<<<<<< HEAD
 
         if not validate_schema(df, TOTAL_REQUIRED_COLUMNS, file_path):
             summary["schema_errors"] += 1
@@ -265,6 +455,32 @@ def process_total(file_path, summary):
         model_over_probs = []
         model_under_probs = []
         model_push_probs = []
+=======
+
+        coerce_numeric(df, [
+            "home_prob",
+            "away_prob",
+            "home_projected_runs",
+            "away_projected_runs",
+            "total_projected_runs",
+            "away_run_line",
+            "home_run_line",
+            "total",
+            "dk_total_over_american",
+            "dk_total_under_american",
+            "dk_total_over_decimal",
+            "dk_total_under_decimal",
+            "total_runs_over_prob",
+            "total_runs_under_prob",
+        ])
+
+        tot = df.copy()
+        tot["dk_total_over_decimal"] = tot["dk_total_over_american"].apply(american_to_decimal)
+        tot["dk_total_under_decimal"] = tot["dk_total_under_american"].apply(american_to_decimal)
+
+        over = []
+        under = []
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
         for i, r in tot.iterrows():
             lam = r["total_projected_runs"]
@@ -284,12 +500,16 @@ def process_total(file_path, summary):
 
             if total_line % 1 == 0:
                 k = int(total_line)
+<<<<<<< HEAD
 
+=======
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
                 p_over = 1 - poisson.cdf(k, lam)
                 p_under = poisson.cdf(k - 1, lam)
                 p_push = poisson.pmf(k, lam)
 
                 log(
+<<<<<<< HEAD
                     f"WHOLE NUMBER TOTAL: {file_path} idx={i} "
                     f"total={total_line} lam={lam:.3f} p_push={p_push:.4f} — modelled with push"
                 )
@@ -321,6 +541,25 @@ def process_total(file_path, summary):
 
         tot["fair_total_over_decimal"] = fair_over_decimals
         tot["fair_total_under_decimal"] = fair_under_decimals
+=======
+                    f"WHOLE NUMBER TOTAL: {file_path} idx={i} total={total_line} "
+                    f"lam={lam:.3f} p_push={p_push:.4f} — modelled with push"
+                )
+
+                under.append(1 / p_under if p_under > 0 else None)
+                over.append(1 / p_over if p_over > 0 else None)
+                continue
+
+            k = math.floor(total_line)
+            p_under = poisson.cdf(k, lam)
+            p_over = 1 - p_under
+
+            under.append(1 / p_under if p_under > 0 else None)
+            over.append(1 / p_over if p_over > 0 else None)
+
+        tot["fair_total_over_decimal"] = over
+        tot["fair_total_under_decimal"] = under
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
         slate_date, market = parse_slate_date_and_market(file_path)
 
@@ -330,11 +569,23 @@ def process_total(file_path, summary):
             return
 
         out = OUTPUT_DIR / f"{slate_date}_mlb_total.csv"
+<<<<<<< HEAD
         tot.to_csv(out, index=False)
 
         log(f"WROTE {out} ({len(tot)} rows) last_run={RUN_TS}")
         summary["files_written"] += 1
         summary["rows_written"] += len(tot)
+=======
+        write_csv_validated(tot, out, f"total {out}")
+
+        log(f"WROTE {out} ({len(tot)} rows)")
+        summary["files_written"] += 1
+        summary["rows_written"] += len(tot)
+
+    except ValueError as e:
+        log(f"SCHEMA ERROR total {file_path}: {e}\n{traceback.format_exc()}")
+        summary["schema_errors"] += 1
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
     except Exception as e:
         log(f"ERROR total {file_path}: {e}\n{traceback.format_exc()}")
@@ -343,12 +594,22 @@ def process_total(file_path, summary):
 
 def process_run_line(file_path, summary):
     try:
+<<<<<<< HEAD
         df = pd.read_csv(file_path)
+=======
+        df = read_csv_validated(
+            file_path,
+            RUN_LINE_REQUIRED_COLUMNS,
+            f"run_line {file_path}",
+            FORBIDDEN_RUN_LINE_COLUMNS,
+        )
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
         if df.empty:
             log(f"EMPTY: {file_path} — skipping")
             summary["empty"] += 1
             return
+<<<<<<< HEAD
 
         if not validate_schema(df, RUN_LINE_REQUIRED_COLUMNS, file_path):
             summary["schema_errors"] += 1
@@ -361,6 +622,22 @@ def process_run_line(file_path, summary):
             "away_dk_run_line_american", "home_dk_run_line_american",
             "away_dk_run_line_decimal", "home_dk_run_line_decimal",
             "home_run_line_prob", "away_run_line_prob",
+=======
+
+        coerce_numeric(df, [
+            "home_prob",
+            "away_prob",
+            "home_projected_runs",
+            "away_projected_runs",
+            "total_projected_runs",
+            "away_run_line",
+            "home_run_line",
+            "total",
+            "away_dk_run_line_american",
+            "home_dk_run_line_american",
+            "away_dk_run_line_decimal",
+            "home_dk_run_line_decimal",
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
         ])
 
         rl = df.copy()
@@ -381,7 +658,10 @@ def process_run_line(file_path, summary):
             if pd.isna(lambda_home) or pd.isna(lambda_away) or lambda_home <= 0 or lambda_away <= 0:
                 log(f"ROW ISSUE: {file_path} idx={i} run line invalid lambdas")
                 summary["row_issues"] += 1
+<<<<<<< HEAD
 
+=======
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
                 home_vals.append(None)
                 away_vals.append(None)
                 home_probs.append(None)
@@ -394,7 +674,10 @@ def process_run_line(file_path, summary):
             if pd.isna(home_line) or pd.isna(away_line):
                 log(f"ROW ISSUE: {file_path} idx={i} missing run lines")
                 summary["row_issues"] += 1
+<<<<<<< HEAD
 
+=======
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
                 home_vals.append(None)
                 away_vals.append(None)
                 home_probs.append(None)
@@ -413,7 +696,10 @@ def process_run_line(file_path, summary):
                     f"home={home_line} away={away_line}"
                 )
                 summary["row_issues"] += 1
+<<<<<<< HEAD
 
+=======
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
                 home_vals.append(None)
                 away_vals.append(None)
                 home_probs.append(None)
@@ -425,15 +711,29 @@ def process_run_line(file_path, summary):
 
             home_probs.append(p_home)
             away_probs.append(p_away)
+<<<<<<< HEAD
 
+=======
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
             home_vals.append(1 / p_home)
             away_vals.append(1 / p_away)
 
         rl["home_fair_run_line_decimal"] = home_vals
         rl["away_fair_run_line_decimal"] = away_vals
+<<<<<<< HEAD
 
         rl["home_prob_run_line"] = home_probs
         rl["away_prob_run_line"] = away_probs
+=======
+        rl["home_prob_run_line"] = home_probs
+        rl["away_prob_run_line"] = away_probs
+
+        validate_forbidden_columns(
+            rl,
+            FORBIDDEN_RUN_LINE_COLUMNS,
+            f"run_line output {file_path}",
+        )
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
         slate_date, market = parse_slate_date_and_market(file_path)
 
@@ -443,11 +743,23 @@ def process_run_line(file_path, summary):
             return
 
         out = OUTPUT_DIR / f"{slate_date}_mlb_run_line.csv"
+<<<<<<< HEAD
         rl.to_csv(out, index=False)
 
         log(f"WROTE {out} ({len(rl)} rows) last_run={RUN_TS}")
         summary["files_written"] += 1
         summary["rows_written"] += len(rl)
+=======
+        write_csv_validated(rl, out, f"run_line {out}")
+
+        log(f"WROTE {out} ({len(rl)} rows)")
+        summary["files_written"] += 1
+        summary["rows_written"] += len(rl)
+
+    except ValueError as e:
+        log(f"SCHEMA ERROR run_line {file_path}: {e}\n{traceback.format_exc()}")
+        summary["schema_errors"] += 1
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
     except Exception as e:
         log(f"ERROR run_line {file_path}: {e}\n{traceback.format_exc()}")
@@ -464,6 +776,12 @@ def main():
         "errors": 0,
     }
 
+<<<<<<< HEAD
+=======
+    for f in OUTPUT_DIR.glob("*.csv"):
+        f.unlink()
+
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
     try:
         reset_output_dir()
 
@@ -493,6 +811,7 @@ def main():
         log(f"Row issues: {summary['row_issues']}")
         log(f"Errors: {summary['errors']}")
 
+<<<<<<< HEAD
         status = "SUCCESS" if summary["errors"] == 0 else "COMPLETED WITH ERRORS"
         log(f"STATUS: {status}")
 
@@ -507,10 +826,29 @@ def main():
 
         if summary["errors"] > 0:
             sys.exit(1)
+=======
+        if summary["schema_errors"] > 0 or summary["errors"] > 0:
+            log("STATUS: FAILED")
+            print(
+                f"build_juice_files failed. "
+                f"schema_errors={summary['schema_errors']} errors={summary['errors']}"
+            )
+            sys.exit(1)
+
+        log("STATUS: SUCCESS")
+        print(
+            f"build_juice_files complete. "
+            f"files_written={summary['files_written']} "
+            f"rows_written={summary['rows_written']} "
+            f"schema_errors={summary['schema_errors']} "
+            f"errors={summary['errors']}"
+        )
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
     except Exception as e:
         log(f"FATAL ERROR: {e}\n{traceback.format_exc()}")
         log("STATUS: FAILED")
+        print(f"build_juice_files failed. {e}")
         sys.exit(1)
 
 

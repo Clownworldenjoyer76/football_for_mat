@@ -2,6 +2,7 @@
 # docs/win/baseball/scripts/01_merge/merge_intake.py
 
 import csv
+import math
 import traceback
 from pathlib import Path
 from datetime import datetime, timezone
@@ -26,6 +27,41 @@ with open(LOG_FILE, "w", encoding="utf-8") as f:
 def log(msg):
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"{datetime.now(timezone.utc).isoformat()} | {msg}\n")
+
+
+<<<<<<< HEAD
+def clear_old_outputs():
+    """
+    Permanently deletes every root-level CSV in docs/win/baseball/01_merge before rebuilding.
+
+    This intentionally does NOT delete files inside subfolders such as:
+      docs/win/baseball/01_merge/01_merguiced/
+
+    If any root-level CSV remains after deletion, the script fails immediately.
+    """
+    old_files = sorted([p for p in OUT_DIR.glob("*.csv") if p.is_file()])
+    deleted = 0
+
+    for old_file in old_files:
+        old_file.unlink()
+        deleted += 1
+        log(f"DELETED OLD ROOT MERGE OUTPUT: {old_file}")
+
+    remaining = sorted([p for p in OUT_DIR.glob("*.csv") if p.is_file()])
+
+    if remaining:
+        remaining_text = ", ".join(str(p) for p in remaining)
+        raise RuntimeError(
+            f"FAILED TO DELETE ALL ROOT MERGE CSV OUTPUTS. Remaining files: {remaining_text}"
+        )
+
+    log(f"OLD ROOT MERGE CSV OUTPUTS PERMANENTLY DELETED: {deleted}")
+    log("CONFIRMED: docs/win/baseball/01_merge has zero root-level CSV files before rebuild")
+=======
+def fail(msg):
+    log(f"FATAL VALIDATION ERROR: {msg}")
+    raise RuntimeError(msg)
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
 
 def clear_old_outputs():
@@ -57,7 +93,33 @@ def clear_old_outputs():
     log("CONFIRMED: docs/win/baseball/01_merge has zero root-level CSV files before rebuild")
 
 
-def load_csv(path):
+def duplicate_columns(header):
+    seen = set()
+    dupes = []
+
+    for col in header:
+        if col in seen and col not in dupes:
+            dupes.append(col)
+        seen.add(col)
+
+    return dupes
+
+
+def assert_no_duplicate_columns(header, label):
+    dupes = duplicate_columns(header)
+
+    if dupes:
+        fail(f"{label} has duplicate columns: {dupes}")
+
+
+def assert_required_columns(path, header, required_cols, label):
+    missing = [col for col in required_cols if col not in header]
+
+    if missing:
+        fail(f"{label} missing required columns in {path}: {missing}")
+
+
+def load_csv(path, required_cols=None, label=None):
     rows = []
 
     if not path.exists():
@@ -66,6 +128,13 @@ def load_csv(path):
 
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
+        header = reader.fieldnames or []
+
+        assert_no_duplicate_columns(header, f"{label or path} input")
+
+        if required_cols:
+            assert_required_columns(path, header, required_cols, label or str(path))
+
         for r in reader:
             rows.append(r)
 
@@ -132,6 +201,145 @@ def normalize_probs(p1, p2):
     return str(p1 / total), str(p2 / total)
 
 
+def fv(value):
+    try:
+        if value is None:
+            return None
+
+        s = str(value).strip()
+
+        if not s:
+            return None
+
+        x = float(s)
+
+        if not math.isfinite(x):
+            return None
+
+        return x
+
+    except Exception:
+        return None
+
+
+def poisson_probs(lam, max_runs=30):
+    """
+    Returns P(X = k) for k=0..max_runs using a Poisson model.
+
+    This avoids scipy dependency. Tail mass beyond max_runs is normally tiny
+    for MLB projected run means. The distribution is normalized after truncation.
+    """
+    if lam is None or lam < 0:
+        return None
+
+    probs = [0.0] * (max_runs + 1)
+
+    try:
+        probs[0] = math.exp(-lam)
+
+        for k in range(1, max_runs + 1):
+            probs[k] = probs[k - 1] * lam / k
+
+        total = sum(probs)
+
+        if total <= 0:
+            return None
+
+        return [p / total for p in probs]
+
+    except Exception:
+        return None
+
+
+def run_line_cover_probability(home_projected_runs, away_projected_runs, home_run_line, away_run_line):
+    """
+    Calculates run-line cover probabilities from projected runs and actual sportsbook run lines.
+
+    Home cover condition:
+      home_score + home_run_line > away_score
+
+    Away cover condition:
+      away_score + away_run_line > home_score
+
+    For standard MLB half-run lines, no push is possible.
+    """
+    home_lambda = fv(home_projected_runs)
+    away_lambda = fv(away_projected_runs)
+    home_line = fv(home_run_line)
+    away_line = fv(away_run_line)
+
+    if home_lambda is None or away_lambda is None:
+        return "", ""
+
+    if home_line is None or away_line is None:
+        return "", ""
+
+    home_dist = poisson_probs(home_lambda)
+    away_dist = poisson_probs(away_lambda)
+
+    if home_dist is None or away_dist is None:
+        return "", ""
+
+    home_cover = 0.0
+    away_cover = 0.0
+
+    for home_score, hp in enumerate(home_dist):
+        for away_score, ap in enumerate(away_dist):
+            prob = hp * ap
+
+            if home_score + home_line > away_score:
+                home_cover += prob
+
+            if away_score + away_line > home_score:
+                away_cover += prob
+
+    return str(home_cover), str(away_cover)
+
+
+# ─────────────────────────────────────────────
+# REQUIRED INPUT SCHEMAS
+# ─────────────────────────────────────────────
+
+REQUIRED_PRED_COLS = [
+    "game_id",
+    "home_team",
+    "away_team",
+    "game_time",
+    "home_pitcher",
+    "away_pitcher",
+    "home_prob",
+    "away_prob",
+    "away_projected_runs",
+    "home_projected_runs",
+    "total_projected_runs",
+]
+
+REQUIRED_BOOK_COLS = [
+    "game_id",
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "home_team",
+    "away_team",
+    "away_run_line",
+    "home_run_line",
+    "total",
+    "away_dk_moneyline_american",
+    "home_dk_moneyline_american",
+    "away_dk_moneyline_decimal",
+    "home_dk_moneyline_decimal",
+    "away_dk_run_line_american",
+    "home_dk_run_line_american",
+    "away_dk_run_line_decimal",
+    "home_dk_run_line_decimal",
+    "dk_total_over_american",
+    "dk_total_under_american",
+    "dk_total_over_decimal",
+    "dk_total_under_decimal",
+]
+
+
 # ─────────────────────────────────────────────
 # GAME CONTEXT LOADING
 # ─────────────────────────────────────────────
@@ -182,7 +390,17 @@ def load_games_index(date: str) -> dict:
     idx = {}
 
     with open(path, newline="", encoding="utf-8-sig") as f:
+<<<<<<< HEAD
         for r in csv.DictReader(f):
+=======
+        reader = csv.DictReader(f)
+        header = reader.fieldnames or []
+
+        assert_no_duplicate_columns(header, f"{path} input")
+        assert_required_columns(path, header, ["game_id", "gamePk"], "games input")
+
+        for r in reader:
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
             game_id = (r.get("game_id") or "").strip()
             game_pk = (r.get("gamePk") or "").strip()
 
@@ -206,7 +424,17 @@ def load_context_index(date: str) -> dict:
     idx = {}
 
     with open(path, newline="", encoding="utf-8-sig") as f:
+<<<<<<< HEAD
         for r in csv.DictReader(f):
+=======
+        reader = csv.DictReader(f)
+        header = reader.fieldnames or []
+
+        assert_no_duplicate_columns(header, f"{path} input")
+        assert_required_columns(path, header, ["gamePk"], "game_context input")
+
+        for r in reader:
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
             pk = (r.get("gamePk") or "").strip()
 
             if pk:
@@ -242,8 +470,8 @@ def process_date(date, summary):
     pred_path = PRED_DIR / f"{date}_MLB.csv"
     book_path = BOOK_DIR / f"{date}_MLB.csv"
 
-    preds = load_csv(pred_path)
-    books = load_csv(book_path)
+    preds = load_csv(pred_path, REQUIRED_PRED_COLS, "prediction input")
+    books = load_csv(book_path, REQUIRED_BOOK_COLS, "sportsbook input")
 
     if not preds:
         log(f"SKIP {date}: no predictions")
@@ -261,10 +489,18 @@ def process_date(date, summary):
     log(f"{date} | games_idx={len(games_idx)} context_idx={len(context_idx)}")
 
     pred_idx = build_game_id_index(preds, date)
+<<<<<<< HEAD
 
     matched = 0
     unmatched = 0
 
+=======
+
+    matched = 0
+    unmatched = 0
+    run_line_prob_missing = 0
+
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
     ml_rows = []
     rl_rows = []
     tot_rows = []
@@ -325,6 +561,7 @@ def process_date(date, summary):
             p.get("total_projected_runs", ""),
         ] + ctx_vals)
 
+<<<<<<< HEAD
         try:
             home_prob_ml = float(p.get("home_prob", ""))
             away_prob_ml = float(p.get("away_prob", ""))
@@ -333,6 +570,25 @@ def process_date(date, summary):
         except Exception:
             home_rl_prob = ""
             away_rl_prob = ""
+=======
+        home_prob_run_line, away_prob_run_line = run_line_cover_probability(
+            home_projected_runs=p.get("home_projected_runs", ""),
+            away_projected_runs=p.get("away_projected_runs", ""),
+            home_run_line=b.get("home_run_line", ""),
+            away_run_line=b.get("away_run_line", ""),
+        )
+
+        if home_prob_run_line == "" or away_prob_run_line == "":
+            run_line_prob_missing += 1
+            log(
+                f"{date} | run-line probability unavailable: "
+                f"game_id={game_id} "
+                f"home_projected_runs={p.get('home_projected_runs', '')} "
+                f"away_projected_runs={p.get('away_projected_runs', '')} "
+                f"home_run_line={b.get('home_run_line', '')} "
+                f"away_run_line={b.get('away_run_line', '')}"
+            )
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
         rl_rows.append([
             RUN_TS,
@@ -357,8 +613,13 @@ def process_date(date, summary):
             p.get("away_projected_runs", ""),
             p.get("home_projected_runs", ""),
             p.get("total_projected_runs", ""),
+<<<<<<< HEAD
             home_rl_prob,
             away_rl_prob,
+=======
+            home_prob_run_line,
+            away_prob_run_line,
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
         ] + ctx_vals)
 
         over_raw = american_to_prob(b.get("dk_total_over_american", ""))
@@ -392,12 +653,32 @@ def process_date(date, summary):
             under_prob,
         ] + ctx_vals)
 
+<<<<<<< HEAD
     log(f"{date} | matched={matched} | unmatched={unmatched}")
+=======
+    log(
+        f"{date} | matched={matched} | unmatched={unmatched} "
+        f"| run_line_prob_missing={run_line_prob_missing}"
+    )
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
 
     summary["total_matched"] += matched
     summary["total_unmatched"] += unmatched
+    summary["run_line_prob_missing"] += run_line_prob_missing
 
     def write(path, header, rows):
+        assert_no_duplicate_columns(header, f"{path} output")
+
+        expected_width = len(header)
+        bad_rows = []
+
+        for i, row in enumerate(rows, start=1):
+            if len(row) != expected_width:
+                bad_rows.append((i, len(row), expected_width))
+
+        if bad_rows:
+            fail(f"{path} has row/header width mismatch: {bad_rows[:10]}")
+
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(header)
@@ -426,7 +707,7 @@ def process_date(date, summary):
         "away_dk_run_line_decimal", "home_dk_run_line_decimal",
         "home_pitcher", "away_pitcher", "home_prob", "away_prob",
         "away_projected_runs", "home_projected_runs", "total_projected_runs",
-        "home_run_line_prob", "away_run_line_prob",
+        "home_prob_run_line", "away_prob_run_line",
     ]
 
     base_tot_header = [
@@ -460,6 +741,10 @@ if __name__ == "__main__":
         "files_written": 0,
         "total_matched": 0,
         "total_unmatched": 0,
+<<<<<<< HEAD
+=======
+        "run_line_prob_missing": 0,
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
     }
 
     try:
@@ -481,6 +766,7 @@ if __name__ == "__main__":
         log(f"Files written: {summary['files_written']}")
         log(f"Total matched: {summary['total_matched']}")
         log(f"Total unmatched: {summary['total_unmatched']}")
+        log(f"Run-line probability missing: {summary['run_line_prob_missing']}")
         log("STATUS: SUCCESS")
 
         print(
@@ -489,6 +775,10 @@ if __name__ == "__main__":
             f"files_written={summary['files_written']} "
             f"matched={summary['total_matched']} "
             f"unmatched={summary['total_unmatched']} "
+<<<<<<< HEAD
+=======
+            f"run_line_prob_missing={summary['run_line_prob_missing']} "
+>>>>>>> 67f12db62f4d2ba562c5ffa0eebb8972e2235186
             f"Status: SUCCESS"
         )
 
