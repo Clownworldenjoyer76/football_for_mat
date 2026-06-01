@@ -20,12 +20,40 @@ PRED_DIR.mkdir(parents=True, exist_ok=True)
 FINAL_DIR.mkdir(parents=True, exist_ok=True)
 
 # -------------------------
+# SETTINGS
+# -------------------------
+
+DOUBLEHEADER_TIME_TOLERANCE_MINUTES = 90
+
+# -------------------------
 # HELPERS
 # -------------------------
 
 def parse_datetime(dt_str):
     dt = datetime.strptime(dt_str.strip(), "%m/%d/%Y %I:%M %p")
     return dt, dt.strftime("%Y_%m_%d"), dt.strftime("%I:%M %p")
+
+
+def parse_time_value(value):
+    value = str(value).strip()
+
+    if not value:
+        return None
+
+    formats = [
+        "%I:%M %p",
+        "%H:%M:%S",
+        "%H:%M",
+    ]
+
+    for fmt in formats:
+        try:
+            parsed = datetime.strptime(value, fmt)
+            return parsed.hour * 60 + parsed.minute
+        except ValueError:
+            continue
+
+    return None
 
 
 def clean_team(team_str):
@@ -38,7 +66,81 @@ def pct_to_decimal(p):
 
 def split_lines(val):
     parts = val.split("\n")
-    return parts[0].strip(), parts[1].strip() if len(parts) > 1 else ("", "")
+    if len(parts) > 1:
+        return parts[0].strip(), parts[1].strip()
+    return parts[0].strip(), ""
+
+
+def closest_time_match(candidates, target_game_time, value_field):
+    if not candidates:
+        return ""
+
+    if len(candidates) == 1:
+        return candidates[0].get(value_field, "")
+
+    target_minutes = parse_time_value(target_game_time)
+
+    if target_minutes is None:
+        return ""
+
+    best_candidate = None
+    best_diff = None
+
+    for candidate in candidates:
+        candidate_minutes = parse_time_value(candidate.get("game_time", ""))
+
+        if candidate_minutes is None:
+            continue
+
+        diff = abs(candidate_minutes - target_minutes)
+
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_candidate = candidate
+
+    if best_candidate is None:
+        return ""
+
+    if best_diff > DOUBLEHEADER_TIME_TOLERANCE_MINUTES:
+        return ""
+
+    return best_candidate.get(value_field, "")
+
+
+def closest_time_book_match(candidates, target_game_time):
+    if not candidates:
+        return {}
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    target_minutes = parse_time_value(target_game_time)
+
+    if target_minutes is None:
+        return {}
+
+    best_candidate = None
+    best_diff = None
+
+    for candidate in candidates:
+        candidate_minutes = parse_time_value(candidate.get("game_time", ""))
+
+        if candidate_minutes is None:
+            continue
+
+        diff = abs(candidate_minutes - target_minutes)
+
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_candidate = candidate
+
+    if best_candidate is None:
+        return {}
+
+    if best_diff > DOUBLEHEADER_TIME_TOLERANCE_MINUTES:
+        return {}
+
+    return best_candidate
 
 
 # -------------------------
@@ -54,9 +156,19 @@ def load_predictions_lookup(date):
 
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+
         for r in reader:
-            key = (r["home_team"], r["away_team"])
-            lookup[key] = r.get("game_id")
+            key = (
+                r.get("home_team", "").strip(),
+                r.get("away_team", "").strip(),
+            )
+
+            lookup.setdefault(key, []).append({
+                "game_id": r.get("game_id", ""),
+                "game_time": r.get("game_time", ""),
+                "home_team": r.get("home_team", ""),
+                "away_team": r.get("away_team", ""),
+            })
 
     return lookup
 
@@ -70,13 +182,19 @@ def load_sportsbook_lookup(date):
 
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+
         for r in reader:
-            key = (r["home_team"], r["away_team"])
-            lookup[key] = {
+            key = (
+                r.get("home_team", "").strip(),
+                r.get("away_team", "").strip(),
+            )
+
+            lookup.setdefault(key, []).append({
+                "game_time": r.get("game_time", ""),
                 "away_run_line": r.get("away_run_line"),
                 "home_run_line": r.get("home_run_line"),
                 "total": r.get("total"),
-            }
+            })
 
     return lookup
 
@@ -93,6 +211,8 @@ def process_file(file_path):
 
     predictions_by_date = {}
     final_scores_by_date = {}
+    predictions_lookup_cache = {}
+    sportsbook_lookup_cache = {}
 
     for row in data:
         if not row or len(row) < 2:
@@ -100,7 +220,7 @@ def process_file(file_path):
 
         try:
             dt, game_date, game_time = parse_datetime(row[0])
-        except:
+        except Exception:
             continue
 
         is_past = dt.date() < today
@@ -138,7 +258,7 @@ def process_file(file_path):
                 total_runs = row[7]
 
                 pred_row = [
-                    "",  # game_id blank
+                    "",
                     "baseball",
                     "mlb",
                     game_date,
@@ -151,12 +271,12 @@ def process_file(file_path):
                     away_prob,
                     away_runs,
                     home_runs,
-                    total_runs
+                    total_runs,
                 ]
 
                 predictions_by_date.setdefault(game_date, []).append(pred_row)
 
-            except:
+            except Exception:
                 continue
 
         # -------------------------
@@ -170,12 +290,20 @@ def process_file(file_path):
                 home_score = int(scores[1])
                 final_total = str(away_score + home_score)
 
-                pred_lookup = load_predictions_lookup(game_date)
-                book_lookup = load_sportsbook_lookup(game_date)
+                if game_date not in predictions_lookup_cache:
+                    predictions_lookup_cache[game_date] = load_predictions_lookup(game_date)
 
-                game_id = pred_lookup.get(key, "")
+                if game_date not in sportsbook_lookup_cache:
+                    sportsbook_lookup_cache[game_date] = load_sportsbook_lookup(game_date)
 
-                book = book_lookup.get(key, {})
+                pred_lookup = predictions_lookup_cache[game_date]
+                book_lookup = sportsbook_lookup_cache[game_date]
+
+                pred_candidates = pred_lookup.get(key, [])
+                game_id = closest_time_match(pred_candidates, game_time, "game_id")
+
+                book_candidates = book_lookup.get(key, [])
+                book = closest_time_book_match(book_candidates, game_time)
 
                 final_row = [
                     "baseball",
@@ -195,7 +323,7 @@ def process_file(file_path):
 
                 final_scores_by_date.setdefault(game_date, []).append(final_row)
 
-            except:
+            except Exception:
                 continue
 
     # -------------------------
@@ -207,10 +335,20 @@ def process_file(file_path):
         with open(out, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
-                "game_id","sport","league","game_date","game_time",
-                "home_team","away_team","home_pitcher","away_pitcher",
-                "home_prob","away_prob",
-                "away_projected_runs","home_projected_runs","total_projected_runs"
+                "game_id",
+                "sport",
+                "league",
+                "game_date",
+                "game_time",
+                "home_team",
+                "away_team",
+                "home_pitcher",
+                "away_pitcher",
+                "home_prob",
+                "away_prob",
+                "away_projected_runs",
+                "home_projected_runs",
+                "total_projected_runs",
             ])
             writer.writerows(rows)
 
@@ -223,10 +361,19 @@ def process_file(file_path):
         with open(out, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
-                "sport","league","game_id","game_date","game_time",
-                "home_team","away_team",
-                "final_away_score","final_home_score","final_total",
-                "away_run_line","home_run_line","total"
+                "sport",
+                "league",
+                "game_id",
+                "game_date",
+                "game_time",
+                "home_team",
+                "away_team",
+                "final_away_score",
+                "final_home_score",
+                "final_total",
+                "away_run_line",
+                "home_run_line",
+                "total",
             ])
             writer.writerows(rows)
 
