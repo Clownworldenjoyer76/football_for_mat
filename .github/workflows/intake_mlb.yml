@@ -47,6 +47,7 @@ jobs:
           mkdir -p docs/win/baseball/00_intake/drat_raw/
           mkdir -p docs/win/baseball/00_intake/predictions/
           mkdir -p docs/win/baseball/00_intake/predictions/pred_with_game_id/
+          mkdir -p docs/win/baseball/00_intake/predictions/pred_with_game_id/rejections/
           mkdir -p docs/win/baseball/00_intake/games/
           mkdir -p docs/win/baseball/00_intake/mlb_raw/
           mkdir -p docs/win/final_scores/results/mlb/final_scores/
@@ -85,7 +86,39 @@ jobs:
       - name: Baseball Inject Game IDs Into Predictions
         run: python docs/win/baseball/scripts/00_intake/game_id_pred.py
 
+      - name: Print intake failure diagnostics
+        if: failure()
+        run: |
+          echo "=== docs/win/baseball/errors/00_intake ==="
+          find docs/win/baseball/errors/00_intake -type f -maxdepth 1 -print || true
+
+          echo ""
+          echo "=== game_id_pred log ==="
+          if [ -f docs/win/baseball/errors/00_intake/game_id_pred.txt ]; then
+            cat docs/win/baseball/errors/00_intake/game_id_pred.txt
+          else
+            echo "game_id_pred.txt not found"
+          fi
+
+          echo ""
+          echo "=== prediction rejection CSVs ==="
+          find docs/win/baseball/00_intake/predictions/pred_with_game_id/rejections -type f -name "*.csv" -print -exec cat {} \; || true
+
+      - name: Upload intake diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseball-intake-diagnostics-${{ env.DATE }}
+          if-no-files-found: ignore
+          path: |
+            docs/win/baseball/errors/00_intake/**
+            docs/win/baseball/00_intake/predictions/pred_with_game_id/rejections/**
+            docs/win/baseball/00_intake/predictions/pred_with_game_id/**
+            docs/win/baseball/00_intake/games/**
+            docs/win/baseball/00_intake/predictions/**
+
       - name: Commit outputs
+        if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
