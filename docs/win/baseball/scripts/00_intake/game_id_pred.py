@@ -28,6 +28,7 @@
 #   - Hard-fail if matched output row count differs from input prediction row count.
 #   - Write rejected prediction rows to:
 #       docs/win/baseball/00_intake/predictions/pred_with_game_id/rejections/{date}_unmatched_predictions.csv
+#   - Print rejected prediction rows to stdout before failure so GitHub Actions logs show the reason.
 
 import csv
 import math
@@ -319,6 +320,34 @@ def describe_candidates(scored: list[tuple]) -> str:
         parts.append(f"{describe_game_entry(game_entry)}|diff_minutes={diff_text}")
 
     return "; ".join(parts)
+
+
+def print_rejection_rows(date_str: str, rejection_path: Path, rejection_rows: list[dict]) -> None:
+    print("")
+    print("=" * 80)
+    print(f"REJECTED PREDICTION ROWS | date={date_str}")
+    print(f"rejection_csv={rejection_path.as_posix()}")
+    print(f"count={len(rejection_rows)}")
+    print("=" * 80)
+
+    for idx, row in enumerate(rejection_rows, start=1):
+        print(f"REJECTED #{idx}")
+        print(f"  reject_reason={row.get('reject_reason', '')}")
+        print(f"  game_date={row.get('game_date', '')}")
+        print(f"  game_time={row.get('game_time', '')}")
+        print(f"  away_team={row.get('away_team', '')}")
+        print(f"  home_team={row.get('home_team', '')}")
+        print(f"  away_pitcher={row.get('away_pitcher', '')}")
+        print(f"  home_pitcher={row.get('home_pitcher', '')}")
+        print(f"  away_prob={row.get('away_prob', '')}")
+        print(f"  home_prob={row.get('home_prob', '')}")
+        print(f"  candidate_games={row.get('candidate_games', '')}")
+        print("-" * 80)
+
+    print("=" * 80)
+    print("END REJECTED PREDICTION ROWS")
+    print("=" * 80)
+    print("")
 
 
 # ─────────────────────────────────────────────
@@ -732,6 +761,7 @@ def process_date(date_str: str, pred_path: Path, summary: dict) -> None:
 
     if rejection_rows:
         write_csv(rejection_path, REJECTION_HEADER, rejection_rows)
+        print_rejection_rows(date_str, rejection_path, rejection_rows)
         summary["rejected"] += len(rejection_rows)
         summary["errors"] += len(rejection_rows)
 
