@@ -24,15 +24,20 @@ def log(msg: str) -> None:
 # PATHS
 # -------------------------
 
-RAW_DIR             = Path("docs/win/baseball/00_intake/drat_raw")
-PRED_DIR            = Path("docs/win/baseball/00_intake/predictions")
-FINAL_DIR           = Path("docs/win/final_scores/results/mlb/final_scores")
-BASEBALL_FINAL_DIR  = Path("docs/win/baseball/05_final_scores/results/final_scores")
-SPORTSBOOK_DIR      = Path("docs/win/baseball/00_intake/sportsbook")
+RAW_DIR = Path("docs/win/baseball/00_intake/drat_raw")
+PRED_DIR = Path("docs/win/baseball/00_intake/predictions")
+FINAL_DIR = Path("docs/win/baseball/05_final_scores/results/final_scores")
+SPORTSBOOK_DIR = Path("docs/win/baseball/00_intake/sportsbook")
 
 PRED_DIR.mkdir(parents=True, exist_ok=True)
 FINAL_DIR.mkdir(parents=True, exist_ok=True)
-BASEBALL_FINAL_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# -------------------------
+# SETTINGS
+# -------------------------
+
+DOUBLEHEADER_TIME_TOLERANCE_MINUTES = 90
 
 
 # -------------------------
@@ -44,12 +49,106 @@ def parse_datetime(dt_str):
     return dt, dt.strftime("%Y_%m_%d"), dt.strftime("%I:%M %p")
 
 
+def parse_time_minutes(value):
+    value = str(value).strip()
+
+    if not value:
+        return None
+
+    formats = [
+        "%I:%M %p",
+        "%H:%M:%S",
+        "%H:%M",
+    ]
+
+    for fmt in formats:
+        try:
+            parsed = datetime.strptime(value, fmt)
+            return parsed.hour * 60 + parsed.minute
+        except ValueError:
+            continue
+
+    return None
+
+
 def clean_team(team_str):
     return team_str.split("(")[0].strip()
 
 
 def pct_to_decimal(p):
     return str(round(float(p.replace("%", "")) / 100, 3))
+
+
+def closest_time_match(candidates, target_game_time, value_field):
+    if not candidates:
+        return ""
+
+    if len(candidates) == 1:
+        return candidates[0].get(value_field, "")
+
+    target_minutes = parse_time_minutes(target_game_time)
+
+    if target_minutes is None:
+        return ""
+
+    best_candidate = None
+    best_diff = None
+
+    for candidate in candidates:
+        candidate_minutes = parse_time_minutes(candidate.get("game_time", ""))
+
+        if candidate_minutes is None:
+            continue
+
+        diff = abs(candidate_minutes - target_minutes)
+
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_candidate = candidate
+
+    if best_candidate is None:
+        return ""
+
+    if best_diff > DOUBLEHEADER_TIME_TOLERANCE_MINUTES:
+        return ""
+
+    return best_candidate.get(value_field, "")
+
+
+def closest_time_book_match(candidates, target_game_time):
+    if not candidates:
+        return {}
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    target_minutes = parse_time_minutes(target_game_time)
+
+    if target_minutes is None:
+        return {}
+
+    best_candidate = None
+    best_diff = None
+
+    for candidate in candidates:
+        candidate_minutes = parse_time_minutes(candidate.get("game_time", ""))
+
+        if candidate_minutes is None:
+            continue
+
+        diff = abs(candidate_minutes - target_minutes)
+
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_candidate = candidate
+
+    if best_candidate is None:
+        return {}
+
+    if best_diff > DOUBLEHEADER_TIME_TOLERANCE_MINUTES:
+        return {}
+
+    return best_candidate
 
 
 # -------------------------
@@ -65,9 +164,19 @@ def load_predictions_lookup(date):
 
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+
         for r in reader:
-            key = (r["home_team"], r["away_team"])
-            lookup[key] = r.get("game_id")
+            key = (
+                r.get("home_team", "").strip(),
+                r.get("away_team", "").strip(),
+            )
+
+            lookup.setdefault(key, []).append({
+                "game_id": r.get("game_id", ""),
+                "game_time": r.get("game_time", ""),
+                "home_team": r.get("home_team", ""),
+                "away_team": r.get("away_team", ""),
+            })
 
     return lookup
 
@@ -81,13 +190,19 @@ def load_sportsbook_lookup(date):
 
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+
         for r in reader:
-            key = (r["home_team"], r["away_team"])
-            lookup[key] = {
+            key = (
+                r.get("home_team", "").strip(),
+                r.get("away_team", "").strip(),
+            )
+
+            lookup.setdefault(key, []).append({
+                "game_time": r.get("game_time", ""),
                 "away_run_line": r.get("away_run_line"),
                 "home_run_line": r.get("home_run_line"),
                 "total": r.get("total"),
-            }
+            })
 
     return lookup
 
@@ -142,6 +257,9 @@ def process_file(file_path, files_written, seen_final_keys):
 
     predictions_by_date = {}
     final_scores_by_date = {}
+    predictions_lookup_cache = {}
+    sportsbook_lookup_cache = {}
+
     parse_errors = 0
     skipped_summary = 0
     skipped_duplicate = 0
@@ -180,7 +298,7 @@ def process_file(file_path, files_written, seen_final_keys):
             #   7: total projected runs
             #   8: over/under lines
             #   9: bet value label
-            #  10: (empty)
+            #  10: empty
             try:
                 pitchers = row[2].split("\n")
                 away_pitcher = pitchers[0].strip()
@@ -197,11 +315,20 @@ def process_file(file_path, files_written, seen_final_keys):
                 total_runs = row[7]
 
                 pred_row = [
-                    "", "baseball", "mlb", game_date, game_time,
-                    home_team, away_team,
-                    home_pitcher, away_pitcher,
-                    home_prob, away_prob,
-                    away_runs, home_runs, total_runs,
+                    "",
+                    "baseball",
+                    "mlb",
+                    game_date,
+                    game_time,
+                    home_team,
+                    away_team,
+                    home_pitcher,
+                    away_pitcher,
+                    home_prob,
+                    away_prob,
+                    away_runs,
+                    home_runs,
+                    total_runs,
                 ]
 
                 predictions_by_date.setdefault(game_date, []).append(pred_row)
@@ -221,7 +348,7 @@ def process_file(file_path, files_written, seen_final_keys):
             #   6: rating
             #   7: rating
             try:
-                dedup_key = (game_date, home_team, away_team)
+                dedup_key = (game_date, home_team, away_team, game_time)
 
                 if dedup_key in seen_final_keys:
                     skipped_duplicate += 1
@@ -234,17 +361,32 @@ def process_file(file_path, files_written, seen_final_keys):
                 home_score = int(scores[1].strip()) if len(scores) > 1 else 0
                 final_total = str(away_score + home_score)
 
-                pred_lookup = load_predictions_lookup(game_date)
-                book_lookup = load_sportsbook_lookup(game_date)
+                if game_date not in predictions_lookup_cache:
+                    predictions_lookup_cache[game_date] = load_predictions_lookup(game_date)
 
-                game_id = pred_lookup.get(key, "")
-                book = book_lookup.get(key, {})
+                if game_date not in sportsbook_lookup_cache:
+                    sportsbook_lookup_cache[game_date] = load_sportsbook_lookup(game_date)
+
+                pred_lookup = predictions_lookup_cache[game_date]
+                book_lookup = sportsbook_lookup_cache[game_date]
+
+                pred_candidates = pred_lookup.get(key, [])
+                game_id = closest_time_match(pred_candidates, game_time, "game_id")
+
+                book_candidates = book_lookup.get(key, [])
+                book = closest_time_book_match(book_candidates, game_time)
 
                 final_row = [
-                    "baseball", "mlb", game_id,
-                    game_date, game_time,
-                    home_team, away_team,
-                    str(away_score), str(home_score), final_total,
+                    "baseball",
+                    "mlb",
+                    game_id,
+                    game_date,
+                    game_time,
+                    home_team,
+                    away_team,
+                    str(away_score),
+                    str(home_score),
+                    final_total,
                     book.get("away_run_line"),
                     book.get("home_run_line"),
                     book.get("total"),
@@ -260,10 +402,20 @@ def process_file(file_path, files_written, seen_final_keys):
             log(f"  SKIPPED unknown row ({len(row)} cells): {row[0]} | {row[1]}")
 
     prediction_header = [
-        "game_id", "sport", "league", "game_date", "game_time",
-        "home_team", "away_team", "home_pitcher", "away_pitcher",
-        "home_prob", "away_prob",
-        "away_projected_runs", "home_projected_runs", "total_projected_runs",
+        "game_id",
+        "sport",
+        "league",
+        "game_date",
+        "game_time",
+        "home_team",
+        "away_team",
+        "home_pitcher",
+        "away_pitcher",
+        "home_prob",
+        "away_prob",
+        "away_projected_runs",
+        "home_projected_runs",
+        "total_projected_runs",
     ]
 
     for date, rows in predictions_by_date.items():
@@ -271,20 +423,24 @@ def process_file(file_path, files_written, seen_final_keys):
         write_csv(out, prediction_header, rows, files_written, "predictions")
 
     final_header = [
-        "sport", "league", "game_id", "game_date", "game_time",
-        "home_team", "away_team",
-        "final_away_score", "final_home_score", "final_total",
-        "away_run_line", "home_run_line", "total",
+        "sport",
+        "league",
+        "game_id",
+        "game_date",
+        "game_time",
+        "home_team",
+        "away_team",
+        "final_away_score",
+        "final_home_score",
+        "final_total",
+        "away_run_line",
+        "home_run_line",
+        "total",
     ]
 
     for date, rows in final_scores_by_date.items():
-        output_paths = [
-            FINAL_DIR / f"{date}_final_scores_MLB.csv",
-            BASEBALL_FINAL_DIR / f"{date}_final_scores_MLB.csv",
-        ]
-
-        for out in output_paths:
-            write_csv(out, final_header, rows, files_written, "final scores")
+        out = FINAL_DIR / f"{date}_final_scores_MLB.csv"
+        write_csv(out, final_header, rows, files_written, "final scores")
 
     log(
         f"  parse_errors={parse_errors}, "
