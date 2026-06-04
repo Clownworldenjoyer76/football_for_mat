@@ -1,0 +1,362 @@
+#!/usr/bin/env python3
+# docs/win/baseball/scripts/05_final_scores/build_mlb_final_scores.py
+
+import csv
+import json
+import traceback
+from datetime import datetime, UTC
+from pathlib import Path
+
+ERROR_DIR = Path("docs/win/baseball/errors/05_final_scores")
+ERROR_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = ERROR_DIR / "build_mlb_final_scores.txt"
+
+RAW_DIR = Path("docs/win/baseball/00_intake/drat_raw")
+PRED_DIR = Path("docs/win/baseball/00_intake/predictions/pred_with_game_id")
+SPORTSBOOK_DIR = Path("docs/win/baseball/00_intake/sportsbook")
+SELECT_DIR = Path("docs/win/baseball/04_select")
+FINAL_DIR = Path("docs/win/baseball/05_final_scores/results/final_scores")
+
+FINAL_DIR.mkdir(parents=True, exist_ok=True)
+
+RUN_TS = datetime.now(UTC).isoformat()
+DOUBLEHEADER_TIME_TOLERANCE_MINUTES = 90
+
+with open(LOG_FILE, "w", encoding="utf-8") as f:
+    f.write(f"=== build_mlb_final_scores RUN {RUN_TS} ===\n")
+
+
+def log(msg: str) -> None:
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{datetime.now(UTC).isoformat()} | {msg}\n")
+
+
+def fail(msg: str) -> None:
+    log(f"FATAL: {msg}")
+    raise RuntimeError(msg)
+
+
+def parse_datetime(dt_str):
+    dt = datetime.strptime(dt_str.strip(), "%m/%d/%Y %I:%M %p")
+    return dt, dt.strftime("%Y_%m_%d"), dt.strftime("%I:%M %p")
+
+
+def parse_time_minutes(value):
+    value = str(value).strip()
+    if not value:
+        return None
+
+    for fmt in ["%I:%M %p", "%H:%M:%S", "%H:%M"]:
+        try:
+            parsed = datetime.strptime(value, fmt)
+            return parsed.hour * 60 + parsed.minute
+        except ValueError:
+            continue
+
+    return None
+
+
+def clean_team(team_str):
+    return team_str.split("(")[0].strip()
+
+
+def closest_time_match(candidates, target_game_time, value_field):
+    if not candidates:
+        return ""
+
+    if len(candidates) == 1:
+        return candidates[0].get(value_field, "")
+
+    target_minutes = parse_time_minutes(target_game_time)
+    if target_minutes is None:
+        return ""
+
+    best_candidate = None
+    best_diff = None
+
+    for candidate in candidates:
+        candidate_minutes = parse_time_minutes(candidate.get("game_time", ""))
+        if candidate_minutes is None:
+            continue
+
+        diff = abs(candidate_minutes - target_minutes)
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_candidate = candidate
+
+    if best_candidate is None or best_diff > DOUBLEHEADER_TIME_TOLERANCE_MINUTES:
+        return ""
+
+    return best_candidate.get(value_field, "")
+
+
+def closest_time_book_match(candidates, target_game_time):
+    if not candidates:
+        return {}
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    target_minutes = parse_time_minutes(target_game_time)
+    if target_minutes is None:
+        return {}
+
+    best_candidate = None
+    best_diff = None
+
+    for candidate in candidates:
+        candidate_minutes = parse_time_minutes(candidate.get("game_time", ""))
+        if candidate_minutes is None:
+            continue
+
+        diff = abs(candidate_minutes - target_minutes)
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_candidate = candidate
+
+    if best_candidate is None or best_diff > DOUBLEHEADER_TIME_TOLERANCE_MINUTES:
+        return {}
+
+    return best_candidate
+
+
+def assert_selected_files_exist():
+    select_files = sorted(SELECT_DIR.glob("*_MLB.csv"))
+    if not select_files:
+        fail(
+            f"No selected-bet files found in {SELECT_DIR}. "
+            "Final-score generation is post-selection only. Run baseball_select_bets.py first."
+        )
+    log(f"Selected-bet files found before final-score build: {len(select_files)}")
+    return {p.stem.replace("_MLB", "") for p in select_files}
+
+
+def load_predictions_lookup(date):
+    path = PRED_DIR / f"{date}_MLB.csv"
+    lookup = {}
+
+    if not path.exists():
+        log(f"PREDICTION FILE MISSING FOR FINAL-SCORE GAME_ID LOOKUP: {path}")
+        return lookup
+
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            key = (
+                r.get("home_team", "").strip(),
+                r.get("away_team", "").strip(),
+            )
+            lookup.setdefault(key, []).append({
+                "game_id": r.get("game_id", ""),
+                "game_time": r.get("game_time", ""),
+                "home_team": r.get("home_team", ""),
+                "away_team": r.get("away_team", ""),
+            })
+
+    return lookup
+
+
+def load_sportsbook_lookup(date):
+    path = SPORTSBOOK_DIR / f"{date}_MLB.csv"
+    lookup = {}
+
+    if not path.exists():
+        log(f"SPORTSBOOK FILE MISSING FOR FINAL-SCORE MARKET-LINE LOOKUP: {path}")
+        return lookup
+
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            key = (
+                r.get("home_team", "").strip(),
+                r.get("away_team", "").strip(),
+            )
+            lookup.setdefault(key, []).append({
+                "game_time": r.get("game_time", ""),
+                "away_run_line": r.get("away_run_line"),
+                "home_run_line": r.get("home_run_line"),
+                "total": r.get("total"),
+            })
+
+    return lookup
+
+
+def is_completed_game(row):
+    return len(row) == 8
+
+
+SUMMARY_ROW_PREFIXES = {"Sportsbooks", "DRatings"}
+
+
+def is_summary_row(row):
+    return row and str(row[0]).strip() in SUMMARY_ROW_PREFIXES
+
+
+def write_csv(path, header, rows, files_written, label):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        writer.writerows(rows)
+
+    files_written.append((str(path), len(rows)))
+    log(f"WROTE {label} -> {path} ({len(rows)} rows)")
+
+
+def process_file(file_path, files_written, seen_final_keys, selected_dates):
+    log(f"Processing {file_path.name}")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    final_scores_by_date = {}
+    predictions_lookup_cache = {}
+    sportsbook_lookup_cache = {}
+
+    parse_errors = 0
+    skipped_summary = 0
+    skipped_duplicate = 0
+    skipped_no_selected_file = 0
+    completed_rows_seen = 0
+
+    for row in data:
+        if not row or len(row) < 2:
+            continue
+
+        if is_summary_row(row):
+            skipped_summary += 1
+            continue
+
+        if not is_completed_game(row):
+            continue
+
+        completed_rows_seen += 1
+
+        try:
+            _dt, game_date, game_time = parse_datetime(row[0])
+        except Exception:
+            parse_errors += 1
+            continue
+
+        if game_date not in selected_dates:
+            skipped_no_selected_file += 1
+            continue
+
+        teams = row[1].split("\n")
+        if len(teams) < 2:
+            continue
+
+        away_team = clean_team(teams[0])
+        home_team = clean_team(teams[1])
+        key = (home_team, away_team)
+
+        try:
+            dedup_key = (game_date, home_team, away_team, game_time)
+            if dedup_key in seen_final_keys:
+                skipped_duplicate += 1
+                continue
+            seen_final_keys.add(dedup_key)
+
+            scores = row[5].split("\n")
+            away_score = int(scores[0].strip())
+            home_score = int(scores[1].strip()) if len(scores) > 1 else 0
+            final_total = str(away_score + home_score)
+
+            if game_date not in predictions_lookup_cache:
+                predictions_lookup_cache[game_date] = load_predictions_lookup(game_date)
+            if game_date not in sportsbook_lookup_cache:
+                sportsbook_lookup_cache[game_date] = load_sportsbook_lookup(game_date)
+
+            pred_lookup = predictions_lookup_cache[game_date]
+            book_lookup = sportsbook_lookup_cache[game_date]
+
+            pred_candidates = pred_lookup.get(key, [])
+            game_id = closest_time_match(pred_candidates, game_time, "game_id")
+
+            book_candidates = book_lookup.get(key, [])
+            book = closest_time_book_match(book_candidates, game_time)
+
+            final_row = [
+                "baseball",
+                "mlb",
+                game_id,
+                game_date,
+                game_time,
+                home_team,
+                away_team,
+                str(away_score),
+                str(home_score),
+                final_total,
+                book.get("away_run_line"),
+                book.get("home_run_line"),
+                book.get("total"),
+                RUN_TS,
+            ]
+
+            final_scores_by_date.setdefault(game_date, []).append(final_row)
+
+        except Exception:
+            parse_errors += 1
+            continue
+
+    final_header = [
+        "sport",
+        "league",
+        "game_id",
+        "game_date",
+        "game_time",
+        "home_team",
+        "away_team",
+        "final_away_score",
+        "final_home_score",
+        "final_total",
+        "away_run_line",
+        "home_run_line",
+        "total",
+        "final_scores_generated_at",
+    ]
+
+    for date, rows in final_scores_by_date.items():
+        out = FINAL_DIR / f"{date}_final_scores_MLB.csv"
+        write_csv(out, final_header, rows, files_written, "final scores")
+
+    log(
+        f"  completed_rows_seen={completed_rows_seen}, "
+        f"parse_errors={parse_errors}, "
+        f"skipped_summary={skipped_summary}, "
+        f"skipped_duplicate={skipped_duplicate}, "
+        f"skipped_no_selected_file={skipped_no_selected_file}, "
+        f"final_score_dates_written={len(final_scores_by_date)}"
+    )
+
+
+def main():
+    files_written = []
+    seen_final_keys = set()
+
+    try:
+        selected_dates = assert_selected_files_exist()
+        raw_files = sorted(RAW_DIR.glob("*_mlb_raw.json"))
+        log(f"Raw files found: {len(raw_files)}")
+        log(f"Post-selection final-score build timestamp: {RUN_TS}")
+
+        for file in raw_files:
+            process_file(file, files_written, seen_final_keys, selected_dates)
+
+        log("--- SUMMARY ---")
+        log(f"Raw files processed: {len(raw_files)}")
+        log(f"Files written: {len(files_written)}")
+        for path, count in files_written:
+            log(f"  FILE: {path} ({count} rows)")
+        log("STATUS: SUCCESS")
+
+    except Exception as e:
+        log(f"FATAL ERROR: {e}\n{traceback.format_exc()}")
+        log("STATUS: FAILED")
+        raise
+
+    print("MLB final-score build complete.")
+
+
+if __name__ == "__main__":
+    main()
