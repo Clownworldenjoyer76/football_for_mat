@@ -30,18 +30,22 @@
 # Step 2 hardening:
 #   - Never write blank game_id to pred_with_game_id output.
 #   - Non-fatal reject prediction rows when the matching sportsbook row is missing.
-#   - Hard-fail if an eligible prediction row cannot be assigned a game_id.
+#   - Non-fatal reject prediction rows when the games file is missing/empty for current or future dates.
+#   - Hard-fail if a past-date games file is missing/empty.
+#   - Hard-fail if an eligible prediction row cannot be assigned a game_id for a past date with games data.
 #   - Hard-fail if duplicate game_id appears in output.
 #   - Hard-fail if matched eligible output row count differs from eligible prediction row count.
 #   - Write rejected prediction rows to rejection CSV.
 #   - Print rejected prediction rows to stdout so GitHub Actions logs show the reason.
+#   - Print fatal exception/traceback directly to stdout so failed GitHub runs show the actual error.
 
 import csv
 import math
+import os
 import re
 import sys
 import traceback
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 
@@ -240,6 +244,37 @@ def parse_int(value, default=0) -> int:
 
 def clean_date(value: str) -> str:
     return str(value or "").strip().replace("_", "-")
+
+
+def parse_date_value(value: str):
+    value = clean_date(value)
+
+    if not value:
+        return None
+
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def current_cutoff_date():
+    env_date = os.environ.get("DATE", "")
+    parsed_env_date = parse_date_value(env_date)
+
+    if parsed_env_date is not None:
+        return parsed_env_date
+
+    return datetime.now(timezone.utc).date()
+
+
+def is_current_or_future_date(date_str: str) -> bool:
+    parsed_date = parse_date_value(date_str)
+
+    if parsed_date is None:
+        fail(f"Could not parse date for current/future validation: {date_str}")
+
+    return parsed_date >= current_cutoff_date()
 
 
 def parse_prediction_datetime(date_str: str, time_str: str):
@@ -845,10 +880,117 @@ def process_date(date_str: str, pred_path: Path, summary: dict) -> None:
         summary["nonfatal_rejections"] += nonfatal_rejection_count
         return
 
+    if not games_path.exists():
+        if is_current_or_future_date(date_str):
+            for idx in sorted(eligible_pred_indexes):
+                pred_entry = {
+                    "row": pred_rows[idx],
+                    "index": idx,
+                    "csv_row": idx + 2,
+                }
+                presence = sportsbook_presence.get(idx, {"present": False, "detail": ""})
+
+                already_rejected = any(
+                    rejection_row.get("source_csv_row", "") == str(idx + 2)
+                    for rejection_row in rejection_rows
+                )
+
+                if already_rejected:
+                    continue
+
+                rejection_rows.append(make_rejection_row(
+                    pred_entry=pred_entry,
+                    reason="games_file_missing_current_or_future",
+                    candidate_games=str(games_path),
+                    fatal=False,
+                    sportsbook_present=presence.get("present", False),
+                    sportsbook_match_detail=presence.get("detail", ""),
+                ))
+
+                nonfatal_rejection_count += 1
+
+                log(
+                    f"{date_str} | non-fatal rejected prediction because current/future games file is missing: "
+                    f"csv_row={idx + 2} games_path={games_path}",
+                    "WARN",
+                )
+
+            if rejection_rows:
+                write_csv(rejection_path, REJECTION_HEADER, rejection_rows)
+                print_rejection_rows(date_str, rejection_path, rejection_rows)
+
+            write_csv(out_path, OUTPUT_HEADER, [])
+
+            log(
+                f"{date_str} | current/future games file missing. "
+                f"games_path={games_path} input_predictions={len(pred_rows)} "
+                f"sportsbook_rows={len(book_rows)} eligible_predictions={eligible_count} "
+                f"output_rows=0 nonfatal_rejections={nonfatal_rejection_count}"
+            )
+
+            summary["files_written"] += 1
+            summary["rejected"] += len(rejection_rows)
+            summary["nonfatal_rejections"] += nonfatal_rejection_count
+            return
+
+        fail(f"{date_str} | past-date games file missing: {games_path}")
+
     games_rows = load_csv(games_path, REQUIRED_GAMES_COLS, "games input", required_file=True)
 
     if not games_rows:
-        fail(f"{date_str} | games file missing or has zero rows: {games_path}")
+        if is_current_or_future_date(date_str):
+            for idx in sorted(eligible_pred_indexes):
+                pred_entry = {
+                    "row": pred_rows[idx],
+                    "index": idx,
+                    "csv_row": idx + 2,
+                }
+                presence = sportsbook_presence.get(idx, {"present": False, "detail": ""})
+
+                already_rejected = any(
+                    rejection_row.get("source_csv_row", "") == str(idx + 2)
+                    for rejection_row in rejection_rows
+                )
+
+                if already_rejected:
+                    continue
+
+                rejection_rows.append(make_rejection_row(
+                    pred_entry=pred_entry,
+                    reason="games_file_empty_current_or_future",
+                    candidate_games=str(games_path),
+                    fatal=False,
+                    sportsbook_present=presence.get("present", False),
+                    sportsbook_match_detail=presence.get("detail", ""),
+                ))
+
+                nonfatal_rejection_count += 1
+
+                log(
+                    f"{date_str} | non-fatal rejected prediction because current/future games file is empty: "
+                    f"csv_row={idx + 2} games_path={games_path}",
+                    "WARN",
+                )
+
+            if rejection_rows:
+                write_csv(rejection_path, REJECTION_HEADER, rejection_rows)
+                print_rejection_rows(date_str, rejection_path, rejection_rows)
+
+            write_csv(out_path, OUTPUT_HEADER, [])
+
+            log(
+                f"{date_str} | current/future games file empty. "
+                f"games_path={games_path} input_predictions={len(pred_rows)} "
+                f"sportsbook_rows={len(book_rows)} eligible_predictions={eligible_count} "
+                f"output_rows=0 nonfatal_rejections={nonfatal_rejection_count}"
+            )
+
+            summary["files_written"] += 1
+            summary["rejected"] += len(rejection_rows)
+            summary["nonfatal_rejections"] += nonfatal_rejection_count
+            return
+
+        fail(f"{date_str} | past-date games file has zero rows: {games_path}")
 
     games_groups = build_games_groups(games_rows, date_str)
 
