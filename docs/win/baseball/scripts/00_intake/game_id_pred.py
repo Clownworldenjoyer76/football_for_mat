@@ -1280,7 +1280,7 @@ def main():
     )
 
     if summary["errors"] != 0 or summary["fatal_rejections"] != 0:
-    sys.exit(1)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
