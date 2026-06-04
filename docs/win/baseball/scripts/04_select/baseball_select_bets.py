@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # docs/win/baseball/scripts/04_select/baseball_select_bets.py
-
-import argparse
 import traceback
 from datetime import datetime, UTC
 from pathlib import Path
@@ -14,14 +12,11 @@ OUTPUT_DIR = Path("docs/win/baseball/04_select")
 CONFIG_PATH = Path("docs/win/baseball/config/markets.yaml")
 
 AUDIT_DIR = OUTPUT_DIR / "audit"
-REJECTION_DIR = OUTPUT_DIR / "rejections"
-
 ERROR_DIR = Path("docs/win/baseball/errors/04_select")
 LOG_FILE = ERROR_DIR / "select_bets.txt"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 AUDIT_DIR.mkdir(parents=True, exist_ok=True)
-REJECTION_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 LEAGUE_CODE = "MLB"
@@ -242,7 +237,6 @@ REJECTION_AUDIT_COLUMNS = [
     "adjusted_ev",
     "ev_probability_source",
     "kelly_probability_source",
-    "price_role",
 ]
 
 
@@ -383,6 +377,7 @@ def validate_config() -> None:
         for side, rules in market_cfg.items():
             if not isinstance(rules, dict):
                 continue
+
             for key in ["ev_bands", "kelly_bands", "odds_bands", "line_bands", "prob_bands"]:
                 if key not in rules:
                     continue
@@ -441,31 +436,6 @@ def matched_band(val, ranges):
     return None
 
 
-def price_role(odds, opponent_odds):
-    if odds is None or opponent_odds is None:
-        return "unknown"
-
-    if odds == opponent_odds:
-        return "pickem"
-
-    return "favorite" if odds < opponent_odds else "underdog"
-
-
-
-def effective_rules_for_price_role(rules, role):
-    effective = {
-        key: value
-        for key, value in rules.items()
-        if key != "price_role_rules"
-    }
-
-    role_rules = rules.get("price_role_rules", {})
-
-    if isinstance(role_rules, dict) and role in role_rules:
-        for key, value in role_rules[role].items():
-            effective[key] = value
-
-    return effective
 
 def check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, counters):
     if not ev_source or not kelly_source:
@@ -519,7 +489,7 @@ def violates_exclude_rules(ev, kelly, odds, line, prob, rules):
     return False
 
 
-def check_rules(ev, kelly, odds, line, prob, role, rules, counters):
+def check_rules(ev, kelly, odds, line, prob, rules, counters):
     reason_parts = []
 
     if ev is None or kelly is None:
@@ -570,13 +540,6 @@ def check_rules(ev, kelly, odds, line, prob, role, rules, counters):
     if "prob_max" in rules and (prob is None or prob > rules["prob_max"]):
         counters["prob_fail"] += 1
         return False, "prob_fail", "above_prob_max"
-
-    allowed_roles = rules.get("price_roles")
-    if allowed_roles:
-        if role not in allowed_roles:
-            counters["odds_fail"] += 1
-            return False, "odds_fail", f"price_role={role}_not_allowed"
-        reason_parts.append(f"price_role={role}")
 
     if violates_exclude_rules(ev, kelly, odds, line, prob, rules):
         counters["excluded"] += 1
@@ -695,7 +658,6 @@ def base_candidate_audit(row, candidate, fail_reason="", fail_detail=""):
         "adjusted_ev": candidate.get("adjusted_ev"),
         "ev_probability_source": candidate.get("ev_probability_source"),
         "kelly_probability_source": candidate.get("kelly_probability_source"),
-        "price_role": candidate.get("price_role"),
     }
 
 
@@ -811,7 +773,6 @@ def evaluate_candidate(row, candidate, rules, side_counter, rejection_rows):
         candidate["dk_odds_american"],
         candidate["line"] if candidate["line"] != "" else None,
         candidate["prob_used_for_selection"],
-        candidate["price_role"],
         rules,
         side_counter,
     )
@@ -839,7 +800,6 @@ def process_moneyline(row, counters, rejection_rows):
         if not rules["enabled"]:
             continue
 
-        other_side = "away" if side == "home" else "home"
         prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
         prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
 
@@ -862,10 +822,9 @@ def process_moneyline(row, counters, rejection_rows):
             "adjusted_ev": fv(row.get(f"{side}_ml_adjusted_ev")),
             "ev": fv(row.get(f"{side}_ml_ev")),
             "kelly": fv(row.get(f"{side}_ml_kelly")),
-            "price_role": price_role(odds_by_side[side], odds_by_side[other_side]),
         }
 
-        selected = evaluate_candidate(row, candidate, effective_rules_for_price_role(rules, candidate["price_role"]), side_counter, rejection_rows)
+        selected = evaluate_candidate(row, candidate, rules, side_counter, rejection_rows)
         if selected is not None:
             candidates.append(selected)
 
@@ -892,7 +851,6 @@ def process_run_line(row, counters, rejection_rows):
         if not rules["enabled"]:
             continue
 
-        other_side = "away" if side == "home" else "home"
         prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
         prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
 
@@ -915,10 +873,9 @@ def process_run_line(row, counters, rejection_rows):
             "adjusted_ev": fv(row.get(f"{side}_rl_adjusted_ev")),
             "ev": fv(row.get(f"{side}_rl_ev")),
             "kelly": fv(row.get(f"{side}_rl_kelly")),
-            "price_role": price_role(odds_by_side[side], odds_by_side[other_side]),
         }
 
-        selected = evaluate_candidate(row, candidate, effective_rules_for_price_role(rules, candidate["price_role"]), side_counter, rejection_rows)
+        selected = evaluate_candidate(row, candidate, rules, side_counter, rejection_rows)
         if selected is not None:
             candidates.append(selected)
 
@@ -945,7 +902,6 @@ def process_total(row, counters, rejection_rows):
         if not rules["enabled"]:
             continue
 
-        other_side = "under" if side == "over" else "over"
         prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
         prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
 
@@ -968,10 +924,9 @@ def process_total(row, counters, rejection_rows):
             "adjusted_ev": fv(row.get(f"{side}_adjusted_ev")),
             "ev": fv(row.get(f"{side}_ev")),
             "kelly": fv(row.get(f"{side}_kelly")),
-            "price_role": price_role(odds_by_side[side], odds_by_side[other_side]),
         }
 
-        selected = evaluate_candidate(row, candidate, effective_rules_for_price_role(rules, candidate["price_role"]), side_counter, rejection_rows)
+        selected = evaluate_candidate(row, candidate, rules, side_counter, rejection_rows)
         if selected is not None:
             candidates.append(selected)
 
@@ -987,42 +942,9 @@ def process_total(row, counters, rejection_rows):
 # RUN MODE
 # =========================
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Select MLB bets from EV/Kelly market files.")
-    parser.add_argument(
-        "--latest-only",
-        action="store_true",
-        help="Process only the latest available slate. This is also the default.",
-    )
-    parser.add_argument(
-        "--rebuild-all",
-        action="store_true",
-        help="Rebuild all historical slates. Must be explicitly supplied.",
-    )
-    parser.add_argument(
-        "--slate",
-        type=str,
-        default=None,
-        help="Process one exact slate key, for example 2026_06_02.",
-    )
-    return parser.parse_args()
-
-
-def choose_slates(slates: dict, args) -> tuple[list, str]:
+def choose_slates(slates: dict) -> tuple[list, str]:
     available = sorted(slates)
-
-    if args.rebuild_all and args.latest_only:
-        raise ValueError("Use either --rebuild-all or --latest-only, not both.")
-
-    if args.slate:
-        if args.slate not in slates:
-            raise ValueError(f"Requested slate not found: {args.slate}")
-        return [args.slate], f"single_slate:{args.slate}"
-
-    if args.rebuild_all:
-        return available, "rebuild_all"
-
-    return [available[-1]], "latest_only"
+    return available, "rebuild_all"
 
 
 # =========================
@@ -1030,8 +952,6 @@ def choose_slates(slates: dict, args) -> tuple[list, str]:
 # =========================
 
 def main():
-    args = parse_args()
-
     with open(LOG_FILE, "w", encoding="utf-8") as f:
         f.write(f"=== MLB select_bets RUN {_now()} ===\n")
 
@@ -1074,8 +994,6 @@ def main():
         old.unlink()
     for old in AUDIT_DIR.glob("*.csv"):
         old.unlink()
-    for old in REJECTION_DIR.glob("*.csv"):
-        old.unlink()
 
     _log(f"INPUT_DIR : {INPUT_DIR}")
     _log(f"OUTPUT_DIR: {OUTPUT_DIR}")
@@ -1109,7 +1027,7 @@ def main():
 
         summary["slates_found"] = len(slates)
 
-        slate_keys, run_mode = choose_slates(slates, args)
+        slate_keys, run_mode = choose_slates(slates)
         summary["run_mode"] = run_mode
         _log(f"Selected run mode: {run_mode}")
         _log(f"Slate keys to process: {slate_keys}")
@@ -1273,7 +1191,6 @@ def main():
                             "adjusted_ev": None,
                             "ev_probability_source": None,
                             "kelly_probability_source": None,
-                            "price_role": None,
                         })
                         continue
 
@@ -1321,8 +1238,7 @@ def main():
                                 "adjusted_ev": None,
                                 "ev_probability_source": None,
                                 "kelly_probability_source": None,
-                                "price_role": None,
-                            })
+                                })
                         else:
                             for r in process_total(tt_row, global_counters, rejection_rows):
                                 k = f"{game_id}_{r['market_type']}_{r['bet_side']}_{r['line']}"
@@ -1401,9 +1317,6 @@ def main():
 
         rejection_df.to_csv(rejection_audit_path, index=False)
         selected_audit_df.to_csv(selected_audit_path, index=False)
-
-        if not rejection_df.empty:
-            rejection_df.to_csv(REJECTION_DIR / "selection_rejections.csv", index=False)
 
         summary["rejection_audit_rows"] = len(rejection_df)
         summary["selected_audit_rows"] = len(selected_audit_df)
