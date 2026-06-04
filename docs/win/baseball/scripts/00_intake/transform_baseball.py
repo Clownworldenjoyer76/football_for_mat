@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # docs/win/baseball/scripts/00_intake/transform_baseball.py
 
-import json
 import csv
+import json
 import traceback
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 ERROR_DIR = Path("docs/win/baseball/errors/00_intake")
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
@@ -26,18 +26,8 @@ def log(msg: str) -> None:
 
 RAW_DIR = Path("docs/win/baseball/00_intake/drat_raw")
 PRED_DIR = Path("docs/win/baseball/00_intake/predictions")
-FINAL_DIR = Path("docs/win/baseball/05_final_scores/results/final_scores")
-SPORTSBOOK_DIR = Path("docs/win/baseball/00_intake/sportsbook")
 
 PRED_DIR.mkdir(parents=True, exist_ok=True)
-FINAL_DIR.mkdir(parents=True, exist_ok=True)
-
-
-# -------------------------
-# SETTINGS
-# -------------------------
-
-DOUBLEHEADER_TIME_TOLERANCE_MINUTES = 90
 
 
 # -------------------------
@@ -49,28 +39,6 @@ def parse_datetime(dt_str):
     return dt, dt.strftime("%Y_%m_%d"), dt.strftime("%I:%M %p")
 
 
-def parse_time_minutes(value):
-    value = str(value).strip()
-
-    if not value:
-        return None
-
-    formats = [
-        "%I:%M %p",
-        "%H:%M:%S",
-        "%H:%M",
-    ]
-
-    for fmt in formats:
-        try:
-            parsed = datetime.strptime(value, fmt)
-            return parsed.hour * 60 + parsed.minute
-        except ValueError:
-            continue
-
-    return None
-
-
 def clean_team(team_str):
     return team_str.split("(")[0].strip()
 
@@ -79,139 +47,11 @@ def pct_to_decimal(p):
     return str(round(float(p.replace("%", "")) / 100, 3))
 
 
-def closest_time_match(candidates, target_game_time, value_field):
-    if not candidates:
-        return ""
-
-    if len(candidates) == 1:
-        return candidates[0].get(value_field, "")
-
-    target_minutes = parse_time_minutes(target_game_time)
-
-    if target_minutes is None:
-        return ""
-
-    best_candidate = None
-    best_diff = None
-
-    for candidate in candidates:
-        candidate_minutes = parse_time_minutes(candidate.get("game_time", ""))
-
-        if candidate_minutes is None:
-            continue
-
-        diff = abs(candidate_minutes - target_minutes)
-
-        if best_diff is None or diff < best_diff:
-            best_diff = diff
-            best_candidate = candidate
-
-    if best_candidate is None:
-        return ""
-
-    if best_diff > DOUBLEHEADER_TIME_TOLERANCE_MINUTES:
-        return ""
-
-    return best_candidate.get(value_field, "")
-
-
-def closest_time_book_match(candidates, target_game_time):
-    if not candidates:
-        return {}
-
-    if len(candidates) == 1:
-        return candidates[0]
-
-    target_minutes = parse_time_minutes(target_game_time)
-
-    if target_minutes is None:
-        return {}
-
-    best_candidate = None
-    best_diff = None
-
-    for candidate in candidates:
-        candidate_minutes = parse_time_minutes(candidate.get("game_time", ""))
-
-        if candidate_minutes is None:
-            continue
-
-        diff = abs(candidate_minutes - target_minutes)
-
-        if best_diff is None or diff < best_diff:
-            best_diff = diff
-            best_candidate = candidate
-
-    if best_candidate is None:
-        return {}
-
-    if best_diff > DOUBLEHEADER_TIME_TOLERANCE_MINUTES:
-        return {}
-
-    return best_candidate
-
-
-# -------------------------
-# LOAD LOOKUPS
-# -------------------------
-
-def load_predictions_lookup(date):
-    path = PRED_DIR / f"{date}_MLB.csv"
-    lookup = {}
-
-    if not path.exists():
-        return lookup
-
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-
-        for r in reader:
-            key = (
-                r.get("home_team", "").strip(),
-                r.get("away_team", "").strip(),
-            )
-
-            lookup.setdefault(key, []).append({
-                "game_id": r.get("game_id", ""),
-                "game_time": r.get("game_time", ""),
-                "home_team": r.get("home_team", ""),
-                "away_team": r.get("away_team", ""),
-            })
-
-    return lookup
-
-
-def load_sportsbook_lookup(date):
-    path = SPORTSBOOK_DIR / f"{date}_MLB.csv"
-    lookup = {}
-
-    if not path.exists():
-        return lookup
-
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-
-        for r in reader:
-            key = (
-                r.get("home_team", "").strip(),
-                r.get("away_team", "").strip(),
-            )
-
-            lookup.setdefault(key, []).append({
-                "game_time": r.get("game_time", ""),
-                "away_run_line": r.get("away_run_line"),
-                "home_run_line": r.get("home_run_line"),
-                "total": r.get("total"),
-            })
-
-    return lookup
-
-
 # -------------------------
 # ROW DETECTION
 # Cell count is the reliable differentiator:
-#   11 cells = future game
-#    8 cells = completed game
+#   11 cells = future game / prediction row
+#    8 cells = completed game row ignored by intake
 # -------------------------
 
 def is_future_game(row):
@@ -249,20 +89,18 @@ def write_csv(path, header, rows, files_written, label):
 # PROCESS
 # -------------------------
 
-def process_file(file_path, files_written, seen_final_keys):
+def process_file(file_path, files_written):
     log(f"Processing {file_path.name}")
 
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     predictions_by_date = {}
-    final_scores_by_date = {}
-    predictions_lookup_cache = {}
-    sportsbook_lookup_cache = {}
 
     parse_errors = 0
     skipped_summary = 0
-    skipped_duplicate = 0
+    completed_rows_ignored = 0
+    unknown_rows = 0
 
     for row in data:
         if not row or len(row) < 2:
@@ -284,7 +122,6 @@ def process_file(file_path, files_written, seen_final_keys):
 
         away_team = clean_team(teams[0])
         home_team = clean_team(teams[1])
-        key = (home_team, away_team)
 
         if is_future_game(row):
             # Cell layout (11 cells):
@@ -338,67 +175,13 @@ def process_file(file_path, files_written, seen_final_keys):
                 continue
 
         elif is_completed_game(row):
-            # Cell layout (8 cells):
-            #   0: date/time
-            #   1: teams (no records)
-            #   2: win probs
-            #   3: moneyline
-            #   4: run line
-            #   5: score (away\nhome)
-            #   6: rating
-            #   7: rating
-            try:
-                dedup_key = (game_date, home_team, away_team, game_time)
-
-                if dedup_key in seen_final_keys:
-                    skipped_duplicate += 1
-                    continue
-
-                seen_final_keys.add(dedup_key)
-
-                scores = row[5].split("\n")
-                away_score = int(scores[0].strip())
-                home_score = int(scores[1].strip()) if len(scores) > 1 else 0
-                final_total = str(away_score + home_score)
-
-                if game_date not in predictions_lookup_cache:
-                    predictions_lookup_cache[game_date] = load_predictions_lookup(game_date)
-
-                if game_date not in sportsbook_lookup_cache:
-                    sportsbook_lookup_cache[game_date] = load_sportsbook_lookup(game_date)
-
-                pred_lookup = predictions_lookup_cache[game_date]
-                book_lookup = sportsbook_lookup_cache[game_date]
-
-                pred_candidates = pred_lookup.get(key, [])
-                game_id = closest_time_match(pred_candidates, game_time, "game_id")
-
-                book_candidates = book_lookup.get(key, [])
-                book = closest_time_book_match(book_candidates, game_time)
-
-                final_row = [
-                    "baseball",
-                    "mlb",
-                    game_id,
-                    game_date,
-                    game_time,
-                    home_team,
-                    away_team,
-                    str(away_score),
-                    str(home_score),
-                    final_total,
-                    book.get("away_run_line"),
-                    book.get("home_run_line"),
-                    book.get("total"),
-                ]
-
-                final_scores_by_date.setdefault(game_date, []).append(final_row)
-
-            except Exception:
-                parse_errors += 1
-                continue
+            # Step 6: intake does not generate post-game score files.
+            # Completed rows are handled only by the post-game final-score workflow.
+            completed_rows_ignored += 1
+            continue
 
         else:
+            unknown_rows += 1
             log(f"  SKIPPED unknown row ({len(row)} cells): {row[0]} | {row[1]}")
 
     prediction_header = [
@@ -422,32 +205,12 @@ def process_file(file_path, files_written, seen_final_keys):
         out = PRED_DIR / f"{date}_MLB.csv"
         write_csv(out, prediction_header, rows, files_written, "predictions")
 
-    final_header = [
-        "sport",
-        "league",
-        "game_id",
-        "game_date",
-        "game_time",
-        "home_team",
-        "away_team",
-        "final_away_score",
-        "final_home_score",
-        "final_total",
-        "away_run_line",
-        "home_run_line",
-        "total",
-    ]
-
-    for date, rows in final_scores_by_date.items():
-        out = FINAL_DIR / f"{date}_final_scores_MLB.csv"
-        write_csv(out, final_header, rows, files_written, "final scores")
-
     log(
         f"  parse_errors={parse_errors}, "
         f"skipped_summary={skipped_summary}, "
-        f"skipped_duplicate={skipped_duplicate}, "
-        f"predictions_dates={len(predictions_by_date)}, "
-        f"final_score_dates={len(final_scores_by_date)}"
+        f"completed_rows_ignored={completed_rows_ignored}, "
+        f"unknown_rows={unknown_rows}, "
+        f"predictions_dates={len(predictions_by_date)}"
     )
 
 
@@ -457,14 +220,14 @@ def process_file(file_path, files_written, seen_final_keys):
 
 def main():
     files_written = []
-    seen_final_keys = set()
 
     try:
         raw_files = sorted(RAW_DIR.glob("*_mlb_raw.json"))
         log(f"Raw files found: {len(raw_files)}")
+        log("Step 6 mode: intake writes predictions only; final-score generation is post-game only")
 
         for file in raw_files:
-            process_file(file, files_written, seen_final_keys)
+            process_file(file, files_written)
 
         log("--- SUMMARY ---")
         log(f"Raw files processed: {len(raw_files)}")
