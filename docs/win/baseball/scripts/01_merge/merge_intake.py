@@ -34,6 +34,12 @@ REJECTION_DIR.mkdir(parents=True, exist_ok=True)
 
 RUN_TS = datetime.now(timezone.utc).isoformat()
 LOG_FILE = LOG_DIR / "merge_intake.txt"
+LEAKAGE_AUDIT_DIR = Path("docs/win/baseball/audit")
+LEAKAGE_AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+LEAKAGE_AUDIT_FILE = LEAKAGE_AUDIT_DIR / "leakage_audit.csv"
+FORBIDDEN_READ_TOKENS = ["05_" + "final_scores", "final" + "_scores", "graded", "results", "reports"]  # LEAKAGE_GUARD_ALLOWED_REFERENCE
+SCRIPT_NAME = "merge_intake.py"
+STAGE_NAME = "01_merge"
 
 with open(LOG_FILE, "w", encoding="utf-8") as f:
     f.write(f"=== merge_intake RUN {RUN_TS} ===\n")
@@ -51,6 +57,30 @@ def log(msg):
 def fail(msg):
     log(f"FATAL VALIDATION ERROR: {msg}")
     raise RuntimeError(msg)
+
+
+def record_file_read(path, path_allowed, reason):
+    path = Path(path)
+    new_file = not LEAKAGE_AUDIT_FILE.exists()
+    with open(LEAKAGE_AUDIT_FILE, "a", encoding="utf-8", newline="") as f:
+        if new_file:
+            f.write("script,file_read,path_allowed,reason,stage,timestamp\n")
+        safe_path = str(path).replace('"', "''")
+        f.write(
+            f'{SCRIPT_NAME},"{safe_path}",{1 if path_allowed else 0},'
+            f'"{reason}",{STAGE_NAME},{datetime.now(timezone.utc).isoformat()}\n'
+        )
+
+
+def assert_read_path_allowed(path):
+    path = Path(path)
+    lower_path = str(path).replace("\\", "/").lower()
+    matched = [token for token in FORBIDDEN_READ_TOKENS if token in lower_path]
+    if matched:
+        reason = "forbidden_pre_selection_read:" + ";".join(matched)
+        record_file_read(path, False, reason)
+        fail(f"Blocked forbidden pre-selection read path: {path} ({reason})")
+    record_file_read(path, True, "allowed")
 
 
 # ─────────────────────────────────────────────
@@ -85,6 +115,8 @@ def assert_required_columns(path, header, required_cols, label):
 
 def load_csv(path, required_cols=None, label=None, required_file=False):
     rows = []
+
+    assert_read_path_allowed(path)
 
     if not path.exists():
         msg = f"MISSING FILE: {path}"
