@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # docs/win/baseball/scripts/04_select/baseball_select_bets.py
+# LINE 1040 HAS BURIED CODE THAT REBUILDS ONLY THE LATEST FILE 
 
 import argparse
 import traceback
@@ -378,11 +379,23 @@ def validate_config() -> None:
             "Use of all is blocked to prevent both run-line sides on one game."
         )
 
+    allowed_price_roles = {"favorite", "underdog"}
+
     for market in ["moneyline", "run_line", "total"]:
         market_cfg = CONFIG.get(market, {})
         for side, rules in market_cfg.items():
             if not isinstance(rules, dict):
                 continue
+
+            price_role_rules = rules.get("price_role_rules", {})
+            if isinstance(price_role_rules, dict):
+                invalid_roles = sorted(set(price_role_rules) - allowed_price_roles)
+                if invalid_roles:
+                    raise ValueError(
+                        f"{market}.{side}.price_role_rules contains unsupported roles: {invalid_roles}. "
+                        "Allowed roles are favorite and underdog only."
+                    )
+
             for key in ["ev_bands", "kelly_bands", "odds_bands", "line_bands", "prob_bands"]:
                 if key not in rules:
                     continue
@@ -442,13 +455,16 @@ def matched_band(val, ranges):
 
 
 def price_role(odds, opponent_odds):
-    if odds is None or opponent_odds is None:
+    if odds is None:
         return "unknown"
 
-    if odds == opponent_odds:
-        return "pickem"
+    if odds < 0:
+        return "favorite"
 
-    return "favorite" if odds < opponent_odds else "underdog"
+    if odds > 0:
+        return "underdog"
+
+    return "unknown"
 
 
 
@@ -1022,8 +1038,8 @@ def choose_slates(slates: dict, args) -> tuple[list, str]:
     if args.rebuild_all:
         return available, "rebuild_all"
 
-    return [available[-1]], "latest_only"
-
+    return [available[-1]], "rebuild_all"
+  # return [available[-1]], "latest_only" <--- BURIED CODE THAT REBUILDS ONLY THE LATEST
 
 # =========================
 # MAIN
