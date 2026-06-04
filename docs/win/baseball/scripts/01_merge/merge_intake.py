@@ -806,7 +806,11 @@ def process_date(date, summary, alias_map, team_id_to_canonical):
 
     rejection_path = REJECTION_DIR / f"{date}_unmatched_sportsbook_rows.csv"
     rejection_header = ["date", "reject_reason"] + REQUIRED_BOOK_COLS
-    write_dict_csv(rejection_path, rejection_header, rejection_rows)
+
+    if rejection_rows:
+        write_dict_csv(rejection_path, rejection_header, rejection_rows)
+    else:
+        log(f"{date} | no unmatched sportsbook rejection rows; no rejection CSV written")
 
     audit_rows = []
     all_audit_ids = sorted(pred_ids | book_ids | games_ids)
