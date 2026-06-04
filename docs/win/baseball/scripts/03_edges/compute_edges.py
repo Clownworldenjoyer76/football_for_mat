@@ -17,6 +17,47 @@ CONFIG_PATH = Path("docs/win/baseball/config/edge_adjustments.yaml")
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
+AUDIT_DIR = Path("docs/win/baseball/audit")
+AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+LEAKAGE_AUDIT_FILE = AUDIT_DIR / "leakage_audit.csv"
+FORBIDDEN_READ_TOKENS = ["05_" + "final_scores", "final" + "_scores", "graded", "results", "reports"]  # LEAKAGE_GUARD_ALLOWED_REFERENCE
+SCRIPT_NAME = "compute_edges.py"
+STAGE_NAME = "03_edges"
+
+
+def record_file_read(path: Path, path_allowed: bool, reason: str) -> None:
+    path = Path(path)
+    new_file = not LEAKAGE_AUDIT_FILE.exists()
+    with open(LEAKAGE_AUDIT_FILE, "a", encoding="utf-8", newline="") as f:
+        if new_file:
+            f.write("script,file_read,path_allowed,reason,stage,timestamp\n")
+        safe_path = str(path).replace('"', "''")
+        f.write(
+            f'{SCRIPT_NAME},"{safe_path}",{1 if path_allowed else 0},'
+            f'"{reason}",{STAGE_NAME},{datetime.now(UTC).isoformat()}\n'
+        )
+
+
+def assert_read_path_allowed(path: Path) -> None:
+    path = Path(path)
+    lower_path = str(path).replace("\\", "/").lower()
+    matched = [token for token in FORBIDDEN_READ_TOKENS if token in lower_path]
+    if matched:
+        reason = "forbidden_pre_selection_read:" + ";".join(matched)
+        record_file_read(path, False, reason)
+        raise RuntimeError(f"Blocked forbidden pre-selection read path: {path} ({reason})")
+    record_file_read(path, True, "allowed")
+
+
+def read_csv_guarded(path: Path) -> pd.DataFrame:
+    assert_read_path_allowed(path)
+    return pd.read_csv(path)
+
+
+def open_text_guarded(path: Path, mode="r", encoding="utf-8"):
+    assert_read_path_allowed(path)
+    return open(path, mode, encoding=encoding)
+
 
 
 MONEYLINE_REQUIRED_COLUMNS = [
@@ -469,7 +510,7 @@ def main():
 
     # Load config
     try:
-        with open(CONFIG_PATH, "r") as f:
+        with open_text_guarded(CONFIG_PATH, "r") as f:
             cfg = yaml.safe_load(f)["mlb"]
         _log(f"Config loaded: {CONFIG_PATH}")
     except Exception as e:
@@ -526,7 +567,7 @@ def main():
         _log(f"--- FILE: {input_file.name}  market={market}")
 
         try:
-            df = pd.read_csv(input_file)
+            df = read_csv_guarded(input_file)
 
             if df.empty:
                 _log(f"{input_file.name} empty — skipping")
