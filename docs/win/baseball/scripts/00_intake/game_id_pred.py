@@ -137,8 +137,20 @@ def log(msg: str, level: str = "INFO"):
         f.write(f"{_now()} | {level:<5} | {msg.rstrip()}\n")
 
 
+def print_block(title: str, lines: list[str]):
+    print("")
+    print("=" * 80)
+    print(title)
+    print("=" * 80)
+    for line in lines:
+        print(line)
+    print("=" * 80)
+    print("")
+
+
 def fail(msg: str):
     log(f"FATAL VALIDATION ERROR: {msg}", "ERROR")
+    print_block("FATAL VALIDATION ERROR IN game_id_pred.py", [msg])
     raise RuntimeError(msg)
 
 
@@ -1241,7 +1253,18 @@ def main():
             process_date(date_str, pred_path, summary)
 
     except Exception as e:
-        log(f"FATAL: {e}\n{traceback.format_exc()}", "ERROR")
+        tb = traceback.format_exc()
+        log(f"FATAL: {e}\n{tb}", "ERROR")
+
+        print("")
+        print("=" * 80)
+        print("FATAL ERROR IN game_id_pred.py")
+        print("=" * 80)
+        print(f"error={e}")
+        print("")
+        print(tb)
+        print("=" * 80)
+        print("")
 
         if summary["errors"] == 0:
             summary["errors"] += 1
@@ -1276,6 +1299,7 @@ def main():
         f"rejected={summary['rejected']} "
         f"nonfatal_rejections={summary['nonfatal_rejections']} "
         f"fatal_rejections={summary['fatal_rejections']} "
+        f"errors={summary['errors']} "
         f"Status: {status}"
     )
 
