@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # docs/win/baseball/scripts/04_select/baseball_select_bets.py
 
-import math
+import argparse
 import traceback
 from datetime import datetime, UTC
 from pathlib import Path
@@ -13,10 +13,15 @@ INPUT_DIR = Path("docs/win/baseball/03_edges/ev_kelly")
 OUTPUT_DIR = Path("docs/win/baseball/04_select")
 CONFIG_PATH = Path("docs/win/baseball/config/markets.yaml")
 
+AUDIT_DIR = OUTPUT_DIR / "audit"
+REJECTION_DIR = OUTPUT_DIR / "rejections"
+
 ERROR_DIR = Path("docs/win/baseball/errors/04_select")
 LOG_FILE = ERROR_DIR / "select_bets.txt"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+REJECTION_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 LEAGUE_CODE = "MLB"
@@ -47,26 +52,33 @@ def _write_summary(summary: dict, per_slate: list) -> None:
         "=" * 60,
         f"SUMMARY  {_now()}",
         "=" * 60,
-        f"  slates_found                       : {summary['slates_found']}",
-        f"  slates_written                     : {summary['slates_written']}",
-        f"  total_bets                         : {summary['total_bets']}",
-        f"  moneyline_bets                     : {summary['moneyline_bets']}",
-        f"  run_line_bets                      : {summary['run_line_bets']}",
-        f"  total_mkt_bets                     : {summary['total_mkt_bets']}",
-        f"  skipped_slates                     : {summary['skipped_slates']}",
-        f"  missing_moneyline                  : {summary['missing_moneyline']}",
-        f"  missing_run_line                   : {summary['missing_run_line']}",
-        f"  missing_total                      : {summary['missing_total']}",
-        f"  row_count_warnings                 : {summary['row_count_warnings']}",
-        f"  selected_nonpositive_kelly         : {summary['selected_nonpositive_kelly']}",
-        f"  selected_blank_probability_source  : {summary['selected_blank_probability_source']}",
+        f"  run_mode                          : {summary['run_mode']}",
+        f"  slates_found                      : {summary['slates_found']}",
+        f"  slates_processed                  : {summary['slates_processed']}",
+        f"  slates_written                    : {summary['slates_written']}",
+        f"  total_bets                        : {summary['total_bets']}",
+        f"  moneyline_bets                    : {summary['moneyline_bets']}",
+        f"  run_line_bets                     : {summary['run_line_bets']}",
+        f"  total_mkt_bets                    : {summary['total_mkt_bets']}",
+        f"  skipped_slates                    : {summary['skipped_slates']}",
+        f"  missing_moneyline                 : {summary['missing_moneyline']}",
+        f"  missing_run_line                  : {summary['missing_run_line']}",
+        f"  missing_total                     : {summary['missing_total']}",
+        f"  row_count_warnings                : {summary['row_count_warnings']}",
+        f"  duplicate_game_id_errors          : {summary['duplicate_game_id_errors']}",
+        f"  selected_nonpositive_kelly        : {summary['selected_nonpositive_kelly']}",
+        f"  selected_blank_probability_source : {summary['selected_blank_probability_source']}",
         f"  selected_probability_source_mismatch: {summary['selected_probability_source_mismatch']}",
-        f"  selected_adjusted_only_positive    : {summary['selected_adjusted_only_positive']}",
-        f"  schema_errors                      : {summary['schema_errors']}",
-        f"  rain_excluded                      : {summary['rain_excluded']}",
-        f"  sp_sample_excluded                 : {summary['sp_sample_excluded']}",
-        f"  low_confidence                     : {summary['low_confidence']}",
-        f"  errors                             : {summary['errors']}",
+        f"  selected_adjusted_only_positive   : {summary['selected_adjusted_only_positive']}",
+        f"  schema_errors                     : {summary['schema_errors']}",
+        f"  rain_excluded                     : {summary['rain_excluded']}",
+        f"  rain_excluded_will_it_rain        : {summary['rain_excluded_will_it_rain']}",
+        f"  rain_excluded_symbol_code         : {summary['rain_excluded_symbol_code']}",
+        f"  sp_sample_excluded                : {summary['sp_sample_excluded']}",
+        f"  low_confidence                    : {summary['low_confidence']}",
+        f"  rejection_audit_rows              : {summary['rejection_audit_rows']}",
+        f"  selected_audit_rows               : {summary['selected_audit_rows']}",
+        f"  errors                            : {summary['errors']}",
         "",
         "--- Filter Breakdown ---",
     ]
@@ -197,6 +209,42 @@ FORBIDDEN_RUN_LINE_COLUMNS = [
     "away_run_line_prob",
 ]
 
+SELECTED_AUDIT_COLUMNS = [
+    "date",
+    "game_id",
+    "market",
+    "side",
+    "prob_used_for_selection",
+    "prob_used_for_ev",
+    "prob_used_for_kelly",
+    "ev",
+    "kelly",
+    "odds",
+    "line",
+    "selection_reason",
+]
+
+REJECTION_AUDIT_COLUMNS = [
+    "date",
+    "game_id",
+    "market",
+    "side",
+    "fail_reason",
+    "fail_detail",
+    "prob_used_for_selection",
+    "prob_used_for_ev",
+    "prob_used_for_kelly",
+    "ev",
+    "kelly",
+    "odds",
+    "line",
+    "raw_ev",
+    "adjusted_ev",
+    "ev_probability_source",
+    "kelly_probability_source",
+    "price_role",
+]
+
 
 def duplicate_columns(columns):
     seen = set()
@@ -234,11 +282,26 @@ def validate_forbidden_columns(df: pd.DataFrame, forbidden_columns: list, label:
         )
 
 
+def validate_unique_game_id(df: pd.DataFrame, label: str) -> None:
+    game_ids = df["game_id"].astype(str).str.strip()
+
+    if (game_ids == "").any() or (game_ids.str.lower() == "nan").any():
+        blank_rows = df.index[(game_ids == "") | (game_ids.str.lower() == "nan")].tolist()
+        raise ValueError(f"{label} has blank game_id rows: {blank_rows[:20]}")
+
+    dupes = game_ids[game_ids.duplicated(keep=False)]
+
+    if not dupes.empty:
+        counts = dupes.value_counts().to_dict()
+        raise ValueError(f"{label} has multiple rows for one game_id: {counts}")
+
+
 def read_market_csv(path: Path, required_columns: list, label: str) -> pd.DataFrame:
     df = pd.read_csv(path)
 
     validate_no_duplicate_columns(df, label)
     validate_required_columns(df, required_columns, label)
+    validate_unique_game_id(df, label)
 
     return df
 
@@ -259,7 +322,9 @@ def validate_selected_output(df: pd.DataFrame, label: str) -> dict:
 
     ev_src = df["ev_probability_source"].astype(str).str.strip()
     kelly_src = df["kelly_probability_source"].astype(str).str.strip()
-    counts["selected_blank_probability_source"] = int(((ev_src == "") | (kelly_src == "") | (ev_src == "nan") | (kelly_src == "nan")).sum())
+    counts["selected_blank_probability_source"] = int(
+        ((ev_src == "") | (kelly_src == "") | (ev_src == "nan") | (kelly_src == "nan")).sum()
+    )
     counts["selected_probability_source_mismatch"] = int((ev_src != kelly_src).sum())
 
     prob_ev = pd.to_numeric(df["prob_for_ev"], errors="coerce")
@@ -274,7 +339,7 @@ def validate_selected_output(df: pd.DataFrame, label: str) -> dict:
     failures = {k: v for k, v in counts.items() if v > 0}
 
     if failures:
-        raise ValueError(f"{label} failed selected-bet Step 4 validation: {failures}")
+        raise ValueError(f"{label} failed selected-bet validation: {failures}")
 
     return counts
 
@@ -303,6 +368,29 @@ def row_count_check(slate: str, market_frames: dict, summary: dict) -> None:
         _log(f"{slate} market row-count mismatch before selection: {counts}", "WARN")
     else:
         _log(f"{slate} market row-count check OK: {counts}")
+
+
+def validate_config() -> None:
+    run_line_preference = CONFIG.get("run_line", {}).get("pick_preference", "best_ev")
+    if run_line_preference not in {"best_ev", "best_prob"}:
+        raise ValueError(
+            "run_line.pick_preference must be best_ev or best_prob. "
+            "Use of all is blocked to prevent both run-line sides on one game."
+        )
+
+    for market in ["moneyline", "run_line", "total"]:
+        market_cfg = CONFIG.get(market, {})
+        for side, rules in market_cfg.items():
+            if not isinstance(rules, dict):
+                continue
+            for key in ["ev_bands", "kelly_bands", "odds_bands", "line_bands", "prob_bands"]:
+                if key not in rules:
+                    continue
+                for band in rules[key]:
+                    if len(band) != 2:
+                        raise ValueError(f"{market}.{side}.{key} contains invalid band: {band}")
+                    if band[0] > band[1]:
+                        raise ValueError(f"{market}.{side}.{key} contains inverted band: {band}")
 
 
 # =========================
@@ -342,13 +430,61 @@ def in_range(val, ranges):
     return any(lo <= val <= hi for lo, hi in ranges)
 
 
-def rescale_prob(p, k=3.0):
-    if p is None:
+def matched_band(val, ranges):
+    if val is None:
         return None
-    if not (0 < p < 1):
-        return p
-    logit = math.log(p / (1 - p))
-    return 1 / (1 + math.exp(-k * logit))
+
+    for lo, hi in ranges:
+        if lo <= val <= hi:
+            return f"[{lo},{hi}]"
+
+    return None
+
+
+def price_role(odds, opponent_odds):
+    if odds is None or opponent_odds is None:
+        return "unknown"
+
+    if odds == opponent_odds:
+        return "pickem"
+
+    return "favorite" if odds < opponent_odds else "underdog"
+
+
+
+def effective_rules_for_price_role(rules, role):
+    effective = {
+        key: value
+        for key, value in rules.items()
+        if key != "price_role_rules"
+    }
+
+    role_rules = rules.get("price_role_rules", {})
+
+    if isinstance(role_rules, dict) and role in role_rules:
+        for key, value in role_rules[role].items():
+            effective[key] = value
+
+    return effective
+
+def check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, counters):
+    if not ev_source or not kelly_source:
+        counters["source_fail"] += 1
+        return False, "source_fail", "blank_probability_source"
+
+    if str(ev_source).strip() != str(kelly_source).strip():
+        counters["source_fail"] += 1
+        return False, "source_fail", "ev_kelly_source_mismatch"
+
+    if prob_for_ev is None or prob_for_kelly is None:
+        counters["source_fail"] += 1
+        return False, "source_fail", "missing_probability_basis"
+
+    if abs(prob_for_ev - prob_for_kelly) > PROB_TOLERANCE:
+        counters["source_fail"] += 1
+        return False, "source_fail", "prob_for_ev_prob_for_kelly_mismatch"
+
+    return True, "", ""
 
 
 def violates_exclude_rules(ev, kelly, odds, line, prob, rules):
@@ -383,81 +519,71 @@ def violates_exclude_rules(ev, kelly, odds, line, prob, rules):
     return False
 
 
-def check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, counters):
-    if not ev_source or not kelly_source:
-        counters["source_fail"] += 1
-        return False
+def check_rules(ev, kelly, odds, line, prob, role, rules, counters):
+    reason_parts = []
 
-    if str(ev_source).strip() != str(kelly_source).strip():
-        counters["source_fail"] += 1
-        return False
-
-    if prob_for_ev is None or prob_for_kelly is None:
-        counters["source_fail"] += 1
-        return False
-
-    if abs(prob_for_ev - prob_for_kelly) > PROB_TOLERANCE:
-        counters["source_fail"] += 1
-        return False
-
-    return True
-
-
-def check_rules(ev, kelly, odds, line, prob, rules, counters):
     if ev is None or kelly is None:
         counters["missing"] += 1
-        return False
+        return False, "missing", "missing_ev_or_kelly"
 
     if kelly <= 0:
         counters["kelly_fail"] += 1
-        return False
+        return False, "kelly_fail", "kelly<=0"
 
-    if not in_range(ev, rules.get("ev_bands", [])):
+    ev_band = matched_band(ev, rules.get("ev_bands", []))
+    if ev_band is None:
         counters["ev_fail"] += 1
-        return False
+        return False, "ev_fail", "outside_ev_bands"
+    reason_parts.append(f"ev_band={ev_band}")
 
-    if not in_range(kelly, rules.get("kelly_bands", [])):
+    kelly_band = matched_band(kelly, rules.get("kelly_bands", []))
+    if kelly_band is None:
         counters["kelly_fail"] += 1
-        return False
+        return False, "kelly_fail", "outside_kelly_bands"
+    reason_parts.append(f"kelly_band={kelly_band}")
 
     if "odds_bands" in rules:
-        if odds is None:
+        odds_band = matched_band(odds, rules["odds_bands"])
+        if odds_band is None:
             counters["odds_fail"] += 1
-            return False
-        if not in_range(odds, rules["odds_bands"]):
-            counters["odds_fail"] += 1
-            return False
+            return False, "odds_fail", "outside_odds_bands"
+        reason_parts.append(f"odds_band={odds_band}")
 
     if "line_bands" in rules:
-        if line is None:
+        line_band = matched_band(line, rules["line_bands"])
+        if line_band is None:
             counters["line_fail"] += 1
-            return False
-        if not in_range(line, rules["line_bands"]):
-            counters["line_fail"] += 1
-            return False
+            return False, "line_fail", "outside_line_bands"
+        reason_parts.append(f"line_band={line_band}")
 
     if "prob_bands" in rules:
-        if prob is None:
+        prob_band = matched_band(prob, rules["prob_bands"])
+        if prob_band is None:
             counters["prob_fail"] += 1
-            return False
-        if not in_range(prob, rules["prob_bands"]):
-            counters["prob_fail"] += 1
-            return False
+            return False, "prob_fail", "outside_prob_bands"
+        reason_parts.append(f"prob_band={prob_band}")
 
     if "prob_min" in rules and (prob is None or prob < rules["prob_min"]):
         counters["prob_fail"] += 1
-        return False
+        return False, "prob_fail", "below_prob_min"
 
     if "prob_max" in rules and (prob is None or prob > rules["prob_max"]):
         counters["prob_fail"] += 1
-        return False
+        return False, "prob_fail", "above_prob_max"
+
+    allowed_roles = rules.get("price_roles")
+    if allowed_roles:
+        if role not in allowed_roles:
+            counters["odds_fail"] += 1
+            return False, "odds_fail", f"price_role={role}_not_allowed"
+        reason_parts.append(f"price_role={role}")
 
     if violates_exclude_rules(ev, kelly, odds, line, prob, rules):
         counters["excluded"] += 1
-        return False
+        return False, "excluded", "matched_exclude_rule"
 
     counters["passed"] += 1
-    return True
+    return True, "", ";".join(reason_parts)
 
 
 def init_counter():
@@ -478,50 +604,66 @@ def init_counter():
 def select_candidate(candidates, preference, market_name=None, game_id=None):
     if not candidates:
         return []
+
+    if market_name == "run_line" and preference == "all":
+        raise ValueError(f"{game_id} run_line pick_preference=all is not allowed")
+
     if preference == "all":
         return candidates
+
     if preference == "best_prob":
-        return [max(candidates, key=lambda x: x["model_prob"] or -999)]
-    return [max(candidates, key=lambda x: x["ev"] or -999)]
+        return [max(candidates, key=lambda x: x["model_prob"] if x["model_prob"] is not None else -999)]
+
+    return [max(candidates, key=lambda x: x["ev"] if x["ev"] is not None else -999)]
 
 
-def get_market_rows(df: pd.DataFrame, game_id: str, away: str, home: str, game_date: str) -> pd.DataFrame:
+def get_market_row(df: pd.DataFrame, game_id: str):
     if df is None or df.empty:
-        return pd.DataFrame()
+        return None
 
-    if "game_id" in df.columns:
-        matched = df[df["game_id"].astype(str) == str(game_id)]
-        if not matched.empty:
-            return matched
+    matched = df[df["game_id"].astype(str).str.strip() == str(game_id).strip()]
 
-    return df[
-        (df["away_team"] == away) &
-        (df["home_team"] == home) &
-        (df["game_date"] == game_date)
-    ]
+    if matched.empty:
+        return None
+
+    if len(matched) > 1:
+        raise ValueError(f"Multiple rows matched game_id={game_id}")
+
+    return matched.iloc[0]
 
 
 def build_base_games(market_frames: dict) -> pd.DataFrame:
     pieces = []
 
-    for market_name in ["run_line", "moneyline", "total"]:
+    for market_name in ["moneyline", "run_line", "total"]:
         df = market_frames.get(market_name)
 
         if df is None or df.empty:
             continue
 
-        cols = [col for col in REQUIRED_BASE_COLUMNS if col in df.columns]
-        piece = df[cols].copy()
+        piece = df[REQUIRED_BASE_COLUMNS].copy()
         piece["source_market"] = market_name
         pieces.append(piece)
 
     if not pieces:
         return pd.DataFrame(columns=REQUIRED_BASE_COLUMNS + ["source_market"])
 
-    base = pd.concat(pieces, ignore_index=True)
-    base = base.drop_duplicates(subset=["game_id"], keep="first")
+    combined = pd.concat(pieces, ignore_index=True)
+    rows = []
 
-    return base
+    for game_id, group in combined.groupby(combined["game_id"].astype(str).str.strip(), sort=True):
+        base = group.iloc[0].copy()
+
+        for col in ["game_date", "home_team", "away_team"]:
+            values = sorted(set(group[col].astype(str).str.strip()))
+            if len(values) > 1:
+                raise ValueError(f"game_id={game_id} has conflicting {col} values across market files: {values}")
+
+        sources = sorted(set(group["source_market"].astype(str)))
+        base["source_market"] = ";".join(sources)
+        rows.append(base)
+
+    return pd.DataFrame(rows)
 
 
 def adjusted_only_positive(raw_ev, adjusted_ev) -> bool:
@@ -534,21 +676,67 @@ def adjusted_only_positive(raw_ev, adjusted_ev) -> bool:
     return raw <= 0 and adj > 0
 
 
+def base_candidate_audit(row, candidate, fail_reason="", fail_detail=""):
+    return {
+        "date": row.get("game_date"),
+        "game_id": row.get("game_id"),
+        "market": candidate.get("market"),
+        "side": candidate.get("side"),
+        "fail_reason": fail_reason,
+        "fail_detail": fail_detail,
+        "prob_used_for_selection": candidate.get("prob_used_for_selection"),
+        "prob_used_for_ev": candidate.get("prob_for_ev"),
+        "prob_used_for_kelly": candidate.get("prob_for_kelly"),
+        "ev": candidate.get("ev"),
+        "kelly": candidate.get("kelly"),
+        "odds": candidate.get("dk_odds_american"),
+        "line": candidate.get("line"),
+        "raw_ev": candidate.get("raw_ev"),
+        "adjusted_ev": candidate.get("adjusted_ev"),
+        "ev_probability_source": candidate.get("ev_probability_source"),
+        "kelly_probability_source": candidate.get("kelly_probability_source"),
+        "price_role": candidate.get("price_role"),
+    }
+
+
+def selected_audit_row(row):
+    return {
+        "date": row.get("game_date"),
+        "game_id": row.get("game_id"),
+        "market": row.get("market"),
+        "side": row.get("side"),
+        "prob_used_for_selection": row.get("prob_used_for_selection"),
+        "prob_used_for_ev": row.get("prob_for_ev"),
+        "prob_used_for_kelly": row.get("prob_for_kelly"),
+        "ev": row.get("ev"),
+        "kelly": row.get("kelly"),
+        "odds": row.get("dk_odds_american"),
+        "line": row.get("line"),
+        "selection_reason": row.get("selection_reason"),
+    }
+
+
 # =========================
 # CONTEXT FILTERS
 # =========================
 
-def rain_excluded(row) -> bool:
+def rain_exclusion_reason(row):
+    if row is None:
+        return None
+
     weather_applicable = iv(row.get("weather_applicable"))
 
     if weather_applicable == 0:
-        return False
+        return None
 
     will_it_rain = iv(row.get("will_it_rain"))
     symbol_code = sv(row.get("symbol_code"))
 
     if FILTERS.get("rain_exclude_on_will_it_rain", True) and will_it_rain == 1:
-        return True
+        return "will_it_rain"
+
+    if not FILTERS.get("rain_exclude_on_symbol_code", False):
+        return None
 
     rain_terms = FILTERS.get("rain_symbol_terms", [
         "rain",
@@ -562,12 +750,15 @@ def rain_excluded(row) -> bool:
     if symbol_code:
         symbol = symbol_code.lower()
         if any(str(term).lower() in symbol for term in rain_terms):
-            return True
+            return "symbol_code"
 
-    return False
+    return None
 
 
 def sp_sample_excluded_for_total(row) -> bool:
+    if row is None:
+        return False
+
     if not FILTERS.get("sp_sample_exclude_totals", True):
         return False
 
@@ -578,6 +769,9 @@ def sp_sample_excluded_for_total(row) -> bool:
 
 
 def is_low_confidence(row) -> int:
+    if row is None:
+        return 0
+
     warn = FILTERS.get("lineup_low_sample_warn", 3)
     home_low = fv(row.get("home_low_sample_count"))
     away_low = fv(row.get("away_low_sample_count"))
@@ -593,8 +787,50 @@ def is_low_confidence(row) -> int:
 # MARKET PROCESSORS
 # =========================
 
-def process_moneyline(row, counters):
+def evaluate_candidate(row, candidate, rules, side_counter, rejection_rows):
+    if adjusted_only_positive(candidate["raw_ev"], candidate["adjusted_ev"]):
+        side_counter["adjusted_only_fail"] += 1
+        rejection_rows.append(base_candidate_audit(row, candidate, "adjusted_only_positive", "raw_ev<=0_and_adjusted_ev>0"))
+        return None
+
+    basis_ok, fail_reason, fail_detail = check_probability_basis(
+        candidate["prob_for_ev"],
+        candidate["prob_for_kelly"],
+        candidate["ev_probability_source"],
+        candidate["kelly_probability_source"],
+        side_counter,
+    )
+
+    if not basis_ok:
+        rejection_rows.append(base_candidate_audit(row, candidate, fail_reason, fail_detail))
+        return None
+
+    passed, fail_reason, detail = check_rules(
+        candidate["ev"],
+        candidate["kelly"],
+        candidate["dk_odds_american"],
+        candidate["line"] if candidate["line"] != "" else None,
+        candidate["prob_used_for_selection"],
+        candidate["price_role"],
+        rules,
+        side_counter,
+    )
+
+    if not passed:
+        rejection_rows.append(base_candidate_audit(row, candidate, fail_reason, detail))
+        return None
+
+    candidate["selection_reason"] = detail
+    return candidate
+
+
+def process_moneyline(row, counters, rejection_rows):
     candidates = []
+
+    odds_by_side = {
+        "home": fv(row.get("home_dk_moneyline_american")),
+        "away": fv(row.get("away_dk_moneyline_american")),
+    }
 
     for side in ["home", "away"]:
         rules = CONFIG["moneyline"][side]
@@ -603,47 +839,35 @@ def process_moneyline(row, counters):
         if not rules["enabled"]:
             continue
 
-        ev = fv(row.get(f"{side}_ml_ev"))
-        kelly = fv(row.get(f"{side}_ml_kelly"))
-        odds = fv(row.get(f"{side}_dk_moneyline_american"))
-        dec = fv(row.get(f"{side}_dk_decimal_moneyline"))
+        other_side = "away" if side == "home" else "home"
         prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
         prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
-        ev_source = sv(row.get(f"{side}_ev_probability_source"))
-        kelly_source = sv(row.get(f"{side}_kelly_probability_source"))
-        raw_ev = fv(row.get(f"{side}_ml_raw_ev"))
-        adjusted_ev = fv(row.get(f"{side}_ml_adjusted_ev"))
-        model_prob = prob_for_ev
 
-        if adjusted_only_positive(raw_ev, adjusted_ev):
-            side_counter["adjusted_only_fail"] += 1
-            continue
-
-        if not check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, side_counter):
-            continue
-
-        if not check_rules(ev, kelly, odds, None, model_prob, rules, side_counter):
-            continue
-
-        candidates.append({
+        candidate = {
             "market_type": "moneyline",
             "bet_side": side,
             "market": "moneyline",
             "side": side,
             "line": "",
             "take_bet": f"{side}_moneyline",
-            "dk_odds_american": odds,
-            "dk_odds_decimal": dec,
-            "model_prob": model_prob,
+            "dk_odds_american": odds_by_side[side],
+            "dk_odds_decimal": fv(row.get(f"{side}_dk_decimal_moneyline")),
+            "model_prob": prob_for_ev,
+            "prob_used_for_selection": prob_for_ev,
             "prob_for_ev": prob_for_ev,
             "prob_for_kelly": prob_for_kelly,
-            "ev_probability_source": ev_source,
-            "kelly_probability_source": kelly_source,
-            "raw_ev": raw_ev,
-            "adjusted_ev": adjusted_ev,
-            "ev": ev,
-            "kelly": kelly,
-        })
+            "ev_probability_source": sv(row.get(f"{side}_ev_probability_source")),
+            "kelly_probability_source": sv(row.get(f"{side}_kelly_probability_source")),
+            "raw_ev": fv(row.get(f"{side}_ml_raw_ev")),
+            "adjusted_ev": fv(row.get(f"{side}_ml_adjusted_ev")),
+            "ev": fv(row.get(f"{side}_ml_ev")),
+            "kelly": fv(row.get(f"{side}_ml_kelly")),
+            "price_role": price_role(odds_by_side[side], odds_by_side[other_side]),
+        }
+
+        selected = evaluate_candidate(row, candidate, effective_rules_for_price_role(rules, candidate["price_role"]), side_counter, rejection_rows)
+        if selected is not None:
+            candidates.append(selected)
 
     return select_candidate(
         candidates,
@@ -653,8 +877,13 @@ def process_moneyline(row, counters):
     )
 
 
-def process_run_line(row, counters):
+def process_run_line(row, counters, rejection_rows):
     candidates = []
+
+    odds_by_side = {
+        "home": fv(row.get("home_dk_run_line_american")),
+        "away": fv(row.get("away_dk_run_line_american")),
+    }
 
     for side in ["home", "away"]:
         rules = CONFIG["run_line"][side]
@@ -663,48 +892,35 @@ def process_run_line(row, counters):
         if not rules["enabled"]:
             continue
 
-        ev = fv(row.get(f"{side}_rl_ev"))
-        kelly = fv(row.get(f"{side}_rl_kelly"))
-        odds = fv(row.get(f"{side}_dk_run_line_american"))
-        dec = fv(row.get(f"{side}_dk_run_line_decimal"))
-        line = fv(row.get(f"{side}_run_line"))
+        other_side = "away" if side == "home" else "home"
         prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
         prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
-        ev_source = sv(row.get(f"{side}_ev_probability_source"))
-        kelly_source = sv(row.get(f"{side}_kelly_probability_source"))
-        raw_ev = fv(row.get(f"{side}_rl_raw_ev"))
-        adjusted_ev = fv(row.get(f"{side}_rl_adjusted_ev"))
-        model_prob = prob_for_ev
 
-        if adjusted_only_positive(raw_ev, adjusted_ev):
-            side_counter["adjusted_only_fail"] += 1
-            continue
-
-        if not check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, side_counter):
-            continue
-
-        if not check_rules(ev, kelly, odds, line, model_prob, rules, side_counter):
-            continue
-
-        candidates.append({
+        candidate = {
             "market_type": "run_line",
             "bet_side": side,
             "market": "run_line",
             "side": side,
-            "line": line,
+            "line": fv(row.get(f"{side}_run_line")),
             "take_bet": f"{side}_run_line",
-            "dk_odds_american": odds,
-            "dk_odds_decimal": dec,
-            "model_prob": model_prob,
+            "dk_odds_american": odds_by_side[side],
+            "dk_odds_decimal": fv(row.get(f"{side}_dk_run_line_decimal")),
+            "model_prob": prob_for_ev,
+            "prob_used_for_selection": prob_for_ev,
             "prob_for_ev": prob_for_ev,
             "prob_for_kelly": prob_for_kelly,
-            "ev_probability_source": ev_source,
-            "kelly_probability_source": kelly_source,
-            "raw_ev": raw_ev,
-            "adjusted_ev": adjusted_ev,
-            "ev": ev,
-            "kelly": kelly,
-        })
+            "ev_probability_source": sv(row.get(f"{side}_ev_probability_source")),
+            "kelly_probability_source": sv(row.get(f"{side}_kelly_probability_source")),
+            "raw_ev": fv(row.get(f"{side}_rl_raw_ev")),
+            "adjusted_ev": fv(row.get(f"{side}_rl_adjusted_ev")),
+            "ev": fv(row.get(f"{side}_rl_ev")),
+            "kelly": fv(row.get(f"{side}_rl_kelly")),
+            "price_role": price_role(odds_by_side[side], odds_by_side[other_side]),
+        }
+
+        selected = evaluate_candidate(row, candidate, effective_rules_for_price_role(rules, candidate["price_role"]), side_counter, rejection_rows)
+        if selected is not None:
+            candidates.append(selected)
 
     return select_candidate(
         candidates,
@@ -714,8 +930,13 @@ def process_run_line(row, counters):
     )
 
 
-def process_total(row, counters):
+def process_total(row, counters, rejection_rows):
     candidates = []
+
+    odds_by_side = {
+        "over": fv(row.get("dk_total_over_american")),
+        "under": fv(row.get("dk_total_under_american")),
+    }
 
     for side in ["over", "under"]:
         rules = CONFIG["total"][side]
@@ -724,48 +945,35 @@ def process_total(row, counters):
         if not rules["enabled"]:
             continue
 
-        ev = fv(row.get(f"{side}_ev"))
-        kelly = fv(row.get(f"{side}_kelly"))
-        odds = fv(row.get(f"dk_total_{side}_american"))
-        dec = fv(row.get(f"dk_total_{side}_decimal"))
-        line = fv(row.get("total"))
+        other_side = "under" if side == "over" else "over"
         prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
         prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
-        ev_source = sv(row.get(f"{side}_ev_probability_source"))
-        kelly_source = sv(row.get(f"{side}_kelly_probability_source"))
-        raw_ev = fv(row.get(f"{side}_raw_ev"))
-        adjusted_ev = fv(row.get(f"{side}_adjusted_ev"))
-        model_prob = prob_for_ev
 
-        if adjusted_only_positive(raw_ev, adjusted_ev):
-            side_counter["adjusted_only_fail"] += 1
-            continue
-
-        if not check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, side_counter):
-            continue
-
-        if not check_rules(ev, kelly, odds, line, model_prob, rules, side_counter):
-            continue
-
-        candidates.append({
+        candidate = {
             "market_type": "total",
             "bet_side": side,
             "market": "total",
             "side": side,
-            "line": line,
+            "line": fv(row.get("total")),
             "take_bet": f"{side}_total",
-            "dk_odds_american": odds,
-            "dk_odds_decimal": dec,
-            "model_prob": model_prob,
+            "dk_odds_american": odds_by_side[side],
+            "dk_odds_decimal": fv(row.get(f"dk_total_{side}_decimal")),
+            "model_prob": prob_for_ev,
+            "prob_used_for_selection": prob_for_ev,
             "prob_for_ev": prob_for_ev,
             "prob_for_kelly": prob_for_kelly,
-            "ev_probability_source": ev_source,
-            "kelly_probability_source": kelly_source,
-            "raw_ev": raw_ev,
-            "adjusted_ev": adjusted_ev,
-            "ev": ev,
-            "kelly": kelly,
-        })
+            "ev_probability_source": sv(row.get(f"{side}_ev_probability_source")),
+            "kelly_probability_source": sv(row.get(f"{side}_kelly_probability_source")),
+            "raw_ev": fv(row.get(f"{side}_raw_ev")),
+            "adjusted_ev": fv(row.get(f"{side}_adjusted_ev")),
+            "ev": fv(row.get(f"{side}_ev")),
+            "kelly": fv(row.get(f"{side}_kelly")),
+            "price_role": price_role(odds_by_side[side], odds_by_side[other_side]),
+        }
+
+        selected = evaluate_candidate(row, candidate, effective_rules_for_price_role(rules, candidate["price_role"]), side_counter, rejection_rows)
+        if selected is not None:
+            candidates.append(selected)
 
     return select_candidate(
         candidates,
@@ -776,15 +984,61 @@ def process_total(row, counters):
 
 
 # =========================
+# RUN MODE
+# =========================
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Select MLB bets from EV/Kelly market files.")
+    parser.add_argument(
+        "--latest-only",
+        action="store_true",
+        help="Process only the latest available slate. This is also the default.",
+    )
+    parser.add_argument(
+        "--rebuild-all",
+        action="store_true",
+        help="Rebuild all historical slates. Must be explicitly supplied.",
+    )
+    parser.add_argument(
+        "--slate",
+        type=str,
+        default=None,
+        help="Process one exact slate key, for example 2026_06_02.",
+    )
+    return parser.parse_args()
+
+
+def choose_slates(slates: dict, args) -> tuple[list, str]:
+    available = sorted(slates)
+
+    if args.rebuild_all and args.latest_only:
+        raise ValueError("Use either --rebuild-all or --latest-only, not both.")
+
+    if args.slate:
+        if args.slate not in slates:
+            raise ValueError(f"Requested slate not found: {args.slate}")
+        return [args.slate], f"single_slate:{args.slate}"
+
+    if args.rebuild_all:
+        return available, "rebuild_all"
+
+    return [available[-1]], "latest_only"
+
+
+# =========================
 # MAIN
 # =========================
 
 def main():
+    args = parse_args()
+
     with open(LOG_FILE, "w", encoding="utf-8") as f:
         f.write(f"=== MLB select_bets RUN {_now()} ===\n")
 
     summary = {
+        "run_mode": "unresolved",
         "slates_found": 0,
+        "slates_processed": 0,
         "slates_written": 0,
         "total_bets": 0,
         "moneyline_bets": 0,
@@ -795,35 +1049,50 @@ def main():
         "missing_run_line": 0,
         "missing_total": 0,
         "row_count_warnings": 0,
+        "duplicate_game_id_errors": 0,
         "selected_nonpositive_kelly": 0,
         "selected_blank_probability_source": 0,
         "selected_probability_source_mismatch": 0,
         "selected_adjusted_only_positive": 0,
         "schema_errors": 0,
         "rain_excluded": 0,
+        "rain_excluded_will_it_rain": 0,
+        "rain_excluded_symbol_code": 0,
         "sp_sample_excluded": 0,
         "low_confidence": 0,
+        "rejection_audit_rows": 0,
+        "selected_audit_rows": 0,
         "errors": 0,
         "counters": {},
     }
 
     per_slate = []
+    selected_audit_rows = []
+    rejection_rows = []
 
     for old in OUTPUT_DIR.glob("*.csv"):
+        old.unlink()
+    for old in AUDIT_DIR.glob("*.csv"):
+        old.unlink()
+    for old in REJECTION_DIR.glob("*.csv"):
         old.unlink()
 
     _log(f"INPUT_DIR : {INPUT_DIR}")
     _log(f"OUTPUT_DIR: {OUTPUT_DIR}")
     _log(
         f"Rain filter: will_it_rain={FILTERS.get('rain_exclude_on_will_it_rain', True)} "
+        f"symbol_code={FILTERS.get('rain_exclude_on_symbol_code', False)} "
         f"symbol_terms={FILTERS.get('rain_symbol_terms')} | "
         f"SP sample exclude totals: {FILTERS.get('sp_sample_exclude_totals')} | "
         f"Lineup low sample warn: {FILTERS.get('lineup_low_sample_warn')}"
     )
     _log("Selection requires kelly > 0 and matching EV/Kelly probability source per selected row.")
     _log("Selection rejects rows where adjusted EV is positive but raw EV is zero/negative.")
+    _log("Selection matches market rows by game_id only. Team/date fallback matching is disabled.")
 
     try:
+        validate_config()
+
         files = sorted(INPUT_DIR.glob("*_mlb_*.csv"))
         _log(f"Files found: {len(files)}")
 
@@ -840,6 +1109,11 @@ def main():
 
         summary["slates_found"] = len(slates)
 
+        slate_keys, run_mode = choose_slates(slates, args)
+        summary["run_mode"] = run_mode
+        _log(f"Selected run mode: {run_mode}")
+        _log(f"Slate keys to process: {slate_keys}")
+
         global_counters = {
             "moneyline": {
                 "home": init_counter(),
@@ -855,7 +1129,7 @@ def main():
             },
         }
 
-        for slate, _ in slates.items():
+        for slate in slate_keys:
             ps = {
                 "slate": slate,
                 "bets": 0,
@@ -868,6 +1142,8 @@ def main():
             _log(f"--- SLATE: {slate}")
 
             try:
+                summary["slates_processed"] += 1
+
                 ml_path = INPUT_DIR / f"{slate}_mlb_moneyline.csv"
                 rl_path = INPUT_DIR / f"{slate}_mlb_run_line.csv"
                 tt_path = INPUT_DIR / f"{slate}_mlb_total.csv"
@@ -939,7 +1215,7 @@ def main():
                 seen = set()
 
                 for _, base_row in base_games.iterrows():
-                    game_id = base_row["game_id"]
+                    game_id = str(base_row["game_id"]).strip()
                     sport = base_row.get("sport", "")
                     game_date = base_row["game_date"]
                     game_time = base_row.get("game_time", "")
@@ -956,81 +1232,124 @@ def main():
                         "home_team": home,
                     }
 
-                    context_row = None
+                    rl_row = get_market_row(rl_df, game_id)
+                    ml_row = get_market_row(ml_df, game_id)
+                    tt_row = get_market_row(tt_df, game_id)
 
-                    rl_matches = get_market_rows(rl_df, game_id, away, home, game_date)
-                    ml_matches = get_market_rows(ml_df, game_id, away, home, game_date)
-                    tt_matches = get_market_rows(tt_df, game_id, away, home, game_date)
+                    context_row = rl_row if rl_row is not None else (tt_row if tt_row is not None else ml_row)
+                    low_conf = is_low_confidence(context_row)
 
-                    if not rl_matches.empty:
-                        context_row = rl_matches.iloc[0]
-                    elif not tt_matches.empty:
-                        context_row = tt_matches.iloc[0]
-                    elif not ml_matches.empty:
-                        context_row = ml_matches.iloc[0]
+                    rain_reason = rain_exclusion_reason(context_row)
 
-                    low_conf = is_low_confidence(context_row) if context_row is not None else 0
-
-                    game_rain_excluded = rain_excluded(context_row) if context_row is not None else False
-
-                    if game_rain_excluded:
+                    if rain_reason:
                         summary["rain_excluded"] += 1
+                        if rain_reason == "will_it_rain":
+                            summary["rain_excluded_will_it_rain"] += 1
+                        elif rain_reason == "symbol_code":
+                            summary["rain_excluded_symbol_code"] += 1
+
                         _log(
                             f"  {game_id} rain excluded "
-                            f"(will_it_rain={iv(context_row.get('will_it_rain'))} "
+                            f"(reason={rain_reason} will_it_rain={iv(context_row.get('will_it_rain'))} "
                             f"symbol_code={sv(context_row.get('symbol_code'))})",
                             "WARN",
                         )
+
+                        rejection_rows.append({
+                            "date": game_date,
+                            "game_id": game_id,
+                            "market": "all",
+                            "side": "all",
+                            "fail_reason": "rain_excluded",
+                            "fail_detail": rain_reason,
+                            "prob_used_for_selection": None,
+                            "prob_used_for_ev": None,
+                            "prob_used_for_kelly": None,
+                            "ev": None,
+                            "kelly": None,
+                            "odds": None,
+                            "line": None,
+                            "raw_ev": None,
+                            "adjusted_ev": None,
+                            "ev_probability_source": None,
+                            "kelly_probability_source": None,
+                            "price_role": None,
+                        })
                         continue
 
-                    if not rl_matches.empty:
-                        for _, rline_row in rl_matches.iterrows():
-                            for r in process_run_line(rline_row, global_counters):
+                    if rl_row is not None:
+                        for r in process_run_line(rl_row, global_counters, rejection_rows):
+                            k = f"{game_id}_{r['market_type']}"
+
+                            if k not in seen:
+                                if low_conf:
+                                    summary["low_confidence"] += 1
+
+                                selected = {**base, **r, "low_confidence": low_conf}
+                                final.append(selected)
+                                selected_audit_rows.append(selected_audit_row(selected))
+                                seen.add(k)
+                                ps["rl"] += 1
+
+                    if tt_row is not None:
+                        if sp_sample_excluded_for_total(tt_row):
+                            summary["sp_sample_excluded"] += 1
+                            _log(
+                                f"  {game_id} total SP sample excluded "
+                                f"(home={sv(tt_row.get('home_sp_sample_flag'))} "
+                                f"away={sv(tt_row.get('away_sp_sample_flag'))})",
+                                "WARN",
+                            )
+                            rejection_rows.append({
+                                "date": game_date,
+                                "game_id": game_id,
+                                "market": "total",
+                                "side": "all",
+                                "fail_reason": "sp_sample_excluded",
+                                "fail_detail": (
+                                    f"home={sv(tt_row.get('home_sp_sample_flag'))};"
+                                    f"away={sv(tt_row.get('away_sp_sample_flag'))}"
+                                ),
+                                "prob_used_for_selection": None,
+                                "prob_used_for_ev": None,
+                                "prob_used_for_kelly": None,
+                                "ev": None,
+                                "kelly": None,
+                                "odds": None,
+                                "line": fv(tt_row.get("total")),
+                                "raw_ev": None,
+                                "adjusted_ev": None,
+                                "ev_probability_source": None,
+                                "kelly_probability_source": None,
+                                "price_role": None,
+                            })
+                        else:
+                            for r in process_total(tt_row, global_counters, rejection_rows):
                                 k = f"{game_id}_{r['market_type']}_{r['bet_side']}_{r['line']}"
 
                                 if k not in seen:
                                     if low_conf:
                                         summary["low_confidence"] += 1
 
-                                    final.append({**base, **r, "low_confidence": low_conf})
-                                    seen.add(k)
-                                    ps["rl"] += 1
-
-                    if not tt_matches.empty:
-                        for _, total_row in tt_matches.iterrows():
-                            if sp_sample_excluded_for_total(total_row):
-                                summary["sp_sample_excluded"] += 1
-                                _log(
-                                    f"  {game_id} total SP sample excluded "
-                                    f"(home={sv(total_row.get('home_sp_sample_flag'))} "
-                                    f"away={sv(total_row.get('away_sp_sample_flag'))})",
-                                    "WARN",
-                                )
-                                continue
-
-                            for r in process_total(total_row, global_counters):
-                                k = f"{game_id}_{r['market_type']}_{r['bet_side']}_{r['line']}"
-
-                                if k not in seen:
-                                    if low_conf:
-                                        summary["low_confidence"] += 1
-
-                                    final.append({**base, **r, "low_confidence": low_conf})
+                                    selected = {**base, **r, "low_confidence": low_conf}
+                                    final.append(selected)
+                                    selected_audit_rows.append(selected_audit_row(selected))
                                     seen.add(k)
                                     ps["tot"] += 1
 
-                    if not ml_matches.empty:
-                        for _, ml_row in ml_matches.iterrows():
-                            for r in process_moneyline(ml_row, global_counters):
-                                k = f"{game_id}_{r['market_type']}_{r['bet_side']}_{r['line']}"
+                    if ml_row is not None:
+                        for r in process_moneyline(ml_row, global_counters, rejection_rows):
+                            k = f"{game_id}_{r['market_type']}_{r['bet_side']}_{r['line']}"
 
-                                if k not in seen:
-                                    if low_conf:
-                                        summary["low_confidence"] += 1
+                            if k not in seen:
+                                if low_conf:
+                                    summary["low_confidence"] += 1
 
-                                    final.append({**base, **r, "low_confidence": low_conf})
-                                    seen.add(k)
-                                    ps["ml"] += 1
+                                selected = {**base, **r, "low_confidence": low_conf}
+                                final.append(selected)
+                                selected_audit_rows.append(selected_audit_row(selected))
+                                seen.add(k)
+                                ps["ml"] += 1
 
                 ps["bets"] = len(final)
 
@@ -1057,6 +1376,9 @@ def main():
                     ps["status"] = "no_bets"
 
             except ValueError as e:
+                message = str(e)
+                if "multiple rows for one game_id" in message or "Multiple rows matched game_id" in message:
+                    summary["duplicate_game_id_errors"] += 1
                 _log(f"{slate} SCHEMA FAILED: {e}\n{traceback.format_exc()}", "ERROR")
                 ps["status"] = "schema_error"
                 summary["schema_errors"] += 1
@@ -1070,6 +1392,24 @@ def main():
             per_slate.append(ps)
 
         summary["counters"] = global_counters
+
+        rejection_df = pd.DataFrame(rejection_rows, columns=REJECTION_AUDIT_COLUMNS)
+        selected_audit_df = pd.DataFrame(selected_audit_rows, columns=SELECTED_AUDIT_COLUMNS)
+
+        rejection_audit_path = AUDIT_DIR / "selection_rejection_audit.csv"
+        selected_audit_path = AUDIT_DIR / "selected_bet_audit.csv"
+
+        rejection_df.to_csv(rejection_audit_path, index=False)
+        selected_audit_df.to_csv(selected_audit_path, index=False)
+
+        if not rejection_df.empty:
+            rejection_df.to_csv(REJECTION_DIR / "selection_rejections.csv", index=False)
+
+        summary["rejection_audit_rows"] = len(rejection_df)
+        summary["selected_audit_rows"] = len(selected_audit_df)
+
+        _log(f"WROTE AUDIT: {rejection_audit_path} rows={len(rejection_df)}")
+        _log(f"WROTE AUDIT: {selected_audit_path} rows={len(selected_audit_df)}")
 
     except Exception as e:
         _log(f"FATAL: {e}\n{traceback.format_exc()}", "ERROR")
@@ -1086,6 +1426,7 @@ def main():
 
     print(
         f"baseball select_bets complete. "
+        f"run_mode={summary['run_mode']} "
         f"slates_written={summary['slates_written']} "
         f"total_bets={summary['total_bets']} "
         f"moneyline_bets={summary['moneyline_bets']} "
@@ -1094,6 +1435,10 @@ def main():
         f"selected_nonpositive_kelly={summary['selected_nonpositive_kelly']} "
         f"selected_probability_source_mismatch={summary['selected_probability_source_mismatch']} "
         f"selected_adjusted_only_positive={summary['selected_adjusted_only_positive']} "
+        f"rain_excluded_will_it_rain={summary['rain_excluded_will_it_rain']} "
+        f"rain_excluded_symbol_code={summary['rain_excluded_symbol_code']} "
+        f"rejection_audit_rows={summary['rejection_audit_rows']} "
+        f"selected_audit_rows={summary['selected_audit_rows']} "
         f"row_count_warnings={summary['row_count_warnings']}"
     )
 
