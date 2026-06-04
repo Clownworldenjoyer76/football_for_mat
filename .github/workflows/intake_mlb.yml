@@ -50,12 +50,13 @@ jobs:
           mkdir -p docs/win/baseball/00_intake/predictions/pred_with_game_id/rejections/
           mkdir -p docs/win/baseball/00_intake/games/
           mkdir -p docs/win/baseball/00_intake/mlb_raw/
-          mkdir -p docs/win/final_scores/results/mlb/final_scores/
-          mkdir -p docs/win/baseball/05_final_scores/results/final_scores/
           mkdir -p docs/win/baseball/errors/00_intake/
           mkdir -p mappings/baseball/no_map/
           mkdir -p docs/win/baseball/data/weather/
           mkdir -p docs/win/baseball/data/weather/metno_raw/
+
+      - name: MLB Leakage CI Check
+        run: python docs/win/baseball/scripts/ci/check_mlb_leakage.py
 
       - name: Baseball Odds Parse
         run: python docs/win/baseball/scripts/00_intake/odds_parse.py docs/win/baseball/odds/${DATE}.json
@@ -129,8 +130,6 @@ jobs:
           git add docs/win/baseball/00_intake/predictions/pred_with_game_id/
           git add docs/win/baseball/00_intake/games/
           git add docs/win/baseball/00_intake/mlb_raw/
-          git add docs/win/final_scores/results/mlb/final_scores/
-          git add docs/win/baseball/05_final_scores/results/final_scores/
           git add docs/win/baseball/errors/00_intake/
           git add mappings/baseball/no_map/
           git add docs/win/baseball/data/weather/
