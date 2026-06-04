@@ -35,6 +35,7 @@
 #   - Hard-fail if matched eligible output row count differs from eligible prediction row count.
 #   - Write rejected prediction rows to rejection CSV.
 #   - Print rejected prediction rows to stdout so GitHub Actions logs show the reason.
+#   - Print fatal exception/traceback directly to stdout so failed GitHub runs show the actual error.
 
 import csv
 import math
@@ -137,8 +138,20 @@ def log(msg: str, level: str = "INFO"):
         f.write(f"{_now()} | {level:<5} | {msg.rstrip()}\n")
 
 
+def print_block(title: str, lines: list[str]):
+    print("")
+    print("=" * 80)
+    print(title)
+    print("=" * 80)
+    for line in lines:
+        print(line)
+    print("=" * 80)
+    print("")
+
+
 def fail(msg: str):
     log(f"FATAL VALIDATION ERROR: {msg}", "ERROR")
+    print_block("FATAL VALIDATION ERROR IN game_id_pred.py", [msg])
     raise RuntimeError(msg)
 
 
@@ -757,6 +770,9 @@ def process_date(date_str: str, pred_path: Path, summary: dict) -> None:
     out_path = OUT_DIR / f"{date_str}_MLB.csv"
     rejection_path = REJECTION_DIR / f"{date_str}_unmatched_predictions.csv"
 
+    log(f"{date_str} | START process_date")
+    print(f"PROCESSING game_id_pred date={date_str}")
+
     pred_rows = load_csv(pred_path, REQUIRED_PRED_COLS, "prediction input")
     book_rows = load_csv(book_path, REQUIRED_BOOK_COLS, "sportsbook input", required_file=False)
 
@@ -831,6 +847,13 @@ def process_date(date_str: str, pred_path: Path, summary: dict) -> None:
         summary["files_written"] += 1
         summary["rejected"] += len(rejection_rows)
         summary["nonfatal_rejections"] += nonfatal_rejection_count
+
+        print(
+            f"COMPLETED game_id_pred date={date_str} "
+            f"input_predictions={len(pred_rows)} sportsbook_rows={len(book_rows)} "
+            f"eligible_predictions=0 output_rows=0 "
+            f"nonfatal_rejections={nonfatal_rejection_count} fatal_rejections=0"
+        )
         return
 
     games_rows = load_csv(games_path, REQUIRED_GAMES_COLS, "games input", required_file=True)
@@ -1206,6 +1229,13 @@ def process_date(date_str: str, pred_path: Path, summary: dict) -> None:
     summary["rejected"] += len(rejection_rows)
     summary["nonfatal_rejections"] += nonfatal_rejection_count
 
+    print(
+        f"COMPLETED game_id_pred date={date_str} "
+        f"input_predictions={len(pred_rows)} sportsbook_rows={len(book_rows)} "
+        f"eligible_predictions={eligible_count} output_rows={len(output_rows)} "
+        f"matched={matched} nonfatal_rejections={nonfatal_rejection_count} fatal_rejections=0"
+    )
+
 
 # ─────────────────────────────────────────────
 # MAIN
@@ -1235,13 +1265,25 @@ def main():
         ]
 
         log(f"prediction files found: {len(pred_files)}")
+        print(f"game_id_pred prediction files found: {len(pred_files)}")
 
         for pred_path in pred_files:
             date_str = pred_path.stem.replace("_MLB", "")
             process_date(date_str, pred_path, summary)
 
     except Exception as e:
-        log(f"FATAL: {e}\n{traceback.format_exc()}", "ERROR")
+        tb = traceback.format_exc()
+        log(f"FATAL: {e}\n{tb}", "ERROR")
+
+        print("")
+        print("=" * 80)
+        print("FATAL ERROR IN game_id_pred.py")
+        print("=" * 80)
+        print(f"error={e}")
+        print("")
+        print(tb)
+        print("=" * 80)
+        print("")
 
         if summary["errors"] == 0:
             summary["errors"] += 1
@@ -1269,6 +1311,22 @@ def main():
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
+    print("")
+    print("=" * 80)
+    print("game_id_pred SUMMARY")
+    print("=" * 80)
+    print(f"files_written={summary['files_written']}")
+    print(f"total_rows={summary['total_rows']}")
+    print(f"matched={summary['matched']}")
+    print(f"rejected={summary['rejected']}")
+    print(f"nonfatal_rejections={summary['nonfatal_rejections']}")
+    print(f"fatal_rejections={summary['fatal_rejections']}")
+    print(f"skipped={summary['skipped']}")
+    print(f"errors={summary['errors']}")
+    print(f"STATUS: {status}")
+    print("=" * 80)
+    print("")
+
     print(
         f"game_id_pred complete. "
         f"{summary['files_written']} files written. "
@@ -1276,6 +1334,7 @@ def main():
         f"rejected={summary['rejected']} "
         f"nonfatal_rejections={summary['nonfatal_rejections']} "
         f"fatal_rejections={summary['fatal_rejections']} "
+        f"errors={summary['errors']} "
         f"Status: {status}"
     )
 
