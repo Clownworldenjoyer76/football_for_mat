@@ -3,9 +3,21 @@ markets:
 
   mlb:
     # ── Context / Environment Settings ──────────────────────────
+    #
+    # rain_exclude_on_will_it_rain:
+    #   true  = exclude outdoor/weather-applicable games when will_it_rain == 1
+    #   false = do not exclude from will_it_rain
+    #
+    # rain_exclude_on_symbol_code:
+    #   true  = exclude outdoor/weather-applicable games when symbol_code contains
+    #           one of rain_symbol_terms
+    #   false = do not exclude from symbol_code terms
+    #
+    # Step 5 separates these controls so false on will_it_rain does not
+    # accidentally leave symbol-code rain filtering enabled.
     rain_exclude_on_will_it_rain: false
+    rain_exclude_on_symbol_code: false
 
-    # If symbol_code contains one of these terms, the game is excluded.
     rain_symbol_terms:
       - rain
       - heavyrain
@@ -27,13 +39,14 @@ markets:
     moneyline:
       enabled: true
       # best_ev = one ML side max per game
+      # best_prob = one ML side max per game, highest model probability
       # all = can select both if both pass
       pick_preference: best_ev
 
       home:
         enabled: true
         odds_bands:
-          - [-350, 350]
+          - [-240, 175]
         ev_bands:
           - [0.001, 0.0099]
           - [0.02, 0.0299]
@@ -41,18 +54,48 @@ markets:
           - [0.001, 99.99]
         prob_bands:
           - [0.40, 0.99]
+        price_role_rules:
+          favorite:
+            odds_bands:
+              - [-240, -105]
+            ev_bands:
+              - [0.001, 0.0099]
+              - [0.02, 0.0299]
+          underdog:
+            odds_bands:
+              - [100, 175]
+            ev_bands:
+              - [0.02, 0.0299]
+          pickem:
+            odds_bands:
+              - [-104, 104]
 
       away:
         enabled: true
         odds_bands:
-          - [-350, 350]
+          - [-220, 210]
         ev_bands:
           - [0.01, 0.0199]
-          - [0.04, 0.0749] 
+          - [0.04, 0.0749]
         kelly_bands:
           - [0.001, 99.99]
         prob_bands:
           - [0.40, 0.99]
+        price_role_rules:
+          favorite:
+            odds_bands:
+              - [-220, -105]
+            ev_bands:
+              - [0.01, 0.0199]
+              - [0.04, 0.0749]
+          underdog:
+            odds_bands:
+              - [100, 210]
+            ev_bands:
+              - [0.04, 0.0749]
+          pickem:
+            odds_bands:
+              - [-104, 104]
 
     ###################################################
     # ── Run Line ─────────────────────────────────────
@@ -60,35 +103,56 @@ markets:
 
     run_line:
       enabled: true
-      # best_prob allows the more likely RL side when both pass.
-      # Use all if you want maximum volume.
-      pick_preference: all
+      # Step 5 blocks all for run-line so both sides of the same run-line
+      # market cannot be selected for one game.
+      # Valid values: best_ev, best_prob.
+      pick_preference: best_ev
 
       home:
         enabled: true
         line_bands:
           - [-2.5, 2.5]
         odds_bands:
-          - [-500,500]
+          - [-220, 180]
         ev_bands:
           - [0.04, 0.99]
         kelly_bands:
           - [0.001, 0.05]
         prob_bands:
           - [0.20, 0.50]
+        price_role_rules:
+          favorite:
+            odds_bands:
+              - [-220, -105]
+          underdog:
+            odds_bands:
+              - [100, 180]
+          pickem:
+            odds_bands:
+              - [-104, 104]
 
       away:
         enabled: true
         line_bands:
           - [-2.5, 2.5]
         odds_bands:
-          - [-500, 500]
+          - [-220, 180]
         ev_bands:
           - [0.01, 0.05]
         kelly_bands:
           - [0.001, 0.0099]
         prob_bands:
           - [0.20, 0.50]
+        price_role_rules:
+          favorite:
+            odds_bands:
+              - [-220, -105]
+          underdog:
+            odds_bands:
+              - [100, 180]
+          pickem:
+            odds_bands:
+              - [-104, 104]
 
     ###################################################
     # ── Totals ───────────────────────────────────────
@@ -102,11 +166,10 @@ markets:
 
       over:
         enabled: true
-        # MLB totals usually live here, but this is intentionally broad.
         line_bands:
           - [7.5, 9.6]
         odds_bands:
-          - [-350, 350]
+          - [-165, 150]
         ev_bands:
           - [0.03, 0.99]
         kelly_bands:
@@ -114,13 +177,23 @@ markets:
           - [0.15, 0.99]
         prob_bands:
           - [0.50, 0.80]
+        price_role_rules:
+          favorite:
+            odds_bands:
+              - [-165, -105]
+          underdog:
+            odds_bands:
+              - [100, 150]
+          pickem:
+            odds_bands:
+              - [-104, 104]
 
       under:
         enabled: true
         line_bands:
           - [8.0, 9.5]
         odds_bands:
-          - [-350, 350]
+          - [-170, 145]
         ev_bands:
           - [0.005, 0.02]
           - [0.04, 0.08]
@@ -130,3 +203,13 @@ markets:
           - [0.30, 0.99]
         prob_bands:
           - [0.65, 0.99]
+        price_role_rules:
+          favorite:
+            odds_bands:
+              - [-170, -105]
+          underdog:
+            odds_bands:
+              - [100, 145]
+          pickem:
+            odds_bands:
+              - [-104, 104]
