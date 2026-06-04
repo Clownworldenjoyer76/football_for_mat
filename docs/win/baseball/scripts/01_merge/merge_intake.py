@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 # docs/win/baseball/scripts/01_merge/merge_intake.py
+#
+# Step 2 behavior:
+#   - Duplicate prediction game_id remains fatal.
+#   - Blank game_id in prediction/sportsbook/games remains fatal.
+#   - Duplicate sportsbook game_id remains fatal.
+#   - Team normalization and cross-source team mismatches remain fatal.
+#   - Missing context for matched games remains fatal.
+#   - Unmatched sportsbook rows are written to rejection CSV and merge audit.
+#   - Unmatched sportsbook rows are nonfatal and omitted from merged outputs.
 
 import csv
 import traceback
@@ -886,8 +895,8 @@ def process_date(date, summary, alias_map, team_id_to_canonical):
     fatal_errors = []
 
     if unmatched_sportsbook_ids:
-        fatal_errors.append(
-            f"{date} | unmatched sportsbook rows hard failure: "
+        log(
+            f"{date} | unmatched sportsbook rows nonfatal rejection: "
             f"count={len(unmatched_sportsbook_ids)} game_ids={sorted(unmatched_sportsbook_ids)} "
             f"rejection_file={rejection_path}"
         )
