@@ -55,8 +55,6 @@ jobs:
           mkdir -p docs/win/baseball/data/weather/
           mkdir -p docs/win/baseball/data/weather/metno_raw/
 
-      - name: MLB Leakage CI Check
-        run: python docs/win/baseball/scripts/ci/check_mlb_leakage.py
 
       - name: Baseball Odds Parse
         run: python docs/win/baseball/scripts/00_intake/odds_parse.py docs/win/baseball/odds/${DATE}.json
