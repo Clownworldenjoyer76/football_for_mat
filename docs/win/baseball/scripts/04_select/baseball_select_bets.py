@@ -20,6 +20,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 LEAGUE_CODE = "MLB"
+PROB_TOLERANCE = 1e-9
 
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     _yaml = yaml.safe_load(f)["markets"]["mlb"]
@@ -46,22 +47,26 @@ def _write_summary(summary: dict, per_slate: list) -> None:
         "=" * 60,
         f"SUMMARY  {_now()}",
         "=" * 60,
-        f"  slates_found      : {summary['slates_found']}",
-        f"  slates_written    : {summary['slates_written']}",
-        f"  total_bets        : {summary['total_bets']}",
-        f"  moneyline_bets    : {summary['moneyline_bets']}",
-        f"  run_line_bets     : {summary['run_line_bets']}",
-        f"  total_mkt_bets    : {summary['total_mkt_bets']}",
-        f"  skipped_slates    : {summary['skipped_slates']}",
-        f"  missing_moneyline : {summary['missing_moneyline']}",
-        f"  missing_run_line  : {summary['missing_run_line']}",
-        f"  missing_total     : {summary['missing_total']}",
-        f"  row_count_warnings: {summary['row_count_warnings']}",
-        f"  schema_errors     : {summary['schema_errors']}",
-        f"  rain_excluded     : {summary['rain_excluded']}",
-        f"  sp_sample_excluded: {summary['sp_sample_excluded']}",
-        f"  low_confidence    : {summary['low_confidence']}",
-        f"  errors            : {summary['errors']}",
+        f"  slates_found                       : {summary['slates_found']}",
+        f"  slates_written                     : {summary['slates_written']}",
+        f"  total_bets                         : {summary['total_bets']}",
+        f"  moneyline_bets                     : {summary['moneyline_bets']}",
+        f"  run_line_bets                      : {summary['run_line_bets']}",
+        f"  total_mkt_bets                     : {summary['total_mkt_bets']}",
+        f"  skipped_slates                     : {summary['skipped_slates']}",
+        f"  missing_moneyline                  : {summary['missing_moneyline']}",
+        f"  missing_run_line                   : {summary['missing_run_line']}",
+        f"  missing_total                      : {summary['missing_total']}",
+        f"  row_count_warnings                 : {summary['row_count_warnings']}",
+        f"  selected_nonpositive_kelly         : {summary['selected_nonpositive_kelly']}",
+        f"  selected_blank_probability_source  : {summary['selected_blank_probability_source']}",
+        f"  selected_probability_source_mismatch: {summary['selected_probability_source_mismatch']}",
+        f"  selected_adjusted_only_positive    : {summary['selected_adjusted_only_positive']}",
+        f"  schema_errors                      : {summary['schema_errors']}",
+        f"  rain_excluded                      : {summary['rain_excluded']}",
+        f"  sp_sample_excluded                 : {summary['sp_sample_excluded']}",
+        f"  low_confidence                     : {summary['low_confidence']}",
+        f"  errors                             : {summary['errors']}",
         "",
         "--- Filter Breakdown ---",
     ]
@@ -72,7 +77,8 @@ def _write_summary(summary: dict, per_slate: list) -> None:
                 f"  {market}-{side:<10} passed={c['passed']:>4} "
                 f"ev_fail={c['ev_fail']:>4} kelly_fail={c['kelly_fail']:>4} "
                 f"odds_fail={c['odds_fail']:>4} line_fail={c['line_fail']:>4} "
-                f"prob_fail={c['prob_fail']:>4} missing={c['missing']:>4} "
+                f"prob_fail={c['prob_fail']:>4} source_fail={c['source_fail']:>4} "
+                f"adjusted_only_fail={c['adjusted_only_fail']:>4} missing={c['missing']:>4} "
                 f"excluded={c['excluded']:>4}"
             )
 
@@ -113,8 +119,20 @@ REQUIRED_MONEYLINE_COLUMNS = REQUIRED_BASE_COLUMNS + [
     "away_dk_moneyline_american",
     "home_dk_decimal_moneyline",
     "away_dk_decimal_moneyline",
-    "home_prob",
-    "away_prob",
+    "home_normalized_prob_moneyline",
+    "away_normalized_prob_moneyline",
+    "home_prob_for_ev",
+    "away_prob_for_ev",
+    "home_prob_for_kelly",
+    "away_prob_for_kelly",
+    "home_ev_probability_source",
+    "away_ev_probability_source",
+    "home_kelly_probability_source",
+    "away_kelly_probability_source",
+    "home_ml_raw_ev",
+    "away_ml_raw_ev",
+    "home_ml_adjusted_ev",
+    "away_ml_adjusted_ev",
     "home_ml_ev",
     "away_ml_ev",
     "home_ml_kelly",
@@ -130,6 +148,18 @@ REQUIRED_RUN_LINE_COLUMNS = REQUIRED_BASE_COLUMNS + [
     "away_dk_run_line_decimal",
     "home_normalized_prob_run_line",
     "away_normalized_prob_run_line",
+    "home_prob_for_ev",
+    "away_prob_for_ev",
+    "home_prob_for_kelly",
+    "away_prob_for_kelly",
+    "home_ev_probability_source",
+    "away_ev_probability_source",
+    "home_kelly_probability_source",
+    "away_kelly_probability_source",
+    "home_rl_raw_ev",
+    "away_rl_raw_ev",
+    "home_rl_adjusted_ev",
+    "away_rl_adjusted_ev",
     "home_rl_ev",
     "away_rl_ev",
     "home_rl_kelly",
@@ -142,8 +172,20 @@ REQUIRED_TOTAL_COLUMNS = REQUIRED_BASE_COLUMNS + [
     "dk_total_under_american",
     "dk_total_over_decimal",
     "dk_total_under_decimal",
-    "over_prob",
-    "under_prob",
+    "over_normalized_prob_total",
+    "under_normalized_prob_total",
+    "over_prob_for_ev",
+    "under_prob_for_ev",
+    "over_prob_for_kelly",
+    "under_prob_for_kelly",
+    "over_ev_probability_source",
+    "under_ev_probability_source",
+    "over_kelly_probability_source",
+    "under_kelly_probability_source",
+    "over_raw_ev",
+    "under_raw_ev",
+    "over_adjusted_ev",
+    "under_adjusted_ev",
     "over_ev",
     "under_ev",
     "over_kelly",
@@ -201,9 +243,47 @@ def read_market_csv(path: Path, required_columns: list, label: str) -> pd.DataFr
     return df
 
 
-def write_output_csv(df: pd.DataFrame, path: Path, label: str) -> None:
+def validate_selected_output(df: pd.DataFrame, label: str) -> dict:
+    counts = {
+        "selected_nonpositive_kelly": 0,
+        "selected_blank_probability_source": 0,
+        "selected_probability_source_mismatch": 0,
+        "selected_adjusted_only_positive": 0,
+    }
+
+    if df.empty:
+        return counts
+
+    kelly = pd.to_numeric(df["kelly"], errors="coerce")
+    counts["selected_nonpositive_kelly"] = int((kelly.isna() | (kelly <= 0)).sum())
+
+    ev_src = df["ev_probability_source"].astype(str).str.strip()
+    kelly_src = df["kelly_probability_source"].astype(str).str.strip()
+    counts["selected_blank_probability_source"] = int(((ev_src == "") | (kelly_src == "") | (ev_src == "nan") | (kelly_src == "nan")).sum())
+    counts["selected_probability_source_mismatch"] = int((ev_src != kelly_src).sum())
+
+    prob_ev = pd.to_numeric(df["prob_for_ev"], errors="coerce")
+    prob_kelly = pd.to_numeric(df["prob_for_kelly"], errors="coerce")
+    prob_mismatch = int(((prob_ev - prob_kelly).abs() > PROB_TOLERANCE).sum())
+    counts["selected_probability_source_mismatch"] += prob_mismatch
+
+    raw_ev = pd.to_numeric(df["raw_ev"], errors="coerce")
+    adjusted_ev = pd.to_numeric(df["adjusted_ev"], errors="coerce")
+    counts["selected_adjusted_only_positive"] = int(((raw_ev <= 0) & (adjusted_ev > 0)).sum())
+
+    failures = {k: v for k, v in counts.items() if v > 0}
+
+    if failures:
+        raise ValueError(f"{label} failed selected-bet Step 4 validation: {failures}")
+
+    return counts
+
+
+def write_output_csv(df: pd.DataFrame, path: Path, label: str) -> dict:
     validate_no_duplicate_columns(df, label)
+    counts = validate_selected_output(df, label)
     df.to_csv(path, index=False)
+    return counts
 
 
 def row_count_check(slate: str, market_frames: dict, summary: dict) -> None:
@@ -303,9 +383,33 @@ def violates_exclude_rules(ev, kelly, odds, line, prob, rules):
     return False
 
 
+def check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, counters):
+    if not ev_source or not kelly_source:
+        counters["source_fail"] += 1
+        return False
+
+    if str(ev_source).strip() != str(kelly_source).strip():
+        counters["source_fail"] += 1
+        return False
+
+    if prob_for_ev is None or prob_for_kelly is None:
+        counters["source_fail"] += 1
+        return False
+
+    if abs(prob_for_ev - prob_for_kelly) > PROB_TOLERANCE:
+        counters["source_fail"] += 1
+        return False
+
+    return True
+
+
 def check_rules(ev, kelly, odds, line, prob, rules, counters):
     if ev is None or kelly is None:
         counters["missing"] += 1
+        return False
+
+    if kelly <= 0:
+        counters["kelly_fail"] += 1
         return False
 
     if not in_range(ev, rules.get("ev_bands", [])):
@@ -364,6 +468,8 @@ def init_counter():
         "odds_fail": 0,
         "line_fail": 0,
         "prob_fail": 0,
+        "source_fail": 0,
+        "adjusted_only_fail": 0,
         "excluded": 0,
         "missing": 0,
     }
@@ -416,6 +522,16 @@ def build_base_games(market_frames: dict) -> pd.DataFrame:
     base = base.drop_duplicates(subset=["game_id"], keep="first")
 
     return base
+
+
+def adjusted_only_positive(raw_ev, adjusted_ev) -> bool:
+    raw = fv(raw_ev)
+    adj = fv(adjusted_ev)
+
+    if raw is None or adj is None:
+        return False
+
+    return raw <= 0 and adj > 0
 
 
 # =========================
@@ -482,6 +598,7 @@ def process_moneyline(row, counters):
 
     for side in ["home", "away"]:
         rules = CONFIG["moneyline"][side]
+        side_counter = counters["moneyline"][side]
 
         if not rules["enabled"]:
             continue
@@ -490,9 +607,22 @@ def process_moneyline(row, counters):
         kelly = fv(row.get(f"{side}_ml_kelly"))
         odds = fv(row.get(f"{side}_dk_moneyline_american"))
         dec = fv(row.get(f"{side}_dk_decimal_moneyline"))
-        model_prob = rescale_prob(fv(row.get(f"{side}_prob")))
+        prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
+        prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
+        ev_source = sv(row.get(f"{side}_ev_probability_source"))
+        kelly_source = sv(row.get(f"{side}_kelly_probability_source"))
+        raw_ev = fv(row.get(f"{side}_ml_raw_ev"))
+        adjusted_ev = fv(row.get(f"{side}_ml_adjusted_ev"))
+        model_prob = prob_for_ev
 
-        if not check_rules(ev, kelly, odds, None, model_prob, rules, counters["moneyline"][side]):
+        if adjusted_only_positive(raw_ev, adjusted_ev):
+            side_counter["adjusted_only_fail"] += 1
+            continue
+
+        if not check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, side_counter):
+            continue
+
+        if not check_rules(ev, kelly, odds, None, model_prob, rules, side_counter):
             continue
 
         candidates.append({
@@ -505,6 +635,12 @@ def process_moneyline(row, counters):
             "dk_odds_american": odds,
             "dk_odds_decimal": dec,
             "model_prob": model_prob,
+            "prob_for_ev": prob_for_ev,
+            "prob_for_kelly": prob_for_kelly,
+            "ev_probability_source": ev_source,
+            "kelly_probability_source": kelly_source,
+            "raw_ev": raw_ev,
+            "adjusted_ev": adjusted_ev,
             "ev": ev,
             "kelly": kelly,
         })
@@ -522,6 +658,7 @@ def process_run_line(row, counters):
 
     for side in ["home", "away"]:
         rules = CONFIG["run_line"][side]
+        side_counter = counters["run_line"][side]
 
         if not rules["enabled"]:
             continue
@@ -531,9 +668,22 @@ def process_run_line(row, counters):
         odds = fv(row.get(f"{side}_dk_run_line_american"))
         dec = fv(row.get(f"{side}_dk_run_line_decimal"))
         line = fv(row.get(f"{side}_run_line"))
-        raw_prob = fv(row.get(f"{side}_normalized_prob_run_line"))
+        prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
+        prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
+        ev_source = sv(row.get(f"{side}_ev_probability_source"))
+        kelly_source = sv(row.get(f"{side}_kelly_probability_source"))
+        raw_ev = fv(row.get(f"{side}_rl_raw_ev"))
+        adjusted_ev = fv(row.get(f"{side}_rl_adjusted_ev"))
+        model_prob = prob_for_ev
 
-        if not check_rules(ev, kelly, odds, line, raw_prob, rules, counters["run_line"][side]):
+        if adjusted_only_positive(raw_ev, adjusted_ev):
+            side_counter["adjusted_only_fail"] += 1
+            continue
+
+        if not check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, side_counter):
+            continue
+
+        if not check_rules(ev, kelly, odds, line, model_prob, rules, side_counter):
             continue
 
         candidates.append({
@@ -545,7 +695,13 @@ def process_run_line(row, counters):
             "take_bet": f"{side}_run_line",
             "dk_odds_american": odds,
             "dk_odds_decimal": dec,
-            "model_prob": raw_prob,
+            "model_prob": model_prob,
+            "prob_for_ev": prob_for_ev,
+            "prob_for_kelly": prob_for_kelly,
+            "ev_probability_source": ev_source,
+            "kelly_probability_source": kelly_source,
+            "raw_ev": raw_ev,
+            "adjusted_ev": adjusted_ev,
             "ev": ev,
             "kelly": kelly,
         })
@@ -563,6 +719,7 @@ def process_total(row, counters):
 
     for side in ["over", "under"]:
         rules = CONFIG["total"][side]
+        side_counter = counters["total"][side]
 
         if not rules["enabled"]:
             continue
@@ -572,9 +729,22 @@ def process_total(row, counters):
         odds = fv(row.get(f"dk_total_{side}_american"))
         dec = fv(row.get(f"dk_total_{side}_decimal"))
         line = fv(row.get("total"))
-        model_prob = rescale_prob(fv(row.get(f"{side}_prob")))
+        prob_for_ev = fv(row.get(f"{side}_prob_for_ev"))
+        prob_for_kelly = fv(row.get(f"{side}_prob_for_kelly"))
+        ev_source = sv(row.get(f"{side}_ev_probability_source"))
+        kelly_source = sv(row.get(f"{side}_kelly_probability_source"))
+        raw_ev = fv(row.get(f"{side}_raw_ev"))
+        adjusted_ev = fv(row.get(f"{side}_adjusted_ev"))
+        model_prob = prob_for_ev
 
-        if not check_rules(ev, kelly, odds, line, model_prob, rules, counters["total"][side]):
+        if adjusted_only_positive(raw_ev, adjusted_ev):
+            side_counter["adjusted_only_fail"] += 1
+            continue
+
+        if not check_probability_basis(prob_for_ev, prob_for_kelly, ev_source, kelly_source, side_counter):
+            continue
+
+        if not check_rules(ev, kelly, odds, line, model_prob, rules, side_counter):
             continue
 
         candidates.append({
@@ -587,6 +757,12 @@ def process_total(row, counters):
             "dk_odds_american": odds,
             "dk_odds_decimal": dec,
             "model_prob": model_prob,
+            "prob_for_ev": prob_for_ev,
+            "prob_for_kelly": prob_for_kelly,
+            "ev_probability_source": ev_source,
+            "kelly_probability_source": kelly_source,
+            "raw_ev": raw_ev,
+            "adjusted_ev": adjusted_ev,
             "ev": ev,
             "kelly": kelly,
         })
@@ -619,6 +795,10 @@ def main():
         "missing_run_line": 0,
         "missing_total": 0,
         "row_count_warnings": 0,
+        "selected_nonpositive_kelly": 0,
+        "selected_blank_probability_source": 0,
+        "selected_probability_source_mismatch": 0,
+        "selected_adjusted_only_positive": 0,
         "schema_errors": 0,
         "rain_excluded": 0,
         "sp_sample_excluded": 0,
@@ -640,6 +820,8 @@ def main():
         f"SP sample exclude totals: {FILTERS.get('sp_sample_exclude_totals')} | "
         f"Lineup low sample warn: {FILTERS.get('lineup_low_sample_warn')}"
     )
+    _log("Selection requires kelly > 0 and matching EV/Kelly probability source per selected row.")
+    _log("Selection rejects rows where adjusted EV is positive but raw EV is zero/negative.")
 
     try:
         files = sorted(INPUT_DIR.glob("*_mlb_*.csv"))
@@ -855,7 +1037,10 @@ def main():
                 if final:
                     out = OUTPUT_DIR / f"{slate}_MLB.csv"
                     out_df = pd.DataFrame(final)
-                    write_output_csv(out_df, out, f"{slate} selected output")
+                    validation_counts = write_output_csv(out_df, out, f"{slate} selected output")
+
+                    for key, value in validation_counts.items():
+                        summary[key] += value
 
                     summary["slates_written"] += 1
                     summary["total_bets"] += len(final)
@@ -906,6 +1091,9 @@ def main():
         f"moneyline_bets={summary['moneyline_bets']} "
         f"run_line_bets={summary['run_line_bets']} "
         f"total_mkt_bets={summary['total_mkt_bets']} "
+        f"selected_nonpositive_kelly={summary['selected_nonpositive_kelly']} "
+        f"selected_probability_source_mismatch={summary['selected_probability_source_mismatch']} "
+        f"selected_adjusted_only_positive={summary['selected_adjusted_only_positive']} "
         f"row_count_warnings={summary['row_count_warnings']}"
     )
 
