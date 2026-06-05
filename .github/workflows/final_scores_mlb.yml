@@ -28,12 +28,26 @@ jobs:
         run: |
           mkdir -p docs/win/baseball/05_final_scores/results/final_scores
           mkdir -p docs/win/baseball/05_final_scores/results/graded/daily
+          mkdir -p docs/win/baseball/05_final_scores/results/unmatched
+          mkdir -p docs/win/baseball/05_final_scores/results/audit
           mkdir -p docs/win/baseball/05_final_scores/intermediate
           mkdir -p docs/win/baseball/05_final_scores/reports/overview
           mkdir -p docs/win/baseball/05_final_scores/reports/moneyline
           mkdir -p docs/win/baseball/05_final_scores/reports/run_line
           mkdir -p docs/win/baseball/05_final_scores/reports/totals
           mkdir -p docs/win/baseball/errors/05_final_scores
+
+      - name: Build MLB Final Scores
+        run: |
+          python docs/win/baseball/scripts/05_final_scores/build_mlb_final_scores.py || {
+            echo ""
+            echo "===== MLB FINAL SCORE BUILD LOGS ====="
+            find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \;
+            echo ""
+            echo "===== MLB FINAL SCORE BUILD AUDIT PREVIEW ====="
+            find docs/win/baseball/05_final_scores/results/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \;
+            exit 1
+          }
 
       - name: Normalize Final Score Team Names
         run: |
@@ -59,6 +73,20 @@ jobs:
             echo ""
             echo "===== MLB GRADING LOGS ====="
             find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \;
+
+            echo ""
+            echo "===== MLB UNMATCHED SELECTED BETS PREVIEW ====="
+            if [ -f docs/win/baseball/05_final_scores/results/unmatched/MLB_unmatched_selected_bets.csv ]; then
+              echo "ROWS: $(($(wc -l < docs/win/baseball/05_final_scores/results/unmatched/MLB_unmatched_selected_bets.csv) - 1))"
+              sed -n '1,26p' docs/win/baseball/05_final_scores/results/unmatched/MLB_unmatched_selected_bets.csv
+            else
+              echo "No unmatched selected bets file found."
+            fi
+
+            echo ""
+            echo "===== MLB AUDIT PREVIEW ====="
+            find docs/win/baseball/05_final_scores/results/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \;
+
             exit 1
           }
 
@@ -77,8 +105,28 @@ jobs:
             echo ""
             echo "===== MLB REPORT LOGS ====="
             find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \;
+
+            echo ""
+            echo "===== MLB AUDIT PREVIEW ====="
+            find docs/win/baseball/05_final_scores/results/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \;
+
             exit 1
           }
+
+      - name: Print final audit summaries
+        if: always()
+        run: |
+          echo ""
+          echo "===== FINAL SCORE ERROR LOGS ====="
+          find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
+
+          echo ""
+          echo "===== FINAL SCORE AUDIT FILES ====="
+          find docs/win/baseball/05_final_scores/results/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
+
+          echo ""
+          echo "===== UNMATCHED FILES ====="
+          find docs/win/baseball/05_final_scores/results/unmatched -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
 
       - name: Commit outputs
         run: |
