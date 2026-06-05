@@ -36,19 +36,49 @@ jobs:
           mkdir -p docs/win/baseball/errors/05_final_scores
 
       - name: Normalize Final Score Team Names
-        run: python docs/win/baseball/scripts/05_final_scores/normalize_final_score_mlb_names.py
+        run: |
+          python docs/win/baseball/scripts/05_final_scores/normalize_final_score_mlb_names.py || {
+            echo ""
+            echo "===== FINAL SCORE TEAM NORMALIZATION LOGS ====="
+            find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \;
+            exit 1
+          }
 
       - name: Normalize MLB Results
-        run: python docs/win/baseball/scripts/05_final_scores/normalize_mlb_results.py
+        run: |
+          python docs/win/baseball/scripts/05_final_scores/normalize_mlb_results.py || {
+            echo ""
+            echo "===== MLB RESULTS NORMALIZATION LOGS ====="
+            find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \;
+            exit 1
+          }
 
       - name: Grade MLB Bets
-        run: python docs/win/baseball/scripts/05_final_scores/01_mlb_results_grade.py
+        run: |
+          python docs/win/baseball/scripts/05_final_scores/01_mlb_results_grade.py || {
+            echo ""
+            echo "===== MLB GRADING LOGS ====="
+            find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \;
+            exit 1
+          }
 
       - name: Analyze MLB Results
-        run: python docs/win/baseball/scripts/05_final_scores/02_mlb_results_analyze.py
+        run: |
+          python docs/win/baseball/scripts/05_final_scores/02_mlb_results_analyze.py || {
+            echo ""
+            echo "===== MLB ANALYSIS LOGS ====="
+            find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \;
+            exit 1
+          }
 
       - name: Generate MLB Reports
-        run: python docs/win/baseball/scripts/05_final_scores/03_mlb_results_reports.py
+        run: |
+          python docs/win/baseball/scripts/05_final_scores/03_mlb_results_reports.py || {
+            echo ""
+            echo "===== MLB REPORT LOGS ====="
+            find docs/win/baseball/errors/05_final_scores -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \;
+            exit 1
+          }
 
       - name: Commit outputs
         run: |
