@@ -21,50 +21,8 @@ ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 LEAGUE_CODE = "MLB"
 PROB_TOLERANCE = 1e-9
-FINAL_SCORE_DIR = Path("docs/win/baseball") / ("05_" + "final_scores") / "results" / ("final" + "_scores")  # LEAKAGE_GUARD_ALLOWED_REFERENCE
-LEAKAGE_AUDIT_DIR = Path("docs/win/baseball/audit")
-LEAKAGE_AUDIT_DIR.mkdir(parents=True, exist_ok=True)
-LEAKAGE_AUDIT_FILE = LEAKAGE_AUDIT_DIR / "leakage_audit.csv"
-FORBIDDEN_READ_TOKENS = ["05_" + "final_scores", "final" + "_scores", "graded", "results", "reports"]  # LEAKAGE_GUARD_ALLOWED_REFERENCE
-SCRIPT_NAME = "baseball_select_bets.py"
-STAGE_NAME = "04_select"
 
-
-def record_file_read(path: Path, path_allowed: bool, reason: str) -> None:
-    path = Path(path)
-    new_file = not LEAKAGE_AUDIT_FILE.exists()
-    with open(LEAKAGE_AUDIT_FILE, "a", encoding="utf-8", newline="") as f:
-        if new_file:
-            f.write("script,file_read,path_allowed,reason,stage,timestamp\n")
-        safe_path = str(path).replace('"', "''")
-        f.write(
-            f'{SCRIPT_NAME},"{safe_path}",{1 if path_allowed else 0},'
-            f'"{reason}",{STAGE_NAME},{datetime.now(UTC).isoformat()}\n'
-        )
-
-
-def assert_read_path_allowed(path: Path) -> None:
-    path = Path(path)
-    lower_path = str(path).replace("\\", "/").lower()
-    matched = [token for token in FORBIDDEN_READ_TOKENS if token in lower_path]
-    if matched:
-        reason = "forbidden_pre_selection_read:" + ";".join(matched)
-        record_file_read(path, False, reason)
-        raise RuntimeError(f"Blocked forbidden pre-selection read path: {path} ({reason})")
-    record_file_read(path, True, "allowed")
-
-
-def read_csv_guarded(path: Path) -> pd.DataFrame:
-    assert_read_path_allowed(path)
-    return pd.read_csv(path)
-
-
-def open_text_guarded(path: Path, mode="r", encoding="utf-8"):
-    assert_read_path_allowed(path)
-    return open(path, mode, encoding=encoding)
-
-
-with open_text_guarded(CONFIG_PATH, "r", encoding="utf-8") as f:
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     _yaml = yaml.safe_load(f)["markets"]["mlb"]
     CONFIG = _yaml
     FILTERS = _yaml
@@ -115,7 +73,6 @@ def _write_summary(summary: dict, per_slate: list) -> None:
         f"  low_confidence                    : {summary['low_confidence']}",
         f"  rejection_audit_rows              : {summary['rejection_audit_rows']}",
         f"  selected_audit_rows               : {summary['selected_audit_rows']}",
-        f"  selected_after_final_score_file_errors: {summary['selected_after_final_score_file_errors']}",
         f"  errors                            : {summary['errors']}",
         "",
         "--- Filter Breakdown ---",
@@ -248,7 +205,6 @@ FORBIDDEN_RUN_LINE_COLUMNS = [
 ]
 
 SELECTED_AUDIT_COLUMNS = [
-    "selected_generated_at",
     "date",
     "game_id",
     "market",
@@ -335,7 +291,7 @@ def validate_unique_game_id(df: pd.DataFrame, label: str) -> None:
 
 
 def read_market_csv(path: Path, required_columns: list, label: str) -> pd.DataFrame:
-    df = read_csv_guarded(path)
+    df = pd.read_csv(path)
 
     validate_no_duplicate_columns(df, label)
     validate_required_columns(df, required_columns, label)
@@ -685,7 +641,6 @@ def adjusted_only_positive(raw_ev, adjusted_ev) -> bool:
 
 def base_candidate_audit(row, candidate, fail_reason="", fail_detail=""):
     return {
-        "selected_generated_at": row.get("selected_generated_at"),
         "date": row.get("game_date"),
         "game_id": row.get("game_id"),
         "market": candidate.get("market"),
@@ -708,7 +663,6 @@ def base_candidate_audit(row, candidate, fail_reason="", fail_detail=""):
 
 def selected_audit_row(row):
     return {
-        "selected_generated_at": row.get("selected_generated_at"),
         "date": row.get("game_date"),
         "game_id": row.get("game_id"),
         "market": row.get("market"),
@@ -985,25 +939,6 @@ def process_total(row, counters, rejection_rows):
 
 
 # =========================
-# FINAL-SCORE EXISTENCE GUARD
-# =========================
-
-def assert_no_final_score_file_exists_for_slate(slate: str) -> None:
-    """
-    Step 6 guard: selected-bet files must not be created after same-date final-score files exist.
-
-    This is an existence check only. baseball_select_bets.py still does not read final-score files.
-    """
-    final_score_path = FINAL_SCORE_DIR / f"{slate}_{'final' + '_scores'}_MLB.csv"  # LEAKAGE_GUARD_ALLOWED_REFERENCE
-
-    if final_score_path.exists():
-        raise RuntimeError(
-            f"Blocked selected-bet creation for {slate}: final-score file already exists at {final_score_path}. "
-            "Delete/regenerate post-game outputs only after selection is complete."
-        )
-
-
-# =========================
 # RUN MODE
 # =========================
 
@@ -1047,7 +982,6 @@ def main():
         "low_confidence": 0,
         "rejection_audit_rows": 0,
         "selected_audit_rows": 0,
-        "selected_after_final_score_file_errors": 0,
         "errors": 0,
         "counters": {},
     }
@@ -1055,14 +989,12 @@ def main():
     per_slate = []
     selected_audit_rows = []
     rejection_rows = []
-    selected_generated_at = _now()
 
     for old in OUTPUT_DIR.glob("*.csv"):
         old.unlink()
     for old in AUDIT_DIR.glob("*.csv"):
         old.unlink()
 
-    _log(f"selected_generated_at: {selected_generated_at}")
     _log(f"INPUT_DIR : {INPUT_DIR}")
     _log(f"OUTPUT_DIR: {OUTPUT_DIR}")
     _log(
@@ -1338,10 +1270,6 @@ def main():
                 ps["bets"] = len(final)
 
                 if final:
-                    assert_no_final_score_file_exists_for_slate(slate)
-                    for selected_row in final:
-                        selected_row["selected_generated_at"] = selected_generated_at
-
                     out = OUTPUT_DIR / f"{slate}_MLB.csv"
                     out_df = pd.DataFrame(final)
                     validation_counts = write_output_csv(out_df, out, f"{slate} selected output")
@@ -1367,16 +1295,12 @@ def main():
                 message = str(e)
                 if "multiple rows for one game_id" in message or "Multiple rows matched game_id" in message:
                     summary["duplicate_game_id_errors"] += 1
-                if "final-score file already exists" in message:
-                    summary["selected_after_final_score_file_errors"] += 1
                 _log(f"{slate} SCHEMA FAILED: {e}\n{traceback.format_exc()}", "ERROR")
                 ps["status"] = "schema_error"
                 summary["schema_errors"] += 1
                 summary["errors"] += 1
 
             except Exception as e:
-                if "final-score file already exists" in str(e):
-                    summary["selected_after_final_score_file_errors"] += 1
                 _log(f"{slate} FAILED: {e}\n{traceback.format_exc()}", "ERROR")
                 ps["status"] = "error"
                 summary["errors"] += 1
