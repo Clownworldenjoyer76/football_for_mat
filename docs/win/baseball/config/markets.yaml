@@ -41,7 +41,7 @@ markets:
       # best_ev = one ML side max per game
       # best_prob = one ML side max per game, highest model probability
       # all = can select both if both pass
-      pick_preference: all
+      pick_preference: best_prob
 
       home:
         enabled: true
@@ -121,7 +121,7 @@ markets:
       over:
         enabled: true
         line_bands:
-          - [3.5, 19.5]
+          - [7.5, 19.5]
         odds_bands:
           - [-500, 500]
         ev_bands:
@@ -144,5 +144,5 @@ markets:
         kelly_bands:
           - [0.01, 0.20]
         prob_bands:
-          - [0.70, 0.99]
+          - [0.70, 0.75]
        
