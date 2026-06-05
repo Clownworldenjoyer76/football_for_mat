@@ -547,7 +547,10 @@ def write_reconciliation(all_bets, final, unmatched, non_final):
     for date in all_dates:
         selected_rows = int((all_bets["game_date"].astype(str) == date).sum()) if not all_bets.empty else 0
         graded_rows = int((final["game_date"].astype(str) == date).sum()) if not final.empty else 0
-        unmatched_date = unmatched[unmatched.get("game_date", pd.Series(dtype=str)).astype(str) == date].copy() if not unmatched.empty else pd.DataFrame()
+        if not unmatched.empty and "game_date" in unmatched.columns:
+            unmatched_date = unmatched[unmatched["game_date"].astype(str) == date].copy()
+        else:
+            unmatched_date = pd.DataFrame()
         def reason_count(reason):
             if unmatched_date.empty or "unmatched_reason" not in unmatched_date.columns:
                 return 0
