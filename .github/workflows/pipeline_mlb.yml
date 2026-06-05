@@ -26,7 +26,6 @@ jobs:
 
       - name: Create output directories
         run: |
-          # Baseball
           mkdir -p docs/win/baseball/01_merge/
           mkdir -p docs/win/baseball/01_merge/01_merguiced/
           mkdir -p docs/win/baseball/errors/01_merge/
@@ -37,18 +36,6 @@ jobs:
           mkdir -p docs/win/baseball/03_edges/ev_kelly/
           mkdir -p docs/win/baseball/04_select/
           mkdir -p docs/win/baseball/errors/04_select/
-          mkdir -p docs/win/baseball/05_final_scores/results/final_scores
-          mkdir -p docs/win/baseball/05_final_scores/results/graded/daily
-          mkdir -p docs/win/baseball/05_final_scores/intermediate
-          mkdir -p docs/win/baseball/05_final_scores/reports/overview
-          mkdir -p docs/win/baseball/05_final_scores/reports/moneyline
-          mkdir -p docs/win/baseball/05_final_scores/reports/run_line
-          mkdir -p docs/win/baseball/05_final_scores/reports/totals
-          mkdir -p docs/win/baseball/errors/05_final_scores
-
-      # -------------------------
-      # BASEBALL PIPELINE 01-05
-      # -------------------------
 
       - name: Baseball Merge Intake
         run: python docs/win/baseball/scripts/01_merge/merge_intake.py
@@ -74,21 +61,6 @@ jobs:
       - name: Baseball Select
         run: python docs/win/baseball/scripts/04_select/baseball_select_bets.py
 
-      - name: Stage 5 - Normalize Final Score Team Names
-        run: python docs/win/baseball/scripts/05_final_scores/normalize_final_score_mlb_names.py
-
-      - name: Stage 5 - Normalize MLB Results
-        run: python docs/win/baseball/scripts/05_final_scores/normalize_mlb_results.py
-
-      - name: Stage 5 - Grade MLB Bets
-        run: python docs/win/baseball/scripts/05_final_scores/01_mlb_results_grade.py
-
-      - name: Stage 5 - Analyze MLB Results
-        run: python docs/win/baseball/scripts/05_final_scores/02_mlb_results_analyze.py
-
-      - name: Stage 5 - Generate MLB Reports
-        run: python docs/win/baseball/scripts/05_final_scores/03_mlb_results_reports.py
-
       - name: Commit outputs
         run: |
           git config user.name "github-actions[bot]"
@@ -102,8 +74,6 @@ jobs:
           git add docs/win/baseball/03_edges/
           git add docs/win/baseball/04_select/
           git add docs/win/baseball/errors/04_select/
-          git add -f docs/win/baseball/05_final_scores/
-          git add -f docs/win/baseball/errors/05_final_scores/
 
           if git diff --cached --quiet; then
             echo "No output changes to commit."
