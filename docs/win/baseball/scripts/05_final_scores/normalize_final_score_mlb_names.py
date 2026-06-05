@@ -13,7 +13,7 @@ MAP_FILE = Path("mappings/baseball/team_map_mlb.csv")
 MAP_FILTER_COL = "league"
 MAP_FILTER_VAL = "mlb"
 
-ERROR_DIR = Path("docs/win/baseball/05_final_scores/errors")
+ERROR_DIR = Path("docs/win/baseball/errors/05_final_scores")
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = ERROR_DIR / "team_normalization_log.txt"
