@@ -53,14 +53,48 @@ def write_csv(df, path):
 
 def units_won(odds, result):
     result = str(result).strip().title()
+
     if result == "Push":
         return 0.0
+
     if result == "Loss":
         return -1.0
+
+    if result != "Win":
+        return None
+
     odds = to_float(odds)
     if odds is None:
         return None
+
     return odds / 100.0 if odds >= 0 else 100.0 / abs(odds)
+
+
+def write_metric_definitions():
+    definitions = pd.DataFrame([
+        {
+            "metric": "Win_Pct",
+            "definition": "wins / (wins + losses)",
+            "push_handling": "pushes excluded from denominator",
+        },
+        {
+            "metric": "Win_Pct_All_Bets",
+            "definition": "wins / (wins + losses + pushes)",
+            "push_handling": "pushes included in denominator",
+        },
+        {
+            "metric": "ROI_Excluding_Pushes",
+            "definition": "units / (wins + losses)",
+            "push_handling": "pushes excluded from denominator",
+        },
+        {
+            "metric": "ROI_Including_Pushes",
+            "definition": "units / (wins + losses + pushes)",
+            "push_handling": "pushes included in denominator",
+        },
+    ])
+
+    write_csv(definitions, OVERVIEW_DIR / "mlb_report_metric_definitions.csv")
 
 
 ###############################################################
@@ -74,19 +108,21 @@ def enrich(df):
     df["bet_side"]    = df["bet_side"].astype(str).str.strip().str.lower()
     df["bet_result"]  = df["bet_result"].astype(str).str.strip().str.title()
 
-    # Ensure side_group present
     if "side_group" not in df.columns:
         def _sg(row):
             mt = row["market_type"]
             bs = row["bet_side"]
+
             if mt in {"moneyline", "run_line"}:
                 return "HOME" if bs == "home" else ("AWAY" if bs == "away" else "")
+
             if mt == "total":
                 return "OVER" if bs == "over" else ("UNDER" if bs == "under" else "")
+
             return ""
+
         df["side_group"] = df.apply(_sg, axis=1)
 
-    # Units won per bet
     df["bet_units"] = df.apply(
         lambda r: units_won(r.get("dk_odds_american"), r["bet_result"]), axis=1
     )
@@ -98,88 +134,137 @@ def enrich(df):
 ######################## AGGREGATE ############################
 ###############################################################
 
+def build_metric_row(sub):
+    wins   = int((sub["bet_result"] == "Win").sum())
+    losses = int((sub["bet_result"] == "Loss").sum())
+    pushes = int((sub["bet_result"] == "Push").sum())
+
+    bets_excluding_pushes = wins + losses
+    bets_including_pushes = wins + losses + pushes
+
+    win_pct = (
+        round(wins / bets_excluding_pushes, 4)
+        if bets_excluding_pushes > 0
+        else 0.0
+    )
+
+    win_pct_all_bets = (
+        round(wins / bets_including_pushes, 4)
+        if bets_including_pushes > 0
+        else 0.0
+    )
+
+    unit_vals = pd.to_numeric(sub["bet_units"], errors="coerce").dropna()
+    total_units = round(float(unit_vals.sum()), 4) if not unit_vals.empty else 0.0
+
+    roi_excluding_pushes = (
+        round(total_units / bets_excluding_pushes, 4)
+        if bets_excluding_pushes > 0
+        else 0.0
+    )
+
+    roi_including_pushes = (
+        round(total_units / bets_including_pushes, 4)
+        if bets_including_pushes > 0
+        else 0.0
+    )
+
+    ev_vals = pd.to_numeric(sub["ev"], errors="coerce").dropna()
+    avg_ev = round(float(ev_vals.mean()), 4) if not ev_vals.empty else None
+
+    od_vals = pd.to_numeric(sub["dk_odds_american"], errors="coerce").dropna()
+    avg_odds = round(float(od_vals.mean()), 1) if not od_vals.empty else None
+
+    return {
+        "Win": wins,
+        "Loss": losses,
+        "Push": pushes,
+        "Total": bets_including_pushes,
+        "bets_excluding_pushes": bets_excluding_pushes,
+        "bets_including_pushes": bets_including_pushes,
+        "Win_Pct": win_pct,
+        "Win_Pct_All_Bets": win_pct_all_bets,
+        "units": total_units,
+        "ROI_Excluding_Pushes": roi_excluding_pushes,
+        "ROI_Including_Pushes": roi_including_pushes,
+        "avg_ev": avg_ev,
+        "avg_odds": avg_odds,
+    }
+
+
+def empty_metric_columns(prefix_cols):
+    return prefix_cols + [
+        "Win",
+        "Loss",
+        "Push",
+        "Total",
+        "bets_excluding_pushes",
+        "bets_including_pushes",
+        "Win_Pct",
+        "Win_Pct_All_Bets",
+        "units",
+        "ROI_Excluding_Pushes",
+        "ROI_Including_Pushes",
+        "avg_ev",
+        "avg_odds",
+    ]
+
+
 def agg(df, group_cols, variable_label=None):
     """
-    Returns one row per group with:
-    league, market_type, [variable,] Win, Loss, Push, Total, Win_Pct, units, roi, avg_ev, avg_odds
-    variable_label: if provided, renames the last group_col to 'variable'
+    Win_Pct excludes pushes:
+        wins / (wins + losses)
+
+    Win_Pct_All_Bets includes pushes:
+        wins / (wins + losses + pushes)
+
+    ROI_Excluding_Pushes:
+        units / (wins + losses)
+
+    ROI_Including_Pushes:
+        units / (wins + losses + pushes)
     """
+    prefix_cols = ["league", "market_type"] + (["variable"] if variable_label else [])
+
     if df.empty:
-        cols = ["league", "market_type"] + (["variable"] if variable_label else []) + \
-               ["Win", "Loss", "Push", "Total", "Win_Pct", "units", "roi", "avg_ev", "avg_odds"]
-        return pd.DataFrame(columns=cols)
+        return pd.DataFrame(columns=empty_metric_columns(prefix_cols))
 
     rows = []
+
     for keys, sub in df.groupby(group_cols, dropna=False):
         if not isinstance(keys, tuple):
             keys = (keys,)
-
-        wins   = int((sub["bet_result"] == "Win").sum())
-        losses = int((sub["bet_result"] == "Loss").sum())
-        pushes = int((sub["bet_result"] == "Push").sum())
-        total  = wins + losses + pushes
-
-        win_pct = round(wins / (wins + losses), 4) if (wins + losses) > 0 else 0.0
-
-        unit_vals = sub["bet_units"].dropna()
-        total_units = round(float(unit_vals.sum()), 4) if not unit_vals.empty else 0.0
-        roi = round(total_units / total, 4) if total > 0 else 0.0
-
-        ev_vals = pd.to_numeric(sub["ev"], errors="coerce").dropna()
-        avg_ev = round(float(ev_vals.mean()), 4) if not ev_vals.empty else None
-
-        od_vals = pd.to_numeric(sub["dk_odds_american"], errors="coerce").dropna()
-        avg_odds = round(float(od_vals.mean()), 1) if not od_vals.empty else None
 
         row = {}
         for i, col in enumerate(group_cols):
             label = "variable" if (variable_label and i == len(group_cols) - 1) else col
             row[label] = keys[i]
 
-        row.update({
-            "Win": wins,
-            "Loss": losses,
-            "Push": pushes,
-            "Total": total,
-            "Win_Pct": win_pct,
-            "units": total_units,
-            "roi": roi,
-            "avg_ev": avg_ev,
-            "avg_odds": avg_odds,
-        })
-
+        row.update(build_metric_row(sub))
         rows.append(row)
 
     out = pd.DataFrame(rows)
-    return out.sort_values(list(out.columns[:len(group_cols)])).reset_index(drop=True)
+
+    sort_cols = list(out.columns[:len(group_cols)])
+    if sort_cols:
+        out = out.sort_values(sort_cols).reset_index(drop=True)
+
+    return out
 
 
 def agg_simple(df, group_cols):
     """league + market_type tally — used for top-level summary."""
     if df.empty:
-        return pd.DataFrame(columns=["league", "market_type", "Win", "Loss", "Push", "Total", "Win_Pct"])
+        return pd.DataFrame(columns=empty_metric_columns(["league", "market_type"]))
 
     rows = []
+
     for keys, sub in df.groupby(group_cols, dropna=False):
         if not isinstance(keys, tuple):
             keys = (keys,)
 
-        wins   = int((sub["bet_result"] == "Win").sum())
-        losses = int((sub["bet_result"] == "Loss").sum())
-        pushes = int((sub["bet_result"] == "Push").sum())
-        total  = wins + losses + pushes
-
-        win_pct = round(wins / (wins + losses), 4) if (wins + losses) > 0 else 0.0
-
         row = {col: keys[i] for i, col in enumerate(group_cols)}
-        row.update({
-            "Win": wins,
-            "Loss": losses,
-            "Push": pushes,
-            "Total": total,
-            "Win_Pct": win_pct,
-        })
-
+        row.update(build_metric_row(sub))
         rows.append(row)
 
     return pd.DataFrame(rows).sort_values(group_cols).reset_index(drop=True)
@@ -189,55 +274,46 @@ def agg_simple(df, group_cols):
 ###################### REPORT BUILDERS ########################
 ###############################################################
 
-# ── TOP-LEVEL SUMMARY ─────────────────────────────────────────
-
 def build_top_summary(df):
     df["league"] = LEAGUE
     out = agg_simple(df, ["league", "market_type"])
     write_csv(out, SUMMARY_DIR / "mlb_summary_overall.csv")
 
 
-# ── OVERVIEW ──────────────────────────────────────────────────
-
 def build_overview(df):
     df["league"] = LEAGUE
 
-    # Overall
+    write_metric_definitions()
+
     write_csv(agg(df, ["league"]), OVERVIEW_DIR / "mlb_summary_overall.csv")
 
-    # By market
     write_csv(
         agg(df, ["league", "market_type"], variable_label="market_type"),
         OVERVIEW_DIR / "mlb_summary_by_market.csv"
     )
 
-    # By side group
     write_csv(
         agg(df, ["league", "side_group"], variable_label="side_group"),
         OVERVIEW_DIR / "mlb_summary_by_side_group.csv"
     )
 
-    # By date with cumulative units
     date_df = agg(df, ["league", "game_date"], variable_label="game_date")
     date_df = date_df.sort_values("variable")
     date_df["cumulative_units"] = date_df["units"].cumsum().round(4)
     write_csv(date_df, OVERVIEW_DIR / "mlb_summary_by_date.csv")
 
-    # By day/night
     if "day_night" in df.columns:
         write_csv(
             agg(df, ["league", "day_night"], variable_label="day_night"),
             OVERVIEW_DIR / "mlb_summary_by_day_night.csv"
         )
 
-    # By low_confidence
     if "low_confidence" in df.columns:
         write_csv(
             agg(df, ["league", "low_confidence"], variable_label="low_confidence"),
             OVERVIEW_DIR / "mlb_summary_by_low_confidence.csv"
         )
 
-    # Bet log
     log_cols = [
         "game_date",
         "game_id",
@@ -254,13 +330,14 @@ def build_overview(df):
         "day_night",
         "bet_result",
         "bet_units",
+        "gamePk",
+        "gameNumber",
+        "game_status",
     ]
 
     available = [c for c in log_cols if c in df.columns]
     write_csv(df[available].copy(), OVERVIEW_DIR / "mlb_bet_log.csv")
 
-
-# ── MONEYLINE ─────────────────────────────────────────────────
 
 def build_moneyline(df):
     ml = df[df["market_type"] == "moneyline"].copy()
@@ -305,8 +382,6 @@ def build_moneyline(df):
     _write(ha, "kelly_bucket",    "mlb_moneyline_by_kelly_home_away_summary.csv",    home_away=True)
     _write(ha, "win_prob_bucket", "mlb_moneyline_by_win_prob_home_away_summary.csv", home_away=True)
 
-
-# ── RUN LINE ──────────────────────────────────────────────────
 
 def build_run_line(df):
     rl = df[df["market_type"] == "run_line"].copy()
@@ -353,8 +428,6 @@ def build_run_line(df):
     _write(ha, "win_prob_bucket", "mlb_run_line_by_win_prob_home_away_summary.csv", home_away=True)
     _write(ha, "run_line_side",   "mlb_run_line_by_side_home_away_summary.csv",     home_away=True)
 
-
-# ── TOTALS ────────────────────────────────────────────────────
 
 def build_totals(df):
     tot = df[df["market_type"] == "total"].copy()
