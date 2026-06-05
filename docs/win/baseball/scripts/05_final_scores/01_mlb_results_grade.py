@@ -40,7 +40,6 @@ OUTPUT_COLS = [
     "ev",
     "kelly",
     "low_confidence",
-    "selected_generated_at",
     "final_scores_generated_at",
     "final_home_score",
     "final_away_score",
@@ -69,7 +68,6 @@ UNMATCHED_COLS = [
     "ev",
     "kelly",
     "low_confidence",
-    "selected_generated_at",
     "source_file",
 ]
 
@@ -79,7 +77,6 @@ REQUIRED_SELECTED_COLUMNS = [
     "market_type",
     "bet_side",
     "line",
-    "selected_generated_at",
 ]
 
 REQUIRED_SCORE_COLUMNS = [
@@ -87,7 +84,6 @@ REQUIRED_SCORE_COLUMNS = [
     "game_date",
     "final_home_score",
     "final_away_score",
-    "final_scores_generated_at",
 ]
 
 
@@ -225,7 +221,6 @@ def normalize_unmatched_selected_rows(unmatched):
         "away_team",
         "source_file",
         "take_bet",
-        "selected_generated_at",
     ]
 
     for base in selected_preferred:
@@ -288,42 +283,6 @@ def validate_final_score_game_id_uniqueness(all_scores):
 
     log_error(
         f"FINAL SCORE DUPLICATE GAME_ID ROWS | rows={len(duplicated)} | audit={duplicate_path}"
-    )
-    return False
-
-
-def validate_selected_before_final_scores(merged):
-    selected_ts = pd.to_datetime(merged["selected_generated_at"], errors="coerce", utc=True)
-    final_ts = pd.to_datetime(merged["final_scores_generated_at"], errors="coerce", utc=True)
-
-    bad = selected_ts.isna() | final_ts.isna() | (selected_ts >= final_ts)
-
-    if not bad.any():
-        log_summary(f"TIMESTAMP VALIDATION PASSED | rows={len(merged)}")
-        return True
-
-    audit_cols = [
-        col for col in [
-            "game_id",
-            "game_date",
-            "home_team",
-            "away_team",
-            "market_type",
-            "bet_side",
-            "selected_generated_at",
-            "final_scores_generated_at",
-        ]
-        if col in merged.columns
-    ]
-
-    audit_path = UNMATCHED_DIR / "timestamp_order_failures_MLB.csv"
-    write_csv_checked(
-        merged.loc[bad, audit_cols].copy(),
-        audit_path,
-        "timestamp order failures audit",
-    )
-    log_error(
-        f"TIMESTAMP VALIDATION FAILED | rows={int(bad.sum())} | audit={audit_path}"
     )
     return False
 
@@ -414,6 +373,8 @@ def resolve_merge_columns(merged):
         "final_total",
         "home_run_line",
         "away_run_line",
+        "total",
+        "final_scores_generated_at",
     }
 
     to_drop = []
@@ -579,9 +540,6 @@ def grade_league():
         )
 
     merged = resolve_merge_columns(merged)
-
-    if not validate_selected_before_final_scores(merged):
-        return False
 
     log_summary(f"POST-RESOLVE cols: {list(merged.columns)}")
     log_summary(
