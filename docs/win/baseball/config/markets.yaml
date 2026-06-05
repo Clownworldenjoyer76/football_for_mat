@@ -41,54 +41,51 @@ markets:
       # best_ev = one ML side max per game
       # best_prob = one ML side max per game, highest model probability
       # all = can select both if both pass
-      pick_preference: best_ev
+      pick_preference: all
 
       home:
         enabled: true
         odds_bands:
-          - [-240, 175]
+          - [-500, 500]
         ev_bands:
-          - [0.001, 0.0099]
-          - [0.02, 0.0299]
+          - [0.0001, 0.999]
         kelly_bands:
-          - [0.001, 99.99]
+          - [0.0001, 99.99]
         prob_bands:
-          - [0.40, 0.99]
+          - [0.10, 0.99]
         price_role_rules:
           favorite:
             odds_bands:
-              - [-240, -105]
+              - [-500, 500]
             ev_bands:
-              - [0.001, 0.0099]
-              - [0.02, 0.0299]
+              - [0.0001, 0.999]
           underdog:
             odds_bands:
-              - [100, 175]
+              - [-500, 500]
             ev_bands:
-              - [0.02, 0.0299]
+              - [0.0001, 0.999]
       away:
         enabled: true
         odds_bands:
-          - [-220, 210]
+          - [-500, 500]
         ev_bands:
-          - [0.01, 0.0199]
-          - [0.04, 0.0749]
+          - [0.0001, 0.999]
         kelly_bands:
-          - [0.001, 99.99]
+          - [0.0001, 99.99]
         prob_bands:
-          - [0.40, 0.99]
+          - [0.10, 0.99]
         price_role_rules:
           favorite:
             odds_bands:
-              - [-220, -105]
+              - [-500, 500]
             ev_bands:
-              - [0.01, 0.0199]
-              - [0.04, 0.0749]
+              - [0.0001, 0.999]
           underdog:
             odds_bands:
-              - [100, 210]
+              - [-500, 500]
             ev_bands:
-              - [0.04, 0.0749]
+              - [0.0001, 0.999]
+              
     ###################################################
     # ── Run Line ─────────────────────────────────────
     ###################################################
@@ -98,46 +95,46 @@ markets:
       # Step 5 blocks all for run-line so both sides of the same run-line
       # market cannot be selected for one game.
       # Valid values: best_ev, best_prob.
-      pick_preference: best_ev
+      pick_preference: all
 
       home:
         enabled: true
         line_bands:
           - [-2.5, 2.5]
         odds_bands:
-          - [-220, 180]
+          - [-500, 500]
         ev_bands:
-          - [0.04, 0.99]
+          - [0.0001, 0.999]
         kelly_bands:
-          - [0.001, 0.05]
+          - [0.0001, 99.99]
         prob_bands:
-          - [0.20, 0.50]
+          - [0.10, 0.99]
         price_role_rules:
           favorite:
             odds_bands:
-              - [-220, -105]
+              - [-500, 500]
           underdog:
             odds_bands:
-              - [100, 180]
+              - [-500, 500]
       away:
         enabled: true
         line_bands:
           - [-2.5, 2.5]
         odds_bands:
-          - [-220, 180]
+          - [-500, 500]
         ev_bands:
-          - [0.01, 0.05]
+          - [0.0001, 0.999]
         kelly_bands:
-          - [0.001, 0.0099]
+          - [0.0001, 99.99]
         prob_bands:
-          - [0.20, 0.50]
+          - [0.10, 0.99]
         price_role_rules:
           favorite:
             odds_bands:
-              - [-220, -105]
+              - [-500, 500]
           underdog:
             odds_bands:
-              - [100, 180]
+              - [-500, 500]
     ###################################################
     # ── Totals ───────────────────────────────────────
     ###################################################
@@ -146,47 +143,43 @@ markets:
       enabled: true
       # best_ev = one total side max per game.
       # all = can select both over and under if both pass.
-      pick_preference: best_ev
+      pick_preference: all
 
       over:
         enabled: true
         line_bands:
-          - [7.5, 9.6]
+          - [3.5, 19.5]
         odds_bands:
-          - [-165, 150]
+          - [-500, 500]
         ev_bands:
-          - [0.03, 0.99]
+          - [0.0001, 0.999]
         kelly_bands:
-          - [0.001, 0.05]
-          - [0.15, 0.99]
+          - [0.0001, 99.99]
         prob_bands:
-          - [0.50, 0.80]
+          - [0.10, 0.99]
         price_role_rules:
           favorite:
             odds_bands:
-              - [-165, -105]
+              - [-500, 500]
           underdog:
             odds_bands:
-              - [100, 150]
+              - [-500, 500]
       under:
         enabled: true
         line_bands:
-          - [8.0, 9.5]
+          - [3.5, 19.5]
         odds_bands:
-          - [-170, 145]
+          - [-500, 500]
         ev_bands:
-          - [0.005, 0.02]
-          - [0.04, 0.08]
-          - [0.10, 0.99]
+          - [0.0001, 0.999]
         kelly_bands:
-          - [0.001, 0.10]
-          - [0.30, 0.99]
+          - [0.0001, 99.99]
         prob_bands:
-          - [0.65, 0.99]
+          - [0.10, 0.99]
         price_role_rules:
           favorite:
             odds_bands:
-              - [-170, -105]
+              - [-500, 500]
           underdog:
             odds_bands:
-              - [100, 145]
+              - [-500, 500]
