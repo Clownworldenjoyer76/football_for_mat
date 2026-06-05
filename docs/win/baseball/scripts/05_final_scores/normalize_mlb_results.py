@@ -9,7 +9,7 @@ FINAL_SCORES_DIR = Path("docs/win/baseball/05_final_scores/results/final_scores"
 GAMES_DIR = Path("docs/win/baseball/00_intake/games")
 PATTERN = "*_final_scores_MLB.csv"
 
-ERROR_DIR = Path("docs/win/baseball/05_final_scores/errors")
+ERROR_DIR = Path("docs/win/baseball/errors/05_final_scores")
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = ERROR_DIR / "normalize_results_log.txt"
