@@ -40,9 +40,13 @@ jobs:
           mkdir -p docs/win/hockey/nhl/odds
           mkdir -p docs/win/hockey/nhl/00_intake/sportsbook
           mkdir -p docs/win/hockey/nhl/errors/00_intake
+          mkdir -p docs/win/hockey/nhl/config/mapping
 
       - name: Run NHL Odds Pull
         run: python docs/win/hockey/nhl/scripts/00_intake/nhl_odds_pull.py
+
+      - name: Run NHL Odds Name Normalization
+        run: python docs/win/hockey/nhl/scripts/00_intake/odds_name_normalization.py.py
 
       - name: Commit outputs
         run: |
@@ -52,6 +56,7 @@ jobs:
           git add docs/win/hockey/nhl/odds/
           git add docs/win/hockey/nhl/00_intake/sportsbook/
           git add docs/win/hockey/nhl/errors/00_intake/
+          git add docs/win/hockey/nhl/config/mapping/no_map_nhl_odds.csv
 
           if git diff --cached --quiet; then
             echo "No output changes to commit."
