@@ -37,28 +37,27 @@ jobs:
 
       - name: Create output directories
         run: |
-          mkdir -p docs/win/hockey/odds/nhl
-          mkdir -p docs/win/hockey/00_intake/sportsbook
-          mkdir -p docs/win/hockey/00_intake/sportsbook/nhl
-          mkdir -p docs/win/hockey/errors/00_intake
+          mkdir -p docs/win/hockey/nhl/odds
+          mkdir -p docs/win/hockey/nhl/00_intake/sportsbook
+          mkdir -p docs/win/hockey/nhl/errors/00_intake
 
       - name: Run NHL Odds Pull
-        run: python docs/win/hockey/scripts/00_parsing/nhl_odds_pull.py
+        run: python docs/win/hockey/nhl/scripts/00_intake/nhl_odds_pull.py
 
       - name: Commit outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add docs/win/hockey/odds/nhl/
-          git add docs/win/hockey/00_intake/sportsbook/
-          git add docs/win/hockey/errors/00_intake/
+          git add docs/win/hockey/nhl/odds/
+          git add docs/win/hockey/nhl/00_intake/sportsbook/
+          git add docs/win/hockey/nhl/errors/00_intake/
 
           if git diff --cached --quiet; then
             echo "No output changes to commit."
             exit 0
           fi
 
-          git commit -m "chore: NHL odds pull test run $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git commit -m "chore: NHL odds pull run $(date -u +'%Y-%m-%d %H:%M UTC')"
           git pull --rebase origin main
           git push
