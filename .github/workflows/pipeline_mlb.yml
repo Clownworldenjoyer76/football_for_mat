@@ -28,143 +28,38 @@ jobs:
         run: |
           mkdir -p docs/win/baseball/01_merge/
           mkdir -p docs/win/baseball/01_merge/01_merguiced/
-          mkdir -p docs/win/baseball/01_merge/audit/
-          mkdir -p docs/win/baseball/01_merge/rejections/
           mkdir -p docs/win/baseball/errors/01_merge/
           mkdir -p docs/win/baseball/errors/02_juice/
           mkdir -p docs/win/baseball/02_juice/
-          mkdir -p docs/win/baseball/02_juice/audit/
           mkdir -p docs/win/baseball/errors/03_edges/
           mkdir -p docs/win/baseball/03_edges/
           mkdir -p docs/win/baseball/03_edges/ev_kelly/
-          mkdir -p docs/win/baseball/03_edges/ev_kelly/audit/
           mkdir -p docs/win/baseball/04_select/
-          mkdir -p docs/win/baseball/04_select/audit/
           mkdir -p docs/win/baseball/errors/04_select/
 
       - name: Baseball Merge Intake
-        run: |
-          python docs/win/baseball/scripts/01_merge/merge_intake.py || {
-            echo ""
-            echo "===== MLB MERGE INTAKE LOGS ====="
-            find docs/win/baseball/errors/01_merge -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-
-            echo ""
-            echo "===== MLB MERGE AUDIT PREVIEW ====="
-            find docs/win/baseball/01_merge/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-
-            echo ""
-            echo "===== MLB MERGE REJECTIONS PREVIEW ====="
-            find docs/win/baseball/01_merge/rejections -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-
-            exit 1
-          }
+        run: python docs/win/baseball/scripts/01_merge/merge_intake.py
 
       - name: Baseball Build Juice Files
-        run: |
-          python docs/win/baseball/scripts/01_merge/build_juice_files.py || {
-            echo ""
-            echo "===== MLB BUILD JUICE FILES LOGS ====="
-            find docs/win/baseball/errors/01_merge -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-            exit 1
-          }
+        run: python docs/win/baseball/scripts/01_merge/build_juice_files.py
 
       - name: Baseball Moneyline Juice
-        run: |
-          python docs/win/baseball/scripts/02_juice/apply_moneyline_juice.py || {
-            echo ""
-            echo "===== MLB MONEYLINE JUICE LOGS ====="
-            find docs/win/baseball/errors/02_juice -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-
-            echo ""
-            echo "===== MLB JUICE AUDIT PREVIEW ====="
-            find docs/win/baseball/02_juice/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-
-            exit 1
-          }
+        run: python docs/win/baseball/scripts/02_juice/apply_moneyline_juice.py
 
       - name: Baseball Run Line Juice
-        run: |
-          python docs/win/baseball/scripts/02_juice/apply_run_line_juice.py || {
-            echo ""
-            echo "===== MLB RUN LINE JUICE LOGS ====="
-            find docs/win/baseball/errors/02_juice -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-
-            echo ""
-            echo "===== MLB JUICE AUDIT PREVIEW ====="
-            find docs/win/baseball/02_juice/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-
-            exit 1
-          }
+        run: python docs/win/baseball/scripts/02_juice/apply_run_line_juice.py
 
       - name: Baseball Total Juice
-        run: |
-          python docs/win/baseball/scripts/02_juice/apply_total_juice.py || {
-            echo ""
-            echo "===== MLB TOTAL JUICE LOGS ====="
-            find docs/win/baseball/errors/02_juice -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-
-            echo ""
-            echo "===== MLB JUICE AUDIT PREVIEW ====="
-            find docs/win/baseball/02_juice/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-
-            exit 1
-          }
+        run: python docs/win/baseball/scripts/02_juice/apply_total_juice.py
 
       - name: Baseball Edges
-        run: |
-          python docs/win/baseball/scripts/03_edges/compute_edges.py || {
-            echo ""
-            echo "===== MLB EDGES LOGS ====="
-            find docs/win/baseball/errors/03_edges -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-            exit 1
-          }
+        run: python docs/win/baseball/scripts/03_edges/compute_edges.py
 
       - name: Baseball EV Kelly
-        run: |
-          python docs/win/baseball/scripts/03_edges/compute_ev_kelly.py || {
-            echo ""
-            echo "===== MLB EV KELLY LOGS ====="
-            find docs/win/baseball/errors/03_edges -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-
-            echo ""
-            echo "===== MLB EV KELLY AUDIT PREVIEW ====="
-            find docs/win/baseball/03_edges/ev_kelly/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-
-            exit 1
-          }
+        run: python docs/win/baseball/scripts/03_edges/compute_ev_kelly.py
 
       - name: Baseball Select
-        run: |
-          python docs/win/baseball/scripts/04_select/baseball_select_bets.py || {
-            echo ""
-            echo "===== MLB SELECT BETS LOGS ====="
-            find docs/win/baseball/errors/04_select -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-
-            echo ""
-            echo "===== MLB SELECT AUDIT PREVIEW ====="
-            find docs/win/baseball/04_select/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-
-            exit 1
-          }
-
-      - name: Print pipeline logs and audits
-        if: always()
-        run: |
-          echo ""
-          echo "===== MLB PIPELINE ERROR LOGS ====="
-          find docs/win/baseball/errors/01_merge -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-          find docs/win/baseball/errors/02_juice -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-          find docs/win/baseball/errors/03_edges -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-          find docs/win/baseball/errors/04_select -maxdepth 1 -type f -print -exec sed -n '1,260p' {} \; || true
-
-          echo ""
-          echo "===== MLB PIPELINE AUDIT FILES ====="
-          find docs/win/baseball/01_merge/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-          find docs/win/baseball/01_merge/rejections -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-          find docs/win/baseball/02_juice/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-          find docs/win/baseball/03_edges/ev_kelly/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
-          find docs/win/baseball/04_select/audit -maxdepth 1 -type f -print -exec sh -c 'echo "ROWS: $(($(wc -l < "$1") - 1))"; echo "HEAD:"; sed -n "1,26p" "$1"' sh {} \; || true
+        run: python docs/win/baseball/scripts/04_select/baseball_select_bets.py
 
       - name: Commit outputs
         run: |

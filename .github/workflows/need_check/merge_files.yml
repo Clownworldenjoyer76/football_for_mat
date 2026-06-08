@@ -1,0 +1,75 @@
+name: Run Merge Scripts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-merges:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pandas
+
+      # Ensure folders your scripts write to exist
+      - name: Ensure output folders exist
+        run: |
+          mkdir -p scripts/errors_log
+          mkdir -p docs/win/basketball/00_intake/sportsbook/merged
+          mkdir -p docs/win/basketball/00_intake/predictions/merged
+          mkdir -p docs/win/basketball/03_edges/merged
+          mkdir -p docs/win/basketball/04_select/merged
+          mkdir -p docs/win/final_scores/results/mlb/final_scores/merged
+
+      # Run merge scripts
+      - name: Run DK NBA merge
+        run: python scripts/merge_scripts/merge_folder_files_00_dk_NBA.py
+
+      - name: Run DK NCAAB merge
+        run: python scripts/merge_scripts/merge_folder_files_00_dk_NCAAB.py
+
+      - name: Run Predictions NBA merge
+        run: python scripts/merge_scripts/merge_folder_files_00_pred_NBA.py
+
+      - name: Run Predictions NCAAB merge
+        run: python scripts/merge_scripts/merge_folder_files_00_pred_NCAAB.py
+
+      - name: Run Basketball edges merge
+        run: python scripts/merge_scripts/merge_folder_files_03_basketball_edges.py
+
+      - name: Run Basketball select merge
+        run: python scripts/merge_scripts/merge_folder_files_04_basketball_select.py
+
+      - name: Run Basketball select merge
+        run: python scripts/merge_scripts/merge_folder_files_TESTER.py
+
+      - name: Run MLB final scores merge
+        run: python scripts/merge_scripts/merge_folder_mlb_scores.py
+
+      # Commit outputs your scripts created
+      - name: Commit merged outputs
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+
+          git add scripts/errors_log/
+          git add docs/win/basketball/00_intake/sportsbook/merged/
+          git add docs/win/basketball/00_intake/predictions/merged/
+          git add docs/win/basketball/03_edges/merged/
+          git add docs/win/basketball/04_select/merged/
+          git add docs/win/final_scores/results/ncaab/final_scores/merged/
+          git add docs/win/final_scores/results/mlb/final_scores/merged/
+
+          git commit -m "Automated merges" || echo "No changes to commit"
+          git push

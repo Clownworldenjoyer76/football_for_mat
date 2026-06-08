@@ -1,0 +1,34 @@
+name: CSV to XLSX Conversion
+
+on:
+  workflow_dispatch: # Allows manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install pandas openpyxl
+
+      - name: Run converter script
+        run: python scripts/csv_converter.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add bets/testing/csv_to_xlsx/xlsx/*.xlsx
+          git commit -m "Automated conversion of CSV to XLSX" || echo "No changes to commit"
+          git push
