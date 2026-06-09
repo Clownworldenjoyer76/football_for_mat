@@ -60,6 +60,9 @@ jobs:
       - name: NHL Transform
         run: python docs/win/hockey/nhl/scripts/00_intake/transform_hockey.py
 
+      - name: NHL Prediction Name Normalization
+        run: python docs/win/hockey/nhl/scripts/00_intake/pred_name_normalization.py
+     
       - name: Print NHL intake logs on failure
         if: failure()
         run: |
