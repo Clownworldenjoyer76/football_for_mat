@@ -1,163 +1,148 @@
 markets:
-
   nhl:
+
+    ###################################################
+    # ── Moneyline ────────────────────────────────────
+    ###################################################
 
     moneyline:
       enabled: true
-      pick_preference: best_ev
+
+      # best_ev = one moneyline side max per game, highest EV
+      # best_prob = one moneyline side max per game, highest model probability
+      # all = can select both sides if both pass
+      pick_preference: all
 
       home:
         enabled: true
-        by_total:
-          "5.5":
-            odds_bands:
-              - [-224, -106]
-            ev_bands:
-              - [0.007, 0.02599]
-            kelly_bands:
-              - [0.00, 0.99]
-          "6.0":
-            odds_bands:
-              - [-224, 104]
-            ev_bands:
-              - [0.005, 0.02599]
-            kelly_bands:
-              - [0.00, 0.99]
-          "6.5":
-            odds_bands:
-              - [-224, -135]
-              - [-104, 104]
-            ev_bands:
-              - [0.00801, 0.02599]
-            kelly_bands:
-              - [0.00, 0.99]
+
+        # based on home_model_prob_moneyline from the moneyline EV file
+        prob_bands:
+          - [0.0001, 0.9999]
+
+        odds_bands:
+          - [-10000, 10000]
+
+        ev_bands:
+          - [0.0001, 999.9999]
+
+        kelly_bands:
+          - [0.0001, 999.9999]
 
       away:
         enabled: true
-        by_total:
-          "5.5":
-            odds_bands:
-              - [-180, -151]
-            ev_bands:
-              - [0.01, 0.1]
-            kelly_bands:
-              - [0.00, 0.99]
-          "6.0":
-            odds_bands:
-              - [-300, -151]
-            ev_bands:
-              - [0.01, 0.1]
-            kelly_bands:
-              - [0.00, 0.99]
-          "6.5":
-            odds_bands:
-              - [-300, -151]
-            ev_bands:
-              - [0.01, 0.1]
-            kelly_bands:
-              - [0.00, 0.99]
+
+        # based on away_model_prob_moneyline from the moneyline EV file
+        prob_bands:
+          - [0.0001, 0.9999]
+
+        odds_bands:
+          - [-10000, 10000]
+
+        ev_bands:
+          - [0.0001, 999.9999]
+
+        kelly_bands:
+          - [0.0001, 999.9999]
+
+
+    ###################################################
+    # ── Puck Line ─────────────────────────────────────
+    ###################################################
 
     puck_line:
       enabled: true
-      pick_preference: best_ev
+
+      # best_ev = one puck-line side max per game, highest EV
+      # best_prob = one puck-line side max per game, highest model probability
+      # all = can select both sides if both pass
+      pick_preference: all
 
       home:
         enabled: true
-        by_total:
-          "5.5":
-            line_bands:
-              - [1.5, 2.5]
-            odds_bands:
-              - [-239, -150]
-            ev_bands:
-              - [0.02, 0.1]
-            kelly_bands:
-              - [0.00, 0.99]
-          "6.0":
-            line_bands:
-              - [1.5, 2.5]
-            odds_bands:
-              - [-239, -150]
-            ev_bands:
-              - [0.02, 0.1]
-            kelly_bands:
-              - [0.00, 0.99]
-          "6.5":
-            line_bands:
-              - [1.5, 2.5]
-            odds_bands:
-              - [-239, -150]
-            ev_bands:
-              - [0.02, 0.1]
-            kelly_bands:
-              - [0.00, 0.99]
+
+        # based on home_model_prob_puck_line from the puck-line EV file
+        prob_bands:
+          - [0.0001, 0.9999]
+
+        line_bands:
+          - [-100.0, 100.0]
+
+        odds_bands:
+          - [-10000, 10000]
+
+        ev_bands:
+          - [0.0001, 999.9999]
+
+        kelly_bands:
+          - [0.0001, 999.9999]
 
       away:
         enabled: true
-        by_total:
-          "5.5":
-            line_bands:
-              - [1.5, 2.5]
-            odds_bands:
-              - [-300, -150]
-              - [0.1, 300]
-            ev_bands:
-              - [0.01, 0.1]
-            kelly_bands:
-              - [0.00, 0.99]
-          "6.0":
-            line_bands:
-              - [1.5, 2.5]
-            odds_bands:
-              - [-300, -150]
-              - [0.1, 300]
-            ev_bands:
-              - [0.01, 0.1]
-            kelly_bands:
-              - [0.00, 0.8]
-          "6.5":
-            line_bands:
-              - [1.5, 2.5]
-            odds_bands:
-              - [-300, -150]
-              - [0.1, 300]
-            ev_bands:
-              - [0.01, 0.029]
-              - [0.04, 0.1]
-            kelly_bands:
-              - [0.00, 0.8]
+
+        # based on away_model_prob_puck_line from the puck-line EV file
+        prob_bands:
+          - [0.0001, 0.9999]
+
+        line_bands:
+          - [-100.0, 100.0]
+
+        odds_bands:
+          - [-10000, 10000]
+
+        ev_bands:
+          - [0.0001, 999.9999]
+
+        kelly_bands:
+          - [0.0001, 999.9999]
+
+
+    ###################################################
+    # ── Totals ───────────────────────────────────────
+    ###################################################
 
     total:
       enabled: true
-      pick_preference: best_ev
+
+      # best_ev = one total side max per game, highest EV
+      # best_prob = one total side max per game, highest model probability
+      # all = can select both sides if both pass
+      pick_preference: all
 
       over:
         enabled: true
+
+        # based on over_model_prob_total from the total EV file
+        prob_bands:
+          - [0.0001, 0.9999]
+
         line_bands:
-          - [2.5, 10.5]
+          - [0.0, 100.0]
+
         odds_bands:
-          - [-300, -126]
-          - [-110, -100]
+          - [-10000, 10000]
+
         ev_bands:
-          - [0.001, 0.05]
-          - [0.07, 0.99]
+          - [0.0001, 999.9999]
+
         kelly_bands:
-          - [0.00, 0.012]
-          - [0.016, 0.06]
-          - [0.08, 0.99]
+          - [0.0001, 999.9999]
 
       under:
         enabled: true
+
+        # based on under_model_prob_total from the total EV file
+        prob_bands:
+          - [0.0001, 0.9999]
+
         line_bands:
-          - [6.5, 6.5]
+          - [0.0, 100.0]
+
         odds_bands:
-          - [-300, -135]
-          - [-125, -100]
+          - [-10000, 10000]
+
         ev_bands:
-          - [0.0021, 0.05]
-          - [0.07, 0.133]
+          - [0.0001, 999.9999]
+
         kelly_bands:
-          - [0.00, 0.06]
-          - [0.08, 0.115]
-          - [0.120, 0.127]
-          - [0.133, 0.99]
+          - [0.0001, 999.9999]
