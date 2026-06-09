@@ -1,0 +1,59 @@
+name: NHL Select Bets
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  select-nhl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pyyaml
+
+      - name: Create output and error folders
+        run: |
+          mkdir -p docs/win/hockey/nhl/04_select
+          mkdir -p docs/win/hockey/nhl/errors/04_select
+
+      - name: Run NHL select bets
+        run: |
+          python docs/win/hockey/nhl/scripts/04_select/hockey_select_bets.py
+
+      - name: Print select log
+        if: always()
+        run: |
+          if [ -f docs/win/hockey/nhl/errors/04_select/hockey_select_bets.txt ]; then
+            cat docs/win/hockey/nhl/errors/04_select/hockey_select_bets.txt
+          else
+            echo "No hockey_select_bets.txt log found."
+          fi
+
+      - name: Commit NHL select outputs
+        if: success()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/win/hockey/nhl/04_select/*.csv || true
+          git add docs/win/hockey/nhl/errors/04_select/hockey_select_bets.txt || true
+
+          if git diff --cached --quiet; then
+            echo "No NHL select output changes to commit."
+          else
+            git commit -m "Update NHL select outputs"
+            git push
+          fi
