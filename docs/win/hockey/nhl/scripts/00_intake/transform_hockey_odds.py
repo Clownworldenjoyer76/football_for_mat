@@ -3,10 +3,9 @@
 
 import csv
 import json
-import traceback
 from collections import defaultdict
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 BOOKMAKER = "FanDuel"
@@ -14,20 +13,8 @@ ET = ZoneInfo("America/New_York")
 
 ODDS_DIR = Path("docs/win/hockey/nhl/odds")
 SPORTSBOOK_DIR = Path("docs/win/hockey/nhl/00_intake/sportsbook")
-ERROR_DIR = Path("docs/win/hockey/nhl/errors/00_intake")
-LOG_FILE = ERROR_DIR / "transform_hockey_odds.txt"
 
 SPORTSBOOK_DIR.mkdir(parents=True, exist_ok=True)
-ERROR_DIR.mkdir(parents=True, exist_ok=True)
-
-with open(LOG_FILE, "w", encoding="utf-8") as f:
-    f.write(f"=== transform_hockey_odds RUN {datetime.now(ET).isoformat()} ===\n")
-
-
-def log(msg: str) -> None:
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{datetime.now(ET).isoformat()} | {msg}\n")
-
 
 FIELDS = [
     "game_id",
@@ -58,24 +45,29 @@ FIELDS = [
 def decimal_to_american(value) -> str:
     try:
         dec = float(value)
+
         if dec <= 1:
             return ""
+
         if dec >= 2:
             return f"+{round((dec - 1) * 100)}"
+
         return str(round(-100 / (dec - 1)))
+
     except Exception:
         return ""
 
 
 def clean_decimal(value) -> str:
-    if value in ("", None):
+    if value in ("", None, "N/A"):
         return ""
     return str(value).strip()
 
 
 def clean_line(value) -> str:
-    if value in ("", None):
+    if value in ("", None, "N/A"):
         return ""
+
     try:
         v = float(value)
         if v.is_integer():
@@ -88,6 +80,7 @@ def clean_line(value) -> str:
 def to_et_date_time(date_str: str) -> tuple[str, str]:
     if not date_str:
         return "", ""
+
     try:
         dt = datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
         dt_et = dt.astimezone(ET)
@@ -97,39 +90,32 @@ def to_et_date_time(date_str: str) -> tuple[str, str]:
 
 
 def get_markets(odds_payload: dict) -> list:
-    books = odds_payload.get("bookmakers", {})
-    if not isinstance(books, dict):
+    bookmakers = odds_payload.get("bookmakers", {})
+    if not isinstance(bookmakers, dict):
         return []
 
-    markets = books.get(BOOKMAKER, [])
+    markets = bookmakers.get(BOOKMAKER, [])
     if not isinstance(markets, list):
         return []
 
     return markets
 
 
-def find_market(markets: list, name: str) -> dict | None:
-    wanted = name.strip().lower()
+def find_market(markets: list, market_name: str) -> dict:
+    wanted = market_name.strip().lower()
 
     for market in markets:
         if str(market.get("name", "")).strip().lower() == wanted:
             return market
 
-    return None
+    return {}
 
 
 def parse_moneyline(markets: list) -> dict:
     market = find_market(markets, "ML")
-    if not market:
-        return {
-            "home_decimal": "",
-            "away_decimal": "",
-            "home_american": "",
-            "away_american": "",
-        }
-
     odds = market.get("odds", [])
-    if not isinstance(odds, list) or not odds:
+
+    if not isinstance(odds, list) or not odds or not isinstance(odds[0], dict):
         return {
             "home_decimal": "",
             "away_decimal": "",
@@ -138,6 +124,7 @@ def parse_moneyline(markets: list) -> dict:
         }
 
     row = odds[0]
+
     home_decimal = clean_decimal(row.get("home", ""))
     away_decimal = clean_decimal(row.get("away", ""))
 
@@ -149,10 +136,8 @@ def parse_moneyline(markets: list) -> dict:
     }
 
 
-def pick_puck_line_row(rows: list) -> dict:
-    valid = [r for r in rows if isinstance(r, dict)]
-    if not valid:
-        return {}
+def pick_standard_puck_line_row(rows: list) -> dict:
+    valid = [row for row in rows if isinstance(row, dict)]
 
     for row in valid:
         try:
@@ -161,12 +146,19 @@ def pick_puck_line_row(rows: list) -> dict:
         except Exception:
             continue
 
-    return valid[0]
+    return {}
 
 
 def parse_spread(markets: list) -> dict:
     market = find_market(markets, "Spread")
-    if not market:
+    odds = market.get("odds", [])
+
+    if not isinstance(odds, list):
+        odds = []
+
+    row = pick_standard_puck_line_row(odds)
+
+    if not row:
         return {
             "home_line": "",
             "away_line": "",
@@ -176,28 +168,29 @@ def parse_spread(markets: list) -> dict:
             "away_american": "",
         }
 
-    odds = market.get("odds", [])
-    if not isinstance(odds, list):
-        odds = []
-
-    row = pick_puck_line_row(odds)
-
-    home_line_raw = row.get("hdp", "")
-    home_decimal = clean_decimal(row.get("home", ""))
-    away_decimal = clean_decimal(row.get("away", ""))
-
     try:
-        home_line_float = float(home_line_raw)
-        away_line_float = -home_line_float
-        home_line = clean_line(home_line_float)
-        away_line = clean_line(away_line_float)
+        hdp = float(row.get("hdp"))
+
+        if hdp > 0:
+            home_line = -abs(hdp)
+            away_line = abs(hdp)
+            home_decimal = clean_decimal(row.get("away", ""))
+            away_decimal = clean_decimal(row.get("home", ""))
+        else:
+            home_line = abs(hdp)
+            away_line = -abs(hdp)
+            home_decimal = clean_decimal(row.get("home", ""))
+            away_decimal = clean_decimal(row.get("away", ""))
+
     except Exception:
-        home_line = clean_line(home_line_raw)
+        home_line = ""
         away_line = ""
+        home_decimal = ""
+        away_decimal = ""
 
     return {
-        "home_line": home_line,
-        "away_line": away_line,
+        "home_line": clean_line(home_line),
+        "away_line": clean_line(away_line),
         "home_decimal": home_decimal,
         "away_decimal": away_decimal,
         "home_american": decimal_to_american(home_decimal),
@@ -205,36 +198,40 @@ def parse_spread(markets: list) -> dict:
     }
 
 
-def pick_total_row(rows: list) -> dict:
-    valid = [r for r in rows if isinstance(r, dict)]
-    if not valid:
-        return {}
-
+def pick_total_row_closest_odds(rows: list) -> dict:
+    valid = [row for row in rows if isinstance(row, dict)]
     candidates = []
 
-    for row in valid:
+    for index, row in enumerate(valid):
         try:
-            hdp = float(row.get("hdp"))
             over = float(row.get("over"))
             under = float(row.get("under"))
 
             if over <= 1 or under <= 1:
                 continue
 
-            candidates.append((abs(over - under), abs(hdp), row))
+            candidates.append((abs(over - under), index, row))
+
         except Exception:
             continue
 
-    if candidates:
-        candidates.sort(key=lambda x: (x[0], x[1]))
-        return candidates[0][2]
+    if not candidates:
+        return {}
 
-    return valid[0]
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    return candidates[0][2]
 
 
 def parse_totals(markets: list) -> dict:
     market = find_market(markets, "Totals")
-    if not market:
+    odds = market.get("odds", [])
+
+    if not isinstance(odds, list):
+        odds = []
+
+    row = pick_total_row_closest_odds(odds)
+
+    if not row:
         return {
             "total": "",
             "over_decimal": "",
@@ -243,18 +240,11 @@ def parse_totals(markets: list) -> dict:
             "under_american": "",
         }
 
-    odds = market.get("odds", [])
-    if not isinstance(odds, list):
-        odds = []
-
-    row = pick_total_row(odds)
-
-    total = clean_line(row.get("hdp", ""))
     over_decimal = clean_decimal(row.get("over", ""))
     under_decimal = clean_decimal(row.get("under", ""))
 
     return {
-        "total": total,
+        "total": clean_line(row.get("hdp", "")),
         "over_decimal": over_decimal,
         "under_decimal": under_decimal,
         "over_american": decimal_to_american(over_decimal),
@@ -262,10 +252,7 @@ def parse_totals(markets: list) -> dict:
     }
 
 
-def build_row_from_raw(record: dict) -> dict:
-    event = record.get("event", {})
-    odds_payload = record.get("odds", {})
-
+def build_row(event: dict, odds_payload: dict) -> dict:
     markets = get_markets(odds_payload)
 
     moneyline = parse_moneyline(markets)
@@ -306,71 +293,62 @@ def build_row_from_raw(record: dict) -> dict:
     }
 
 
-def build_row_from_existing(row: dict) -> dict:
-    return {field: row.get(field, "") for field in FIELDS}
-
-
 def write_csv(path: Path, rows: list[dict]) -> None:
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDS)
         writer.writeheader()
-        writer.writerows([{field: row.get(field, "") for field in FIELDS} for row in rows])
 
-    log(f"WROTE {path} ({len(rows)} rows)")
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in FIELDS})
 
 
-try:
+def main() -> None:
+    sportsbook_by_date = defaultdict(dict)
+
     json_files = sorted(ODDS_DIR.glob("*.json"))
-    log(f"Odds JSON files found: {len(json_files)}")
-
-    sportsbook_by_date = defaultdict(list)
-    files_processed = 0
-    rows_built = 0
 
     for json_file in json_files:
-        files_processed += 1
-        log(f"READ {json_file}")
-
         with open(json_file, "r", encoding="utf-8") as f:
             payload = json.load(f)
 
-        raw_records = payload.get("raw", [])
-        existing_rows = payload.get("rows", [])
+        events = payload.get("events", [])
+        odds = payload.get("odds", [])
 
-        if raw_records:
-            for record in raw_records:
-                row = build_row_from_raw(record)
-                game_date = row.get("game_date", "")
-                if game_date:
-                    sportsbook_by_date[game_date].append(row)
-                    rows_built += 1
-        elif existing_rows:
-            log(f"WARNING: {json_file} has no raw records; using existing rows")
-            for existing in existing_rows:
-                row = build_row_from_existing(existing)
-                game_date = row.get("game_date", "")
-                if game_date:
-                    sportsbook_by_date[game_date].append(row)
-                    rows_built += 1
-        else:
-            log(f"WARNING: {json_file} has no raw records and no rows")
+        if not isinstance(events, list):
+            events = []
 
-    for old_file in SPORTSBOOK_DIR.glob("NHL_*.csv"):
-        old_file.unlink()
-        log(f"REMOVED OLD SPORTSBOOK FILE: {old_file}")
+        if not isinstance(odds, list):
+            odds = []
 
-    for game_date, rows in sorted(sportsbook_by_date.items()):
+        events_by_id = {
+            str(event.get("id", "")).strip(): event
+            for event in events
+            if isinstance(event, dict) and event.get("id")
+        }
+
+        for odds_payload in odds:
+            if not isinstance(odds_payload, dict):
+                continue
+
+            game_id = str(odds_payload.get("id", "")).strip()
+            if not game_id:
+                continue
+
+            event = events_by_id.get(game_id, {})
+            row = build_row(event, odds_payload)
+
+            game_date = row.get("game_date", "")
+            if not game_date:
+                continue
+
+            sportsbook_by_date[game_date][game_id] = row
+
+    for game_date, rows_by_game_id in sorted(sportsbook_by_date.items()):
+        rows = list(rows_by_game_id.values())
         write_csv(SPORTSBOOK_DIR / f"NHL_{game_date}.csv", rows)
 
-    log("--- SUMMARY ---")
-    log(f"JSON files processed: {files_processed}")
-    log(f"Rows built: {rows_built}")
-    log(f"Sportsbook CSV files written: {len(sportsbook_by_date)}")
-    log("STATUS: SUCCESS")
+    print("NHL odds transform complete.")
 
-except Exception as e:
-    log(f"FATAL ERROR: {e}\n{traceback.format_exc()}")
-    log("STATUS: FAILED")
-    raise
 
-print("NHL odds transform complete.")
+if __name__ == "__main__":
+    main()
