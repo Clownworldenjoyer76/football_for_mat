@@ -35,21 +35,47 @@ jobs:
           mkdir -p docs/win/hockey/nhl/errors/01_merge/
 
       - name: NHL Merge Intake
-        run: python docs/win/hockey/nhl/scripts/01_merge/merge_intake.py
+        id: merge_intake
+        continue-on-error: true
+        run: |
+          set +e
+          python docs/win/hockey/nhl/scripts/01_merge/merge_intake.py
+          STATUS=$?
+          echo "MERGE_STATUS=$STATUS" >> $GITHUB_ENV
+          exit 0
 
       - name: NHL Build Juice Files
-        run: python docs/win/hockey/nhl/scripts/01_merge/build_juice_files.py
+        if: env.MERGE_STATUS == '0'
+        id: build_juice_files
+        continue-on-error: true
+        run: |
+          set +e
+          python docs/win/hockey/nhl/scripts/01_merge/build_juice_files.py
+          STATUS=$?
+          echo "BUILD_STATUS=$STATUS" >> $GITHUB_ENV
+          exit 0
 
-      - name: Print NHL merge logs on failure
-        if: failure()
+      - name: Set default build status
+        if: env.MERGE_STATUS != '0'
+        run: echo "BUILD_STATUS=0" >> $GITHUB_ENV
+
+      - name: Print NHL merge logs
+        if: always()
         run: |
           echo "=== NHL merge logs ==="
-          find docs/win/hockey/nhl/errors/01_merge -type f -name "*.txt" -print -exec cat {} \;
+          find docs/win/hockey/nhl/errors/01_merge -type f -name "*.txt" -print -exec cat {} \; || true
 
           echo "=== NHL merge audit files ==="
-          find docs/win/hockey/nhl/01_merge/audit -type f -name "*.csv" -print -exec head -50 {} \;
+          find docs/win/hockey/nhl/01_merge/audit -type f -name "*.csv" -print -exec head -50 {} \; || true
+
+          echo "=== NHL merge output files ==="
+          find docs/win/hockey/nhl/01_merge -maxdepth 1 -type f -name "*.csv" -print -exec head -20 {} \; || true
+
+          echo "=== NHL pre-juice output files ==="
+          find docs/win/hockey/nhl/01_merge/01_merguiced -type f -name "*.csv" -print -exec head -20 {} \; || true
 
       - name: Commit outputs
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -62,3 +88,21 @@ jobs:
           git diff --cached --quiet || git commit -m "chore: nhl merge run $(date -u +'%Y-%m-%d %H:%M UTC')"
           git pull --rebase origin main
           git push
+
+      - name: Fail workflow if merge or build failed
+        if: always()
+        run: |
+          echo "MERGE_STATUS=${MERGE_STATUS}"
+          echo "BUILD_STATUS=${BUILD_STATUS}"
+
+          if [ "${MERGE_STATUS}" != "0" ]; then
+            echo "NHL Merge Intake failed. Outputs were committed for inspection."
+            exit "${MERGE_STATUS}"
+          fi
+
+          if [ "${BUILD_STATUS}" != "0" ]; then
+            echo "NHL Build Juice Files failed. Outputs were committed for inspection."
+            exit "${BUILD_STATUS}"
+          fi
+
+          echo "NHL merge workflow completed successfully."
