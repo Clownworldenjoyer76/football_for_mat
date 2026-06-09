@@ -1,0 +1,46 @@
+name: NHL 02 Juice
+
+on:
+  workflow_dispatch:
+
+jobs:
+  nhl-stage-02-juice:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas scipy
+
+      - name: Run NHL moneyline juice
+        run: python docs/win/hockey/nhl/scripts/02_juice/apply_moneyline_juice.py
+
+      - name: Run NHL puck-line juice
+        run: python docs/win/hockey/nhl/scripts/02_juice/apply_puck_line_juice.py
+
+      - name: Run NHL total juice
+        run: python docs/win/hockey/nhl/scripts/02_juice/apply_total_juice.py
+
+      - name: Commit NHL Stage 02 juice outputs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/win/hockey/nhl/02_juice/
+          git add docs/win/hockey/nhl/errors/02_juice/
+
+          if git diff --cached --quiet; then
+            echo "No NHL Stage 02 juice changes to commit."
+          else
+            git commit -m "Update NHL Stage 02 juice outputs"
+            git push
+          fi
