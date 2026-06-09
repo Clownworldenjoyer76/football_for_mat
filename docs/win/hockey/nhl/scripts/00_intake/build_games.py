@@ -8,7 +8,7 @@ from pathlib import Path
 
 SPORTBOOK_DIR = Path("docs/win/hockey/nhl/00_intake/sportsbook")
 GAMES_DIR = Path("docs/win/hockey/nhl/00_intake/games")
-LOG_PATH = Path("docs/win/hockey/errors/00_intake/build_games.txt")
+LOG_PATH = Path("docs/win/hockey/nhl/errors/00_intake/build_games.txt")
 
 INPUT_PREFIX = "NHL_"
 INPUT_SUFFIX = ".csv"
