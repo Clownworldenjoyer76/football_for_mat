@@ -1,0 +1,73 @@
+name: NHL 03 Edges EV Kelly
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nhl-stage-03-edges-ev-kelly:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy
+
+      - name: Create NHL Stage 03 folders
+        run: |
+          mkdir -p docs/win/hockey/nhl/03_edges
+          mkdir -p docs/win/hockey/nhl/03_edges/ev_kelly
+          mkdir -p docs/win/hockey/nhl/errors/03_edges
+
+      - name: Run NHL compute_edges.py
+        run: |
+          python docs/win/hockey/nhl/scripts/03_edges/compute_edges.py
+
+      - name: Run NHL compute_ev_kelly.py
+        run: |
+          python docs/win/hockey/nhl/scripts/03_edges/compute_ev_kelly.py
+
+      - name: Print Stage 03 logs
+        if: always()
+        run: |
+          echo "===== compute_edges.txt ====="
+          if [ -f docs/win/hockey/nhl/errors/03_edges/compute_edges.txt ]; then
+            cat docs/win/hockey/nhl/errors/03_edges/compute_edges.txt
+          else
+            echo "Missing docs/win/hockey/nhl/errors/03_edges/compute_edges.txt"
+          fi
+
+          echo "===== compute_ev_kelly.txt ====="
+          if [ -f docs/win/hockey/nhl/errors/03_edges/compute_ev_kelly.txt ]; then
+            cat docs/win/hockey/nhl/errors/03_edges/compute_ev_kelly.txt
+          else
+            echo "Missing docs/win/hockey/nhl/errors/03_edges/compute_ev_kelly.txt"
+          fi
+
+      - name: Commit NHL Stage 03 outputs
+        if: success()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/win/hockey/nhl/03_edges/*.csv || true
+          git add docs/win/hockey/nhl/03_edges/ev_kelly/*.csv || true
+          git add docs/win/hockey/nhl/errors/03_edges/*.txt || true
+
+          if git diff --cached --quiet; then
+            echo "No NHL Stage 03 changes to commit."
+          else
+            git commit -m "Update NHL stage 03 edge EV Kelly outputs"
+            git push
+          fi
