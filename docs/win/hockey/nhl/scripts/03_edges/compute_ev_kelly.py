@@ -95,7 +95,15 @@ def compute_ev(model_prob, book_decimal):
     d = pd.to_numeric(book_decimal, errors="coerce")
 
     out = pd.Series(np.nan, index=p.index, dtype="float64")
-    valid = d.notna() & p.notna() & np.isfinite(d) & np.isfinite(p) & (d > 1) & (p > 0) & (p < 1)
+    valid = (
+        d.notna()
+        & p.notna()
+        & np.isfinite(d)
+        & np.isfinite(p)
+        & (d > 1)
+        & (p > 0)
+        & (p < 1)
+    )
 
     out.loc[valid] = (p.loc[valid] * d.loc[valid]) - 1
     return out
@@ -109,7 +117,15 @@ def compute_kelly(model_prob, book_decimal, file_name=""):
     q = 1 - p
 
     k = pd.Series(np.nan, index=p.index, dtype="float64")
-    valid = b.notna() & p.notna() & np.isfinite(b) & np.isfinite(p) & (b > 0) & (p > 0) & (p < 1)
+    valid = (
+        b.notna()
+        & p.notna()
+        & np.isfinite(b)
+        & np.isfinite(p)
+        & (b > 0)
+        & (p > 0)
+        & (p < 1)
+    )
 
     k.loc[valid] = ((b.loc[valid] * p.loc[valid]) - q.loc[valid]) / b.loc[valid]
 
@@ -140,13 +156,12 @@ def process_moneyline(df, file_path):
         "home_dk_moneyline_decimal",
         "away_edge_decimal_moneyline",
         "home_edge_decimal_moneyline",
+        "away_edge_pct_moneyline",
+        "home_edge_pct_moneyline",
     ]
     validate_columns(df, required_cols, file_path)
 
     df = to_numeric(df, required_cols[1:])
-
-    df["away_edge_pct_moneyline"] = df["away_edge_decimal_moneyline"] * 100
-    df["home_edge_pct_moneyline"] = df["home_edge_decimal_moneyline"] * 100
 
     df["away_ev_moneyline"] = compute_ev(
         df["away_model_prob_moneyline"],
@@ -187,13 +202,12 @@ def process_puck_line(df, file_path):
         "home_dk_puck_line_decimal",
         "away_edge_decimal_puck_line",
         "home_edge_decimal_puck_line",
+        "away_edge_pct_puck_line",
+        "home_edge_pct_puck_line",
     ]
     validate_columns(df, required_cols, file_path)
 
     df = to_numeric(df, required_cols[1:])
-
-    df["away_edge_pct_puck_line"] = df["away_edge_decimal_puck_line"] * 100
-    df["home_edge_pct_puck_line"] = df["home_edge_decimal_puck_line"] * 100
 
     df["away_ev_puck_line"] = compute_ev(
         df["away_model_prob_puck_line"],
@@ -234,13 +248,12 @@ def process_total(df, file_path):
         "dk_total_under_decimal",
         "over_edge_decimal_total",
         "under_edge_decimal_total",
+        "over_edge_pct_total",
+        "under_edge_pct_total",
     ]
     validate_columns(df, required_cols, file_path)
 
     df = to_numeric(df, required_cols[1:])
-
-    df["over_edge_pct_total"] = df["over_edge_decimal_total"] * 100
-    df["under_edge_pct_total"] = df["under_edge_decimal_total"] * 100
 
     df["over_ev_total"] = compute_ev(
         df["over_model_prob_total"],
