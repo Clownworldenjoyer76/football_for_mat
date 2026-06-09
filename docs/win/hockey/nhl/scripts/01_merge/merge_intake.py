@@ -211,12 +211,6 @@ def rows_by_game_id(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
 def get_dates() -> list[str]:
     dates = set()
 
-    for path in GAMES_DIR.glob("*_nhl_games.csv"):
-        dates.add(path.name.replace("_nhl_games.csv", ""))
-
-    for path in SPORTSBOOK_DIR.glob("NHL_*.csv"):
-        dates.add(path.name.replace("NHL_", "").replace(".csv", ""))
-
     for path in PREDICTIONS_DIR.glob("hockey_*.csv"):
         dates.add(path.name.replace("hockey_", "").replace(".csv", ""))
 
@@ -396,10 +390,10 @@ def main() -> None:
         wipe_merge_outputs()
 
         dates = get_dates()
-        log(f"Dates found: {len(dates)}")
+        log(f"Dates found from prediction files: {len(dates)}")
 
         if not dates:
-            fail("No Stage 01 input files found.")
+            fail("No Stage 01 prediction input files found.")
 
         for date_val in dates:
             merged_count, rejected_sportsbook_count, rejected_predictions_count, date_has_failure = process_date(date_val)
