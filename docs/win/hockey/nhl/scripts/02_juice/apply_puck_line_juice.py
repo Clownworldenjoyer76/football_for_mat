@@ -19,6 +19,8 @@ JUICE_FILE = BASE_DIR / "config" / "juice" / "nhl_puck_line_juice.csv"
 ERROR_DIR = BASE_DIR / "errors" / "02_juice"
 LOG_FILE = ERROR_DIR / "apply_puck_line_juice.txt"
 
+MIN_DECIMAL = 1.01
+
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -199,15 +201,24 @@ def process_file(path: Path, juice_df: pd.DataFrame) -> tuple[int, int, int]:
         away_juiced_decimal = away_fair * (1 - away_extra)
         home_juiced_decimal = home_fair * (1 - home_extra)
 
-        if (
-            not math.isfinite(away_juiced_decimal)
-            or not math.isfinite(home_juiced_decimal)
-            or away_juiced_decimal <= 1
-            or home_juiced_decimal <= 1
-        ):
+        if not math.isfinite(away_juiced_decimal) or not math.isfinite(home_juiced_decimal):
             skipped_bad += 1
             log(f"ROW SKIP: {path.name} idx={idx} reason=bad_juiced_decimal")
             continue
+
+        if away_juiced_decimal <= 1:
+            log(
+                f"ROW CAP: {path.name} idx={idx} side=away "
+                f"original_juiced_decimal={away_juiced_decimal} capped_to={MIN_DECIMAL}"
+            )
+            away_juiced_decimal = MIN_DECIMAL
+
+        if home_juiced_decimal <= 1:
+            log(
+                f"ROW CAP: {path.name} idx={idx} side=home "
+                f"original_juiced_decimal={home_juiced_decimal} capped_to={MIN_DECIMAL}"
+            )
+            home_juiced_decimal = MIN_DECIMAL
 
         away_juiced_prob = 1 / away_juiced_decimal
         home_juiced_prob = 1 / home_juiced_decimal
