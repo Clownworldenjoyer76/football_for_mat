@@ -45,6 +45,9 @@ jobs:
       - name: Run NHL Odds Pull
         run: python docs/win/hockey/nhl/scripts/00_intake/nhl_odds_pull.py
 
+      - name: Transform NHL Odds
+        run: python docs/win/hockey/nhl/scripts/00_intake/transform_hockey_odds.py
+
       - name: Run NHL Odds Name Normalization
         run: python docs/win/hockey/nhl/scripts/00_intake/odds_name_normalization.py
 
