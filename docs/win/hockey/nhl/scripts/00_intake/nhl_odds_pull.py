@@ -256,8 +256,34 @@ def pick_total_row(rows: list) -> dict:
     if not valid:
         return {}
 
-    # Use the market's current/main total as provided by the API.
-    # Do not force 5.5 or any other fixed number.
+    balanced_rows = []
+
+    for row in valid:
+        try:
+            over = float(row.get("over"))
+            under = float(row.get("under"))
+            hdp = float(row.get("hdp"))
+
+            if over <= 1 or under <= 1:
+                continue
+
+            balance_gap = abs(over - under)
+
+            balanced_rows.append(
+                {
+                    "row": row,
+                    "balance_gap": balance_gap,
+                    "hdp": hdp,
+                }
+            )
+
+        except Exception:
+            continue
+
+    if balanced_rows:
+        balanced_rows.sort(key=lambda item: (item["balance_gap"], abs(item["hdp"])))
+        return balanced_rows[0]["row"]
+
     return valid[0]
 
 
