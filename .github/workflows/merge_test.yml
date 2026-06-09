@@ -1,0 +1,64 @@
+name: Merge NHL
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nhl-merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set date
+        run: echo "DATE=$(TZ='America/New_York' date +%Y_%m_%d)" >> $GITHUB_ENV
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/win/hockey/nhl/01_merge/
+          mkdir -p docs/win/hockey/nhl/01_merge/audit/
+          mkdir -p docs/win/hockey/nhl/01_merge/01_merguiced/
+          mkdir -p docs/win/hockey/nhl/errors/01_merge/
+
+      - name: NHL Merge Intake
+        run: python docs/win/hockey/nhl/scripts/01_merge/merge_intake.py
+
+      - name: NHL Build Juice Files
+        run: python docs/win/hockey/nhl/scripts/01_merge/build_juice_files.py
+
+      - name: Print NHL merge logs on failure
+        if: failure()
+        run: |
+          echo "=== NHL merge logs ==="
+          find docs/win/hockey/nhl/errors/01_merge -type f -name "*.txt" -print -exec cat {} \;
+
+          echo "=== NHL merge audit files ==="
+          find docs/win/hockey/nhl/01_merge/audit -type f -name "*.csv" -print -exec head -50 {} \;
+
+      - name: Commit outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/hockey/nhl/01_merge/
+          git add docs/win/hockey/nhl/01_merge/audit/
+          git add docs/win/hockey/nhl/01_merge/01_merguiced/
+          git add docs/win/hockey/nhl/errors/01_merge/
+
+          git diff --cached --quiet || git commit -m "chore: nhl merge run $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push
