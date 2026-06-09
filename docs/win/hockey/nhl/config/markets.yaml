@@ -1,0 +1,163 @@
+markets:
+
+  nhl:
+
+    moneyline:
+      enabled: true
+      pick_preference: best_ev
+
+      home:
+        enabled: true
+        by_total:
+          "5.5":
+            odds_bands:
+              - [-224, -106]
+            ev_bands:
+              - [0.007, 0.02599]
+            kelly_bands:
+              - [0.00, 0.99]
+          "6.0":
+            odds_bands:
+              - [-224, 104]
+            ev_bands:
+              - [0.005, 0.02599]
+            kelly_bands:
+              - [0.00, 0.99]
+          "6.5":
+            odds_bands:
+              - [-224, -135]
+              - [-104, 104]
+            ev_bands:
+              - [0.00801, 0.02599]
+            kelly_bands:
+              - [0.00, 0.99]
+
+      away:
+        enabled: true
+        by_total:
+          "5.5":
+            odds_bands:
+              - [-180, -151]
+            ev_bands:
+              - [0.01, 0.1]
+            kelly_bands:
+              - [0.00, 0.99]
+          "6.0":
+            odds_bands:
+              - [-300, -151]
+            ev_bands:
+              - [0.01, 0.1]
+            kelly_bands:
+              - [0.00, 0.99]
+          "6.5":
+            odds_bands:
+              - [-300, -151]
+            ev_bands:
+              - [0.01, 0.1]
+            kelly_bands:
+              - [0.00, 0.99]
+
+    puck_line:
+      enabled: true
+      pick_preference: best_ev
+
+      home:
+        enabled: true
+        by_total:
+          "5.5":
+            line_bands:
+              - [1.5, 2.5]
+            odds_bands:
+              - [-239, -150]
+            ev_bands:
+              - [0.02, 0.1]
+            kelly_bands:
+              - [0.00, 0.99]
+          "6.0":
+            line_bands:
+              - [1.5, 2.5]
+            odds_bands:
+              - [-239, -150]
+            ev_bands:
+              - [0.02, 0.1]
+            kelly_bands:
+              - [0.00, 0.99]
+          "6.5":
+            line_bands:
+              - [1.5, 2.5]
+            odds_bands:
+              - [-239, -150]
+            ev_bands:
+              - [0.02, 0.1]
+            kelly_bands:
+              - [0.00, 0.99]
+
+      away:
+        enabled: true
+        by_total:
+          "5.5":
+            line_bands:
+              - [1.5, 2.5]
+            odds_bands:
+              - [-300, -150]
+              - [0.1, 300]
+            ev_bands:
+              - [0.01, 0.1]
+            kelly_bands:
+              - [0.00, 0.99]
+          "6.0":
+            line_bands:
+              - [1.5, 2.5]
+            odds_bands:
+              - [-300, -150]
+              - [0.1, 300]
+            ev_bands:
+              - [0.01, 0.1]
+            kelly_bands:
+              - [0.00, 0.8]
+          "6.5":
+            line_bands:
+              - [1.5, 2.5]
+            odds_bands:
+              - [-300, -150]
+              - [0.1, 300]
+            ev_bands:
+              - [0.01, 0.029]
+              - [0.04, 0.1]
+            kelly_bands:
+              - [0.00, 0.8]
+
+    total:
+      enabled: true
+      pick_preference: best_ev
+
+      over:
+        enabled: true
+        line_bands:
+          - [2.5, 10.5]
+        odds_bands:
+          - [-300, -126]
+          - [-110, -100]
+        ev_bands:
+          - [0.001, 0.05]
+          - [0.07, 0.99]
+        kelly_bands:
+          - [0.00, 0.012]
+          - [0.016, 0.06]
+          - [0.08, 0.99]
+
+      under:
+        enabled: true
+        line_bands:
+          - [6.5, 6.5]
+        odds_bands:
+          - [-300, -135]
+          - [-125, -100]
+        ev_bands:
+          - [0.0021, 0.05]
+          - [0.07, 0.133]
+        kelly_bands:
+          - [0.00, 0.06]
+          - [0.08, 0.115]
+          - [0.120, 0.127]
+          - [0.133, 0.99]
