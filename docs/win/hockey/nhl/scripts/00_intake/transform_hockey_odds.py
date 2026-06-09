@@ -1,32 +1,35 @@
 #!/usr/bin/env python3
 # docs/win/hockey/nhl/scripts/00_intake/transform_hockey_odds.py
 
-import argparse
 import csv
 import json
 import traceback
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 BOOKMAKER = "FanDuel"
 ET = ZoneInfo("America/New_York")
 
-JSON_IN_DIR = Path("docs/win/hockey/nhl/odds")
-SPORTSBOOK_OUT_DIR = Path("docs/win/hockey/nhl/00_intake/sportsbook")
-LOG_DIR = Path("docs/win/hockey/nhl/errors/00_intake")
+ODDS_DIR = Path("docs/win/hockey/nhl/odds")
+SPORTSBOOK_DIR = Path("docs/win/hockey/nhl/00_intake/sportsbook")
+ERROR_DIR = Path("docs/win/hockey/nhl/errors/00_intake")
+LOG_FILE = ERROR_DIR / "transform_hockey_odds.txt"
 
-SPORTSBOOK_OUT_DIR.mkdir(parents=True, exist_ok=True)
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-LOG_FILE = LOG_DIR / "transform_hockey_odds.txt"
+SPORTSBOOK_DIR.mkdir(parents=True, exist_ok=True)
+ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 with open(LOG_FILE, "w", encoding="utf-8") as f:
     f.write(f"=== transform_hockey_odds RUN {datetime.now(ET).isoformat()} ===\n")
 
 
-SPORTSBOOK_FIELDS = [
+def log(msg: str) -> None:
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{datetime.now(ET).isoformat()} | {msg}\n")
+
+
+FIELDS = [
     "game_id",
     "sport",
     "league",
@@ -52,38 +55,16 @@ SPORTSBOOK_FIELDS = [
 ]
 
 
-def log(msg: str) -> None:
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{datetime.now(ET).isoformat()} | {msg}\n")
-
-
-def decimal_to_american(decimal_value) -> str:
+def decimal_to_american(value) -> str:
     try:
-        dec = float(decimal_value)
+        dec = float(value)
         if dec <= 1:
             return ""
-
         if dec >= 2:
-            american = round((dec - 1) * 100)
-            return f"+{american}"
-
-        american = round(-100 / (dec - 1))
-        return str(american)
-
+            return f"+{round((dec - 1) * 100)}"
+        return str(round(-100 / (dec - 1)))
     except Exception:
         return ""
-
-
-def to_et_date_time(date_str: str) -> tuple[str, str]:
-    if not date_str:
-        return "", ""
-
-    try:
-        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        dt_et = dt.astimezone(ET)
-        return dt_et.strftime("%Y_%m_%d"), dt_et.strftime("%H:%M")
-    except Exception:
-        return "", ""
 
 
 def clean_decimal(value) -> str:
@@ -95,7 +76,6 @@ def clean_decimal(value) -> str:
 def clean_line(value) -> str:
     if value in ("", None):
         return ""
-
     try:
         v = float(value)
         if v.is_integer():
@@ -103,6 +83,17 @@ def clean_line(value) -> str:
         return str(v)
     except Exception:
         return str(value).strip()
+
+
+def to_et_date_time(date_str: str) -> tuple[str, str]:
+    if not date_str:
+        return "", ""
+    try:
+        dt = datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
+        dt_et = dt.astimezone(ET)
+        return dt_et.strftime("%Y_%m_%d"), dt_et.strftime("%H:%M")
+    except Exception:
+        return "", ""
 
 
 def get_markets(odds_payload: dict) -> list:
@@ -159,9 +150,6 @@ def parse_moneyline(markets: list) -> dict:
 
 
 def pick_puck_line_row(rows: list) -> dict:
-    if not rows:
-        return {}
-
     valid = [r for r in rows if isinstance(r, dict)]
     if not valid:
         return {}
@@ -218,31 +206,28 @@ def parse_spread(markets: list) -> dict:
 
 
 def pick_total_row(rows: list) -> dict:
-    if not rows:
-        return {}
-
     valid = [r for r in rows if isinstance(r, dict)]
     if not valid:
         return {}
 
-    balanced = []
+    candidates = []
 
     for row in valid:
         try:
+            hdp = float(row.get("hdp"))
             over = float(row.get("over"))
             under = float(row.get("under"))
-            hdp = float(row.get("hdp"))
 
             if over <= 1 or under <= 1:
                 continue
 
-            balanced.append((abs(over - under), hdp, row))
+            candidates.append((abs(over - under), abs(hdp), row))
         except Exception:
             continue
 
-    if balanced:
-        balanced.sort(key=lambda x: (x[0], abs(x[1])))
-        return balanced[0][2]
+    if candidates:
+        candidates.sort(key=lambda x: (x[0], x[1]))
+        return candidates[0][2]
 
     return valid[0]
 
@@ -277,7 +262,7 @@ def parse_totals(markets: list) -> dict:
     }
 
 
-def build_row(record: dict) -> dict:
+def build_row_from_raw(record: dict) -> dict:
     event = record.get("event", {})
     odds_payload = record.get("odds", {})
 
@@ -321,81 +306,71 @@ def build_row(record: dict) -> dict:
     }
 
 
+def build_row_from_existing(row: dict) -> dict:
+    return {field: row.get(field, "") for field in FIELDS}
+
+
 def write_csv(path: Path, rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=SPORTSBOOK_FIELDS)
+        writer = csv.DictWriter(f, fieldnames=FIELDS)
         writer.writeheader()
-
-        for row in rows:
-            writer.writerow({field: row.get(field, "") for field in SPORTSBOOK_FIELDS})
+        writer.writerows([{field: row.get(field, "") for field in FIELDS} for row in rows])
 
     log(f"WROTE {path} ({len(rows)} rows)")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--date", default=datetime.now(ET).strftime("%Y_%m_%d"))
-    args = parser.parse_args()
-
-    json_path = JSON_IN_DIR / f"{args.date}.json"
-
-    if not json_path.exists():
-        raise FileNotFoundError(f"Missing odds JSON: {json_path}")
-
-    log(f"Input JSON: {json_path}")
-
-    with open(json_path, "r", encoding="utf-8") as f:
-        payload = json.load(f)
-
-    raw_records = payload.get("raw", [])
-    log(f"Raw records loaded: {len(raw_records)}")
+try:
+    json_files = sorted(ODDS_DIR.glob("*.json"))
+    log(f"Odds JSON files found: {len(json_files)}")
 
     sportsbook_by_date = defaultdict(list)
+    files_processed = 0
     rows_built = 0
 
-    for record in raw_records:
-        row = build_row(record)
-        rows_built += 1
+    for json_file in json_files:
+        files_processed += 1
+        log(f"READ {json_file}")
 
-        game_date = row.get("game_date", "")
-        if game_date:
-            sportsbook_by_date[game_date].append(row)
+        with open(json_file, "r", encoding="utf-8") as f:
+            payload = json.load(f)
 
-        log(
-            "ROW "
-            f"game_id={row['game_id']} "
-            f"date={row['game_date']} "
-            f"time={row['game_time']} "
-            f"{row['away_team']} at {row['home_team']} "
-            f"ML away/home=({row['away_dk_moneyline_decimal']},"
-            f"{row['home_dk_moneyline_decimal']}) "
-            f"PL away/home=({row['away_puck_line']} "
-            f"{row['away_dk_puck_line_decimal']}, "
-            f"{row['home_puck_line']} "
-            f"{row['home_dk_puck_line_decimal']}) "
-            f"Total={row['total']} "
-            f"O/U=({row['dk_total_over_decimal']},"
-            f"{row['dk_total_under_decimal']})"
-        )
+        raw_records = payload.get("raw", [])
+        existing_rows = payload.get("rows", [])
+
+        if raw_records:
+            for record in raw_records:
+                row = build_row_from_raw(record)
+                game_date = row.get("game_date", "")
+                if game_date:
+                    sportsbook_by_date[game_date].append(row)
+                    rows_built += 1
+        elif existing_rows:
+            log(f"WARNING: {json_file} has no raw records; using existing rows")
+            for existing in existing_rows:
+                row = build_row_from_existing(existing)
+                game_date = row.get("game_date", "")
+                if game_date:
+                    sportsbook_by_date[game_date].append(row)
+                    rows_built += 1
+        else:
+            log(f"WARNING: {json_file} has no raw records and no rows")
+
+    for old_file in SPORTSBOOK_DIR.glob("NHL_*.csv"):
+        old_file.unlink()
+        log(f"REMOVED OLD SPORTSBOOK FILE: {old_file}")
 
     for game_date, rows in sorted(sportsbook_by_date.items()):
-        write_csv(SPORTSBOOK_OUT_DIR / f"NHL_{game_date}.csv", rows)
+        write_csv(SPORTSBOOK_DIR / f"NHL_{game_date}.csv", rows)
 
     log("--- SUMMARY ---")
+    log(f"JSON files processed: {files_processed}")
     log(f"Rows built: {rows_built}")
-    log(f"CSV sportsbook dates: {len(sportsbook_by_date)}")
+    log(f"Sportsbook CSV files written: {len(sportsbook_by_date)}")
     log("STATUS: SUCCESS")
 
-    print(f"WROTE {len(sportsbook_by_date)} sportsbook CSV date file(s)")
+except Exception as e:
+    log(f"FATAL ERROR: {e}\n{traceback.format_exc()}")
+    log("STATUS: FAILED")
+    raise
 
-
-if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        log(f"FATAL ERROR: {e}")
-        log(traceback.format_exc())
-        log("STATUS: FAILED")
-        raise
+print("NHL odds transform complete.")
