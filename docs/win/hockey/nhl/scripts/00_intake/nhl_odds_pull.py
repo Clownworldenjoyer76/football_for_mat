@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # docs/win/hockey/nhl/scripts/00_intake/nhl_odds_pull.py
 
+import csv
 import json
 import os
 import time
 import traceback
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -21,12 +23,39 @@ BOOKMAKER = "FanDuel"
 ET = ZoneInfo("America/New_York")
 
 JSON_OUT_DIR = Path("docs/win/hockey/nhl/odds")
+SPORTSBOOK_OUT_DIR = Path("docs/win/hockey/nhl/00_intake/sportsbook")
 LOG_DIR = Path("docs/win/hockey/nhl/errors/00_intake")
 
 JSON_OUT_DIR.mkdir(parents=True, exist_ok=True)
+SPORTSBOOK_OUT_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = LOG_DIR / "nhl_odds_pull.txt"
+
+SPORTSBOOK_FIELDS = [
+    "game_id",
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "home_team",
+    "away_team",
+    "home_dk_moneyline_american",
+    "away_dk_moneyline_american",
+    "home_puck_line",
+    "away_puck_line",
+    "total",
+    "home_dk_puck_line_american",
+    "away_dk_puck_line_american",
+    "dk_total_over_american",
+    "dk_total_under_american",
+    "home_dk_moneyline_decimal",
+    "away_dk_moneyline_decimal",
+    "home_dk_puck_line_decimal",
+    "away_dk_puck_line_decimal",
+    "dk_total_over_decimal",
+    "dk_total_under_decimal",
+]
 
 with open(LOG_FILE, "w", encoding="utf-8") as f:
     f.write(f"=== nhl_odds_pull RUN {datetime.now(ET).isoformat()} ===\n")
@@ -42,6 +71,22 @@ def get_api_key() -> str:
     if not key:
         raise RuntimeError(f"{API_KEY_ENV} environment variable is not set")
     return key
+
+
+def wipe_outputs() -> None:
+    removed_json = 0
+    removed_sportsbook = 0
+
+    for path in JSON_OUT_DIR.glob("*.json"):
+        path.unlink()
+        removed_json += 1
+
+    for path in SPORTSBOOK_OUT_DIR.glob("NHL_*.csv"):
+        path.unlink()
+        removed_sportsbook += 1
+
+    log(f"Removed old odds JSON files: {removed_json}")
+    log(f"Removed old sportsbook CSV files: {removed_sportsbook}")
 
 
 def request_json(path: str, params: dict) -> object:
@@ -160,7 +205,7 @@ def pick_puck_line_row(rows: list) -> dict:
     if not rows:
         return {}
 
-    valid = [r for r in rows if isinstance(r, dict)]
+    valid = [row for row in rows if isinstance(row, dict)]
     if not valid:
         return {}
 
@@ -219,7 +264,7 @@ def pick_total_row(rows: list) -> dict:
     if not rows:
         return {}
 
-    valid = [r for r in rows if isinstance(r, dict)]
+    valid = [row for row in rows if isinstance(row, dict)]
     if not valid:
         return {}
 
@@ -340,16 +385,41 @@ def build_row(event: dict, odds_payload: dict) -> dict:
     }
 
 
+def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=SPORTSBOOK_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in SPORTSBOOK_FIELDS})
+
+    log(f"WROTE {path} ({len(rows)} rows)")
+
+
 def main() -> None:
     api_key = get_api_key()
     run_date = datetime.now(ET).strftime("%Y_%m_%d")
     json_out_path = JSON_OUT_DIR / f"{run_date}.json"
 
+    wipe_outputs()
+
     events = fetch_events(api_key)
     log(f"EVENTS FOUND: {len(events)}")
 
+    if not events:
+        log("--- SUMMARY ---")
+        log("Events found: 0")
+        log("Normalized rows: 0")
+        log("Raw records written: 0")
+        log("Sportsbook CSV files written: 0")
+        log("STATUS: FAILED")
+        raise RuntimeError("No pending NHL events returned by odds API.")
+
     raw_records = []
     normalized_rows = []
+    rows_by_date = defaultdict(list)
     odds_errors = 0
 
     for event in events:
@@ -372,6 +442,10 @@ def main() -> None:
             )
 
             normalized_rows.append(normalized)
+
+            game_date = normalized.get("game_date", "")
+            if game_date:
+                rows_by_date[game_date].append(normalized)
 
             log(
                 "ROW "
@@ -397,6 +471,15 @@ def main() -> None:
 
         time.sleep(0.2)
 
+    if not normalized_rows:
+        log("--- SUMMARY ---")
+        log(f"Events found: {len(events)}")
+        log("Normalized rows: 0")
+        log(f"Odds errors: {odds_errors}")
+        log("Sportsbook CSV files written: 0")
+        log("STATUS: FAILED")
+        raise RuntimeError("Events were found but no normalized odds rows were written.")
+
     json_payload = {
         "run_date": run_date,
         "generated_at_et": datetime.now(ET).isoformat(),
@@ -411,19 +494,25 @@ def main() -> None:
     with open(json_out_path, "w", encoding="utf-8") as f:
         json.dump(json_payload, f, indent=2)
 
+    log(f"WROTE {json_out_path} ({len(normalized_rows)} normalized rows)")
+
+    sportsbook_files_written = 0
+
+    for game_date, rows in sorted(rows_by_date.items()):
+        write_csv(SPORTSBOOK_OUT_DIR / f"NHL_{game_date}.csv", rows)
+        sportsbook_files_written += 1
+
     log("--- SUMMARY ---")
     log(f"Events found: {len(events)}")
     log(f"Normalized rows: {len(normalized_rows)}")
     log(f"Raw records written: {len(raw_records)}")
     log(f"Odds errors: {odds_errors}")
     log(f"JSON output: {json_out_path}")
-
-    if events and not normalized_rows:
-        log("STATUS: FAILED")
-        raise RuntimeError("Events were found but no normalized odds rows were written")
-
+    log(f"Sportsbook CSV files written: {sportsbook_files_written}")
     log("STATUS: SUCCESS")
+
     print(f"WROTE {json_out_path} rows={len(normalized_rows)}")
+    print(f"WROTE {sportsbook_files_written} sportsbook CSV date file(s)")
 
 
 if __name__ == "__main__":
