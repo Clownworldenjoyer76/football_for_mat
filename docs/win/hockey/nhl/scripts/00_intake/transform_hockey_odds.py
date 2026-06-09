@@ -189,13 +189,13 @@ def parse_spread(game_id: str, markets: list, counters: dict) -> dict:
         hdp = float(row.get("hdp"))
 
         if hdp > 0:
-            home_line = -abs(hdp)
-            away_line = abs(hdp)
-            home_decimal = clean_decimal(row.get("away", ""))
-            away_decimal = clean_decimal(row.get("home", ""))
-        else:
             home_line = abs(hdp)
             away_line = -abs(hdp)
+            home_decimal = clean_decimal(row.get("home", ""))
+            away_decimal = clean_decimal(row.get("away", ""))
+        else:
+            home_line = -abs(hdp)
+            away_line = abs(hdp)
             home_decimal = clean_decimal(row.get("home", ""))
             away_decimal = clean_decimal(row.get("away", ""))
 
