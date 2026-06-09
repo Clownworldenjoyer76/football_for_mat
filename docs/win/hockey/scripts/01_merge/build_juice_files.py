@@ -1,234 +1,394 @@
 #!/usr/bin/env python3
-# docs/win/hockey/scripts/01_merge/build_juice_files.py
+# docs/win/hockey/nhl/scripts/01_merge/build_juice_files.py
 
-import pandas as pd
-import glob
+import math
 import sys
 import traceback
-import math
 from pathlib import Path
 from datetime import datetime, UTC
-from scipy.stats import skellam, poisson
 
-INPUT_DIR  = Path("docs/win/hockey/01_merge")
+import pandas as pd
+from scipy.stats import poisson, skellam
+
+
+BASE_DIR = Path("docs/win/hockey/nhl")
+
+INPUT_DIR = BASE_DIR / "01_merge"
 OUTPUT_DIR = INPUT_DIR / "01_merguiced"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-ERROR_DIR = Path("docs/win/hockey/errors/01_merge")
+ERROR_DIR = BASE_DIR / "errors" / "01_merge"
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = ERROR_DIR / "build_juice_files.txt"
+
+
+MERGED_REQUIRED_COLUMNS = [
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "game_id",
+    "away_team",
+    "home_team",
+    "away_prob_moneyline",
+    "home_prob_moneyline",
+    "away_projected_goals",
+    "home_projected_goals",
+    "total_projected_goals",
+    "away_puck_line",
+    "home_puck_line",
+    "total",
+    "away_dk_moneyline_american",
+    "home_dk_moneyline_american",
+    "away_dk_moneyline_decimal",
+    "home_dk_moneyline_decimal",
+    "away_dk_puck_line_american",
+    "home_dk_puck_line_american",
+    "away_dk_puck_line_decimal",
+    "home_dk_puck_line_decimal",
+    "dk_total_over_american",
+    "dk_total_under_american",
+    "dk_total_over_decimal",
+    "dk_total_under_decimal",
+]
+
+
+MONEYLINE_COLUMNS = [
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "game_id",
+    "away_team",
+    "home_team",
+    "away_prob_moneyline",
+    "home_prob_moneyline",
+    "away_fair_decimal_moneyline",
+    "home_fair_decimal_moneyline",
+    "away_dk_moneyline_american",
+    "home_dk_moneyline_american",
+    "away_dk_moneyline_decimal",
+    "home_dk_moneyline_decimal",
+]
+
+
+PUCK_LINE_COLUMNS = [
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "game_id",
+    "away_team",
+    "home_team",
+    "away_puck_line",
+    "home_puck_line",
+    "away_prob_puck_line",
+    "home_prob_puck_line",
+    "away_fair_decimal_puck_line",
+    "home_fair_decimal_puck_line",
+    "away_dk_puck_line_american",
+    "home_dk_puck_line_american",
+    "away_dk_puck_line_decimal",
+    "home_dk_puck_line_decimal",
+]
+
+
+TOTAL_COLUMNS = [
+    "sport",
+    "league",
+    "game_date",
+    "game_time",
+    "game_id",
+    "away_team",
+    "home_team",
+    "total",
+    "total_projected_goals",
+    "over_prob_total",
+    "under_prob_total",
+    "over_fair_decimal_total",
+    "under_fair_decimal_total",
+    "dk_total_over_american",
+    "dk_total_under_american",
+    "dk_total_over_decimal",
+    "dk_total_under_decimal",
+]
+
 
 with open(LOG_FILE, "w", encoding="utf-8") as f:
     f.write(f"=== build_juice_files RUN {datetime.now(UTC).isoformat()} ===\n")
 
-REQUIRED_COLUMNS = [
-    "league", "market", "game_date", "game_time",
-    "home_team", "away_team", "game_id",
-    "home_prob", "away_prob",
-    "away_projected_goals", "home_projected_goals", "total_projected_goals",
-    "away_puck_line", "home_puck_line", "total",
-    "away_dk_puck_line_american", "home_dk_puck_line_american",
-    "dk_total_over_american", "dk_total_under_american",
-    "away_dk_moneyline_american", "home_dk_moneyline_american",
-]
 
-
-def log(msg):
+def log(msg: str) -> None:
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"{datetime.now(UTC).isoformat()} | {msg}\n")
 
 
-def american_to_decimal(odds):
-    try:
-        if pd.isna(odds):
-            return None
-        odds = float(odds)
-        if odds == 0:
-            return None
-        if odds > 0:
-            return 1 + (odds / 100)
-        else:
-            return 1 + (100 / abs(odds))
-    except Exception:
+def wipe_output_dir() -> None:
+    removed = 0
+
+    for path in OUTPUT_DIR.glob("*.csv"):
+        path.unlink()
+        removed += 1
+
+    log(f"Wiped pre-juice CSV outputs: {removed}")
+
+
+def to_numeric(series: pd.Series) -> pd.Series:
+    return pd.to_numeric(series, errors="coerce")
+
+
+def fair_decimal(prob):
+    if pd.isna(prob) or prob <= 0:
         return None
 
-
-def poisson_cdf(k, lam):
-    return poisson.cdf(k, lam)
+    return 1 / prob
 
 
-def main():
+def calculate_home_puck_probability(home_line, home_projected_goals, away_projected_goals):
+    if (
+        pd.isna(home_line)
+        or pd.isna(home_projected_goals)
+        or pd.isna(away_projected_goals)
+        or home_projected_goals <= 0
+        or away_projected_goals <= 0
+    ):
+        return None
+
+    threshold = math.floor(-home_line)
+    probability = 1 - skellam.cdf(threshold, home_projected_goals, away_projected_goals)
+
+    if pd.isna(probability):
+        return None
+
+    return min(max(probability, 0.01), 0.99)
+
+
+def calculate_away_puck_probability(away_line, away_projected_goals, home_projected_goals):
+    if (
+        pd.isna(away_line)
+        or pd.isna(away_projected_goals)
+        or pd.isna(home_projected_goals)
+        or away_projected_goals <= 0
+        or home_projected_goals <= 0
+    ):
+        return None
+
+    threshold = math.floor(-away_line)
+    probability = 1 - skellam.cdf(threshold, away_projected_goals, home_projected_goals)
+
+    if pd.isna(probability):
+        return None
+
+    return min(max(probability, 0.01), 0.99)
+
+
+def calculate_total_probabilities(total_line, total_projected_goals):
+    if (
+        pd.isna(total_line)
+        or pd.isna(total_projected_goals)
+        or total_projected_goals <= 0
+    ):
+        return None, None
+
+    if float(total_line).is_integer():
+        return None, None
+
+    cutoff = math.floor(total_line)
+
+    under_prob = poisson.cdf(cutoff, total_projected_goals)
+    over_prob = 1 - under_prob
+
+    if pd.isna(over_prob) or pd.isna(under_prob):
+        return None, None
+
+    over_prob = min(max(over_prob, 0.01), 0.99)
+    under_prob = min(max(under_prob, 0.01), 0.99)
+
+    return over_prob, under_prob
+
+
+def validate_schema(path: Path, df: pd.DataFrame) -> list[str]:
+    return [col for col in MERGED_REQUIRED_COLUMNS if col not in df.columns]
+
+
+def build_moneyline(df: pd.DataFrame, output_path: Path) -> int:
+    moneyline = df.copy()
+
+    moneyline["away_fair_decimal_moneyline"] = moneyline["away_prob_moneyline"].apply(fair_decimal)
+    moneyline["home_fair_decimal_moneyline"] = moneyline["home_prob_moneyline"].apply(fair_decimal)
+
+    moneyline = moneyline[MONEYLINE_COLUMNS]
+    moneyline.to_csv(output_path, index=False)
+
+    log(f"WROTE {output_path} ({len(moneyline)} rows)")
+    return len(moneyline)
+
+
+def build_puck_line(df: pd.DataFrame, output_path: Path) -> int:
+    puck_line = df.copy()
+
+    away_probs = []
+    home_probs = []
+    away_fair_decimals = []
+    home_fair_decimals = []
+
+    for idx, row in puck_line.iterrows():
+        home_prob = calculate_home_puck_probability(
+            row["home_puck_line"],
+            row["home_projected_goals"],
+            row["away_projected_goals"],
+        )
+        away_prob = calculate_away_puck_probability(
+            row["away_puck_line"],
+            row["away_projected_goals"],
+            row["home_projected_goals"],
+        )
+
+        if home_prob is None or away_prob is None:
+            log(
+                f"ROW ISSUE: puck-line probability unavailable "
+                f"idx={idx} game_id={row.get('game_id', '')} "
+                f"home_line={row.get('home_puck_line', '')} "
+                f"away_line={row.get('away_puck_line', '')}"
+            )
+
+        home_probs.append(home_prob)
+        away_probs.append(away_prob)
+        home_fair_decimals.append(fair_decimal(home_prob) if home_prob is not None else None)
+        away_fair_decimals.append(fair_decimal(away_prob) if away_prob is not None else None)
+
+    puck_line["away_prob_puck_line"] = away_probs
+    puck_line["home_prob_puck_line"] = home_probs
+    puck_line["away_fair_decimal_puck_line"] = away_fair_decimals
+    puck_line["home_fair_decimal_puck_line"] = home_fair_decimals
+
+    puck_line = puck_line[PUCK_LINE_COLUMNS]
+    puck_line.to_csv(output_path, index=False)
+
+    log(f"WROTE {output_path} ({len(puck_line)} rows)")
+    return len(puck_line)
+
+
+def build_total(df: pd.DataFrame, output_path: Path) -> int:
+    total = df.copy()
+
+    over_probs = []
+    under_probs = []
+    over_fair_decimals = []
+    under_fair_decimals = []
+
+    for idx, row in total.iterrows():
+        over_prob, under_prob = calculate_total_probabilities(
+            row["total"],
+            row["total_projected_goals"],
+        )
+
+        if over_prob is None or under_prob is None:
+            log(
+                f"ROW ISSUE: total probability unavailable "
+                f"idx={idx} game_id={row.get('game_id', '')} "
+                f"total={row.get('total', '')} "
+                f"total_projected_goals={row.get('total_projected_goals', '')}"
+            )
+
+        over_probs.append(over_prob)
+        under_probs.append(under_prob)
+        over_fair_decimals.append(fair_decimal(over_prob) if over_prob is not None else None)
+        under_fair_decimals.append(fair_decimal(under_prob) if under_prob is not None else None)
+
+    total["over_prob_total"] = over_probs
+    total["under_prob_total"] = under_probs
+    total["over_fair_decimal_total"] = over_fair_decimals
+    total["under_fair_decimal_total"] = under_fair_decimals
+
+    total = total[TOTAL_COLUMNS]
+    total.to_csv(output_path, index=False)
+
+    log(f"WROTE {output_path} ({len(total)} rows)")
+    return len(total)
+
+
+def process_file(path: Path) -> list[tuple[str, int]]:
     files_written = []
-    schema_errors = 0
-    row_issues    = 0
-    empty_files   = 0
 
-    for f in OUTPUT_DIR.glob("*.csv"):
-        f.unlink()
-    
+    df = pd.read_csv(path)
+
+    if df.empty:
+        log(f"EMPTY: {path} — skipping")
+        return files_written
+
+    missing_columns = validate_schema(path, df)
+
+    if missing_columns:
+        log(f"SCHEMA ERROR: {path} missing columns: {missing_columns}")
+        raise ValueError(f"{path} missing required columns: {missing_columns}")
+
+    numeric_columns = [
+        "away_prob_moneyline",
+        "home_prob_moneyline",
+        "away_projected_goals",
+        "home_projected_goals",
+        "total_projected_goals",
+        "away_puck_line",
+        "home_puck_line",
+        "total",
+        "away_dk_moneyline_american",
+        "home_dk_moneyline_american",
+        "away_dk_moneyline_decimal",
+        "home_dk_moneyline_decimal",
+        "away_dk_puck_line_american",
+        "home_dk_puck_line_american",
+        "away_dk_puck_line_decimal",
+        "home_dk_puck_line_decimal",
+        "dk_total_over_american",
+        "dk_total_under_american",
+        "dk_total_over_decimal",
+        "dk_total_under_decimal",
+    ]
+
+    for col in numeric_columns:
+        df[col] = to_numeric(df[col])
+
+    slate_date = path.name.replace("_NHL_merged.csv", "")
+
+    moneyline_path = OUTPUT_DIR / f"{slate_date}_NHL_moneyline.csv"
+    puck_line_path = OUTPUT_DIR / f"{slate_date}_NHL_puck_line.csv"
+    total_path = OUTPUT_DIR / f"{slate_date}_NHL_total.csv"
+
+    moneyline_count = build_moneyline(df, moneyline_path)
+    files_written.append((str(moneyline_path), moneyline_count))
+
+    puck_line_count = build_puck_line(df, puck_line_path)
+    files_written.append((str(puck_line_path), puck_line_count))
+
+    total_count = build_total(df, total_path)
+    files_written.append((str(total_path), total_count))
+
+    return files_written
+
+
+def main() -> None:
+    files_written = []
+    files_processed = 0
+
     try:
-        files = glob.glob(str(INPUT_DIR / "hockey_NHL_*.csv"))
-        log(f"Input files found: {len(files)}")
+        wipe_output_dir()
 
-        for file_path in files:
-            df = pd.read_csv(file_path)
+        input_files = sorted(INPUT_DIR.glob("*_NHL_merged.csv"))
 
-            if df.empty:
-                log(f"EMPTY: {file_path} — skipping")
-                empty_files += 1
-                continue
+        log(f"Input files found: {len(input_files)}")
 
-            missing_cols = [c for c in REQUIRED_COLUMNS if c not in df.columns]
-            if missing_cols:
-                log(f"SCHEMA ERROR: {file_path} missing columns: {missing_cols}")
-                schema_errors += 1
-                continue
+        if not input_files:
+            raise FileNotFoundError(f"No merged input files found in {INPUT_DIR}")
 
-            num_cols = [
-                "home_prob", "away_prob",
-                "total_projected_goals", "home_projected_goals", "away_projected_goals",
-                "total", "home_puck_line", "away_puck_line",
-            ]
-            for col in num_cols:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-
-            for i, r in df.iterrows():
-                if pd.isna(r["home_prob"]) or pd.isna(r["away_prob"]):
-                    log(f"ROW ISSUE: {file_path} idx={i} bad probs")
-                    row_issues += 1
-
-            stem       = Path(file_path).stem
-            slate_date = stem.replace("hockey_NHL_", "")
-            market     = df["market"].iloc[0]
-
-            # =========================
-            # MONEYLINE
-            # =========================
-
-            ml = df.copy()
-            ml["away_dk_decimal_moneyline"]  = ml["away_dk_moneyline_american"].apply(american_to_decimal)
-            ml["home_dk_decimal_moneyline"]  = ml["home_dk_moneyline_american"].apply(american_to_decimal)
-            ml["away_fair_decimal_moneyline"] = ml["away_prob"].apply(
-                lambda x: 1 / x if pd.notna(x) and x > 0 else None
-            )
-            ml["home_fair_decimal_moneyline"] = ml["home_prob"].apply(
-                lambda x: 1 / x if pd.notna(x) and x > 0 else None
-            )
-            ml_path = OUTPUT_DIR / f"{slate_date}_NHL_moneyline.csv"
-            ml.to_csv(ml_path, index=False)
-            files_written.append((str(ml_path), len(ml)))
-            log(f"WROTE {ml_path} ({len(ml)} rows)")
-
-            # =========================
-            # TOTAL
-            # =========================
-
-            tot = df.copy()
-            tot["dk_total_over_decimal"]  = tot["dk_total_over_american"].apply(american_to_decimal)
-            tot["dk_total_under_decimal"] = tot["dk_total_under_american"].apply(american_to_decimal)
-
-            over  = []
-            under = []
-
-            for i, r in tot.iterrows():
-                lam = r["total_projected_goals"]
-                T   = r["total"]
-
-                if pd.isna(lam) or pd.isna(T) or lam <= 0:
-                    log(f"ROW ISSUE: {file_path} idx={i} bad total inputs")
-                    row_issues += 1
-                    over.append(None)
-                    under.append(None)
-                    continue
-
-                if T % 1 == 0:
-                    log(f"WHOLE NUMBER TOTAL: {file_path} idx={i} total={T} — push not modelled; skipping row")
-                    row_issues += 1
-                    over.append(None)
-                    under.append(None)
-                    continue
-
-                k       = math.floor(T)
-                p_under = poisson_cdf(k, lam)
-                p_over  = 1 - p_under
-
-                under.append(1 / p_under if p_under > 0 else None)
-                over.append(1 / p_over   if p_over  > 0 else None)
-
-            tot["fair_total_over_decimal"]  = over
-            tot["fair_total_under_decimal"] = under
-            tot_path = OUTPUT_DIR / f"{slate_date}_NHL_total.csv"
-            tot.to_csv(tot_path, index=False)
-            files_written.append((str(tot_path), len(tot)))
-            log(f"WROTE {tot_path} ({len(tot)} rows)")
-
-            # =========================
-            # PUCK LINE
-            # =========================
-
-            pl = df.copy()
-            pl["home_dk_puck_line_decimal"] = pl["home_dk_puck_line_american"].apply(american_to_decimal)
-            pl["away_dk_puck_line_decimal"] = pl["away_dk_puck_line_american"].apply(american_to_decimal)
-
-            home_vals  = []
-            away_vals  = []
-            home_probs = []
-            away_probs = []
-
-            for i, r in pl.iterrows():
-                lambda_home = r["home_projected_goals"]
-                lambda_away = r["away_projected_goals"]
-
-                if pd.isna(lambda_home) or pd.isna(lambda_away) or lambda_home <= 0 or lambda_away <= 0:
-                    log(f"ROW ISSUE: {file_path} idx={i} puck invalid lambdas")
-                    row_issues += 1
-                    home_vals.append(None)
-                    away_vals.append(None)
-                    home_probs.append(None)
-                    away_probs.append(None)
-                    continue
-
-                home_line = r["home_puck_line"]
-                away_line = r["away_puck_line"]
-
-                if home_line == -1.5:
-                    p_home = 1 - skellam.cdf(1, lambda_home, lambda_away)
-                    p_away = 1 - p_home
-                elif away_line == -1.5:
-                    p_away = 1 - skellam.cdf(1, lambda_away, lambda_home)
-                    p_home = 1 - p_away
-                else:
-                    log(f"ROW ISSUE: {file_path} idx={i} unexpected puck lines: home={home_line} away={away_line}")
-                    row_issues += 1
-                    home_vals.append(None)
-                    away_vals.append(None)
-                    home_probs.append(None)
-                    away_probs.append(None)
-                    continue
-
-                p_home = min(max(p_home, 0.01), 0.99)
-                p_away = min(max(p_away, 0.01), 0.99)
-
-                home_probs.append(p_home)
-                away_probs.append(p_away)
-                home_vals.append(1 / p_home)
-                away_vals.append(1 / p_away)
-
-            pl["home_fair_puck_line_decimal"] = home_vals
-            pl["away_fair_puck_line_decimal"] = away_vals
-            pl["home_prob_puck_line"]         = home_probs
-            pl["away_prob_puck_line"]         = away_probs
-
-            pl_path = OUTPUT_DIR / f"{slate_date}_NHL_puck_line.csv"
-            pl.to_csv(pl_path, index=False)
-            files_written.append((str(pl_path), len(pl)))
-            log(f"WROTE {pl_path} ({len(pl)} rows)")
+        for path in input_files:
+            log(f"Processing merged input: {path}")
+            written = process_file(path)
+            files_written.extend(written)
+            files_processed += 1
 
         log("--- SUMMARY ---")
-        log(f"Input files processed: {len(files)}")
-        log(f"Empty files skipped: {empty_files}")
-        log(f"Schema errors: {schema_errors}")
-        log(f"Row issues: {row_issues}")
+        log(f"Input files processed: {files_processed}")
         log(f"Files written: {len(files_written)}")
         for path, count in files_written:
             log(f"  FILE: {path} ({count} rows)")
