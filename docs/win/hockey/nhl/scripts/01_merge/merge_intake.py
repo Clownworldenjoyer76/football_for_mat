@@ -76,7 +76,6 @@ REJECTION_COLUMNS = [
     "home_team",
 ]
 
-
 REQUIRED_GAMES_COLUMNS = [
     "game_id",
     "sport",
@@ -153,10 +152,13 @@ def wipe_merge_outputs() -> None:
     log(f"Wiped merge CSV outputs: {removed}")
 
 
-def load_csv(path: Path) -> list[dict[str, str]]:
+def load_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
-        return list(reader)
+        fieldnames = reader.fieldnames or []
+        rows = list(reader)
+
+    return fieldnames, rows
 
 
 def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, str]]) -> None:
@@ -170,11 +172,8 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, str]]) -> 
     log(f"WROTE {path} ({len(rows)} rows)")
 
 
-def validate_required_columns(path: Path, rows: list[dict[str, str]], required_columns: list[str]) -> None:
-    if not rows:
-        return
-
-    missing = [col for col in required_columns if col not in rows[0]]
+def validate_required_columns(path: Path, fieldnames: list[str], required_columns: list[str]) -> None:
+    missing = [col for col in required_columns if col not in fieldnames]
 
     if missing:
         fail(f"{path} missing required columns: {missing}")
@@ -204,17 +203,73 @@ def validate_game_ids(path: Path, rows: list[dict[str, str]], source_name: str) 
         fail(f"{source_name} file has duplicate game_id values: {path} duplicate_game_ids={sorted(duplicate_ids)}")
 
 
-def rows_by_game_id(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
-    return {str(row.get("game_id", "")).strip(): row for row in rows}
+def row_date(row: dict[str, str]) -> str:
+    return str(row.get("game_date", "")).strip()
 
 
-def get_dates() -> list[str]:
-    dates = set()
+def row_game_id(row: dict[str, str]) -> str:
+    return str(row.get("game_id", "")).strip()
 
-    for path in PREDICTIONS_DIR.glob("hockey_*.csv"):
-        dates.add(path.name.replace("hockey_", "").replace(".csv", ""))
 
-    return sorted(dates)
+def load_source_rows(
+    source_name: str,
+    directory: Path,
+    pattern: str,
+    required_columns: list[str],
+) -> list[dict[str, str]]:
+    all_rows = []
+    files = sorted(directory.glob(pattern))
+
+    log(f"{source_name} files found: {len(files)}")
+
+    if not files:
+        fail(f"No {source_name} files found in {directory} matching {pattern}")
+
+    for path in files:
+        fieldnames, rows = load_csv(path)
+        validate_required_columns(path, fieldnames, required_columns)
+        validate_game_ids(path, rows, source_name)
+
+        for row in rows:
+            row["_source_file"] = str(path)
+            all_rows.append(row)
+
+        log(f"Loaded {source_name} file: {path} ({len(rows)} rows)")
+
+    return all_rows
+
+
+def rows_by_date_game_id(rows: list[dict[str, str]], source_name: str) -> dict[str, dict[str, dict[str, str]]]:
+    grouped = {}
+
+    seen = {}
+    duplicate_keys = set()
+    missing_date_rows = []
+
+    for idx, row in enumerate(rows, start=1):
+        game_date = row_date(row)
+        game_id = row_game_id(row)
+
+        if not game_date:
+            missing_date_rows.append((row.get("_source_file", ""), idx, game_id))
+            continue
+
+        key = (game_date, game_id)
+
+        if key in seen:
+            duplicate_keys.add(key)
+        else:
+            seen[key] = row.get("_source_file", "")
+
+        grouped.setdefault(game_date, {})[game_id] = row
+
+    if missing_date_rows:
+        fail(f"{source_name} rows have missing game_date values: {missing_date_rows}")
+
+    if duplicate_keys:
+        fail(f"{source_name} has duplicate game_date/game_id keys: {sorted(duplicate_keys)}")
+
+    return grouped
 
 
 def rejection_from_row(reason: str, row: dict[str, str]) -> dict[str, str]:
@@ -230,53 +285,23 @@ def rejection_from_row(reason: str, row: dict[str, str]) -> dict[str, str]:
     }
 
 
-def process_date(date_val: str) -> tuple[int, int, int, bool]:
-    games_path = GAMES_DIR / f"{date_val}_nhl_games.csv"
-    sportsbook_path = SPORTSBOOK_DIR / f"NHL_{date_val}.csv"
-    predictions_path = PREDICTIONS_DIR / f"hockey_{date_val}.csv"
-
+def process_date(
+    date_val: str,
+    games_map: dict[str, dict[str, str]],
+    sportsbook_map: dict[str, dict[str, str]],
+    predictions_map: dict[str, dict[str, str]],
+) -> tuple[int, int, int, bool]:
     merged_path = MERGE_DIR / f"{date_val}_NHL_merged.csv"
     audit_path = AUDIT_DIR / f"{date_val}_NHL_merge_audit.csv"
     rejected_sportsbook_path = AUDIT_DIR / f"{date_val}_NHL_rejected_sportsbook.csv"
     rejected_predictions_path = AUDIT_DIR / f"{date_val}_NHL_rejected_predictions.csv"
 
-    log(f"Processing date: {date_val}")
-    log(f"Games input: {games_path}")
-    log(f"Sportsbook input: {sportsbook_path}")
-    log(f"Predictions input: {predictions_path}")
+    log(f"Processing game_date: {date_val}")
+    log(f"Games rows for date: {len(games_map)}")
+    log(f"Sportsbook rows for date: {len(sportsbook_map)}")
+    log(f"Prediction rows for date: {len(predictions_map)}")
 
     date_has_failure = False
-
-    if not games_path.exists():
-        date_has_failure = True
-        log(f"HARD CHECK FAILURE: missing games file: {games_path}")
-        games_rows = []
-    else:
-        games_rows = load_csv(games_path)
-        validate_required_columns(games_path, games_rows, REQUIRED_GAMES_COLUMNS)
-        validate_game_ids(games_path, games_rows, "games")
-
-    if not sportsbook_path.exists():
-        date_has_failure = True
-        log(f"HARD CHECK FAILURE: missing sportsbook file: {sportsbook_path}")
-        sportsbook_rows = []
-    else:
-        sportsbook_rows = load_csv(sportsbook_path)
-        validate_required_columns(sportsbook_path, sportsbook_rows, REQUIRED_SPORTSBOOK_COLUMNS)
-        validate_game_ids(sportsbook_path, sportsbook_rows, "sportsbook")
-
-    if not predictions_path.exists():
-        date_has_failure = True
-        log(f"HARD CHECK FAILURE: missing predictions file: {predictions_path}")
-        prediction_rows = []
-    else:
-        prediction_rows = load_csv(predictions_path)
-        validate_required_columns(predictions_path, prediction_rows, REQUIRED_PREDICTION_COLUMNS)
-        validate_game_ids(predictions_path, prediction_rows, "predictions")
-
-    games_map = rows_by_game_id(games_rows)
-    sportsbook_map = rows_by_game_id(sportsbook_rows)
-    predictions_map = rows_by_game_id(prediction_rows)
 
     audit_rows = []
     rejected_sportsbook = []
@@ -371,7 +396,7 @@ def process_date(date_val: str) -> tuple[int, int, int, bool]:
 
     log(
         f"Date summary {date_val}: "
-        f"games={len(games_rows)} sportsbook={len(sportsbook_rows)} predictions={len(prediction_rows)} "
+        f"games={len(games_map)} sportsbook={len(sportsbook_map)} predictions={len(predictions_map)} "
         f"merged={len(merged_rows)} rejected_sportsbook={len(rejected_sportsbook)} "
         f"rejected_predictions={len(rejected_predictions)} audit_failures="
         f"{len([r for r in audit_rows if r['status'] != 'matched'])}"
@@ -389,14 +414,28 @@ def main() -> None:
     try:
         wipe_merge_outputs()
 
-        dates = get_dates()
-        log(f"Dates found from prediction files: {len(dates)}")
+        games_rows = load_source_rows("games", GAMES_DIR, "*_nhl_games.csv", REQUIRED_GAMES_COLUMNS)
+        sportsbook_rows = load_source_rows("sportsbook", SPORTSBOOK_DIR, "NHL_*.csv", REQUIRED_SPORTSBOOK_COLUMNS)
+        prediction_rows = load_source_rows("predictions", PREDICTIONS_DIR, "hockey_*.csv", REQUIRED_PREDICTION_COLUMNS)
+
+        games_by_date = rows_by_date_game_id(games_rows, "games")
+        sportsbook_by_date = rows_by_date_game_id(sportsbook_rows, "sportsbook")
+        predictions_by_date = rows_by_date_game_id(prediction_rows, "predictions")
+
+        dates = sorted(predictions_by_date.keys())
+
+        log(f"Dates found from prediction row game_date values: {len(dates)}")
 
         if not dates:
-            fail("No Stage 01 prediction input files found.")
+            fail("No Stage 01 prediction rows found.")
 
         for date_val in dates:
-            merged_count, rejected_sportsbook_count, rejected_predictions_count, date_has_failure = process_date(date_val)
+            merged_count, rejected_sportsbook_count, rejected_predictions_count, date_has_failure = process_date(
+                date_val,
+                games_by_date.get(date_val, {}),
+                sportsbook_by_date.get(date_val, {}),
+                predictions_by_date.get(date_val, {}),
+            )
 
             total_merged += merged_count
             total_rejected_sportsbook += rejected_sportsbook_count
