@@ -25,7 +25,6 @@ ERROR_DIR = Path("docs/win/hockey/nhl/errors/05_final_scores")
 LOG_FILE = ERROR_DIR / "transform_final_scores.txt"
 
 RAW_PATTERN = "*_nhl_raw.json"
-DATE_RE = re.compile(r"(\d{4}_\d{2}_\d{2})_nhl_raw\.json$", re.IGNORECASE)
 
 OUTPUT_COLUMNS = [
     "sport",
@@ -68,13 +67,6 @@ def wipe_outputs() -> None:
         log(f"Deleted old output: {path}")
 
 
-def extract_date_from_path(path: Path) -> str:
-    m = DATE_RE.search(path.name)
-    if not m:
-        fail(f"Could not extract date from raw filename: {path}")
-    return m.group(1)
-
-
 def load_json(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -95,12 +87,7 @@ def flatten_raw_payload(payload: Any) -> list[dict[str, Any]]:
     else:
         fail(f"Unsupported raw JSON payload type: {type(payload).__name__}")
 
-    out: list[dict[str, Any]] = []
-    for row in rows:
-        if isinstance(row, dict):
-            out.append(row)
-
-    return out
+    return [r for r in rows if isinstance(r, dict)]
 
 
 def norm_key(value: Any) -> str:
@@ -153,6 +140,53 @@ def parse_int_score(value: Any) -> int | None:
     return int(m.group(0))
 
 
+def parse_game_date(row: dict[str, Any]) -> str:
+    raw_date = first_present(
+        row,
+        [
+            "game_date",
+            "date",
+            "date_time",
+            "datetime",
+            "game_time",
+            "start_time",
+        ],
+    )
+
+    if raw_date is None:
+        return ""
+
+    s = str(raw_date).strip()
+    if not s:
+        return ""
+
+    formats = [
+        "%Y_%m_%d",
+        "%Y-%m-%d",
+        "%m/%d/%Y %I:%M %p",
+        "%m/%d/%Y %H:%M",
+        "%m/%d/%Y",
+    ]
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y_%m_%d")
+        except ValueError:
+            pass
+
+    m = re.search(r"(\d{2})/(\d{2})/(\d{4})", s)
+    if m:
+        mm, dd, yyyy = m.groups()
+        return f"{yyyy}_{mm}_{dd}"
+
+    m = re.search(r"(\d{4})[-_](\d{2})[-_](\d{2})", s)
+    if m:
+        yyyy, mm, dd = m.groups()
+        return f"{yyyy}_{mm}_{dd}"
+
+    return ""
+
+
 def is_completed(row: dict[str, Any]) -> bool:
     status = first_present(
         row,
@@ -166,8 +200,6 @@ def is_completed(row: dict[str, Any]) -> bool:
         ],
     )
 
-    status_norm = norm_key(status)
-
     completed_values = {
         "completed",
         "complete",
@@ -178,7 +210,7 @@ def is_completed(row: dict[str, Any]) -> bool:
         "closed",
     }
 
-    return status_norm in completed_values
+    return norm_key(status) in completed_values
 
 
 def get_team(row: dict[str, Any], side: str) -> str:
@@ -191,6 +223,7 @@ def get_team(row: dict[str, Any], side: str) -> str:
             "road_team",
             "team_away",
             "away_name",
+            "team1",
         ]
     elif side == "home":
         names = [
@@ -198,6 +231,7 @@ def get_team(row: dict[str, Any], side: str) -> str:
             "home",
             "team_home",
             "home_name",
+            "team2",
         ]
     else:
         fail(f"Invalid side: {side}")
@@ -218,6 +252,7 @@ def get_score(row: dict[str, Any], side: str) -> int | None:
             "road_score",
             "away_points",
             "score_away",
+            "score1",
         ]
     elif side == "home":
         names = [
@@ -225,6 +260,7 @@ def get_score(row: dict[str, Any], side: str) -> int | None:
             "home_team_score",
             "home_points",
             "score_home",
+            "score2",
         ]
     else:
         fail(f"Invalid side: {side}")
@@ -254,11 +290,20 @@ def load_games_for_date(game_date: str) -> pd.DataFrame:
     return df
 
 
-def attach_game_id(row: dict[str, Any], games_df: pd.DataFrame, game_date: str) -> str:
+def attach_game_id(row: dict[str, Any], games_cache: dict[str, pd.DataFrame]) -> str:
     raw_game_id = first_present(row, ["game_id", "id", "event_id", "gameId", "eventId"])
 
     if raw_game_id not in [None, ""]:
         return str(raw_game_id).strip()
+
+    game_date = str(row.get("game_date", "")).strip()
+    if not game_date:
+        return ""
+
+    if game_date not in games_cache:
+        games_cache[game_date] = load_games_for_date(game_date)
+
+    games_df = games_cache[game_date]
 
     if games_df.empty:
         return ""
@@ -289,12 +334,13 @@ def attach_game_id(row: dict[str, Any], games_df: pd.DataFrame, game_date: str) 
     return ""
 
 
-def build_final_score_rows(raw_rows: list[dict[str, Any]], game_date: str) -> pd.DataFrame:
-    games_df = load_games_for_date(game_date)
-
+def build_final_score_rows(raw_rows: list[dict[str, Any]]) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
+    games_cache: dict[str, pd.DataFrame] = {}
+
     raw_count = 0
     completed_count = 0
+    skipped_missing_date = 0
     skipped_missing_team = 0
     skipped_missing_score = 0
 
@@ -306,10 +352,16 @@ def build_final_score_rows(raw_rows: list[dict[str, Any]], game_date: str) -> pd
 
         completed_count += 1
 
+        game_date = parse_game_date(raw)
         away_team = get_team(raw, "away")
         home_team = get_team(raw, "home")
         away_score = get_score(raw, "away")
         home_score = get_score(raw, "home")
+
+        if not game_date:
+            skipped_missing_date += 1
+            log(f"Skipped completed row with missing/unreadable game date: {raw}")
+            continue
 
         if not away_team or not home_team:
             skipped_missing_team += 1
@@ -335,14 +387,14 @@ def build_final_score_rows(raw_rows: list[dict[str, Any]], game_date: str) -> pd
             "home_puck_line_result": "",
         }
 
-        shaped["game_id"] = attach_game_id(shaped | raw, games_df, game_date)
+        shaped["game_id"] = attach_game_id(shaped | raw, games_cache)
 
         rows.append(shaped)
 
     log(
-        f"{game_date}: raw_rows={raw_count}, completed_rows={completed_count}, "
-        f"written_rows={len(rows)}, skipped_missing_team={skipped_missing_team}, "
-        f"skipped_missing_score={skipped_missing_score}"
+        f"raw_rows={raw_count}, completed_rows={completed_count}, "
+        f"written_rows={len(rows)}, skipped_missing_date={skipped_missing_date}, "
+        f"skipped_missing_team={skipped_missing_team}, skipped_missing_score={skipped_missing_score}"
     )
 
     df = pd.DataFrame(rows, columns=OUTPUT_COLUMNS)
@@ -352,29 +404,35 @@ def build_final_score_rows(raw_rows: list[dict[str, Any]], game_date: str) -> pd
 
     missing_game_id = df["game_id"].astype(str).str.strip().eq("")
     if missing_game_id.any():
-        bad = df.loc[missing_game_id, ["game_date", "away_team", "home_team"]]
-        for _, r in bad.iterrows():
+        for _, r in df.loc[missing_game_id, ["game_date", "away_team", "home_team"]].iterrows():
             log(
                 f"Missing game_id after transform: "
                 f"{r['game_date']} | {r['away_team']} at {r['home_team']}"
             )
 
-    dupes = df[df["game_id"].astype(str).str.strip().ne("")].duplicated(
-        subset=["game_id"],
-        keep=False,
-    )
+    keyed = df[df["game_id"].astype(str).str.strip().ne("")]
+    dupes = keyed.duplicated(subset=["game_id"], keep=False)
     if dupes.any():
-        duped_ids = sorted(df.loc[dupes, "game_id"].astype(str).unique().tolist())
-        fail(f"Duplicate game_id values in transformed final scores for {game_date}: {duped_ids}")
+        duped_ids = sorted(keyed.loc[dupes, "game_id"].astype(str).unique().tolist())
+        fail(f"Duplicate game_id values in transformed final scores: {duped_ids}")
 
     return df
 
 
-def write_final_scores(df: pd.DataFrame, game_date: str) -> Path:
-    out_path = OUT_DIR / f"{game_date}_{LEAGUE_OUT}_final_scores.csv"
-    df.to_csv(out_path, index=False)
-    log(f"Wrote {len(df)} rows: {out_path}")
-    return out_path
+def write_final_scores_by_date(df: pd.DataFrame) -> int:
+    if df.empty:
+        return 0
+
+    written = 0
+
+    for game_date, date_df in df.groupby("game_date", dropna=False):
+        out_path = OUT_DIR / f"{game_date}_{LEAGUE_OUT}_final_scores.csv"
+        date_df = date_df[OUTPUT_COLUMNS].sort_values(["game_date", "game_id", "away_team", "home_team"])
+        date_df.to_csv(out_path, index=False)
+        written += len(date_df)
+        log(f"Wrote {len(date_df)} rows: {out_path}")
+
+    return written
 
 
 def main() -> int:
@@ -397,21 +455,30 @@ def main() -> int:
         log("=== transform_final_scores END ===")
         return 0
 
+    all_frames: list[pd.DataFrame] = []
     total_files = 0
-    total_rows = 0
 
     for raw_path in raw_files:
         total_files += 1
-        game_date = extract_date_from_path(raw_path)
-
         log(f"Processing raw file: {raw_path}")
 
         payload = load_json(raw_path)
         raw_rows = flatten_raw_payload(payload)
-        df = build_final_score_rows(raw_rows, game_date)
+        df = build_final_score_rows(raw_rows)
 
-        write_final_scores(df, game_date)
-        total_rows += len(df)
+        if not df.empty:
+            all_frames.append(df)
+
+    if all_frames:
+        final_df = pd.concat(all_frames, ignore_index=True)
+        final_df = final_df.drop_duplicates(
+            subset=["game_date", "away_team", "home_team", "away_score", "home_score"],
+            keep="last",
+        )
+    else:
+        final_df = pd.DataFrame(columns=OUTPUT_COLUMNS)
+
+    total_rows = write_final_scores_by_date(final_df)
 
     log(f"Files processed: {total_files}")
     log(f"Total final-score rows written: {total_rows}")
