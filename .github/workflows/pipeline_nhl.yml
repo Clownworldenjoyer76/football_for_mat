@@ -47,17 +47,10 @@ jobs:
 
       - name: Create NHL output and error folders
         run: |
-          mkdir -p docs/win/hockey/nhl/errors/00_intake
           mkdir -p docs/win/hockey/nhl/errors/01_merge
           mkdir -p docs/win/hockey/nhl/errors/02_juice
           mkdir -p docs/win/hockey/nhl/errors/03_edges
           mkdir -p docs/win/hockey/nhl/errors/04_select
-
-          mkdir -p docs/win/hockey/nhl/00_intake/games
-          mkdir -p docs/win/hockey/nhl/00_intake/drat_raw
-          mkdir -p docs/win/hockey/nhl/00_intake/drat_raw/rows
-          mkdir -p docs/win/hockey/nhl/00_intake/predictions
-          mkdir -p docs/win/hockey/nhl/00_intake/predictions/scraper
 
           mkdir -p docs/win/hockey/nhl/01_merge
           mkdir -p docs/win/hockey/nhl/01_merge/01_merguiced
@@ -68,17 +61,6 @@ jobs:
 
           mkdir -p docs/win/hockey/nhl/config/mapping
 
-      - name: 00 Intake - NHL Build Games
-        run: python docs/win/hockey/nhl/scripts/00_intake/build_games.py
-
-      - name: 00 Intake - NHL Drat Scraper
-        run: python docs/win/hockey/nhl/scripts/00_intake/hockey_drat_scraper.py
-
-      - name: 00 Intake - NHL Transform
-        run: python docs/win/hockey/nhl/scripts/00_intake/transform_hockey.py
-
-      - name: 00 Intake - NHL Prediction Name Normalization
-        run: python docs/win/hockey/nhl/scripts/00_intake/pred_name_normalization.py
 
       - name: 01 Merge - NHL Merge Intake
         run: python docs/win/hockey/nhl/scripts/01_merge/merge_intake.py
@@ -107,8 +89,6 @@ jobs:
       - name: Print NHL logs
         if: always()
         run: |
-          echo "===== NHL 00 Intake Logs ====="
-          find docs/win/hockey/nhl/errors/00_intake -type f -name "*.txt" -print -exec cat {} \; || true
 
           echo "===== NHL 01 Merge Logs ====="
           find docs/win/hockey/nhl/errors/01_merge -type f -name "*.txt" -print -exec cat {} \; || true
@@ -128,17 +108,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add docs/win/hockey/nhl/errors/00_intake/ || true
           git add docs/win/hockey/nhl/errors/01_merge/ || true
           git add docs/win/hockey/nhl/errors/02_juice/ || true
           git add docs/win/hockey/nhl/errors/03_edges/ || true
           git add docs/win/hockey/nhl/errors/04_select/ || true
-
-          git add docs/win/hockey/nhl/00_intake/games/ || true
-          git add docs/win/hockey/nhl/00_intake/drat_raw/ || true
-          git add docs/win/hockey/nhl/00_intake/drat_raw/rows/ || true
-          git add docs/win/hockey/nhl/00_intake/predictions/ || true
-          git add docs/win/hockey/nhl/00_intake/predictions/scraper/ || true
 
           git add docs/win/hockey/nhl/01_merge/ || true
           git add docs/win/hockey/nhl/02_juice/ || true
