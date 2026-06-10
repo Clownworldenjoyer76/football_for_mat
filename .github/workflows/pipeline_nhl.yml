@@ -60,6 +60,7 @@ jobs:
           mkdir -p docs/win/hockey/nhl/00_intake/predictions/scraper
 
           mkdir -p docs/win/hockey/nhl/01_merge
+          mkdir -p docs/win/hockey/nhl/01_merge/01_merguiced
           mkdir -p docs/win/hockey/nhl/02_juice
           mkdir -p docs/win/hockey/nhl/03_edges
           mkdir -p docs/win/hockey/nhl/03_edges/ev_kelly
@@ -81,6 +82,9 @@ jobs:
 
       - name: 01 Merge - NHL Merge Intake
         run: python docs/win/hockey/nhl/scripts/01_merge/merge_intake.py
+
+      - name: 01 Merge - NHL Build Juice Files
+        run: python docs/win/hockey/nhl/scripts/01_merge/build_juice_files.py
 
       - name: 02 Juice - NHL Moneyline Juice
         run: python docs/win/hockey/nhl/scripts/02_juice/apply_moneyline_juice.py
