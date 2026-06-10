@@ -1,56 +1,626 @@
-2026-06-10T10:56:16.324485+00:00 | === transform_final_scores START ===
-2026-06-10T10:56:16.324537+00:00 | RAW_DIR=docs/win/hockey/nhl/00_intake/drat_raw
-2026-06-10T10:56:16.324570+00:00 | GAMES_DIR=docs/win/hockey/nhl/00_intake/games
-2026-06-10T10:56:16.324595+00:00 | OUT_DIR=docs/win/hockey/nhl/05_final_scores/final_scores
-2026-06-10T10:56:16.324911+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_09_NHL_final_scores.csv
-2026-06-10T10:56:16.325076+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_09_nhl_raw.json
-2026-06-10T10:56:16.326160+00:00 | Stage 00 games file not found for 2026_06_06: docs/win/hockey/nhl/00_intake/games/2026_06_06_nhl_games.csv
-2026-06-10T10:56:16.326496+00:00 | Stage 00 games file not found for 2026_06_04: docs/win/hockey/nhl/00_intake/games/2026_06_04_nhl_games.csv
-2026-06-10T10:56:16.326728+00:00 | Stage 00 games file not found for 2026_06_02: docs/win/hockey/nhl/00_intake/games/2026_06_02_nhl_games.csv
-2026-06-10T10:56:16.326938+00:00 | Stage 00 games file not found for 2026_05_29: docs/win/hockey/nhl/00_intake/games/2026_05_29_nhl_games.csv
-2026-06-10T10:56:16.327137+00:00 | Stage 00 games file not found for 2026_05_27: docs/win/hockey/nhl/00_intake/games/2026_05_27_nhl_games.csv
-2026-06-10T10:56:16.327321+00:00 | Stage 00 games file not found for 2026_05_26: docs/win/hockey/nhl/00_intake/games/2026_05_26_nhl_games.csv
-2026-06-10T10:56:16.327519+00:00 | Stage 00 games file not found for 2026_05_25: docs/win/hockey/nhl/00_intake/games/2026_05_25_nhl_games.csv
-2026-06-10T10:56:16.327726+00:00 | Stage 00 games file not found for 2026_05_24: docs/win/hockey/nhl/00_intake/games/2026_05_24_nhl_games.csv
-2026-06-10T10:56:16.327946+00:00 | Stage 00 games file not found for 2026_05_23: docs/win/hockey/nhl/00_intake/games/2026_05_23_nhl_games.csv
-2026-06-10T10:56:16.328126+00:00 | Stage 00 games file not found for 2026_05_22: docs/win/hockey/nhl/00_intake/games/2026_05_22_nhl_games.csv
-2026-06-10T10:56:16.328295+00:00 | Stage 00 games file not found for 2026_05_21: docs/win/hockey/nhl/00_intake/games/2026_05_21_nhl_games.csv
-2026-06-10T10:56:16.328462+00:00 | Stage 00 games file not found for 2026_05_20: docs/win/hockey/nhl/00_intake/games/2026_05_20_nhl_games.csv
-2026-06-10T10:56:16.328637+00:00 | Stage 00 games file not found for 2026_05_18: docs/win/hockey/nhl/00_intake/games/2026_05_18_nhl_games.csv
-2026-06-10T10:56:16.328837+00:00 | Stage 00 games file not found for 2026_05_16: docs/win/hockey/nhl/00_intake/games/2026_05_16_nhl_games.csv
-2026-06-10T10:56:16.329004+00:00 | Stage 00 games file not found for 2026_05_14: docs/win/hockey/nhl/00_intake/games/2026_05_14_nhl_games.csv
-2026-06-10T10:56:16.329155+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
-2026-06-10T10:56:16.331531+00:00 | Missing game_id after transform: 2026_06_06 | Carolina Hurricanes at Vegas Golden Knights
-2026-06-10T10:56:16.331665+00:00 | Missing game_id after transform: 2026_06_04 | Vegas Golden Knights at Carolina Hurricanes
-2026-06-10T10:56:16.331825+00:00 | Missing game_id after transform: 2026_06_02 | Vegas Golden Knights at Carolina Hurricanes
-2026-06-10T10:56:16.331945+00:00 | Missing game_id after transform: 2026_05_29 | Montreal Canadiens at Carolina Hurricanes
-2026-06-10T10:56:16.332059+00:00 | Missing game_id after transform: 2026_05_27 | Carolina Hurricanes at Montreal Canadiens
-2026-06-10T10:56:16.332177+00:00 | Missing game_id after transform: 2026_05_26 | Colorado Avalanche at Vegas Golden Knights
-2026-06-10T10:56:16.332284+00:00 | Missing game_id after transform: 2026_05_25 | Carolina Hurricanes at Montreal Canadiens
-2026-06-10T10:56:16.332390+00:00 | Missing game_id after transform: 2026_05_24 | Colorado Avalanche at Vegas Golden Knights
-2026-06-10T10:56:16.332493+00:00 | Missing game_id after transform: 2026_05_23 | Montreal Canadiens at Carolina Hurricanes
-2026-06-10T10:56:16.332597+00:00 | Missing game_id after transform: 2026_05_22 | Vegas Golden Knights at Colorado Avalanche
-2026-06-10T10:56:16.332750+00:00 | Missing game_id after transform: 2026_05_21 | Montreal Canadiens at Carolina Hurricanes
-2026-06-10T10:56:16.332869+00:00 | Missing game_id after transform: 2026_05_20 | Vegas Golden Knights at Colorado Avalanche
-2026-06-10T10:56:16.332973+00:00 | Missing game_id after transform: 2026_05_18 | Montreal Canadiens at Buffalo Sabres
-2026-06-10T10:56:16.333078+00:00 | Missing game_id after transform: 2026_05_16 | Buffalo Sabres at Montreal Canadiens
-2026-06-10T10:56:16.333182+00:00 | Missing game_id after transform: 2026_05_14 | Vegas Golden Knights at Anaheim Ducks
-2026-06-10T10:56:16.333284+00:00 | Missing game_id after transform: 2026_05_14 | Montreal Canadiens at Buffalo Sabres
-2026-06-10T10:56:16.338553+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_14_NHL_final_scores.csv
-2026-06-10T10:56:16.340640+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_16_NHL_final_scores.csv
-2026-06-10T10:56:16.342571+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_18_NHL_final_scores.csv
-2026-06-10T10:56:16.344484+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_20_NHL_final_scores.csv
-2026-06-10T10:56:16.346356+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_21_NHL_final_scores.csv
-2026-06-10T10:56:16.348232+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_22_NHL_final_scores.csv
-2026-06-10T10:56:16.350083+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_23_NHL_final_scores.csv
-2026-06-10T10:56:16.351965+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_24_NHL_final_scores.csv
-2026-06-10T10:56:16.353804+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_25_NHL_final_scores.csv
-2026-06-10T10:56:16.355637+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_26_NHL_final_scores.csv
-2026-06-10T10:56:16.357463+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_27_NHL_final_scores.csv
-2026-06-10T10:56:16.359268+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_29_NHL_final_scores.csv
-2026-06-10T10:56:16.361061+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_02_NHL_final_scores.csv
-2026-06-10T10:56:16.362865+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_04_NHL_final_scores.csv
-2026-06-10T10:56:16.364635+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_06_NHL_final_scores.csv
-2026-06-10T10:56:16.364726+00:00 | Files processed: 1
-2026-06-10T10:56:16.364761+00:00 | Total final-score rows written: 16
-2026-06-10T10:56:16.364785+00:00 | === transform_final_scores END ===
+2026-06-10T12:55:28.392047+00:00 | === transform_final_scores START ===
+2026-06-10T12:55:28.392097+00:00 | RAW_DIR=docs/win/hockey/nhl/00_intake/drat_raw
+2026-06-10T12:55:28.392131+00:00 | GAMES_DIR=docs/win/hockey/nhl/00_intake/games
+2026-06-10T12:55:28.392157+00:00 | OUT_DIR=docs/win/hockey/nhl/05_final_scores/final_scores
+2026-06-10T12:55:28.392460+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_21_NHL_final_scores.csv
+2026-06-10T12:55:28.392536+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_29_NHL_final_scores.csv
+2026-06-10T12:55:28.392603+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_04_NHL_final_scores.csv
+2026-06-10T12:55:28.392670+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_18_NHL_final_scores.csv
+2026-06-10T12:55:28.392736+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_14_NHL_final_scores.csv
+2026-06-10T12:55:28.392798+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_23_NHL_final_scores.csv
+2026-06-10T12:55:28.392884+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_25_NHL_final_scores.csv
+2026-06-10T12:55:28.392954+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_06_NHL_final_scores.csv
+2026-06-10T12:55:28.393015+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_20_NHL_final_scores.csv
+2026-06-10T12:55:28.393074+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_22_NHL_final_scores.csv
+2026-06-10T12:55:28.393132+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_02_NHL_final_scores.csv
+2026-06-10T12:55:28.393191+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_24_NHL_final_scores.csv
+2026-06-10T12:55:28.393249+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_26_NHL_final_scores.csv
+2026-06-10T12:55:28.393314+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_16_NHL_final_scores.csv
+2026-06-10T12:55:28.393372+00:00 | Deleted old output: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_27_NHL_final_scores.csv
+2026-06-10T12:55:28.393747+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_13_nhl_raw.json
+2026-06-10T12:55:28.398361+00:00 | No Stage 00 game_id match for 2026_04_12: Utah Mammoth at Calgary Flames
+2026-06-10T12:55:28.399256+00:00 | No Stage 00 game_id match for 2026_04_12: Vancouver Canucks at Anaheim Ducks
+2026-06-10T12:55:28.405265+00:00 | No Stage 00 game_id match for 2026_04_11: Vancouver Canucks at San Jose Sharks
+2026-06-10T12:55:28.406037+00:00 | No Stage 00 game_id match for 2026_04_11: Vegas Golden Knights at Colorado Avalanche
+2026-06-10T12:55:28.412447+00:00 | raw_rows=26, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.414418+00:00 | Missing game_id after transform: 2026_04_12 | Utah Mammoth at Calgary Flames
+2026-06-10T12:55:28.414546+00:00 | Missing game_id after transform: 2026_04_12 | Vancouver Canucks at Anaheim Ducks
+2026-06-10T12:55:28.414663+00:00 | Missing game_id after transform: 2026_04_11 | Vancouver Canucks at San Jose Sharks
+2026-06-10T12:55:28.414772+00:00 | Missing game_id after transform: 2026_04_11 | Vegas Golden Knights at Colorado Avalanche
+2026-06-10T12:55:28.415693+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_14_nhl_raw.json
+2026-06-10T12:55:28.418237+00:00 | No Stage 00 game_id match for 2026_04_13: Winnipeg Jets at Vegas Golden Knights
+2026-06-10T12:55:28.419011+00:00 | No Stage 00 game_id match for 2026_04_13: Los Angeles Kings at Seattle Kraken
+2026-06-10T12:55:28.419728+00:00 | No Stage 00 game_id match for 2026_04_13: Colorado Avalanche at Edmonton Oilers
+2026-06-10T12:55:28.420447+00:00 | No Stage 00 game_id match for 2026_04_13: Buffalo Sabres at Chicago Blackhawks
+2026-06-10T12:55:28.421182+00:00 | No Stage 00 game_id match for 2026_04_13: Minnesota Wild at St. Louis Blues
+2026-06-10T12:55:28.421911+00:00 | No Stage 00 game_id match for 2026_04_13: San Jose Sharks at Nashville Predators
+2026-06-10T12:55:28.427418+00:00 | No Stage 00 game_id match for 2026_04_12: Utah Mammoth at Calgary Flames
+2026-06-10T12:55:28.428172+00:00 | No Stage 00 game_id match for 2026_04_12: Vancouver Canucks at Anaheim Ducks
+2026-06-10T12:55:28.431483+00:00 | raw_rows=25, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.433084+00:00 | Missing game_id after transform: 2026_04_13 | Winnipeg Jets at Vegas Golden Knights
+2026-06-10T12:55:28.433206+00:00 | Missing game_id after transform: 2026_04_13 | Los Angeles Kings at Seattle Kraken
+2026-06-10T12:55:28.433316+00:00 | Missing game_id after transform: 2026_04_13 | Colorado Avalanche at Edmonton Oilers
+2026-06-10T12:55:28.433422+00:00 | Missing game_id after transform: 2026_04_13 | Buffalo Sabres at Chicago Blackhawks
+2026-06-10T12:55:28.433529+00:00 | Missing game_id after transform: 2026_04_13 | Minnesota Wild at St. Louis Blues
+2026-06-10T12:55:28.433633+00:00 | Missing game_id after transform: 2026_04_13 | San Jose Sharks at Nashville Predators
+2026-06-10T12:55:28.433736+00:00 | Missing game_id after transform: 2026_04_12 | Utah Mammoth at Calgary Flames
+2026-06-10T12:55:28.433887+00:00 | Missing game_id after transform: 2026_04_12 | Vancouver Canucks at Anaheim Ducks
+2026-06-10T12:55:28.434699+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_15_nhl_raw.json
+2026-06-10T12:55:28.437162+00:00 | No Stage 00 game_id match for 2026_04_14: Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.437928+00:00 | No Stage 00 game_id match for 2026_04_14: Pittsburgh Penguins at St. Louis Blues
+2026-06-10T12:55:28.438637+00:00 | No Stage 00 game_id match for 2026_04_14: Winnipeg Jets at Utah Mammoth
+2026-06-10T12:55:28.439385+00:00 | No Stage 00 game_id match for 2026_04_14: Colorado Avalanche at Calgary Flames
+2026-06-10T12:55:28.440123+00:00 | No Stage 00 game_id match for 2026_04_14: Anaheim Ducks at Minnesota Wild
+2026-06-10T12:55:28.445503+00:00 | No Stage 00 game_id match for 2026_04_13: Winnipeg Jets at Vegas Golden Knights
+2026-06-10T12:55:28.446255+00:00 | No Stage 00 game_id match for 2026_04_13: Los Angeles Kings at Seattle Kraken
+2026-06-10T12:55:28.446988+00:00 | No Stage 00 game_id match for 2026_04_13: Colorado Avalanche at Edmonton Oilers
+2026-06-10T12:55:28.447673+00:00 | No Stage 00 game_id match for 2026_04_13: Buffalo Sabres at Chicago Blackhawks
+2026-06-10T12:55:28.448388+00:00 | No Stage 00 game_id match for 2026_04_13: Minnesota Wild at St. Louis Blues
+2026-06-10T12:55:28.449098+00:00 | No Stage 00 game_id match for 2026_04_13: San Jose Sharks at Nashville Predators
+2026-06-10T12:55:28.449955+00:00 | raw_rows=22, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.451563+00:00 | Missing game_id after transform: 2026_04_14 | Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.451686+00:00 | Missing game_id after transform: 2026_04_14 | Pittsburgh Penguins at St. Louis Blues
+2026-06-10T12:55:28.451799+00:00 | Missing game_id after transform: 2026_04_14 | Winnipeg Jets at Utah Mammoth
+2026-06-10T12:55:28.451935+00:00 | Missing game_id after transform: 2026_04_14 | Colorado Avalanche at Calgary Flames
+2026-06-10T12:55:28.452043+00:00 | Missing game_id after transform: 2026_04_14 | Anaheim Ducks at Minnesota Wild
+2026-06-10T12:55:28.452147+00:00 | Missing game_id after transform: 2026_04_13 | Winnipeg Jets at Vegas Golden Knights
+2026-06-10T12:55:28.452255+00:00 | Missing game_id after transform: 2026_04_13 | Los Angeles Kings at Seattle Kraken
+2026-06-10T12:55:28.452363+00:00 | Missing game_id after transform: 2026_04_13 | Colorado Avalanche at Edmonton Oilers
+2026-06-10T12:55:28.452465+00:00 | Missing game_id after transform: 2026_04_13 | Buffalo Sabres at Chicago Blackhawks
+2026-06-10T12:55:28.452587+00:00 | Missing game_id after transform: 2026_04_13 | Minnesota Wild at St. Louis Blues
+2026-06-10T12:55:28.452704+00:00 | Missing game_id after transform: 2026_04_13 | San Jose Sharks at Nashville Predators
+2026-06-10T12:55:28.453516+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_16_nhl_raw.json
+2026-06-10T12:55:28.455973+00:00 | No Stage 00 game_id match for 2026_04_15: Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.456689+00:00 | No Stage 00 game_id match for 2026_04_15: San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.462267+00:00 | No Stage 00 game_id match for 2026_04_14: Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.463016+00:00 | No Stage 00 game_id match for 2026_04_14: Pittsburgh Penguins at St. Louis Blues
+2026-06-10T12:55:28.463736+00:00 | No Stage 00 game_id match for 2026_04_14: Winnipeg Jets at Utah Mammoth
+2026-06-10T12:55:28.464465+00:00 | No Stage 00 game_id match for 2026_04_14: Colorado Avalanche at Calgary Flames
+2026-06-10T12:55:28.465185+00:00 | No Stage 00 game_id match for 2026_04_14: Anaheim Ducks at Minnesota Wild
+2026-06-10T12:55:28.470663+00:00 | No Stage 00 game_id match for 2026_04_13: Winnipeg Jets at Vegas Golden Knights
+2026-06-10T12:55:28.470715+00:00 | raw_rows=22, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.472282+00:00 | Missing game_id after transform: 2026_04_15 | Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.472403+00:00 | Missing game_id after transform: 2026_04_15 | San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.472513+00:00 | Missing game_id after transform: 2026_04_14 | Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.472620+00:00 | Missing game_id after transform: 2026_04_14 | Pittsburgh Penguins at St. Louis Blues
+2026-06-10T12:55:28.472730+00:00 | Missing game_id after transform: 2026_04_14 | Winnipeg Jets at Utah Mammoth
+2026-06-10T12:55:28.472836+00:00 | Missing game_id after transform: 2026_04_14 | Colorado Avalanche at Calgary Flames
+2026-06-10T12:55:28.472973+00:00 | Missing game_id after transform: 2026_04_14 | Anaheim Ducks at Minnesota Wild
+2026-06-10T12:55:28.473078+00:00 | Missing game_id after transform: 2026_04_13 | Winnipeg Jets at Vegas Golden Knights
+2026-06-10T12:55:28.473896+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_17_nhl_raw.json
+2026-06-10T12:55:28.476190+00:00 | No Stage 00 game_id match for 2026_04_16: Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.476937+00:00 | No Stage 00 game_id match for 2026_04_16: Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.477642+00:00 | No Stage 00 game_id match for 2026_04_16: Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.478401+00:00 | No Stage 00 game_id match for 2026_04_16: Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.479130+00:00 | No Stage 00 game_id match for 2026_04_16: San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.482191+00:00 | No Stage 00 game_id match for 2026_04_15: Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.482942+00:00 | No Stage 00 game_id match for 2026_04_15: San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.488379+00:00 | No Stage 00 game_id match for 2026_04_14: Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.489118+00:00 | No Stage 00 game_id match for 2026_04_14: Pittsburgh Penguins at St. Louis Blues
+2026-06-10T12:55:28.489809+00:00 | No Stage 00 game_id match for 2026_04_14: Winnipeg Jets at Utah Mammoth
+2026-06-10T12:55:28.490530+00:00 | No Stage 00 game_id match for 2026_04_14: Colorado Avalanche at Calgary Flames
+2026-06-10T12:55:28.490578+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.492263+00:00 | Missing game_id after transform: 2026_04_16 | Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.492385+00:00 | Missing game_id after transform: 2026_04_16 | Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.492502+00:00 | Missing game_id after transform: 2026_04_16 | Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.492608+00:00 | Missing game_id after transform: 2026_04_16 | Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.492712+00:00 | Missing game_id after transform: 2026_04_16 | San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.492816+00:00 | Missing game_id after transform: 2026_04_15 | Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.492951+00:00 | Missing game_id after transform: 2026_04_15 | San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.493057+00:00 | Missing game_id after transform: 2026_04_14 | Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.493159+00:00 | Missing game_id after transform: 2026_04_14 | Pittsburgh Penguins at St. Louis Blues
+2026-06-10T12:55:28.493266+00:00 | Missing game_id after transform: 2026_04_14 | Winnipeg Jets at Utah Mammoth
+2026-06-10T12:55:28.493367+00:00 | Missing game_id after transform: 2026_04_14 | Colorado Avalanche at Calgary Flames
+2026-06-10T12:55:28.494168+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_18_nhl_raw.json
+2026-06-10T12:55:28.496500+00:00 | No Stage 00 game_id match for 2026_04_16: Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.497256+00:00 | No Stage 00 game_id match for 2026_04_16: Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.498004+00:00 | No Stage 00 game_id match for 2026_04_16: Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.498716+00:00 | No Stage 00 game_id match for 2026_04_16: Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.499436+00:00 | No Stage 00 game_id match for 2026_04_16: San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.502511+00:00 | No Stage 00 game_id match for 2026_04_15: Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.503258+00:00 | No Stage 00 game_id match for 2026_04_15: San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.508720+00:00 | No Stage 00 game_id match for 2026_04_14: Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.509455+00:00 | No Stage 00 game_id match for 2026_04_14: Pittsburgh Penguins at St. Louis Blues
+2026-06-10T12:55:28.510194+00:00 | No Stage 00 game_id match for 2026_04_14: Winnipeg Jets at Utah Mammoth
+2026-06-10T12:55:28.510940+00:00 | No Stage 00 game_id match for 2026_04_14: Colorado Avalanche at Calgary Flames
+2026-06-10T12:55:28.510989+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.512578+00:00 | Missing game_id after transform: 2026_04_16 | Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.512701+00:00 | Missing game_id after transform: 2026_04_16 | Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.512817+00:00 | Missing game_id after transform: 2026_04_16 | Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.512956+00:00 | Missing game_id after transform: 2026_04_16 | Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.513065+00:00 | Missing game_id after transform: 2026_04_16 | San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.513169+00:00 | Missing game_id after transform: 2026_04_15 | Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.513271+00:00 | Missing game_id after transform: 2026_04_15 | San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.513373+00:00 | Missing game_id after transform: 2026_04_14 | Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.513475+00:00 | Missing game_id after transform: 2026_04_14 | Pittsburgh Penguins at St. Louis Blues
+2026-06-10T12:55:28.513576+00:00 | Missing game_id after transform: 2026_04_14 | Winnipeg Jets at Utah Mammoth
+2026-06-10T12:55:28.513677+00:00 | Missing game_id after transform: 2026_04_14 | Colorado Avalanche at Calgary Flames
+2026-06-10T12:55:28.514484+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_19_nhl_raw.json
+2026-06-10T12:55:28.516775+00:00 | No Stage 00 game_id match for 2026_04_18: Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.520560+00:00 | No Stage 00 game_id match for 2026_04_16: Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.521312+00:00 | No Stage 00 game_id match for 2026_04_16: Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.522042+00:00 | No Stage 00 game_id match for 2026_04_16: Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.522741+00:00 | No Stage 00 game_id match for 2026_04_16: Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.523463+00:00 | No Stage 00 game_id match for 2026_04_16: San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.526472+00:00 | No Stage 00 game_id match for 2026_04_15: Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.527215+00:00 | No Stage 00 game_id match for 2026_04_15: San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.532645+00:00 | No Stage 00 game_id match for 2026_04_14: Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.532697+00:00 | raw_rows=20, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.534216+00:00 | Missing game_id after transform: 2026_04_18 | Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.534336+00:00 | Missing game_id after transform: 2026_04_16 | Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.534445+00:00 | Missing game_id after transform: 2026_04_16 | Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.534550+00:00 | Missing game_id after transform: 2026_04_16 | Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.534654+00:00 | Missing game_id after transform: 2026_04_16 | Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.534758+00:00 | Missing game_id after transform: 2026_04_16 | San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.534947+00:00 | Missing game_id after transform: 2026_04_15 | Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.535076+00:00 | Missing game_id after transform: 2026_04_15 | San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.535208+00:00 | Missing game_id after transform: 2026_04_14 | Los Angeles Kings at Vancouver Canucks
+2026-06-10T12:55:28.536465+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_20_nhl_raw.json
+2026-06-10T12:55:28.538825+00:00 | No Stage 00 game_id match for 2026_04_19: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.543431+00:00 | No Stage 00 game_id match for 2026_04_18: Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.547173+00:00 | No Stage 00 game_id match for 2026_04_16: Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.547916+00:00 | No Stage 00 game_id match for 2026_04_16: Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.548615+00:00 | No Stage 00 game_id match for 2026_04_16: Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.549333+00:00 | No Stage 00 game_id match for 2026_04_16: Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.550048+00:00 | No Stage 00 game_id match for 2026_04_16: San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.553043+00:00 | No Stage 00 game_id match for 2026_04_15: Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.553755+00:00 | No Stage 00 game_id match for 2026_04_15: San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.554623+00:00 | raw_rows=20, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.556249+00:00 | Missing game_id after transform: 2026_04_19 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.556371+00:00 | Missing game_id after transform: 2026_04_18 | Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.556480+00:00 | Missing game_id after transform: 2026_04_16 | Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.556586+00:00 | Missing game_id after transform: 2026_04_16 | Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.556688+00:00 | Missing game_id after transform: 2026_04_16 | Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.556800+00:00 | Missing game_id after transform: 2026_04_16 | Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.556932+00:00 | Missing game_id after transform: 2026_04_16 | San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.557038+00:00 | Missing game_id after transform: 2026_04_15 | Seattle Kraken at Vegas Golden Knights
+2026-06-10T12:55:28.557138+00:00 | Missing game_id after transform: 2026_04_15 | San Jose Sharks at Chicago Blackhawks
+2026-06-10T12:55:28.557928+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_21_nhl_raw.json
+2026-06-10T12:55:28.560200+00:00 | No Stage 00 game_id match for 2026_04_20: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.560953+00:00 | No Stage 00 game_id match for 2026_04_20: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.564698+00:00 | No Stage 00 game_id match for 2026_04_19: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.569248+00:00 | No Stage 00 game_id match for 2026_04_18: Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.572993+00:00 | No Stage 00 game_id match for 2026_04_16: Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.573695+00:00 | No Stage 00 game_id match for 2026_04_16: Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.574418+00:00 | No Stage 00 game_id match for 2026_04_16: Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.575138+00:00 | No Stage 00 game_id match for 2026_04_16: Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.575832+00:00 | No Stage 00 game_id match for 2026_04_16: San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.575901+00:00 | raw_rows=20, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.577409+00:00 | Missing game_id after transform: 2026_04_20 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.577529+00:00 | Missing game_id after transform: 2026_04_20 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.577636+00:00 | Missing game_id after transform: 2026_04_19 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.577743+00:00 | Missing game_id after transform: 2026_04_18 | Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.577880+00:00 | Missing game_id after transform: 2026_04_16 | Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.577996+00:00 | Missing game_id after transform: 2026_04_16 | Los Angeles Kings at Calgary Flames
+2026-06-10T12:55:28.578101+00:00 | Missing game_id after transform: 2026_04_16 | Vancouver Canucks at Edmonton Oilers
+2026-06-10T12:55:28.578204+00:00 | Missing game_id after transform: 2026_04_16 | Anaheim Ducks at Nashville Predators
+2026-06-10T12:55:28.578307+00:00 | Missing game_id after transform: 2026_04_16 | San Jose Sharks at Winnipeg Jets
+2026-06-10T12:55:28.579100+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_22_nhl_raw.json
+2026-06-10T12:55:28.581372+00:00 | No Stage 00 game_id match for 2026_04_21: Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.582121+00:00 | No Stage 00 game_id match for 2026_04_21: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.585839+00:00 | No Stage 00 game_id match for 2026_04_20: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.586577+00:00 | No Stage 00 game_id match for 2026_04_20: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.590325+00:00 | No Stage 00 game_id match for 2026_04_19: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.594820+00:00 | No Stage 00 game_id match for 2026_04_18: Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.598765+00:00 | No Stage 00 game_id match for 2026_04_16: Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.598817+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.600369+00:00 | Missing game_id after transform: 2026_04_21 | Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.600490+00:00 | Missing game_id after transform: 2026_04_21 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.600610+00:00 | Missing game_id after transform: 2026_04_20 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.600717+00:00 | Missing game_id after transform: 2026_04_20 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.600832+00:00 | Missing game_id after transform: 2026_04_19 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.600969+00:00 | Missing game_id after transform: 2026_04_18 | Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.601094+00:00 | Missing game_id after transform: 2026_04_16 | Seattle Kraken at Colorado Avalanche
+2026-06-10T12:55:28.601935+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_23_nhl_raw.json
+2026-06-10T12:55:28.604294+00:00 | No Stage 00 game_id match for 2026_04_22: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.605050+00:00 | No Stage 00 game_id match for 2026_04_22: Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.608041+00:00 | No Stage 00 game_id match for 2026_04_21: Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.608755+00:00 | No Stage 00 game_id match for 2026_04_21: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.612706+00:00 | No Stage 00 game_id match for 2026_04_20: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.613450+00:00 | No Stage 00 game_id match for 2026_04_20: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.617327+00:00 | No Stage 00 game_id match for 2026_04_19: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.622023+00:00 | No Stage 00 game_id match for 2026_04_18: Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.622074+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.623619+00:00 | Missing game_id after transform: 2026_04_22 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.623741+00:00 | Missing game_id after transform: 2026_04_22 | Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.623876+00:00 | Missing game_id after transform: 2026_04_21 | Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.623990+00:00 | Missing game_id after transform: 2026_04_21 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.624095+00:00 | Missing game_id after transform: 2026_04_20 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.624198+00:00 | Missing game_id after transform: 2026_04_20 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.624300+00:00 | Missing game_id after transform: 2026_04_19 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.624402+00:00 | Missing game_id after transform: 2026_04_18 | Philadelphia Flyers at Pittsburgh Penguins
+2026-06-10T12:55:28.625202+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_24_nhl_raw.json
+2026-06-10T12:55:28.627505+00:00 | No Stage 00 game_id match for 2026_04_23: Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.631276+00:00 | No Stage 00 game_id match for 2026_04_22: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.632015+00:00 | No Stage 00 game_id match for 2026_04_22: Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.635049+00:00 | No Stage 00 game_id match for 2026_04_21: Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.635776+00:00 | No Stage 00 game_id match for 2026_04_21: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.639596+00:00 | No Stage 00 game_id match for 2026_04_20: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.640348+00:00 | No Stage 00 game_id match for 2026_04_20: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.644127+00:00 | No Stage 00 game_id match for 2026_04_19: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.644999+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.646537+00:00 | Missing game_id after transform: 2026_04_23 | Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.646659+00:00 | Missing game_id after transform: 2026_04_22 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.646777+00:00 | Missing game_id after transform: 2026_04_22 | Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.646911+00:00 | Missing game_id after transform: 2026_04_21 | Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.647021+00:00 | Missing game_id after transform: 2026_04_21 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.647124+00:00 | Missing game_id after transform: 2026_04_20 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.647228+00:00 | Missing game_id after transform: 2026_04_20 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.647329+00:00 | Missing game_id after transform: 2026_04_19 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.648120+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_25_nhl_raw.json
+2026-06-10T12:55:28.650363+00:00 | No Stage 00 game_id match for 2026_04_24: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.651106+00:00 | No Stage 00 game_id match for 2026_04_24: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.654064+00:00 | No Stage 00 game_id match for 2026_04_23: Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.657824+00:00 | No Stage 00 game_id match for 2026_04_22: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.658562+00:00 | No Stage 00 game_id match for 2026_04_22: Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.661494+00:00 | No Stage 00 game_id match for 2026_04_21: Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.662236+00:00 | No Stage 00 game_id match for 2026_04_21: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.666020+00:00 | No Stage 00 game_id match for 2026_04_20: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.666755+00:00 | No Stage 00 game_id match for 2026_04_20: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.667638+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.669196+00:00 | Missing game_id after transform: 2026_04_24 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.669317+00:00 | Missing game_id after transform: 2026_04_24 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.669426+00:00 | Missing game_id after transform: 2026_04_23 | Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.669530+00:00 | Missing game_id after transform: 2026_04_22 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.669635+00:00 | Missing game_id after transform: 2026_04_22 | Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.669738+00:00 | Missing game_id after transform: 2026_04_21 | Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.669838+00:00 | Missing game_id after transform: 2026_04_21 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.669974+00:00 | Missing game_id after transform: 2026_04_20 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.670078+00:00 | Missing game_id after transform: 2026_04_20 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.670905+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_26_nhl_raw.json
+2026-06-10T12:55:28.673189+00:00 | No Stage 00 game_id match for 2026_04_25: Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.676933+00:00 | No Stage 00 game_id match for 2026_04_24: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.677639+00:00 | No Stage 00 game_id match for 2026_04_24: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.680676+00:00 | No Stage 00 game_id match for 2026_04_23: Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.684438+00:00 | No Stage 00 game_id match for 2026_04_22: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.685176+00:00 | No Stage 00 game_id match for 2026_04_22: Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.688130+00:00 | No Stage 00 game_id match for 2026_04_21: Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.688881+00:00 | No Stage 00 game_id match for 2026_04_21: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.690534+00:00 | raw_rows=20, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.692309+00:00 | Missing game_id after transform: 2026_04_25 | Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.692430+00:00 | Missing game_id after transform: 2026_04_24 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.692539+00:00 | Missing game_id after transform: 2026_04_24 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.692645+00:00 | Missing game_id after transform: 2026_04_23 | Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.692748+00:00 | Missing game_id after transform: 2026_04_22 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.692873+00:00 | Missing game_id after transform: 2026_04_22 | Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.692983+00:00 | Missing game_id after transform: 2026_04_21 | Los Angeles Kings at Colorado Avalanche
+2026-06-10T12:55:28.693084+00:00 | Missing game_id after transform: 2026_04_21 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.693868+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_27_nhl_raw.json
+2026-06-10T12:55:28.696149+00:00 | No Stage 00 game_id match for 2026_04_26: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.700799+00:00 | No Stage 00 game_id match for 2026_04_25: Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.704600+00:00 | No Stage 00 game_id match for 2026_04_24: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.705345+00:00 | No Stage 00 game_id match for 2026_04_24: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.708358+00:00 | No Stage 00 game_id match for 2026_04_23: Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.712201+00:00 | No Stage 00 game_id match for 2026_04_22: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.712945+00:00 | No Stage 00 game_id match for 2026_04_22: Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.713803+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.715390+00:00 | Missing game_id after transform: 2026_04_26 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.715511+00:00 | Missing game_id after transform: 2026_04_25 | Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.715619+00:00 | Missing game_id after transform: 2026_04_24 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.715724+00:00 | Missing game_id after transform: 2026_04_24 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.715827+00:00 | Missing game_id after transform: 2026_04_23 | Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.715966+00:00 | Missing game_id after transform: 2026_04_22 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.716072+00:00 | Missing game_id after transform: 2026_04_22 | Dallas Stars at Minnesota Wild
+2026-06-10T12:55:28.716828+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_28_nhl_raw.json
+2026-06-10T12:55:28.722149+00:00 | No Stage 00 game_id match for 2026_04_26: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.726647+00:00 | No Stage 00 game_id match for 2026_04_25: Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.730380+00:00 | No Stage 00 game_id match for 2026_04_24: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.731123+00:00 | No Stage 00 game_id match for 2026_04_24: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.734085+00:00 | No Stage 00 game_id match for 2026_04_23: Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.737922+00:00 | No Stage 00 game_id match for 2026_04_22: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.737972+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.739428+00:00 | Missing game_id after transform: 2026_04_26 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.739549+00:00 | Missing game_id after transform: 2026_04_25 | Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.739668+00:00 | Missing game_id after transform: 2026_04_24 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.739774+00:00 | Missing game_id after transform: 2026_04_24 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.739903+00:00 | Missing game_id after transform: 2026_04_23 | Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.740011+00:00 | Missing game_id after transform: 2026_04_22 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.740774+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_29_nhl_raw.json
+2026-06-10T12:55:28.743045+00:00 | No Stage 00 game_id match for 2026_04_28: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.743770+00:00 | No Stage 00 game_id match for 2026_04_28: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.749717+00:00 | No Stage 00 game_id match for 2026_04_26: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.754322+00:00 | No Stage 00 game_id match for 2026_04_25: Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.757998+00:00 | No Stage 00 game_id match for 2026_04_24: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.758703+00:00 | No Stage 00 game_id match for 2026_04_24: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.761697+00:00 | No Stage 00 game_id match for 2026_04_23: Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.761748+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.763256+00:00 | Missing game_id after transform: 2026_04_28 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.763377+00:00 | Missing game_id after transform: 2026_04_28 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.763486+00:00 | Missing game_id after transform: 2026_04_26 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.763591+00:00 | Missing game_id after transform: 2026_04_25 | Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.763705+00:00 | Missing game_id after transform: 2026_04_24 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.763810+00:00 | Missing game_id after transform: 2026_04_24 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.763942+00:00 | Missing game_id after transform: 2026_04_23 | Colorado Avalanche at Los Angeles Kings
+2026-06-10T12:55:28.764809+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_04_30_nhl_raw.json
+2026-06-10T12:55:28.767090+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.770761+00:00 | No Stage 00 game_id match for 2026_04_28: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.771497+00:00 | No Stage 00 game_id match for 2026_04_28: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.777449+00:00 | No Stage 00 game_id match for 2026_04_26: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.781945+00:00 | No Stage 00 game_id match for 2026_04_25: Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.785700+00:00 | No Stage 00 game_id match for 2026_04_24: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.785751+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.787253+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.787373+00:00 | Missing game_id after transform: 2026_04_28 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.787530+00:00 | Missing game_id after transform: 2026_04_28 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.787700+00:00 | Missing game_id after transform: 2026_04_26 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.787874+00:00 | Missing game_id after transform: 2026_04_25 | Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.788038+00:00 | Missing game_id after transform: 2026_04_24 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.788820+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_01_nhl_raw.json
+2026-06-10T12:55:28.791198+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.794247+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.798096+00:00 | No Stage 00 game_id match for 2026_04_28: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.798835+00:00 | No Stage 00 game_id match for 2026_04_28: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.804983+00:00 | No Stage 00 game_id match for 2026_04_26: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.809737+00:00 | No Stage 00 game_id match for 2026_04_25: Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.810630+00:00 | raw_rows=19, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.812143+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.812267+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.812377+00:00 | Missing game_id after transform: 2026_04_28 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.812483+00:00 | Missing game_id after transform: 2026_04_28 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.812588+00:00 | Missing game_id after transform: 2026_04_26 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.812690+00:00 | Missing game_id after transform: 2026_04_25 | Pittsburgh Penguins at Philadelphia Flyers
+2026-06-10T12:55:28.813487+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_02_nhl_raw.json
+2026-06-10T12:55:28.815802+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.819623+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.822655+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.826433+00:00 | No Stage 00 game_id match for 2026_04_28: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.827180+00:00 | No Stage 00 game_id match for 2026_04_28: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.833252+00:00 | No Stage 00 game_id match for 2026_04_26: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.834903+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.836354+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.836474+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.836582+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.836717+00:00 | Missing game_id after transform: 2026_04_28 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.836899+00:00 | Missing game_id after transform: 2026_04_28 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.837063+00:00 | Missing game_id after transform: 2026_04_26 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.838362+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_03_nhl_raw.json
+2026-06-10T12:55:28.845925+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.851075+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.854151+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.858095+00:00 | No Stage 00 game_id match for 2026_04_28: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.858817+00:00 | No Stage 00 game_id match for 2026_04_28: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.864933+00:00 | No Stage 00 game_id match for 2026_04_26: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.865781+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.867321+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.867444+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.867555+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.867662+00:00 | Missing game_id after transform: 2026_04_28 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.867767+00:00 | Missing game_id after transform: 2026_04_28 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.867896+00:00 | Missing game_id after transform: 2026_04_26 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.868671+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_04_nhl_raw.json
+2026-06-10T12:55:28.870974+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.876225+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.879995+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.882997+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.886720+00:00 | No Stage 00 game_id match for 2026_04_28: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.887458+00:00 | No Stage 00 game_id match for 2026_04_28: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.891421+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.892889+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.893013+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.893121+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.893226+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.893354+00:00 | Missing game_id after transform: 2026_04_28 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.893459+00:00 | Missing game_id after transform: 2026_04_28 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.894249+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_05_nhl_raw.json
+2026-06-10T12:55:28.897370+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:28.899491+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.904653+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.908443+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.911745+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.915588+00:00 | No Stage 00 game_id match for 2026_04_28: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.916328+00:00 | No Stage 00 game_id match for 2026_04_28: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.917207+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.918708+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:28.918829+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.918967+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.919074+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.919187+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.919314+00:00 | Missing game_id after transform: 2026_04_28 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.919418+00:00 | Missing game_id after transform: 2026_04_28 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.920221+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_06_nhl_raw.json
+2026-06-10T12:55:28.922540+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.925547+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:28.927652+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.932899+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.936604+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.939613+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.943393+00:00 | No Stage 00 game_id match for 2026_04_28: Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.944134+00:00 | No Stage 00 game_id match for 2026_04_28: Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.944182+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.945677+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.945797+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:28.945942+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.946073+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.946179+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.946293+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.946441+00:00 | Missing game_id after transform: 2026_04_28 | Anaheim Ducks at Edmonton Oilers
+2026-06-10T12:55:28.946552+00:00 | Missing game_id after transform: 2026_04_28 | Minnesota Wild at Dallas Stars
+2026-06-10T12:55:28.947358+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_07_nhl_raw.json
+2026-06-10T12:55:28.952706+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.955760+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:28.957945+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.963082+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.966870+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.969754+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.971405+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:28.972890+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.973015+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:28.973123+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.973230+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.973333+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.973434+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.974238+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_08_nhl_raw.json
+2026-06-10T12:55:28.981756+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.984809+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:28.986953+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:28.992280+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:28.995992+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:28.998953+00:00 | No Stage 00 game_id match for 2026_04_29: Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:28.999793+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.001282+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.001401+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.001521+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.001626+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:29.001729+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:29.001831+00:00 | Missing game_id after transform: 2026_04_29 | Utah Mammoth at Vegas Golden Knights
+2026-06-10T12:55:29.002637+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_09_nhl_raw.json
+2026-06-10T12:55:29.013142+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.016155+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.018311+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.023508+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:29.027229+00:00 | No Stage 00 game_id match for 2026_04_30: Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:29.028095+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.029547+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.029667+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.029775+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.029920+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:29.030028+00:00 | Missing game_id after transform: 2026_04_30 | Edmonton Oilers at Anaheim Ducks
+2026-06-10T12:55:29.030805+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_10_nhl_raw.json
+2026-06-10T12:55:29.044203+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.047214+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.049420+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.054530+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:29.056188+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.057771+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.057976+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.058163+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.058343+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:29.059711+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_11_nhl_raw.json
+2026-06-10T12:55:29.081335+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.084504+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.086678+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.091972+00:00 | No Stage 00 game_id match for 2026_05_01: Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:29.092024+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.093509+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.093638+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.093747+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.093875+00:00 | Missing game_id after transform: 2026_05_01 | Vegas Golden Knights at Utah Mammoth
+2026-06-10T12:55:29.094663+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_12_nhl_raw.json
+2026-06-10T12:55:29.113800+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.116880+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.119011+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.122094+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.123587+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.123708+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.123818+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.124648+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_13_nhl_raw.json
+2026-06-10T12:55:29.146769+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.149885+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.152000+00:00 | No Stage 00 game_id match for 2026_05_03: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.152051+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.153540+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.153670+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.153781+00:00 | Missing game_id after transform: 2026_05_03 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.154611+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_14_nhl_raw.json
+2026-06-10T12:55:29.178291+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.181406+00:00 | Multiple Stage 00 game_id matches for 2026_05_04: Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.181457+00:00 | raw_rows=18, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.182955+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.183093+00:00 | Missing game_id after transform: 2026_05_04 | Philadelphia Flyers at Carolina Hurricanes
+2026-06-10T12:55:29.183935+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_15_nhl_raw.json
+2026-06-10T12:55:29.210701+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.210755+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.212246+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.213079+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_16_nhl_raw.json
+2026-06-10T12:55:29.239697+00:00 | Multiple Stage 00 game_id matches for 2026_05_05: Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.239749+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.241238+00:00 | Missing game_id after transform: 2026_05_05 | Minnesota Wild at Colorado Avalanche
+2026-06-10T12:55:29.242058+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_17_nhl_raw.json
+2026-06-10T12:55:29.268513+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.269833+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_18_nhl_raw.json
+2026-06-10T12:55:29.296333+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.297622+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_19_nhl_raw.json
+2026-06-10T12:55:29.325766+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.327157+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_20_nhl_raw.json
+2026-06-10T12:55:29.355499+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.356821+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_21_nhl_raw.json
+2026-06-10T12:55:29.384388+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.385747+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_22_nhl_raw.json
+2026-06-10T12:55:29.413752+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.415207+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_23_nhl_raw.json
+2026-06-10T12:55:29.444177+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.445501+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_24_nhl_raw.json
+2026-06-10T12:55:29.474066+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.475378+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_25_nhl_raw.json
+2026-06-10T12:55:29.505279+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.506621+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_26_nhl_raw.json
+2026-06-10T12:55:29.536379+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.537704+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_27_nhl_raw.json
+2026-06-10T12:55:29.568330+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.569687+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_28_nhl_raw.json
+2026-06-10T12:55:29.600356+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.601687+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_29_nhl_raw.json
+2026-06-10T12:55:29.632063+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.633403+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_30_nhl_raw.json
+2026-06-10T12:55:29.663884+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.665235+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_05_31_nhl_raw.json
+2026-06-10T12:55:29.695801+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.697164+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_01_nhl_raw.json
+2026-06-10T12:55:29.727763+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.729136+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_02_nhl_raw.json
+2026-06-10T12:55:29.759539+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.760899+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_03_nhl_raw.json
+2026-06-10T12:55:29.792585+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.793943+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_05_nhl_raw.json
+2026-06-10T12:55:29.825266+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.826607+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_06_nhl_raw.json
+2026-06-10T12:55:29.858231+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.859558+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_07_nhl_raw.json
+2026-06-10T12:55:29.890911+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.892260+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_08_nhl_raw.json
+2026-06-10T12:55:29.924251+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.925659+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_09_nhl_raw.json
+2026-06-10T12:55:29.957438+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:29.958773+00:00 | Processing raw file: docs/win/hockey/nhl/00_intake/drat_raw/2026_06_10_nhl_raw.json
+2026-06-10T12:55:29.991435+00:00 | raw_rows=17, completed_rows=16, written_rows=16, skipped_missing_date=0, skipped_missing_team=0, skipped_missing_score=0
+2026-06-10T12:55:30.000596+00:00 | Wrote 10 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_11_NHL_final_scores.csv
+2026-06-10T12:55:30.002771+00:00 | Wrote 6 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_12_NHL_final_scores.csv
+2026-06-10T12:55:30.005000+00:00 | Wrote 10 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_13_NHL_final_scores.csv
+2026-06-10T12:55:30.007105+00:00 | Wrote 9 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_14_NHL_final_scores.csv
+2026-06-10T12:55:30.009271+00:00 | Wrote 6 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_15_NHL_final_scores.csv
+2026-06-10T12:55:30.011323+00:00 | Wrote 6 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_16_NHL_final_scores.csv
+2026-06-10T12:55:30.013375+00:00 | Wrote 3 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_18_NHL_final_scores.csv
+2026-06-10T12:55:30.015439+00:00 | Wrote 4 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_19_NHL_final_scores.csv
+2026-06-10T12:55:30.017465+00:00 | Wrote 4 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_20_NHL_final_scores.csv
+2026-06-10T12:55:30.019466+00:00 | Wrote 4 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_21_NHL_final_scores.csv
+2026-06-10T12:55:30.021456+00:00 | Wrote 3 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_22_NHL_final_scores.csv
+2026-06-10T12:55:30.023445+00:00 | Wrote 3 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_23_NHL_final_scores.csv
+2026-06-10T12:55:30.025467+00:00 | Wrote 3 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_24_NHL_final_scores.csv
+2026-06-10T12:55:30.027460+00:00 | Wrote 3 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_25_NHL_final_scores.csv
+2026-06-10T12:55:30.029456+00:00 | Wrote 4 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_26_NHL_final_scores.csv
+2026-06-10T12:55:30.031293+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_27_NHL_final_scores.csv
+2026-06-10T12:55:30.033309+00:00 | Wrote 3 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_28_NHL_final_scores.csv
+2026-06-10T12:55:30.035346+00:00 | Wrote 3 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_29_NHL_final_scores.csv
+2026-06-10T12:55:30.037190+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_04_30_NHL_final_scores.csv
+2026-06-10T12:55:30.039173+00:00 | Wrote 3 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_01_NHL_final_scores.csv
+2026-06-10T12:55:30.040994+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_02_NHL_final_scores.csv
+2026-06-10T12:55:30.043036+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_03_NHL_final_scores.csv
+2026-06-10T12:55:30.045055+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_04_NHL_final_scores.csv
+2026-06-10T12:55:30.046871+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_05_NHL_final_scores.csv
+2026-06-10T12:55:30.048887+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_06_NHL_final_scores.csv
+2026-06-10T12:55:30.050667+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_07_NHL_final_scores.csv
+2026-06-10T12:55:30.052659+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_08_NHL_final_scores.csv
+2026-06-10T12:55:30.054655+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_09_NHL_final_scores.csv
+2026-06-10T12:55:30.056627+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_10_NHL_final_scores.csv
+2026-06-10T12:55:30.058436+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_11_NHL_final_scores.csv
+2026-06-10T12:55:30.060465+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_12_NHL_final_scores.csv
+2026-06-10T12:55:30.062298+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_13_NHL_final_scores.csv
+2026-06-10T12:55:30.064301+00:00 | Wrote 2 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_14_NHL_final_scores.csv
+2026-06-10T12:55:30.066126+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_16_NHL_final_scores.csv
+2026-06-10T12:55:30.067936+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_18_NHL_final_scores.csv
+2026-06-10T12:55:30.069732+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_20_NHL_final_scores.csv
+2026-06-10T12:55:30.071540+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_21_NHL_final_scores.csv
+2026-06-10T12:55:30.073335+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_22_NHL_final_scores.csv
+2026-06-10T12:55:30.075200+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_23_NHL_final_scores.csv
+2026-06-10T12:55:30.077013+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_24_NHL_final_scores.csv
+2026-06-10T12:55:30.078801+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_25_NHL_final_scores.csv
+2026-06-10T12:55:30.080598+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_26_NHL_final_scores.csv
+2026-06-10T12:55:30.082399+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_27_NHL_final_scores.csv
+2026-06-10T12:55:30.084343+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_05_29_NHL_final_scores.csv
+2026-06-10T12:55:30.086174+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_02_NHL_final_scores.csv
+2026-06-10T12:55:30.087984+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_04_NHL_final_scores.csv
+2026-06-10T12:55:30.089798+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_06_NHL_final_scores.csv
+2026-06-10T12:55:30.091613+00:00 | Wrote 1 rows: docs/win/hockey/nhl/05_final_scores/final_scores/2026_06_09_NHL_final_scores.csv
+2026-06-10T12:55:30.091704+00:00 | Files processed: 58
+2026-06-10T12:55:30.091736+00:00 | Total final-score rows written: 127
+2026-06-10T12:55:30.091760+00:00 | === transform_final_scores END ===
