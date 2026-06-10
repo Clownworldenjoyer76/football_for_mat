@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -44,9 +45,15 @@ def write_log(lines: list[str]) -> None:
     LOG_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def print_log(lines: list[str]) -> None:
+    print("\n".join(lines), file=sys.stderr)
+
+
 def fail(lines: list[str], message: str) -> None:
     lines.append(f"ERROR: {message}")
+    lines.append(f"Finished: {now_stamp()}")
     write_log(lines)
+    print_log(lines)
     raise SystemExit(1)
 
 
@@ -191,6 +198,7 @@ def main() -> None:
     )
 
     write_log(log_lines)
+    print_log(log_lines)
 
 
 if __name__ == "__main__":
@@ -207,7 +215,11 @@ if __name__ == "__main__":
             f"Log path: {LOG_PATH}",
             "",
             f"ERROR: Unhandled exception: {exc}",
+            "",
+            "TRACEBACK:",
+            traceback.format_exc(),
+            f"Finished: {now_stamp()}",
         ]
         write_log(lines)
-        print(f"ERROR: {exc}", file=sys.stderr)
+        print_log(lines)
         raise SystemExit(1)
