@@ -61,7 +61,6 @@ jobs:
 
           mkdir -p docs/win/hockey/nhl/config/mapping
 
-
       - name: 01 Merge - NHL Merge Intake
         run: python docs/win/hockey/nhl/scripts/01_merge/merge_intake.py
 
@@ -86,21 +85,38 @@ jobs:
       - name: 04 Select - NHL Select Bets
         run: python docs/win/hockey/nhl/scripts/04_select/hockey_select_bets.py
 
-      - name: Print NHL logs
+      - name: Print NHL logs and audit CSVs
         if: always()
         run: |
+          echo "===== NHL 01 Merge TXT Logs ====="
+          find docs/win/hockey/nhl/errors/01_merge -type f -name "*.txt" -print -exec sh -c 'echo "### $1"; cat "$1"' _ {} \; || true
 
-          echo "===== NHL 01 Merge Logs ====="
-          find docs/win/hockey/nhl/errors/01_merge -type f -name "*.txt" -print -exec cat {} \; || true
+          echo "===== NHL 02 Juice TXT Logs ====="
+          find docs/win/hockey/nhl/errors/02_juice -type f -name "*.txt" -print -exec sh -c 'echo "### $1"; cat "$1"' _ {} \; || true
 
-          echo "===== NHL 02 Juice Logs ====="
-          find docs/win/hockey/nhl/errors/02_juice -type f -name "*.txt" -print -exec cat {} \; || true
+          echo "===== NHL 03 Edges TXT Logs ====="
+          find docs/win/hockey/nhl/errors/03_edges -type f -name "*.txt" -print -exec sh -c 'echo "### $1"; cat "$1"' _ {} \; || true
 
-          echo "===== NHL 03 Edges Logs ====="
-          find docs/win/hockey/nhl/errors/03_edges -type f -name "*.txt" -print -exec cat {} \; || true
+          echo "===== NHL 04 Select TXT Logs ====="
+          find docs/win/hockey/nhl/errors/04_select -type f -name "*.txt" -print -exec sh -c 'echo "### $1"; cat "$1"' _ {} \; || true
 
-          echo "===== NHL 04 Select Logs ====="
-          find docs/win/hockey/nhl/errors/04_select -type f -name "*.txt" -print -exec cat {} \; || true
+          echo "===== NHL Audit / Rejection CSVs ====="
+          find docs/win/hockey/nhl -type f \( \
+            -iname "*audit*.csv" -o \
+            -iname "*reject*.csv" -o \
+            -iname "*rejection*.csv" -o \
+            -iname "*error*.csv" -o \
+            -iname "*missing*.csv" -o \
+            -iname "*unmatched*.csv" \
+          \) -print -exec sh -c '
+            echo "### $1"
+            echo "--- first 200 lines ---"
+            head -200 "$1"
+            echo
+          ' _ {} \; || true
+
+          echo "===== NHL Output File Inventory ====="
+          find docs/win/hockey/nhl/01_merge docs/win/hockey/nhl/02_juice docs/win/hockey/nhl/03_edges docs/win/hockey/nhl/04_select -type f -print || true
 
       - name: Commit NHL pipeline outputs
         if: success()
