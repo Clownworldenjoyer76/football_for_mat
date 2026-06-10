@@ -1,30 +1,42 @@
-=== compute_edges RUN 2026-06-10T12:53:03.689152+00:00 ===
-2026-06-10T12:53:03.689245+00:00 | INFO  | INPUT_DIR : docs/win/hockey/nhl/02_juice
-2026-06-10T12:53:03.689272+00:00 | INFO  | OUTPUT_DIR: docs/win/hockey/nhl/03_edges
-2026-06-10T12:53:03.689663+00:00 | INFO  | --- FILE: 2026_06_09_NHL_moneyline.csv  market=moneyline
-2026-06-10T12:53:03.700954+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_09_NHL_moneyline.csv (1 rows, 0 null edge values)
-2026-06-10T12:53:03.701156+00:00 | INFO  | --- FILE: 2026_06_09_NHL_puck_line.csv  market=puck_line
-2026-06-10T12:53:03.710066+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_09_NHL_puck_line.csv (1 rows, 0 null edge values)
-2026-06-10T12:53:03.710267+00:00 | INFO  | --- FILE: 2026_06_09_NHL_total.csv  market=total
-2026-06-10T12:53:03.718840+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_09_NHL_total.csv (1 rows, 0 null edge values)
+=== compute_edges RUN 2026-06-10T13:15:02.439682+00:00 ===
+2026-06-10T13:15:02.439809+00:00 | INFO  | INPUT_DIR : docs/win/hockey/nhl/02_juice
+2026-06-10T13:15:02.439846+00:00 | INFO  | OUTPUT_DIR: docs/win/hockey/nhl/03_edges
+2026-06-10T13:15:02.440308+00:00 | INFO  | --- FILE: 2026_06_09_NHL_moneyline.csv  market=moneyline
+2026-06-10T13:15:02.451258+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_09_NHL_moneyline.csv (1 rows, 0 null edge values)
+2026-06-10T13:15:02.451301+00:00 | INFO  | --- FILE: 2026_06_11_NHL_moneyline.csv  market=moneyline
+2026-06-10T13:15:02.458818+00:00 | WARN  | 2026_06_11_NHL_moneyline.csv | 4 null edge values
+2026-06-10T13:15:02.459604+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_11_NHL_moneyline.csv (1 rows, 4 null edge values)
+2026-06-10T13:15:02.459855+00:00 | INFO  | --- FILE: 2026_06_09_NHL_puck_line.csv  market=puck_line
+2026-06-10T13:15:02.467748+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_09_NHL_puck_line.csv (1 rows, 0 null edge values)
+2026-06-10T13:15:02.467784+00:00 | INFO  | --- FILE: 2026_06_11_NHL_puck_line.csv  market=puck_line
+2026-06-10T13:15:02.474748+00:00 | WARN  | 2026_06_11_NHL_puck_line.csv | 4 null edge values
+2026-06-10T13:15:02.475529+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_11_NHL_puck_line.csv (1 rows, 4 null edge values)
+2026-06-10T13:15:02.475765+00:00 | INFO  | --- FILE: 2026_06_09_NHL_total.csv  market=total
+2026-06-10T13:15:02.483427+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_09_NHL_total.csv (1 rows, 0 null edge values)
+2026-06-10T13:15:02.483469+00:00 | INFO  | --- FILE: 2026_06_11_NHL_total.csv  market=total
+2026-06-10T13:15:02.490349+00:00 | WARN  | 2026_06_11_NHL_total.csv | 4 null edge values
+2026-06-10T13:15:02.491020+00:00 | INFO  | WROTE: docs/win/hockey/nhl/03_edges/2026_06_11_NHL_total.csv (1 rows, 4 null edge values)
 
 ============================================================
-SUMMARY  2026-06-10T12:53:03.718879+00:00
+SUMMARY  2026-06-10T13:15:02.491093+00:00
 ============================================================
-  files_processed  : 3
-  rows_processed   : 3
-  moneyline_files  : 1
-  puck_line_files  : 1
-  total_files      : 1
+  files_processed  : 6
+  rows_processed   : 6
+  moneyline_files  : 2
+  puck_line_files  : 2
+  total_files      : 2
   skipped          : 0
-  null_edges       : 0
+  null_edges       : 12
   schema_errors    : 0
   errors           : 0
 
   file                                             market        rows null_edges       status
   2026_06_09_NHL_moneyline.csv                     moneyline        1          0           ok
+  2026_06_11_NHL_moneyline.csv                     moneyline        1          4           ok
   2026_06_09_NHL_puck_line.csv                     puck_line        1          0           ok
+  2026_06_11_NHL_puck_line.csv                     puck_line        1          4           ok
   2026_06_09_NHL_total.csv                         total            1          0           ok
+  2026_06_11_NHL_total.csv                         total            1          4           ok
 
 STATUS: SUCCESS
 ============================================================
