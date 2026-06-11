@@ -61,12 +61,6 @@ def fail(msg: str) -> None:
     raise RuntimeError(msg)
 
 
-def wipe_outputs() -> None:
-    for path in OUT_DIR.glob("*_NHL_final_scores.csv"):
-        path.unlink()
-        log(f"Deleted old output: {path}")
-
-
 def load_json(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -373,6 +367,9 @@ def build_final_score_rows(raw_rows: list[dict[str, Any]]) -> pd.DataFrame:
             log(f"Skipped completed row with missing score: {raw}")
             continue
 
+        away_score_int = int(away_score)
+        home_score_int = int(home_score)
+
         shaped = {
             "sport": SPORT,
             "league": LEAGUE,
@@ -380,11 +377,11 @@ def build_final_score_rows(raw_rows: list[dict[str, Any]]) -> pd.DataFrame:
             "game_id": "",
             "away_team": away_team,
             "home_team": home_team,
-            "away_score": int(away_score),
-            "home_score": int(home_score),
-            "total_score": int(away_score) + int(home_score),
-            "away_puck_line_result": "",
-            "home_puck_line_result": "",
+            "away_score": away_score_int,
+            "home_score": home_score_int,
+            "total_score": away_score_int + home_score_int,
+            "away_puck_line_result": away_score_int - home_score_int,
+            "home_puck_line_result": home_score_int - away_score_int,
         }
 
         shaped["game_id"] = attach_game_id(shaped | raw, games_cache)
@@ -393,7 +390,7 @@ def build_final_score_rows(raw_rows: list[dict[str, Any]]) -> pd.DataFrame:
 
     log(
         f"raw_rows={raw_count}, completed_rows={completed_count}, "
-        f"written_rows={len(rows)}, skipped_missing_date={skipped_missing_date}, "
+        f"built_rows={len(rows)}, skipped_missing_date={skipped_missing_date}, "
         f"skipped_missing_team={skipped_missing_team}, skipped_missing_score={skipped_missing_score}"
     )
 
@@ -419,20 +416,136 @@ def build_final_score_rows(raw_rows: list[dict[str, Any]]) -> pd.DataFrame:
     return df
 
 
-def write_final_scores_by_date(df: pd.DataFrame) -> int:
-    if df.empty:
-        return 0
+def normalize_output_df(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
 
-    written = 0
+    for col in OUTPUT_COLUMNS:
+        if col not in df.columns:
+            df[col] = ""
+
+    df = df[OUTPUT_COLUMNS]
+    df = df.fillna("")
+
+    return df
+
+
+def read_existing_output(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame(columns=OUTPUT_COLUMNS)
+
+    try:
+        df = pd.read_csv(path, dtype=str)
+    except pd.errors.EmptyDataError:
+        return pd.DataFrame(columns=OUTPUT_COLUMNS)
+
+    return normalize_output_df(df)
+
+
+def existing_key_sets(existing_df: pd.DataFrame) -> tuple[set[str], set[str]]:
+    game_ids: set[str] = set()
+    team_keys: set[str] = set()
+
+    if existing_df.empty:
+        return game_ids, team_keys
+
+    for _, row in existing_df.iterrows():
+        game_id = str(row.get("game_id", "")).strip()
+        game_date = str(row.get("game_date", "")).strip()
+        away_team = str(row.get("away_team", "")).strip()
+        home_team = str(row.get("home_team", "")).strip()
+
+        if game_id:
+            game_ids.add(game_id)
+
+        if game_date and away_team and home_team:
+            team_keys.add(f"{game_date}|{norm_key(away_team)}|{norm_key(home_team)}")
+
+    return game_ids, team_keys
+
+
+def row_exists_in_output(row: pd.Series, existing_game_ids: set[str], existing_team_keys: set[str]) -> bool:
+    game_id = str(row.get("game_id", "")).strip()
+    game_date = str(row.get("game_date", "")).strip()
+    away_team = str(row.get("away_team", "")).strip()
+    home_team = str(row.get("home_team", "")).strip()
+
+    if game_id and game_id in existing_game_ids:
+        return True
+
+    team_key = f"{game_date}|{norm_key(away_team)}|{norm_key(home_team)}"
+    if team_key in existing_team_keys:
+        return True
+
+    return False
+
+
+def write_final_scores_by_date(df: pd.DataFrame) -> dict[str, int]:
+    stats = {
+        "rows_added": 0,
+        "rows_skipped_existing": 0,
+        "files_written": 0,
+    }
+
+    if df.empty:
+        return stats
 
     for game_date, date_df in df.groupby("game_date", dropna=False):
         out_path = OUT_DIR / f"{game_date}_{LEAGUE_OUT}_final_scores.csv"
-        date_df = date_df[OUTPUT_COLUMNS].sort_values(["game_date", "game_id", "away_team", "home_team"])
-        date_df.to_csv(out_path, index=False)
-        written += len(date_df)
-        log(f"Wrote {len(date_df)} rows: {out_path}")
 
-    return written
+        date_df = normalize_output_df(date_df)
+        existing_df = read_existing_output(out_path)
+
+        existing_game_ids, existing_team_keys = existing_key_sets(existing_df)
+
+        add_rows = []
+
+        for _, row in date_df.iterrows():
+            if row_exists_in_output(row, existing_game_ids, existing_team_keys):
+                stats["rows_skipped_existing"] += 1
+                log(
+                    f"Skipped existing final score: "
+                    f"{row.get('game_date', '')} | {row.get('away_team', '')} at {row.get('home_team', '')} "
+                    f"| game_id={row.get('game_id', '')}"
+                )
+                continue
+
+            add_rows.append(row.to_dict())
+
+            game_id = str(row.get("game_id", "")).strip()
+            if game_id:
+                existing_game_ids.add(game_id)
+
+            team_key = (
+                f"{row.get('game_date', '')}|"
+                f"{norm_key(row.get('away_team', ''))}|"
+                f"{norm_key(row.get('home_team', ''))}"
+            )
+            existing_team_keys.add(team_key)
+
+        if not add_rows:
+            log(f"No new final-score rows to add for {game_date}: {out_path}")
+            continue
+
+        additions_df = pd.DataFrame(add_rows, columns=OUTPUT_COLUMNS)
+        combined_df = pd.concat([existing_df, additions_df], ignore_index=True)
+        combined_df = normalize_output_df(combined_df)
+
+        combined_df = combined_df.sort_values(
+            ["game_date", "game_id", "away_team", "home_team"],
+            kind="stable",
+        )
+
+        combined_df.to_csv(out_path, index=False)
+
+        stats["rows_added"] += len(additions_df)
+        stats["files_written"] += 1
+
+        log(
+            f"Wrote {out_path} | existing_rows={len(existing_df)} "
+            f"| added_rows={len(additions_df)} | total_rows={len(combined_df)}"
+        )
+
+    return stats
 
 
 def main() -> int:
@@ -446,8 +559,6 @@ def main() -> int:
 
     if not RAW_DIR.exists():
         fail(f"Raw final-score source folder does not exist: {RAW_DIR}")
-
-    wipe_outputs()
 
     raw_files = sorted(RAW_DIR.glob(RAW_PATTERN))
     if not raw_files:
@@ -472,16 +583,18 @@ def main() -> int:
     if all_frames:
         final_df = pd.concat(all_frames, ignore_index=True)
         final_df = final_df.drop_duplicates(
-            subset=["game_date", "away_team", "home_team", "away_score", "home_score"],
+            subset=["game_date", "away_team", "home_team"],
             keep="last",
         )
     else:
         final_df = pd.DataFrame(columns=OUTPUT_COLUMNS)
 
-    total_rows = write_final_scores_by_date(final_df)
+    write_stats = write_final_scores_by_date(final_df)
 
     log(f"Files processed: {total_files}")
-    log(f"Total final-score rows written: {total_rows}")
+    log(f"New final-score rows added: {write_stats['rows_added']}")
+    log(f"Existing final-score rows skipped: {write_stats['rows_skipped_existing']}")
+    log(f"Output files written: {write_stats['files_written']}")
     log("=== transform_final_scores END ===")
 
     return 0
