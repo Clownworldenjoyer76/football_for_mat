@@ -12,6 +12,9 @@ from zoneinfo import ZoneInfo
 BOOKMAKER = "FanDuel"
 ET = ZoneInfo("America/New_York")
 
+TOTAL_MIN = 4.5
+TOTAL_MAX = 7.5
+
 ODDS_DIR = Path("docs/win/hockey/nhl/odds")
 SPORTSBOOK_DIR = Path("docs/win/hockey/nhl/00_intake/sportsbook")
 ERROR_DIR = Path("docs/win/hockey/nhl/errors/00_intake")
@@ -225,6 +228,11 @@ def pick_total_row_closest_odds(rows: list) -> dict:
 
     for index, row in enumerate(valid):
         try:
+            hdp = float(row.get("hdp"))
+
+            if hdp < TOTAL_MIN or hdp > TOTAL_MAX:
+                continue
+
             over = float(row.get("over"))
             under = float(row.get("under"))
 
@@ -254,7 +262,10 @@ def parse_totals(game_id: str, markets: list, counters: dict) -> dict:
 
     if not row:
         counters["warnings"] += 1
-        log(f"WARNING game_id={game_id} no valid Totals row with numeric over/under odds")
+        log(
+            f"WARNING game_id={game_id} no valid Totals row with "
+            f"{TOTAL_MIN} <= hdp <= {TOTAL_MAX} and numeric over/under odds"
+        )
         return {
             "total": "",
             "over_decimal": "",
@@ -508,7 +519,10 @@ def main() -> None:
             log(f"WROTE {csv_path} rows={len(merged_rows)}")
 
         log(f"Spread rows selected by abs(hdp)==1.5: {counters['spread_1_5_selected']}")
-        log(f"Totals rows selected by closest over/under odds: {counters['total_closest_selected']}")
+        log(
+            f"Totals rows selected by closest over/under odds "
+            f"within {TOTAL_MIN}-{TOTAL_MAX}: {counters['total_closest_selected']}"
+        )
 
         log("--- SUMMARY ---")
         log(f"JSON files processed: {counters['json_files_processed']}")
