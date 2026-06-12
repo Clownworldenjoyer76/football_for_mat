@@ -179,15 +179,58 @@ def validate_required_columns(path: Path, fieldnames: list[str], required_column
         fail(f"{path} missing required columns: {missing}")
 
 
-def validate_game_ids(path: Path, rows: list[dict[str, str]], source_name: str) -> None:
+def row_date(row: dict[str, str]) -> str:
+    return str(row.get("game_date", "")).strip()
+
+
+def row_game_id(row: dict[str, str]) -> str:
+    return str(row.get("game_id", "")).strip()
+
+
+def parse_game_date(value: str):
+    s = str(value).strip().replace("-", "_")
+
+    try:
+        return datetime.strptime(s, "%Y_%m_%d").date()
+    except Exception:
+        return None
+
+
+def is_future_game_date(value: str) -> bool:
+    parsed = parse_game_date(value)
+
+    if parsed is None:
+        return False
+
+    return parsed > datetime.now(UTC).date()
+
+
+def validate_and_filter_game_ids(
+    path: Path,
+    rows: list[dict[str, str]],
+    source_name: str,
+) -> list[dict[str, str]]:
     seen = {}
     missing_rows = []
     duplicate_ids = set()
+    filtered_rows = []
+    skipped_future_missing_game_id = 0
 
     for idx, row in enumerate(rows, start=2):
-        game_id = str(row.get("game_id", "")).strip()
+        game_id = row_game_id(row)
 
         if not game_id:
+            game_date = row_date(row)
+
+            if is_future_game_date(game_date):
+                skipped_future_missing_game_id += 1
+                log(
+                    f"SKIPPED FUTURE ROW WITH MISSING game_id | "
+                    f"source={source_name} | file={path} | row={idx} | game_date={game_date} | "
+                    f"away_team={row.get('away_team', '')} | home_team={row.get('home_team', '')}"
+                )
+                continue
+
             missing_rows.append(idx)
             continue
 
@@ -196,19 +239,21 @@ def validate_game_ids(path: Path, rows: list[dict[str, str]], source_name: str) 
         else:
             seen[game_id] = idx
 
+        filtered_rows.append(row)
+
     if missing_rows:
         fail(f"{source_name} file has missing game_id values: {path} rows={missing_rows}")
 
     if duplicate_ids:
         fail(f"{source_name} file has duplicate game_id values: {path} duplicate_game_ids={sorted(duplicate_ids)}")
 
+    if skipped_future_missing_game_id:
+        log(
+            f"{source_name} file skipped future rows with missing game_id: "
+            f"{path} count={skipped_future_missing_game_id}"
+        )
 
-def row_date(row: dict[str, str]) -> str:
-    return str(row.get("game_date", "")).strip()
-
-
-def row_game_id(row: dict[str, str]) -> str:
-    return str(row.get("game_id", "")).strip()
+    return filtered_rows
 
 
 def load_source_rows(
@@ -228,13 +273,14 @@ def load_source_rows(
     for path in files:
         fieldnames, rows = load_csv(path)
         validate_required_columns(path, fieldnames, required_columns)
-        validate_game_ids(path, rows, source_name)
+
+        rows = validate_and_filter_game_ids(path, rows, source_name)
 
         for row in rows:
             row["_source_file"] = str(path)
             all_rows.append(row)
 
-        log(f"Loaded {source_name} file: {path} ({len(rows)} rows)")
+        log(f"Loaded {source_name} file: {path} ({len(rows)} usable rows)")
 
     return all_rows
 
@@ -253,6 +299,12 @@ def rows_by_date_game_id(rows: list[dict[str, str]], source_name: str) -> dict[s
         if not game_date:
             missing_date_rows.append((row.get("_source_file", ""), idx, game_id))
             continue
+
+        if not game_id:
+            fail(
+                f"{source_name} row reached grouping with blank game_id: "
+                f"source_file={row.get('_source_file', '')} row={idx} game_date={game_date}"
+            )
 
         key = (game_date, game_id)
 
