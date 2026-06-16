@@ -2,66 +2,39 @@
 # -*- coding: utf-8 -*-
 
 """
-Pull NFL schedule from nfl_data_py.
+docs/win/football/nfl/scripts/00_intake/pull_schedule.py
 
-Creates:
-  docs/win/football/nfl/00_intake/schedule/{season}_schedule.csv
+Pulls 2026 NFL schedule from ESPN team schedule API.
 
-Output columns:
-  season
-  season_type
-  week
-  game_id
-  game_date
-  game_time
-  away_team
-  home_team
-  neutral_site
-  stadium
-  roof
-  surface
-  home_timezone
-  away_timezone
-  game_timezone
+Source:
+  https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{TEAM_ID}/schedule?season=2026
+
+Inputs:
+  docs/win/football/nfl/config/mapping/team_map_nfl.csv
+  docs/win/football/nfl/config/mapping/stadium_map_nfl.csv
+
+Output:
+  docs/win/football/nfl/00_intake/schedule/2026_schedule.csv
+
+Summary / warnings:
+  docs/win/football/nfl/errors/00_intake/pull_schedule.txt
 """
 
 from __future__ import annotations
 
 import csv
+import json
 import sys
 import traceback
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-import pandas as pd
-
-try:
-    import nfl_data_py as nfl
-except Exception as e:
-    sys.exit(f"ERROR: nfl_data_py import failed: {e}")
+from zoneinfo import ZoneInfo
 
 
-# ─────────────────────────────────────────────
-# PATHS
-# ─────────────────────────────────────────────
-
-NFL_DIR = Path(__file__).resolve().parents[2]
-
-CONFIG_DIR = NFL_DIR / "config"
-MAPPING_DIR = CONFIG_DIR / "mapping"
-
-SETTINGS_FILE = CONFIG_DIR / "settings.yaml"
-TEAM_MAP_FILE = MAPPING_DIR / "team_map_nfl.csv"
-STADIUM_MAP_FILE = MAPPING_DIR / "stadium_map_nfl.csv"
-
-OUTPUT_DIR = NFL_DIR / "00_intake" / "schedule"
-ERROR_DIR = NFL_DIR / "errors" / "00_intake"
-
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-ERROR_DIR.mkdir(parents=True, exist_ok=True)
-
-LOG_FILE = ERROR_DIR / "pull_schedule.txt"
-
+YEAR = 2026
 
 OUTPUT_COLUMNS = [
     "season",
@@ -81,509 +54,562 @@ OUTPUT_COLUMNS = [
     "game_timezone",
 ]
 
+TEAM_ID_COLUMN = "sports.leagues.teams.team.id"
+CANONICAL_TEAM_COLUMN = "canonical_team"
 
-REQUIRED_SOURCE_COLS = [
-    "season",
-    "week",
-    "game_id",
-    "home_team",
-    "away_team",
-]
+NFL_DIR = Path(__file__).resolve().parents[2]
+
+TEAM_MAP_FILE = NFL_DIR / "config" / "mapping" / "team_map_nfl.csv"
+STADIUM_MAP_FILE = NFL_DIR / "config" / "mapping" / "stadium_map_nfl.csv"
+
+OUTPUT_DIR = NFL_DIR / "00_intake" / "schedule"
+OUTPUT_FILE = OUTPUT_DIR / f"{YEAR}_schedule.csv"
+
+ERROR_DIR = NFL_DIR / "errors" / "00_intake"
+LOG_FILE = ERROR_DIR / "pull_schedule.txt"
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ─────────────────────────────────────────────
-# LOGGING / FAIL
-# ─────────────────────────────────────────────
+def clean(value: Any) -> str:
+    if value is None:
+        return ""
 
-def write_log(message: str) -> None:
-    with LOG_FILE.open("a", encoding="utf-8") as f:
-        f.write(message.rstrip() + "\n")
+    text = str(value).strip()
+
+    if text.lower() in {"none", "nan", "null"}:
+        return ""
+
+    return text
+
+
+def key(value: Any) -> str:
+    return clean(value).casefold()
 
 
 def reset_log() -> None:
     LOG_FILE.write_text("", encoding="utf-8")
 
 
-def fail(message: str) -> None:
-    write_log(f"ERROR: {message}")
+def log(message: str) -> None:
+    with LOG_FILE.open("a", encoding="utf-8") as f:
+        f.write(message.rstrip() + "\n")
+
+
+def fatal(message: str) -> None:
+    log(f"ERROR: {message}")
     sys.exit(f"ERROR: {message}")
 
 
-# ─────────────────────────────────────────────
-# BASIC HELPERS
-# ─────────────────────────────────────────────
-
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except Exception:
-        pass
-    return str(value).strip()
-
-
-def norm_key(value: Any) -> str:
-    return clean(value).lower()
-
-
-def first_existing_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
-    for col in candidates:
-        if col in df.columns:
-            return col
-    return None
-
-
-def bool_to_int(value: Any) -> str:
-    text = clean(value).lower()
-
-    if text in {"true", "t", "yes", "y", "1", "neutral"}:
-        return "1"
-
-    if text in {"false", "f", "no", "n", "0", "home"}:
-        return "0"
-
-    return ""
-
-
-def normalize_season_type(value: Any) -> str:
-    text = clean(value).lower().replace("_", " ").replace("-", " ")
-
-    if text in {"reg", "regular", "regular season"}:
-        return "REG"
-
-    if text in {"post", "playoff", "playoffs", "postseason"}:
-        return "POST"
-
-    if text in {"pre", "preseason"}:
-        return "PRE"
-
-    return clean(value).upper()
-
-
-# ─────────────────────────────────────────────
-# SETTINGS
-# ─────────────────────────────────────────────
-
-def load_simple_yaml(path: Path) -> dict[str, Any]:
+def read_csv(path: Path) -> list[dict[str, str]]:
     if not path.exists():
-        fail(f"Missing settings file: {path}")
-
-    try:
-        import yaml
-        with path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        if not isinstance(data, dict):
-            fail(f"settings.yaml must contain key/value settings: {path}")
-        return data
-    except ImportError:
-        data: dict[str, Any] = {}
-
-        with path.open("r", encoding="utf-8") as f:
-            for raw_line in f:
-                line = raw_line.strip()
-
-                if not line or line.startswith("#"):
-                    continue
-
-                if ":" not in line:
-                    continue
-
-                key, value = line.split(":", 1)
-                key = key.strip()
-                value = value.strip().strip("'").strip('"')
-
-                if not key:
-                    continue
-
-                data[key] = value
-
-        return data
-    except Exception as e:
-        fail(f"Could not read settings.yaml: {e}")
-
-
-def load_target_settings() -> tuple[int, str]:
-    settings = load_simple_yaml(SETTINGS_FILE)
-
-    raw_season = settings.get("season", "")
-    if clean(raw_season) == "":
-        fail("settings.yaml missing required value: season")
-
-    try:
-        season = int(raw_season)
-    except Exception:
-        fail(f"settings.yaml season must be an integer. Found: {raw_season}")
-
-    season_type = normalize_season_type(settings.get("season_type", ""))
-
-    return season, season_type
-
-
-# ─────────────────────────────────────────────
-# OPTIONAL MAP LOADERS
-# ─────────────────────────────────────────────
-
-def load_csv_if_exists(path: Path) -> list[dict[str, str]]:
-    if not path.exists():
-        write_log(f"WARNING: Optional mapping file missing: {path}")
-        return []
+        fatal(f"Missing required file: {path}")
 
     rows: list[dict[str, str]] = []
 
     with path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
+
+        if reader.fieldnames is None:
+            fatal(f"Missing header row: {path}")
+
         for row in reader:
             rows.append({clean(k): clean(v) for k, v in row.items()})
 
     return rows
 
 
-def build_team_lookup(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
-    lookup: dict[str, dict[str, str]] = {}
+def require_columns(rows: list[dict[str, str]], required_cols: list[str], file_label: str) -> None:
+    if not rows:
+        fatal(f"{file_label} has no data rows")
 
-    for row in rows:
-        source_name = clean(row.get("source_name"))
-        canonical_team = clean(row.get("canonical_team"))
-        team_abbr = clean(row.get("team_abbr"))
-        team_id = clean(row.get("team_id"))
+    available = set(rows[0].keys())
+    missing = [col for col in required_cols if col not in available]
 
-        payload = {
-            "source_name": source_name,
-            "canonical_team": canonical_team,
-            "team_abbr": team_abbr,
-            "team_id": team_id,
-        }
-
-        for key_value in [source_name, canonical_team, team_abbr, team_id]:
-            key = norm_key(key_value)
-            if key:
-                lookup[key] = payload
-
-    return lookup
+    if missing:
+        fatal(f"{file_label} missing required columns: {missing}")
 
 
-def build_stadium_indexes(rows: list[dict[str, str]]) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, str]]]:
-    team_index: dict[str, dict[str, str]] = {}
-    stadium_index: dict[str, dict[str, str]] = {}
+def build_team_maps(team_rows: list[dict[str, str]]) -> tuple[list[str], dict[str, str]]:
+    require_columns(
+        rows=team_rows,
+        required_cols=[TEAM_ID_COLUMN, CANONICAL_TEAM_COLUMN],
+        file_label=str(TEAM_MAP_FILE),
+    )
 
-    for row in rows:
-        team = clean(row.get("team"))
-        stadium = clean(row.get("stadium"))
+    team_ids: list[str] = []
+    seen_team_ids: set[str] = set()
+    team_lookup: dict[str, str] = {}
 
-        if team:
-            team_index[norm_key(team)] = row
-
-        if stadium:
-            stadium_index[norm_key(stadium)] = row
-
-    return team_index, stadium_index
-
-
-def resolve_team_payload(
-    team_value: Any,
-    team_lookup: dict[str, dict[str, str]],
-) -> dict[str, str]:
-    key = norm_key(team_value)
-
-    if key in team_lookup:
-        return team_lookup[key]
-
-    return {
-        "source_name": clean(team_value),
-        "canonical_team": clean(team_value),
-        "team_abbr": clean(team_value),
-        "team_id": "",
-    }
-
-
-def lookup_stadium_row_for_team(
-    team_value: Any,
-    team_lookup: dict[str, dict[str, str]],
-    stadium_team_index: dict[str, dict[str, str]],
-) -> dict[str, str]:
-    team_payload = resolve_team_payload(team_value, team_lookup)
-
-    keys = [
-        team_payload.get("canonical_team", ""),
-        team_payload.get("team_abbr", ""),
-        team_payload.get("source_name", ""),
-        clean(team_value),
+    optional_lookup_columns = [
+        TEAM_ID_COLUMN,
+        "team_id",
+        "team_abbr",
+        "source_name",
+        "canonical_team",
+        "sports.leagues.teams.team.abbreviation",
+        "sports.leagues.teams.team.displayName",
+        "sports.leagues.teams.team.shortDisplayName",
+        "sports.leagues.teams.team.name",
+        "sports.leagues.teams.team.location",
+        "sports.leagues.teams.team.nickname",
     ]
 
-    for key_value in keys:
-        key = norm_key(key_value)
-        if key and key in stadium_team_index:
-            return stadium_team_index[key]
+    for row_number, row in enumerate(team_rows, start=2):
+        team_id = clean(row.get(TEAM_ID_COLUMN))
+        canonical_team = clean(row.get(CANONICAL_TEAM_COLUMN))
+
+        if not team_id:
+            log(f"WARNING: team_map row {row_number} missing {TEAM_ID_COLUMN}")
+        elif team_id not in seen_team_ids:
+            team_ids.append(team_id)
+            seen_team_ids.add(team_id)
+
+        if not canonical_team:
+            log(f"WARNING: team_map row {row_number} missing {CANONICAL_TEAM_COLUMN}")
+            continue
+
+        for col in optional_lookup_columns:
+            value = clean(row.get(col))
+            if value:
+                team_lookup[key(value)] = canonical_team
+
+    if not team_ids:
+        fatal(f"No TEAM_ID values found in {TEAM_MAP_FILE} column {TEAM_ID_COLUMN}")
+
+    return team_ids, team_lookup
+
+
+def build_stadium_maps(stadium_rows: list[dict[str, str]]) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, str]]]:
+    require_columns(
+        rows=stadium_rows,
+        required_cols=["team", "stadium", "timezone", "surface", "roof_type"],
+        file_label=str(STADIUM_MAP_FILE),
+    )
+
+    by_team: dict[str, dict[str, str]] = {}
+    by_stadium: dict[str, dict[str, str]] = {}
+
+    for row_number, row in enumerate(stadium_rows, start=2):
+        team_value = clean(row.get("team"))
+        stadium_value = clean(row.get("stadium"))
+
+        if team_value:
+            by_team[key(team_value)] = row
+        else:
+            log(f"WARNING: stadium_map row {row_number} missing team")
+
+        if stadium_value:
+            by_stadium[key(stadium_value)] = row
+        else:
+            log(f"WARNING: stadium_map row {row_number} missing stadium")
+
+    return by_team, by_stadium
+
+
+def fetch_team_schedule(team_id: str) -> dict[str, Any] | None:
+    url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/schedule?season={YEAR}"
+
+    request = urllib.request.Request(
+        url=url,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = response.read().decode("utf-8")
+            return json.loads(body)
+
+    except urllib.error.HTTPError as e:
+        log(f"WARNING: HTTP error for TEAM_ID={team_id}: {e.code} {e.reason}")
+        return None
+
+    except urllib.error.URLError as e:
+        log(f"WARNING: URL error for TEAM_ID={team_id}: {e.reason}")
+        return None
+
+    except Exception as e:
+        log(f"WARNING: Fetch failed for TEAM_ID={team_id}: {e}")
+        return None
+
+
+def get_first_competition(event: dict[str, Any]) -> dict[str, Any]:
+    competitions = event.get("competitions")
+
+    if isinstance(competitions, list) and competitions:
+        first = competitions[0]
+        if isinstance(first, dict):
+            return first
 
     return {}
 
 
-def get_timezone_for_team(
-    team_value: Any,
-    team_lookup: dict[str, dict[str, str]],
-    stadium_team_index: dict[str, dict[str, str]],
-) -> str:
-    row = lookup_stadium_row_for_team(team_value, team_lookup, stadium_team_index)
-    return clean(row.get("timezone"))
+def get_team_by_home_away(competition: dict[str, Any], home_away: str) -> dict[str, Any]:
+    competitors = competition.get("competitors")
+
+    if not isinstance(competitors, list):
+        return {}
+
+    for competitor in competitors:
+        if not isinstance(competitor, dict):
+            continue
+
+        if clean(competitor.get("homeAway")).casefold() == home_away.casefold():
+            team = competitor.get("team")
+            if isinstance(team, dict):
+                return team
+
+    return {}
 
 
-def get_game_timezone(
-    stadium: Any,
-    neutral_site: Any,
-    home_timezone: str,
-    stadium_name_index: dict[str, dict[str, str]],
-) -> str:
-    stadium_key = norm_key(stadium)
+def map_team_name(team: dict[str, Any], team_lookup: dict[str, str], game_id: str, side: str) -> str:
+    candidates = [
+        team.get("id"),
+        team.get("displayName"),
+        team.get("abbreviation"),
+        team.get("shortDisplayName"),
+        team.get("name"),
+        team.get("location"),
+        team.get("nickname"),
+    ]
 
-    if stadium_key and stadium_key in stadium_name_index:
-        return clean(stadium_name_index[stadium_key].get("timezone"))
+    for candidate in candidates:
+        mapped = team_lookup.get(key(candidate))
+        if mapped:
+            return mapped
 
-    if clean(neutral_site) == "1":
-        return ""
+    log(
+        "WARNING: unmapped team "
+        f"game_id={game_id} side={side} "
+        f"id={clean(team.get('id'))} "
+        f"displayName={clean(team.get('displayName'))} "
+        f"abbreviation={clean(team.get('abbreviation'))}"
+    )
 
-    return home_timezone
-
-
-# ─────────────────────────────────────────────
-# SOURCE FETCH / NORMALIZATION
-# ─────────────────────────────────────────────
-
-def fetch_schedule(season: int) -> pd.DataFrame:
-    try:
-        df = nfl.import_schedules([season])
-    except Exception as e:
-        fail(f"nfl_data_py import_schedules failed for season {season}: {e}")
-
-    if df is None or df.empty:
-        fail(f"No schedule rows returned for season {season}")
-
-    if "gameday" in df.columns and "game_date" not in df.columns:
-        df = df.rename(columns={"gameday": "game_date"})
-
-    if "gametime" in df.columns and "game_time" not in df.columns:
-        df = df.rename(columns={"gametime": "game_time"})
-
-    missing = [c for c in REQUIRED_SOURCE_COLS if c not in df.columns]
-    if missing:
-        fail(f"Schedule source missing required columns: {missing}")
-
-    return df
+    return ""
 
 
-def apply_season_type_filter(df: pd.DataFrame, requested_season_type: str) -> pd.DataFrame:
-    season_type_col = first_existing_col(df, ["season_type", "game_type"])
+def get_bool_text(value: Any) -> str:
+    if isinstance(value, bool):
+        return "1" if value else "0"
 
-    if season_type_col is None:
-        df = df.copy()
-        df["season_type"] = requested_season_type
-        return df
+    text = clean(value).casefold()
 
-    df = df.copy()
-    df["season_type"] = df[season_type_col].apply(normalize_season_type)
+    if text in {"true", "1", "yes", "y"}:
+        return "1"
 
-    if requested_season_type:
-        df = df[df["season_type"] == requested_season_type].copy()
+    if text in {"false", "0", "no", "n"}:
+        return "0"
 
-    if df.empty:
-        fail(f"No schedule rows remain after season_type filter: {requested_season_type}")
-
-    return df
+    return ""
 
 
-def build_output_df(
-    source_df: pd.DataFrame,
-    team_lookup: dict[str, dict[str, str]],
-    stadium_team_index: dict[str, dict[str, str]],
-    stadium_name_index: dict[str, dict[str, str]],
-) -> pd.DataFrame:
-    stadium_col = first_existing_col(source_df, ["stadium", "stadium_name"])
-    roof_col = first_existing_col(source_df, ["roof"])
-    surface_col = first_existing_col(source_df, ["surface"])
-    neutral_col = first_existing_col(source_df, ["neutral_site", "location"])
+def get_stadium_row(
+    home_team: str,
+    espn_stadium: str,
+    neutral_site: str,
+    stadium_by_team: dict[str, dict[str, str]],
+    stadium_by_stadium: dict[str, dict[str, str]],
+    game_id: str,
+) -> dict[str, str]:
+    if neutral_site == "1":
+        stadium_match = stadium_by_stadium.get(key(espn_stadium))
+        if stadium_match:
+            return stadium_match
 
-    rows: list[dict[str, str]] = []
-
-    for _, row in source_df.iterrows():
-        home_team = clean(row.get("home_team"))
-        away_team = clean(row.get("away_team"))
-
-        neutral_site = ""
-        if neutral_col:
-            neutral_site = bool_to_int(row.get(neutral_col))
-
-        home_stadium_row = lookup_stadium_row_for_team(
-            home_team,
-            team_lookup,
-            stadium_team_index,
+        log(
+            "WARNING: neutral-site stadium not mapped "
+            f"game_id={game_id} stadium={espn_stadium}"
         )
+        return {}
 
-        source_stadium = clean(row.get(stadium_col)) if stadium_col else ""
-        stadium = source_stadium or clean(home_stadium_row.get("stadium"))
+    home_match = stadium_by_team.get(key(home_team))
+    if home_match:
+        return home_match
 
-        source_roof = clean(row.get(roof_col)) if roof_col else ""
-        source_surface = clean(row.get(surface_col)) if surface_col else ""
+    log(
+        "WARNING: home team stadium row not mapped "
+        f"game_id={game_id} home_team={home_team}"
+    )
 
-        stadium_row = stadium_name_index.get(norm_key(stadium), {}) if stadium else {}
-
-        roof = (
-            source_roof
-            or clean(stadium_row.get("roof_type"))
-            or clean(home_stadium_row.get("roof_type"))
-            or clean(stadium_row.get("roof"))
-            or clean(home_stadium_row.get("roof"))
-        )
-
-        surface = (
-            source_surface
-            or clean(stadium_row.get("surface"))
-            or clean(home_stadium_row.get("surface"))
-        )
-
-        home_timezone = get_timezone_for_team(
-            home_team,
-            team_lookup,
-            stadium_team_index,
-        )
-
-        away_timezone = get_timezone_for_team(
-            away_team,
-            team_lookup,
-            stadium_team_index,
-        )
-
-        game_timezone = get_game_timezone(
-            stadium=stadium,
-            neutral_site=neutral_site,
-            home_timezone=home_timezone,
-            stadium_name_index=stadium_name_index,
-        )
-
-        rows.append(
-            {
-                "season": clean(row.get("season")),
-                "season_type": normalize_season_type(row.get("season_type")),
-                "week": clean(row.get("week")),
-                "game_id": clean(row.get("game_id")),
-                "game_date": clean(row.get("game_date")),
-                "game_time": clean(row.get("game_time")),
-                "away_team": away_team,
-                "home_team": home_team,
-                "neutral_site": neutral_site,
-                "stadium": stadium,
-                "roof": roof,
-                "surface": surface,
-                "home_timezone": home_timezone,
-                "away_timezone": away_timezone,
-                "game_timezone": game_timezone,
-            }
-        )
-
-    out = pd.DataFrame(rows, columns=OUTPUT_COLUMNS)
-
-    out = out.sort_values(
-        ["season", "season_type", "week", "game_id"],
-        kind="stable",
-    ).reset_index(drop=True)
-
-    return out
+    return {}
 
 
-# ─────────────────────────────────────────────
-# VALIDATION
-# ─────────────────────────────────────────────
+def get_team_timezone(team: str, stadium_by_team: dict[str, dict[str, str]], game_id: str, side: str) -> str:
+    row = stadium_by_team.get(key(team), {})
 
-def validate_output(df: pd.DataFrame) -> None:
-    missing = [c for c in OUTPUT_COLUMNS if c not in df.columns]
-    if missing:
-        fail(f"Output missing required columns: {missing}")
+    timezone_value = clean(row.get("timezone"))
 
-    extra = [c for c in df.columns if c not in OUTPUT_COLUMNS]
-    if extra:
-        fail(f"Output contains unexpected columns: {extra}")
+    if not timezone_value:
+        log(f"WARNING: missing {side}_timezone game_id={game_id} team={team}")
 
-    if df.empty:
-        fail("Output schedule is empty")
+    return timezone_value
 
-    if df["game_id"].astype(str).str.strip().eq("").any():
-        fail("Output contains blank game_id")
 
-    if df["season"].astype(str).str.strip().eq("").any():
-        fail("Output contains blank season")
-
-    if df["week"].astype(str).str.strip().eq("").any():
-        fail("Output contains blank week")
-
-    if df["game_date"].astype(str).str.strip().eq("").any():
-        fail("Output contains blank game_date")
-
-    if df["home_team"].astype(str).str.strip().eq("").any():
-        fail("Output contains blank home_team")
-
-    if df["away_team"].astype(str).str.strip().eq("").any():
-        fail("Output contains blank away_team")
-
-    if df.duplicated(subset=["game_id"]).any():
-        dups = df[df.duplicated(subset=["game_id"], keep=False)]
-        fail(
-            "Duplicate game_id values detected:\n"
-            + dups[["season", "season_type", "week", "game_id"]]
-            .head(25)
-            .to_string(index=False)
-        )
+def parse_event_datetime(
+    raw_date: str,
+    game_timezone: str,
+    game_id: str,
+) -> tuple[str, str]:
+    if not raw_date:
+        log(f"WARNING: missing event.date game_id={game_id}")
+        return "", ""
 
     try:
-        pd.to_datetime(df["game_date"], errors="raise")
+        dt_utc = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+
+        if dt_utc.tzinfo is None:
+            dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+
     except Exception as e:
-        fail(f"game_date values are not parseable: {e}")
+        log(f"WARNING: could not parse event.date game_id={game_id} date={raw_date} error={e}")
+        return "", ""
+
+    if game_timezone:
+        try:
+            dt_local = dt_utc.astimezone(ZoneInfo(game_timezone))
+        except Exception as e:
+            log(
+                "WARNING: invalid game_timezone; using UTC datetime "
+                f"game_id={game_id} game_timezone={game_timezone} error={e}"
+            )
+            dt_local = dt_utc.astimezone(timezone.utc)
+    else:
+        log(f"WARNING: missing game_timezone; using UTC datetime game_id={game_id}")
+        dt_local = dt_utc.astimezone(timezone.utc)
+
+    return dt_local.strftime("%Y-%m-%d"), dt_local.strftime("%H:%M")
 
 
-# ─────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────
+def build_row(
+    event: dict[str, Any],
+    team_lookup: dict[str, str],
+    stadium_by_team: dict[str, dict[str, str]],
+    stadium_by_stadium: dict[str, dict[str, str]],
+) -> dict[str, str] | None:
+    game_id = clean(event.get("id"))
+
+    if not game_id:
+        log("WARNING: skipped event with missing id")
+        return None
+
+    competition = get_first_competition(event)
+
+    home_team_obj = get_team_by_home_away(competition, "home")
+    away_team_obj = get_team_by_home_away(competition, "away")
+
+    home_team = map_team_name(home_team_obj, team_lookup, game_id, "home") if home_team_obj else ""
+    away_team = map_team_name(away_team_obj, team_lookup, game_id, "away") if away_team_obj else ""
+
+    if not home_team:
+        log(f"WARNING: missing mapped home_team game_id={game_id}")
+
+    if not away_team:
+        log(f"WARNING: missing mapped away_team game_id={game_id}")
+
+    neutral_site = get_bool_text(competition.get("neutralSite"))
+
+    if neutral_site == "":
+        log(f"WARNING: missing neutral_site game_id={game_id}")
+
+    venue = competition.get("venue")
+    if not isinstance(venue, dict):
+        venue = {}
+
+    espn_stadium = clean(venue.get("fullName"))
+
+    stadium_row = get_stadium_row(
+        home_team=home_team,
+        espn_stadium=espn_stadium,
+        neutral_site=neutral_site,
+        stadium_by_team=stadium_by_team,
+        stadium_by_stadium=stadium_by_stadium,
+        game_id=game_id,
+    )
+
+    stadium = clean(stadium_row.get("stadium"))
+    roof = clean(stadium_row.get("roof_type"))
+    surface = clean(stadium_row.get("surface"))
+
+    if not stadium:
+        log(f"WARNING: missing stadium game_id={game_id}")
+
+    if not roof:
+        log(f"WARNING: missing roof game_id={game_id}")
+
+    if not surface:
+        log(f"WARNING: missing surface game_id={game_id}")
+
+    home_timezone = get_team_timezone(home_team, stadium_by_team, game_id, "home")
+    away_timezone = get_team_timezone(away_team, stadium_by_team, game_id, "away")
+
+    game_timezone = clean(stadium_row.get("timezone"))
+
+    if not game_timezone:
+        log(f"WARNING: missing game_timezone game_id={game_id}")
+
+    game_date, game_time = parse_event_datetime(
+        raw_date=clean(event.get("date")),
+        game_timezone=game_timezone,
+        game_id=game_id,
+    )
+
+    season = ""
+    season_obj = event.get("season")
+    if isinstance(season_obj, dict):
+        season = clean(season_obj.get("year"))
+
+    if not season:
+        log(f"WARNING: missing season game_id={game_id}")
+
+    season_type = ""
+    season_type_obj = event.get("seasonType")
+    if isinstance(season_type_obj, dict):
+        season_type = clean(season_type_obj.get("abbreviation"))
+
+    if not season_type:
+        log(f"WARNING: missing season_type game_id={game_id}")
+
+    week = ""
+    week_obj = event.get("week")
+    if isinstance(week_obj, dict):
+        week = clean(week_obj.get("number"))
+
+    if not week:
+        log(f"WARNING: missing week game_id={game_id}")
+
+    if not game_date:
+        log(f"WARNING: missing game_date game_id={game_id}")
+
+    if not game_time:
+        log(f"WARNING: missing game_time game_id={game_id}")
+
+    return {
+        "season": season,
+        "season_type": season_type,
+        "week": week,
+        "game_id": game_id,
+        "game_date": game_date,
+        "game_time": game_time,
+        "away_team": away_team,
+        "home_team": home_team,
+        "neutral_site": neutral_site,
+        "stadium": stadium,
+        "roof": roof,
+        "surface": surface,
+        "home_timezone": home_timezone,
+        "away_timezone": away_timezone,
+        "game_timezone": game_timezone,
+    }
+
+
+def write_output(rows: list[dict[str, str]]) -> None:
+    with OUTPUT_FILE.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=OUTPUT_COLUMNS)
+        writer.writeheader()
+
+        for row in rows:
+            writer.writerow({col: clean(row.get(col)) for col in OUTPUT_COLUMNS})
+
 
 def main() -> None:
     reset_log()
 
+    log("pull_schedule.py started")
+    log(f"YEAR={YEAR}")
+    log(f"TEAM_MAP_FILE={TEAM_MAP_FILE}")
+    log(f"STADIUM_MAP_FILE={STADIUM_MAP_FILE}")
+    log(f"OUTPUT_FILE={OUTPUT_FILE}")
+
     try:
-        season, requested_season_type = load_target_settings()
+        team_rows = read_csv(TEAM_MAP_FILE)
+        stadium_rows = read_csv(STADIUM_MAP_FILE)
 
-        write_log(f"season={season}")
-        write_log(f"requested_season_type={requested_season_type}")
+        team_ids, team_lookup = build_team_maps(team_rows)
+        stadium_by_team, stadium_by_stadium = build_stadium_maps(stadium_rows)
 
-        team_map_rows = load_csv_if_exists(TEAM_MAP_FILE)
-        stadium_map_rows = load_csv_if_exists(STADIUM_MAP_FILE)
+        log(f"team_ids_found={len(team_ids)}")
 
-        team_lookup = build_team_lookup(team_map_rows)
-        stadium_team_index, stadium_name_index = build_stadium_indexes(stadium_map_rows)
+        rows_by_game_id: dict[str, dict[str, str]] = {}
+        api_calls_attempted = 0
+        api_calls_succeeded = 0
+        events_seen = 0
+        duplicate_events_seen = 0
 
-        source_df = fetch_schedule(season)
-        source_df = apply_season_type_filter(source_df, requested_season_type)
+        for team_id in team_ids:
+            api_calls_attempted += 1
 
-        out_df = build_output_df(
-            source_df=source_df,
-            team_lookup=team_lookup,
-            stadium_team_index=stadium_team_index,
-            stadium_name_index=stadium_name_index,
-        )
+            data = fetch_team_schedule(team_id)
 
-        validate_output(out_df)
+            if not data:
+                continue
 
-        out_file = OUTPUT_DIR / f"{season}_schedule.csv"
-        out_df.to_csv(out_file, index=False)
+            api_calls_succeeded += 1
 
-        write_log(f"rows_written={len(out_df)}")
-        write_log(f"output={out_file}")
+            events = data.get("events")
 
-        print(f"Wrote {len(out_df)} rows to {out_file}")
+            if not isinstance(events, list):
+                log(f"WARNING: TEAM_ID={team_id} response missing events list")
+                continue
+
+            log(f"TEAM_ID={team_id} events_returned={len(events)}")
+
+            for event in events:
+                if not isinstance(event, dict):
+                    log(f"WARNING: TEAM_ID={team_id} skipped non-dict event")
+                    continue
+
+                events_seen += 1
+
+                game_id = clean(event.get("id"))
+
+                if not game_id:
+                    log(f"WARNING: TEAM_ID={team_id} skipped event missing id")
+                    continue
+
+                if game_id in rows_by_game_id:
+                    duplicate_events_seen += 1
+                    log(f"WARNING: duplicate game_id seen and skipped game_id={game_id} TEAM_ID={team_id}")
+                    continue
+
+                row = build_row(
+                    event=event,
+                    team_lookup=team_lookup,
+                    stadium_by_team=stadium_by_team,
+                    stadium_by_stadium=stadium_by_stadium,
+                )
+
+                if row is None:
+                    continue
+
+                rows_by_game_id[game_id] = row
+
+        output_rows = list(rows_by_game_id.values())
+
+        write_output(output_rows)
+
+        log(f"api_calls_attempted={api_calls_attempted}")
+        log(f"api_calls_succeeded={api_calls_succeeded}")
+        log(f"events_seen={events_seen}")
+        log(f"duplicate_events_seen={duplicate_events_seen}")
+        log(f"unique_games_written={len(output_rows)}")
+        log("pull_schedule.py finished")
+
+        print(f"Wrote {len(output_rows)} rows to {OUTPUT_FILE}")
+        print(f"Summary/warnings written to {LOG_FILE}")
 
     except SystemExit:
         raise
+
     except Exception:
-        tb = traceback.format_exc()
-        write_log(tb)
-        sys.exit(f"ERROR: pull_schedule.py failed. See log: {LOG_FILE}")
+        log("ERROR: unhandled exception")
+        log(traceback.format_exc())
+        sys.exit(f"ERROR: pull_schedule.py failed. See {LOG_FILE}")
 
 
 if __name__ == "__main__":
