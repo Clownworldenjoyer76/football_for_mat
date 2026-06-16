@@ -1,0 +1,39 @@
+name: NFL Pull Schedule
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pull_schedule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run NFL schedule pull
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_schedule.py
+
+      - name: Commit NFL schedule outputs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/win/football/nfl/00_intake/schedule/
+          git add docs/win/football/nfl/errors/00_intake/pull_schedule.txt
+
+          if git diff --cached --quiet; then
+            echo "No NFL schedule output changes to commit."
+          else
+            git commit -m "Update NFL schedule intake"
+            git push
+          fi
