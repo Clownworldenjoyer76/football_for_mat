@@ -54,7 +54,7 @@ OUTPUT_COLUMNS = [
     "game_timezone",
 ]
 
-TEAM_ID_COLUMN = "sports.leagues.teams.team.id"
+TEAM_ID_COLUMN = "team_id"
 CANONICAL_TEAM_COLUMN = "canonical_team"
 
 NFL_DIR = Path(__file__).resolve().parents[2]
