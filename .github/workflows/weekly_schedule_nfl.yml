@@ -1,0 +1,44 @@
+name: NFL Weekly Schedule Merge
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-weekly-schedule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Create NFL weekly schedule output folders
+        run: |
+          mkdir -p docs/win/football/nfl/00_intake/schedule/weekly
+          mkdir -p docs/win/football/nfl/errors/00_intake
+
+      - name: Run NFL weekly schedule merge
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/build_weekly_schedule.py
+
+      - name: Commit NFL weekly schedule outputs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/win/football/nfl/00_intake/schedule/weekly/
+          git add docs/win/football/nfl/errors/00_intake/build_weekly_schedule.txt
+
+          if git diff --cached --quiet; then
+            echo "No NFL weekly schedule output changes to commit."
+          else
+            git commit -m "Update NFL weekly schedule output"
+            git push
+          fi
