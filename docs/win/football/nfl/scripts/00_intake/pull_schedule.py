@@ -13,8 +13,11 @@ Inputs:
   docs/win/football/nfl/config/mapping/team_map_nfl.csv
   docs/win/football/nfl/config/mapping/stadium_map_nfl.csv
 
-Output:
+Main output:
   docs/win/football/nfl/00_intake/schedule/2026_schedule.csv
+
+Per-run pulled output:
+  docs/win/football/nfl/00_intake/schedule/updates/2026_schedule_YYYYMMDD_HHMMSS.csv
 
 Summary / warnings:
   docs/win/football/nfl/errors/00_intake/pull_schedule.txt
@@ -65,10 +68,13 @@ STADIUM_MAP_FILE = NFL_DIR / "config" / "mapping" / "stadium_map_nfl.csv"
 OUTPUT_DIR = NFL_DIR / "00_intake" / "schedule"
 OUTPUT_FILE = OUTPUT_DIR / f"{YEAR}_schedule.csv"
 
+UPDATES_DIR = OUTPUT_DIR / "updates"
+
 ERROR_DIR = NFL_DIR / "errors" / "00_intake"
 LOG_FILE = ERROR_DIR / "pull_schedule.txt"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+UPDATES_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -120,6 +126,28 @@ def read_csv(path: Path) -> list[dict[str, str]]:
     return rows
 
 
+def read_existing_output(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+
+    rows: list[dict[str, str]] = []
+
+    with path.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+
+        if reader.fieldnames is None:
+            fatal(f"Missing header row: {path}")
+
+        missing = [col for col in OUTPUT_COLUMNS if col not in reader.fieldnames]
+        if missing:
+            fatal(f"{path} missing required columns: {missing}")
+
+        for row in reader:
+            rows.append({col: clean(row.get(col)) for col in OUTPUT_COLUMNS})
+
+    return rows
+
+
 def require_columns(rows: list[dict[str, str]], required_cols: list[str], file_label: str) -> None:
     if not rows:
         fatal(f"{file_label} has no data rows")
@@ -144,16 +172,9 @@ def build_team_maps(team_rows: list[dict[str, str]]) -> tuple[list[str], dict[st
 
     optional_lookup_columns = [
         TEAM_ID_COLUMN,
-        "team_id",
         "team_abbr",
         "source_name",
         "canonical_team",
-        "sports.leagues.teams.team.abbreviation",
-        "sports.leagues.teams.team.displayName",
-        "sports.leagues.teams.team.shortDisplayName",
-        "sports.leagues.teams.team.name",
-        "sports.leagues.teams.team.location",
-        "sports.leagues.teams.team.nickname",
     ]
 
     for row_number, row in enumerate(team_rows, start=2):
@@ -508,8 +529,18 @@ def build_row(
     }
 
 
-def write_output(rows: list[dict[str, str]]) -> None:
-    with OUTPUT_FILE.open("w", encoding="utf-8", newline="") as f:
+def rows_equal(a: dict[str, str], b: dict[str, str]) -> bool:
+    return all(clean(a.get(col)) == clean(b.get(col)) for col in OUTPUT_COLUMNS)
+
+
+def changed_columns(a: dict[str, str], b: dict[str, str]) -> list[str]:
+    return [col for col in OUTPUT_COLUMNS if clean(a.get(col)) != clean(b.get(col))]
+
+
+def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=OUTPUT_COLUMNS)
         writer.writeheader()
 
@@ -517,29 +548,40 @@ def write_output(rows: list[dict[str, str]]) -> None:
             writer.writerow({col: clean(row.get(col)) for col in OUTPUT_COLUMNS})
 
 
+def get_updates_file() -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return UPDATES_DIR / f"{YEAR}_schedule_{timestamp}.csv"
+
+
 def main() -> None:
     reset_log()
+
+    updates_file = get_updates_file()
 
     log("pull_schedule.py started")
     log(f"YEAR={YEAR}")
     log(f"TEAM_MAP_FILE={TEAM_MAP_FILE}")
     log(f"STADIUM_MAP_FILE={STADIUM_MAP_FILE}")
     log(f"OUTPUT_FILE={OUTPUT_FILE}")
+    log(f"UPDATES_FILE={updates_file}")
 
     try:
         team_rows = read_csv(TEAM_MAP_FILE)
         stadium_rows = read_csv(STADIUM_MAP_FILE)
+        existing_rows = read_existing_output(OUTPUT_FILE)
 
         team_ids, team_lookup = build_team_maps(team_rows)
         stadium_by_team, stadium_by_stadium = build_stadium_maps(stadium_rows)
 
         log(f"team_ids_found={len(team_ids)}")
+        log(f"existing_rows_found={len(existing_rows)}")
 
-        rows_by_game_id: dict[str, dict[str, str]] = {}
+        pulled_rows_by_game_id: dict[str, dict[str, str]] = {}
         api_calls_attempted = 0
         api_calls_succeeded = 0
         events_seen = 0
         duplicate_events_seen = 0
+        duplicate_events_rewritten = 0
 
         for team_id in team_ids:
             api_calls_attempted += 1
@@ -572,11 +614,6 @@ def main() -> None:
                     log(f"WARNING: TEAM_ID={team_id} skipped event missing id")
                     continue
 
-                if game_id in rows_by_game_id:
-                    duplicate_events_seen += 1
-                    log(f"WARNING: duplicate game_id seen and skipped game_id={game_id} TEAM_ID={team_id}")
-                    continue
-
                 row = build_row(
                     event=event,
                     team_lookup=team_lookup,
@@ -587,20 +624,92 @@ def main() -> None:
                 if row is None:
                     continue
 
-                rows_by_game_id[game_id] = row
+                if game_id in pulled_rows_by_game_id:
+                    duplicate_events_seen += 1
 
-        output_rows = list(rows_by_game_id.values())
+                    previous_row = pulled_rows_by_game_id[game_id]
+                    if not rows_equal(previous_row, row):
+                        duplicate_events_rewritten += 1
+                        log(
+                            "WARNING: duplicate game_id pulled with changed row; latest row kept "
+                            f"game_id={game_id} TEAM_ID={team_id} "
+                            f"changed_columns={changed_columns(previous_row, row)}"
+                        )
+                    else:
+                        log(f"WARNING: duplicate game_id pulled with same row game_id={game_id} TEAM_ID={team_id}")
 
-        write_output(output_rows)
+                pulled_rows_by_game_id[game_id] = row
+
+        pulled_rows = list(pulled_rows_by_game_id.values())
+        write_csv(updates_file, pulled_rows)
+
+        existing_rows_by_game_id: dict[str, dict[str, str]] = {}
+        duplicate_existing_game_ids = 0
+
+        for row in existing_rows:
+            game_id = clean(row.get("game_id"))
+
+            if not game_id:
+                log("WARNING: existing output row missing game_id")
+                continue
+
+            if game_id in existing_rows_by_game_id:
+                duplicate_existing_game_ids += 1
+                log(f"WARNING: duplicate existing game_id found; latest existing row kept game_id={game_id}")
+
+            existing_rows_by_game_id[game_id] = row
+
+        merged_rows_by_game_id: dict[str, dict[str, str]] = dict(existing_rows_by_game_id)
+
+        added_rows = 0
+        updated_rows = 0
+        unchanged_rows = 0
+
+        for game_id, pulled_row in pulled_rows_by_game_id.items():
+            existing_row = existing_rows_by_game_id.get(game_id)
+
+            if existing_row is None:
+                added_rows += 1
+                merged_rows_by_game_id[game_id] = pulled_row
+                log(f"ADDED: game_id={game_id}")
+                continue
+
+            if rows_equal(existing_row, pulled_row):
+                unchanged_rows += 1
+                continue
+
+            updated_rows += 1
+            merged_rows_by_game_id[game_id] = pulled_row
+            log(f"UPDATED: game_id={game_id} changed_columns={changed_columns(existing_row, pulled_row)}")
+
+        missing_from_new_pull = 0
+
+        for game_id in existing_rows_by_game_id:
+            if game_id not in pulled_rows_by_game_id:
+                missing_from_new_pull += 1
+                log(f"KEPT_MISSING_FROM_NEW_PULL: game_id={game_id}")
+
+        output_rows = list(merged_rows_by_game_id.values())
+
+        write_csv(OUTPUT_FILE, output_rows)
 
         log(f"api_calls_attempted={api_calls_attempted}")
         log(f"api_calls_succeeded={api_calls_succeeded}")
         log(f"events_seen={events_seen}")
         log(f"duplicate_events_seen={duplicate_events_seen}")
-        log(f"unique_games_written={len(output_rows)}")
+        log(f"duplicate_events_rewritten={duplicate_events_rewritten}")
+        log(f"duplicate_existing_game_ids={duplicate_existing_game_ids}")
+        log(f"pulled_unique_games={len(pulled_rows)}")
+        log(f"existing_unique_games={len(existing_rows_by_game_id)}")
+        log(f"added_rows={added_rows}")
+        log(f"updated_rows={updated_rows}")
+        log(f"unchanged_rows={unchanged_rows}")
+        log(f"missing_from_new_pull={missing_from_new_pull}")
+        log(f"main_unique_games_written={len(output_rows)}")
         log("pull_schedule.py finished")
 
         print(f"Wrote {len(output_rows)} rows to {OUTPUT_FILE}")
+        print(f"Wrote {len(pulled_rows)} pulled rows to {updates_file}")
         print(f"Summary/warnings written to {LOG_FILE}")
 
     except SystemExit:
