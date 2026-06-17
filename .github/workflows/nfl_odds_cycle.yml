@@ -1,0 +1,61 @@
+name: NFL Odds Intake Cycle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nfl-odds-intake-cycle:
+    runs-on: ubuntu-latest
+
+    env:
+      API_ODDS: ${{ secrets.API_ODDS }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Create NFL intake output folders
+        run: |
+          mkdir -p docs/win/football/nfl/00_intake/odds
+          mkdir -p docs/win/football/nfl/00_intake/odds/raw
+          mkdir -p docs/win/football/nfl/00_intake/odds/openers
+          mkdir -p docs/win/football/nfl/00_intake/schedule/weekly
+          mkdir -p docs/win/football/nfl/errors/00_intake
+
+      - name: Run NFL current odds pull
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_odds.py
+
+      - name: Run NFL weekly schedule merge
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/build_weekly_schedule.py
+
+      - name: Run NFL opening odds pull
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_opening_odds.py
+
+      - name: Commit NFL odds intake outputs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/win/football/nfl/00_intake/odds/
+          git add docs/win/football/nfl/00_intake/schedule/weekly/
+          git add docs/win/football/nfl/errors/00_intake/pull_odds.txt
+          git add docs/win/football/nfl/errors/00_intake/build_weekly_schedule.txt
+          git add docs/win/football/nfl/errors/00_intake/pull_opening_odds.txt
+
+          if git diff --cached --quiet; then
+            echo "No NFL odds intake output changes to commit."
+          else
+            git commit -m "Update NFL odds intake outputs"
+            git push
+          fi
