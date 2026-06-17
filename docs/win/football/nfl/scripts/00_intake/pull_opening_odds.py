@@ -8,9 +8,9 @@ import sys
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
 
 
 BASE_DIR = Path("docs/win/football/nfl")
@@ -45,6 +45,9 @@ OUTPUT_COLUMNS = [
     "opening_moneyline",
     "current_moneyline",
     "moneyline_movement",
+    "opener_status",
+    "opener_missing_reason",
+    "opener_http_status",
 ]
 
 WEEKLY_REQUIRED_COLUMNS = [
@@ -173,6 +176,9 @@ def to_float(value):
     if not text:
         return None
 
+    if text.lower() in {"even", "ev", "evens"}:
+        return 100.0
+
     try:
         return float(text)
     except Exception:
@@ -209,7 +215,20 @@ def decimal_to_american(value):
 
 
 def normalize_odds_to_american(value):
-    number = to_float(value)
+    raw = unwrap_value(value)
+
+    if raw is None:
+        return ""
+
+    text = str(raw).strip()
+
+    if not text:
+        return ""
+
+    if text.lower() in {"even", "ev", "evens"}:
+        return "100"
+
+    number = to_float(text)
 
     if number is None:
         return ""
@@ -238,6 +257,16 @@ def numeric_movement(current_value, opening_value):
     return str(round(movement, 4))
 
 
+def same_number(left, right):
+    left_num = to_float(left)
+    right_num = to_float(right)
+
+    if left_num is None or right_num is None:
+        return False
+
+    return abs(left_num - right_num) < 0.0001
+
+
 def normalize_timestamp(value):
     if value is None:
         return ""
@@ -261,6 +290,46 @@ def normalize_timestamp(value):
             pass
 
     return text
+
+
+def unwrap_value(value):
+    if isinstance(value, dict):
+        for key in [
+            "american",
+            "odds_american",
+            "price_american",
+            "price",
+            "odds",
+            "decimal",
+            "odds_decimal",
+            "value",
+        ]:
+            if key in value:
+                return unwrap_value(value.get(key))
+
+        return ""
+
+    if isinstance(value, list):
+        if not value:
+            return ""
+
+        return unwrap_value(value[0])
+
+    return value
+
+
+def first_existing_value(data, keys):
+    if not isinstance(data, dict):
+        return ""
+
+    for key in keys:
+        if key in data:
+            value = unwrap_value(data.get(key))
+
+            if str(value).strip() != "":
+                return value
+
+    return ""
 
 
 def movement_request(api_key, event_id, bookmaker, market, market_line):
@@ -303,186 +372,428 @@ def get_opening(response):
     return {}
 
 
+def has_opening(response):
+    return bool(get_opening(response))
+
+
+def response_status(response):
+    if not isinstance(response, dict):
+        return {
+            "opener_status": "missing",
+            "opener_missing_reason": "invalid_response",
+            "opener_http_status": "",
+        }
+
+    if response.get("_request_failed"):
+        http_status = str(response.get("_http_status", "")).strip()
+        error = str(response.get("_error", "")).strip()
+
+        if http_status == "404":
+            status = "missing"
+        else:
+            status = "error"
+
+        return {
+            "opener_status": status,
+            "opener_missing_reason": error,
+            "opener_http_status": http_status,
+        }
+
+    if not has_opening(response):
+        return {
+            "opener_status": "missing",
+            "opener_missing_reason": "no_opening_data",
+            "opener_http_status": "",
+        }
+
+    return {
+        "opener_status": "ok",
+        "opener_missing_reason": "",
+        "opener_http_status": "",
+    }
+
+
+def unique_lines(lines):
+    seen = set()
+    output = []
+
+    for line in lines:
+        text = str(line or "").strip()
+
+        if text in seen:
+            continue
+
+        seen.add(text)
+        output.append(text)
+
+    return output
+
+
+def movement_request_with_candidates(api_key, event_id, bookmaker, market, market_lines):
+    responses = []
+
+    for market_line in unique_lines(market_lines):
+        response = movement_request(
+            api_key=api_key,
+            event_id=event_id,
+            bookmaker=bookmaker,
+            market=market,
+            market_line=market_line,
+        )
+
+        responses.append((response, market_line))
+
+        if has_opening(response):
+            return response, market_line
+
+    if responses:
+        return responses[-1]
+
+    return {}, ""
+
+
+def h2h_opening_odds(opening, side):
+    if side == "home":
+        return normalize_odds_to_american(
+            first_existing_value(
+                opening,
+                [
+                    "home",
+                    "Home",
+                    "home_odds",
+                    "homeOdds",
+                    "home_price",
+                    "homePrice",
+                ],
+            )
+        )
+
+    return normalize_odds_to_american(
+        first_existing_value(
+            opening,
+            [
+                "away",
+                "Away",
+                "away_odds",
+                "awayOdds",
+                "away_price",
+                "awayPrice",
+            ],
+        )
+    )
+
+
+def spread_opening_odds(opening, side):
+    if side == "home":
+        return normalize_odds_to_american(
+            first_existing_value(
+                opening,
+                [
+                    "home",
+                    "Home",
+                    "home_odds",
+                    "homeOdds",
+                    "home_price",
+                    "homePrice",
+                ],
+            )
+        )
+
+    return normalize_odds_to_american(
+        first_existing_value(
+            opening,
+            [
+                "away",
+                "Away",
+                "away_odds",
+                "awayOdds",
+                "away_price",
+                "awayPrice",
+            ],
+        )
+    )
+
+
+def total_opening_odds(opening, side):
+    if side == "over":
+        return normalize_odds_to_american(
+            first_existing_value(
+                opening,
+                [
+                    "over",
+                    "Over",
+                    "over_odds",
+                    "overOdds",
+                    "over_price",
+                    "overPrice",
+                    "o",
+                    "O",
+                    "home",
+                    "Home",
+                ],
+            )
+        )
+
+    return normalize_odds_to_american(
+        first_existing_value(
+            opening,
+            [
+                "under",
+                "Under",
+                "under_odds",
+                "underOdds",
+                "under_price",
+                "underPrice",
+                "u",
+                "U",
+                "away",
+                "Away",
+            ],
+        )
+    )
+
+
+def opening_hdp(opening):
+    return clean_number(
+        first_existing_value(
+            opening,
+            [
+                "hdp",
+                "line",
+                "marketLine",
+                "market_line",
+                "spread",
+                "total",
+                "points",
+            ],
+        )
+    )
+
+
+def add_status_fields(row, status):
+    row["opener_status"] = status.get("opener_status", "")
+    row["opener_missing_reason"] = status.get("opener_missing_reason", "")
+    row["opener_http_status"] = status.get("opener_http_status", "")
+    return row
+
+
 def add_h2h_rows(rows, weekly_row, response):
     opening = get_opening(response)
-
-    if not opening:
-        return
+    status = response_status(response)
 
     opening_timestamp = normalize_timestamp(opening.get("timestamp"))
 
-    home_open = normalize_odds_to_american(opening.get("home"))
-    away_open = normalize_odds_to_american(opening.get("away"))
+    home_open = h2h_opening_odds(opening, "home")
+    away_open = h2h_opening_odds(opening, "away")
 
     home_current = str(weekly_row.get("home_moneyline_american", "")).strip()
     away_current = str(weekly_row.get("away_moneyline_american", "")).strip()
 
     rows.append(
-        {
-            "game_id": weekly_row.get("game_id", ""),
-            "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
-            "market_type": "h2h",
-            "bet_side": "home",
-            "opening_line": "",
-            "opening_odds_american": home_open,
-            "opening_timestamp": opening_timestamp,
-            "bookmaker": weekly_row.get("bookmaker", ""),
-            "opening_spread": "",
-            "current_spread": "",
-            "spread_movement": "",
-            "opening_total": "",
-            "current_total": "",
-            "total_movement": "",
-            "opening_moneyline": home_open,
-            "current_moneyline": home_current,
-            "moneyline_movement": numeric_movement(home_current, home_open),
-        }
+        add_status_fields(
+            {
+                "game_id": weekly_row.get("game_id", ""),
+                "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
+                "market_type": "h2h",
+                "bet_side": "home",
+                "opening_line": "",
+                "opening_odds_american": home_open,
+                "opening_timestamp": opening_timestamp,
+                "bookmaker": weekly_row.get("bookmaker", ""),
+                "opening_spread": "",
+                "current_spread": "",
+                "spread_movement": "",
+                "opening_total": "",
+                "current_total": "",
+                "total_movement": "",
+                "opening_moneyline": home_open,
+                "current_moneyline": home_current,
+                "moneyline_movement": numeric_movement(home_current, home_open),
+            },
+            status,
+        )
     )
 
     rows.append(
-        {
-            "game_id": weekly_row.get("game_id", ""),
-            "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
-            "market_type": "h2h",
-            "bet_side": "away",
-            "opening_line": "",
-            "opening_odds_american": away_open,
-            "opening_timestamp": opening_timestamp,
-            "bookmaker": weekly_row.get("bookmaker", ""),
-            "opening_spread": "",
-            "current_spread": "",
-            "spread_movement": "",
-            "opening_total": "",
-            "current_total": "",
-            "total_movement": "",
-            "opening_moneyline": away_open,
-            "current_moneyline": away_current,
-            "moneyline_movement": numeric_movement(away_current, away_open),
-        }
+        add_status_fields(
+            {
+                "game_id": weekly_row.get("game_id", ""),
+                "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
+                "market_type": "h2h",
+                "bet_side": "away",
+                "opening_line": "",
+                "opening_odds_american": away_open,
+                "opening_timestamp": opening_timestamp,
+                "bookmaker": weekly_row.get("bookmaker", ""),
+                "opening_spread": "",
+                "current_spread": "",
+                "spread_movement": "",
+                "opening_total": "",
+                "current_total": "",
+                "total_movement": "",
+                "opening_moneyline": away_open,
+                "current_moneyline": away_current,
+                "moneyline_movement": numeric_movement(away_current, away_open),
+            },
+            status,
+        )
     )
 
 
-def add_spread_rows(rows, weekly_row, response):
-    opening = get_opening(response)
+def spread_lines_from_opening(opening, weekly_row, market_line_used):
+    opening_line = opening_hdp(opening)
 
-    if not opening:
-        return
+    if opening_line == "":
+        return "", ""
+
+    home_spread = str(weekly_row.get("home_spread", "")).strip()
+    away_spread = str(weekly_row.get("away_spread", "")).strip()
+
+    if same_number(market_line_used, away_spread):
+        away_opening_spread = opening_line
+        opening_number = to_float(opening_line)
+
+        if opening_number is None:
+            return "", away_opening_spread
+
+        home_opening_spread = clean_number(-opening_number)
+        return home_opening_spread, away_opening_spread
+
+    home_opening_spread = opening_line
+    opening_number = to_float(opening_line)
+
+    if opening_number is None:
+        return home_opening_spread, ""
+
+    away_opening_spread = clean_number(-opening_number)
+    return home_opening_spread, away_opening_spread
+
+
+def add_spread_rows(rows, weekly_row, response, market_line_used):
+    opening = get_opening(response)
+    status = response_status(response)
 
     opening_timestamp = normalize_timestamp(opening.get("timestamp"))
 
-    opening_home_spread = clean_number(opening.get("hdp"))
-    opening_away_spread = ""
+    opening_home_spread, opening_away_spread = spread_lines_from_opening(opening, weekly_row, market_line_used)
 
-    if opening_home_spread != "":
-        opening_away_spread = clean_number(-to_float(opening_home_spread))
-
-    home_open_odds = normalize_odds_to_american(opening.get("home"))
-    away_open_odds = normalize_odds_to_american(opening.get("away"))
+    home_open_odds = spread_opening_odds(opening, "home")
+    away_open_odds = spread_opening_odds(opening, "away")
 
     home_current_spread = str(weekly_row.get("home_spread", "")).strip()
     away_current_spread = str(weekly_row.get("away_spread", "")).strip()
 
     rows.append(
-        {
-            "game_id": weekly_row.get("game_id", ""),
-            "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
-            "market_type": "spreads",
-            "bet_side": "home",
-            "opening_line": opening_home_spread,
-            "opening_odds_american": home_open_odds,
-            "opening_timestamp": opening_timestamp,
-            "bookmaker": weekly_row.get("bookmaker", ""),
-            "opening_spread": opening_home_spread,
-            "current_spread": home_current_spread,
-            "spread_movement": numeric_movement(home_current_spread, opening_home_spread),
-            "opening_total": "",
-            "current_total": "",
-            "total_movement": "",
-            "opening_moneyline": "",
-            "current_moneyline": "",
-            "moneyline_movement": "",
-        }
+        add_status_fields(
+            {
+                "game_id": weekly_row.get("game_id", ""),
+                "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
+                "market_type": "spreads",
+                "bet_side": "home",
+                "opening_line": opening_home_spread,
+                "opening_odds_american": home_open_odds,
+                "opening_timestamp": opening_timestamp,
+                "bookmaker": weekly_row.get("bookmaker", ""),
+                "opening_spread": opening_home_spread,
+                "current_spread": home_current_spread,
+                "spread_movement": numeric_movement(home_current_spread, opening_home_spread),
+                "opening_total": "",
+                "current_total": "",
+                "total_movement": "",
+                "opening_moneyline": "",
+                "current_moneyline": "",
+                "moneyline_movement": "",
+            },
+            status,
+        )
     )
 
     rows.append(
-        {
-            "game_id": weekly_row.get("game_id", ""),
-            "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
-            "market_type": "spreads",
-            "bet_side": "away",
-            "opening_line": opening_away_spread,
-            "opening_odds_american": away_open_odds,
-            "opening_timestamp": opening_timestamp,
-            "bookmaker": weekly_row.get("bookmaker", ""),
-            "opening_spread": opening_away_spread,
-            "current_spread": away_current_spread,
-            "spread_movement": numeric_movement(away_current_spread, opening_away_spread),
-            "opening_total": "",
-            "current_total": "",
-            "total_movement": "",
-            "opening_moneyline": "",
-            "current_moneyline": "",
-            "moneyline_movement": "",
-        }
+        add_status_fields(
+            {
+                "game_id": weekly_row.get("game_id", ""),
+                "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
+                "market_type": "spreads",
+                "bet_side": "away",
+                "opening_line": opening_away_spread,
+                "opening_odds_american": away_open_odds,
+                "opening_timestamp": opening_timestamp,
+                "bookmaker": weekly_row.get("bookmaker", ""),
+                "opening_spread": opening_away_spread,
+                "current_spread": away_current_spread,
+                "spread_movement": numeric_movement(away_current_spread, opening_away_spread),
+                "opening_total": "",
+                "current_total": "",
+                "total_movement": "",
+                "opening_moneyline": "",
+                "current_moneyline": "",
+                "moneyline_movement": "",
+            },
+            status,
+        )
     )
 
 
 def add_total_rows(rows, weekly_row, response):
     opening = get_opening(response)
-
-    if not opening:
-        return
+    status = response_status(response)
 
     opening_timestamp = normalize_timestamp(opening.get("timestamp"))
 
-    opening_total = clean_number(opening.get("hdp"))
+    opening_total = opening_hdp(opening)
     current_total = str(weekly_row.get("total", "")).strip()
 
-    over_open_odds = normalize_odds_to_american(opening.get("over"))
-    under_open_odds = normalize_odds_to_american(opening.get("under"))
+    over_open_odds = total_opening_odds(opening, "over")
+    under_open_odds = total_opening_odds(opening, "under")
 
     rows.append(
-        {
-            "game_id": weekly_row.get("game_id", ""),
-            "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
-            "market_type": "totals",
-            "bet_side": "over",
-            "opening_line": opening_total,
-            "opening_odds_american": over_open_odds,
-            "opening_timestamp": opening_timestamp,
-            "bookmaker": weekly_row.get("bookmaker", ""),
-            "opening_spread": "",
-            "current_spread": "",
-            "spread_movement": "",
-            "opening_total": opening_total,
-            "current_total": current_total,
-            "total_movement": numeric_movement(current_total, opening_total),
-            "opening_moneyline": "",
-            "current_moneyline": "",
-            "moneyline_movement": "",
-        }
+        add_status_fields(
+            {
+                "game_id": weekly_row.get("game_id", ""),
+                "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
+                "market_type": "totals",
+                "bet_side": "over",
+                "opening_line": opening_total,
+                "opening_odds_american": over_open_odds,
+                "opening_timestamp": opening_timestamp,
+                "bookmaker": weekly_row.get("bookmaker", ""),
+                "opening_spread": "",
+                "current_spread": "",
+                "spread_movement": "",
+                "opening_total": opening_total,
+                "current_total": current_total,
+                "total_movement": numeric_movement(current_total, opening_total),
+                "opening_moneyline": "",
+                "current_moneyline": "",
+                "moneyline_movement": "",
+            },
+            status,
+        )
     )
 
     rows.append(
-        {
-            "game_id": weekly_row.get("game_id", ""),
-            "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
-            "market_type": "totals",
-            "bet_side": "under",
-            "opening_line": opening_total,
-            "opening_odds_american": under_open_odds,
-            "opening_timestamp": opening_timestamp,
-            "bookmaker": weekly_row.get("bookmaker", ""),
-            "opening_spread": "",
-            "current_spread": "",
-            "spread_movement": "",
-            "opening_total": opening_total,
-            "current_total": current_total,
-            "total_movement": numeric_movement(current_total, opening_total),
-            "opening_moneyline": "",
-            "current_moneyline": "",
-            "moneyline_movement": "",
-        }
+        add_status_fields(
+            {
+                "game_id": weekly_row.get("game_id", ""),
+                "odds_provider_game_id": weekly_row.get("odds_provider_game_id", ""),
+                "market_type": "totals",
+                "bet_side": "under",
+                "opening_line": opening_total,
+                "opening_odds_american": under_open_odds,
+                "opening_timestamp": opening_timestamp,
+                "bookmaker": weekly_row.get("bookmaker", ""),
+                "opening_spread": "",
+                "current_spread": "",
+                "spread_movement": "",
+                "opening_total": opening_total,
+                "current_total": current_total,
+                "total_movement": numeric_movement(current_total, opening_total),
+                "opening_moneyline": "",
+                "current_moneyline": "",
+                "moneyline_movement": "",
+            },
+            status,
+        )
     )
 
 
@@ -505,52 +816,55 @@ def build_opening_rows(api_key, weekly_rows):
             )
             continue
 
-        h2h_response = movement_request(
+        h2h_response, _ = movement_request_with_candidates(
             api_key=api_key,
             event_id=event_id,
             bookmaker=bookmaker,
             market=MARKET_API_NAMES["h2h"],
-            market_line="",
+            market_lines=[""],
         )
         add_h2h_rows(output_rows, row, h2h_response)
 
         home_spread = str(row.get("home_spread", "")).strip()
+        away_spread = str(row.get("away_spread", "")).strip()
 
-        if home_spread:
-            spread_response = movement_request(
+        if home_spread or away_spread:
+            spread_response, spread_line_used = movement_request_with_candidates(
                 api_key=api_key,
                 event_id=event_id,
                 bookmaker=bookmaker,
                 market=MARKET_API_NAMES["spreads"],
-                market_line=home_spread,
+                market_lines=[home_spread, away_spread],
             )
-            add_spread_rows(output_rows, row, spread_response)
+            add_spread_rows(output_rows, row, spread_response, spread_line_used)
         else:
             log(
-                "SKIP_SPREAD_MISSING_HOME_SPREAD "
+                "SPREAD_ROW_MISSING_CURRENT_SPREAD "
                 f"game_id={row.get('game_id', '')} "
                 f"event_id={event_id} "
                 f"bookmaker={bookmaker}"
             )
+            add_spread_rows(output_rows, row, {}, "")
 
         total = str(row.get("total", "")).strip()
 
         if total:
-            total_response = movement_request(
+            total_response, _ = movement_request_with_candidates(
                 api_key=api_key,
                 event_id=event_id,
                 bookmaker=bookmaker,
                 market=MARKET_API_NAMES["totals"],
-                market_line=total,
+                market_lines=[total],
             )
             add_total_rows(output_rows, row, total_response)
         else:
             log(
-                "SKIP_TOTAL_MISSING_TOTAL "
+                "TOTAL_ROW_MISSING_CURRENT_TOTAL "
                 f"game_id={row.get('game_id', '')} "
                 f"event_id={event_id} "
                 f"bookmaker={bookmaker}"
             )
+            add_total_rows(output_rows, row, {})
 
     return output_rows
 
@@ -563,11 +877,50 @@ def read_existing_openers(path):
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames or []
 
+        existing_rows = []
+
+        for row in reader:
+            normalized = {}
+
+            for column in OUTPUT_COLUMNS:
+                normalized[column] = row.get(column, "")
+
+            existing_rows.append(normalized)
+
         missing = [column for column in OUTPUT_COLUMNS if column not in fieldnames]
         if missing:
-            fail(f"Existing opener file missing columns: {missing}")
+            log(f"Existing opener file missing columns; blanks inserted: {missing}")
 
-        return list(reader)
+        return existing_rows
+
+
+def row_has_opening_data(row):
+    return any(
+        str(row.get(column, "")).strip()
+        for column in [
+            "opening_line",
+            "opening_odds_american",
+            "opening_timestamp",
+            "opening_spread",
+            "opening_total",
+            "opening_moneyline",
+        ]
+    )
+
+
+def row_status_rank(row):
+    status = str(row.get("opener_status", "")).strip()
+
+    if status == "ok":
+        return 3
+
+    if row_has_opening_data(row):
+        return 2
+
+    if status == "missing":
+        return 1
+
+    return 0
 
 
 def upsert_rows(existing_rows, new_rows):
@@ -589,7 +942,15 @@ def upsert_rows(existing_rows, new_rows):
             str(row.get("bet_side", "")).strip(),
             str(row.get("bookmaker", "")).strip(),
         )
-        keyed[key] = row
+
+        existing = keyed.get(key)
+
+        if existing is None:
+            keyed[key] = row
+            continue
+
+        if row_status_rank(row) >= row_status_rank(existing):
+            keyed[key] = row
 
     rows = list(keyed.values())
 
@@ -637,16 +998,26 @@ def main():
 
     write_csv(output_path, final_rows)
 
+    ok_rows = sum(1 for row in final_rows if str(row.get("opener_status", "")).strip() == "ok")
+    missing_rows = sum(1 for row in final_rows if str(row.get("opener_status", "")).strip() == "missing")
+    error_rows = sum(1 for row in final_rows if str(row.get("opener_status", "")).strip() == "error")
+
     log(f"Weekly rows loaded: {len(weekly_rows)}")
     log(f"Existing opener rows loaded: {len(existing_rows)}")
     log(f"New opener rows built: {len(new_rows)}")
     log(f"Final opener rows written: {len(final_rows)}")
+    log(f"Final opener ok rows: {ok_rows}")
+    log(f"Final opener missing rows: {missing_rows}")
+    log(f"Final opener error rows: {error_rows}")
     log(f"Output written: {output_path}")
 
     print(f"Opening odds written: {output_path}")
     print(f"Weekly rows loaded: {len(weekly_rows)}")
     print(f"New opener rows built: {len(new_rows)}")
     print(f"Final opener rows written: {len(final_rows)}")
+    print(f"Final opener ok rows: {ok_rows}")
+    print(f"Final opener missing rows: {missing_rows}")
+    print(f"Final opener error rows: {error_rows}")
 
 
 if __name__ == "__main__":
