@@ -7,7 +7,7 @@ import re
 import sys
 import traceback
 from collections import Counter
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -184,15 +184,6 @@ def latest_file(directory, pattern, label):
         fail(f"No {label} found in {directory} matching {pattern}")
 
     return files[0]
-
-
-def extract_date_stamp(path):
-    match = re.search(r"(\d{4}_\d{2}_\d{2})", path.name)
-
-    if match:
-        return match.group(1)
-
-    return date.today().strftime("%Y_%m_%d")
 
 
 def parse_date(value):
@@ -495,9 +486,6 @@ def main():
     odds_csv_path = latest_file(ODDS_DIR, "*_NFL_odds.csv", "NFL odds CSV")
     raw_odds_path = latest_file(RAW_ODDS_DIR, "*_nfl_odds.json", "raw NFL odds JSON")
 
-    output_date = extract_date_stamp(odds_csv_path)
-    output_path = WEEKLY_DIR / f"{output_date}_NFL_weekly_schedule.csv"
-
     log(f"Schedule input: {schedule_path}")
     log(f"Odds CSV input: {odds_csv_path}")
     log(f"Raw odds input: {raw_odds_path}")
@@ -513,6 +501,10 @@ def main():
     odds_summary = build_odds_summary(odds_rows)
 
     target_week = choose_target_week(schedule_rows, schedule_matches)
+    target_week_number = str(target_week[2]).strip()
+
+    output_path = WEEKLY_DIR / f"week_{target_week_number}_NFL_weekly_schedule.csv"
+
     output_rows = build_output_rows(schedule_rows, target_week, schedule_matches, odds_summary)
 
     write_csv(output_path, output_rows)
