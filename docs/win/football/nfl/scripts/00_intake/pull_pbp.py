@@ -4,7 +4,7 @@
 # Pulls nflverse play-by-play data for one NFL season.
 #
 # Output:
-#   docs/win/football/nfl/00_intake/pbp/{season}_pbp.csv
+#   docs/win/football/nfl/00_intake/pbp/{season}_pbp.csv.gz
 #
 # Intended downstream calculations:
 #   EPA/play
@@ -277,8 +277,8 @@ def missing_feature_columns(df: pd.DataFrame) -> list[str]:
 
 
 def write_pbp(df: pd.DataFrame, season: int) -> Path:
-    output_file = PBP_DIR / f"{season}_pbp.csv"
-    df.to_csv(output_file, index=False)
+    output_file = PBP_DIR / f"{season}_pbp.csv.gz"
+    df.to_csv(output_file, index=False, compression="gzip")
     return output_file
 
 
