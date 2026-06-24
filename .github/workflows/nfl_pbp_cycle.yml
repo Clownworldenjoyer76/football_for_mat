@@ -2,6 +2,11 @@ name: NFL PBP Intake Cycle
 
 on:
   workflow_dispatch:
+    inputs:
+      season:
+        description: "NFL season to pull PBP for"
+        required: true
+        default: "2025"
 
 permissions:
   contents: write
@@ -31,7 +36,7 @@ jobs:
 
       - name: Run NFL play-by-play pull
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_pbp.py
+          python docs/win/football/nfl/scripts/00_intake/pull_pbp.py --season "${{ github.event.inputs.season }}"
 
       - name: Commit NFL PBP intake outputs
         run: |
