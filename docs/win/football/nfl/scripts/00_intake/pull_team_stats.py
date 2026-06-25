@@ -8,12 +8,17 @@
 #
 # Output:
 #   docs/win/football/nfl/00_intake/team_stats/{season}_team_stats.csv
+#
+# Summary/error log:
+#   docs/win/football/nfl/errors/00_intake/pull_team_stats.txt
 
 from __future__ import annotations
 
 import argparse
 import os
 import sys
+import traceback
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -41,13 +46,28 @@ OUTPUT_COLUMNS = [
 SCRIMMAGE_PLAY_TYPES = {"pass", "run"}
 
 
-def resolve_paths() -> tuple[Path, Path, Path]:
+class RunLog:
+    def __init__(self, log_path: Path) -> None:
+        self.log_path = log_path
+        self.lines: list[str] = []
+
+    def write_line(self, message: str = "", *, stderr: bool = False) -> None:
+        self.lines.append(message)
+        print(message, file=sys.stderr if stderr else sys.stdout)
+
+    def save(self) -> None:
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.log_path.write_text("\n".join(self.lines) + "\n", encoding="utf-8")
+
+
+def resolve_paths() -> tuple[Path, Path, Path, Path]:
     nfl_root = Path(__file__).resolve().parents[2]
 
     pbp_dir = nfl_root / "00_intake" / "pbp"
     output_dir = nfl_root / "00_intake" / "team_stats"
+    error_dir = nfl_root / "errors" / "00_intake"
 
-    return nfl_root, pbp_dir, output_dir
+    return nfl_root, pbp_dir, output_dir, error_dir
 
 
 def parse_args() -> argparse.Namespace:
@@ -499,49 +519,65 @@ def build_team_stats(pbp: pd.DataFrame) -> pd.DataFrame:
     return team_stats
 
 
-def main() -> int:
+def run() -> int:
     args = parse_args()
     season = get_season(args.season)
 
-    _, pbp_dir, output_dir = resolve_paths()
+    _, pbp_dir, output_dir, error_dir = resolve_paths()
 
     pbp_path = pbp_dir / f"{season}_pbp.csv.gz"
     output_path = output_dir / f"{season}_team_stats.csv"
+    log_path = error_dir / "pull_team_stats.txt"
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    log = RunLog(log_path)
 
-    print("=" * 80)
-    print(f"pull_team_stats.py started | season={season}")
-    print(f"input={pbp_path}")
-    print(f"output={output_path}")
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        error_dir.mkdir(parents=True, exist_ok=True)
 
-    pbp = read_pbp(pbp_path)
+        log.write_line("=" * 80)
+        log.write_line(
+            f"[{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}] "
+            f"pull_team_stats.py started | season={season}"
+        )
+        log.write_line(f"input={pbp_path}")
+        log.write_line(f"output={output_path}")
+        log.write_line(f"log={log_path}")
 
-    if pbp.empty:
-        write_empty_output(output_path)
-        print("rows=0")
-        print("status=empty_pbp_written")
-        print("=" * 80)
+        pbp = read_pbp(pbp_path)
+
+        if pbp.empty:
+            write_empty_output(output_path)
+            log.write_line("pbp_rows=0")
+            log.write_line("output_rows=0")
+            log.write_line("output_columns=15")
+            log.write_line("status=empty_pbp_written")
+            log.write_line("=" * 80)
+            return 0
+
+        team_stats = build_team_stats(pbp)
+        team_stats.to_csv(output_path, index=False)
+
+        log.write_line(f"pbp_rows={len(pbp)}")
+        log.write_line(f"output_rows={len(team_stats)}")
+        log.write_line(f"output_columns={len(team_stats.columns)}")
+        log.write_line("status=success")
+        log.write_line("=" * 80)
+
         return 0
 
-    team_stats = build_team_stats(pbp)
-    team_stats.to_csv(output_path, index=False)
+    except Exception as exc:
+        log.write_line("=" * 80, stderr=True)
+        log.write_line("pull_team_stats.py failed", stderr=True)
+        log.write_line(f"error={exc}", stderr=True)
+        log.write_line(traceback.format_exc(), stderr=True)
+        log.write_line("status=failed", stderr=True)
+        log.write_line("=" * 80, stderr=True)
+        return 1
 
-    print(f"pbp_rows={len(pbp)}")
-    print(f"output_rows={len(team_stats)}")
-    print(f"output_columns={len(team_stats.columns)}")
-    print("status=success")
-    print("=" * 80)
-
-    return 0
+    finally:
+        log.save()
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except Exception as exc:
-        print("=" * 80, file=sys.stderr)
-        print("pull_team_stats.py failed", file=sys.stderr)
-        print(f"error={exc}", file=sys.stderr)
-        print("=" * 80, file=sys.stderr)
-        raise
+    raise SystemExit(run())
