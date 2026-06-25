@@ -255,11 +255,26 @@ def load_pbp(season: int, source: str) -> tuple[pd.DataFrame, str]:
 # NORMALIZATION / OUTPUT
 # ─────────────────────────────────────────────
 
-def clean_for_csv(df: pd.DataFrame) -> pd.DataFrame:
+def add_derived_spec_columns(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
 
     df = df.copy()
+
+    if "turnover" not in df.columns:
+        if "interception" in df.columns and "fumble_lost" in df.columns:
+            interception = pd.to_numeric(df["interception"], errors="coerce").fillna(0)
+            fumble_lost = pd.to_numeric(df["fumble_lost"], errors="coerce").fillna(0)
+            df["turnover"] = ((interception == 1) | (fumble_lost == 1)).astype(int)
+
+    return df
+
+
+def clean_for_csv(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    df = add_derived_spec_columns(df)
 
     sort_cols = [col for col in ["game_id", "play_id"] if col in df.columns]
     if sort_cols:
