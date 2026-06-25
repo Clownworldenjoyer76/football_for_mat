@@ -30,11 +30,17 @@ jobs:
       - name: Create NFL PBP output folders
         run: |
           mkdir -p docs/win/football/nfl/00_intake/pbp
+          mkdir -p docs/win/football/nfl/00_intake/team_stats
           mkdir -p docs/win/football/nfl/errors/00_intake
 
       - name: Run NFL play-by-play pull
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_pbp.py --season "$NFL_SEASON"
+
+      - name: Run NFL team stats pull
+        run: |
+          set -o pipefail
+          python docs/win/football/nfl/scripts/00_intake/pull_team_stats.py --season "$NFL_SEASON" 2>&1 | tee docs/win/football/nfl/errors/00_intake/pull_team_stats.txt
 
       - name: Commit NFL PBP intake outputs
         run: |
@@ -42,7 +48,9 @@ jobs:
           git config user.email "github-actions@github.com"
 
           git add docs/win/football/nfl/00_intake/pbp/
+          git add docs/win/football/nfl/00_intake/team_stats/
           git add docs/win/football/nfl/errors/00_intake/pull_pbp.txt
+          git add docs/win/football/nfl/errors/00_intake/pull_team_stats.txt
 
           if git diff --cached --quiet; then
             echo "No NFL PBP intake output changes to commit."
