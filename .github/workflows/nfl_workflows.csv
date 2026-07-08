@@ -1,5 +1,5 @@
 order,Workflow,Runs Scripts,Purpose,Run Time
-1,upload weekly fp QB file from, https://www.fantasypros.com/nfl/advanced-stats-qb.php?year=2021,raw qb data,run first
+1,upload weekly fp QB file from, https://www.fantasypros.com/nfl/advanced-stats-qb.php?year=2021,raw qb data,manual upload before pipeline run
 2,clean_fp_qb.yml,docs/win/football/nfl/scripts/00_intake/clean_qb_fp.py,cleans fp qb data,pre-pipeline
 3,nfl_schedule.yml,docs/win/football/nfl/scripts/00_intake/pull_schedule.py,Pull full NFL schedule/base game metadata,**As needed** before odds cycle if schedule may have changed
 4,nfl_odds_cycle.yml,pull_odds.py → build_weekly_schedule.py → pull_opening_odds.py,Pull current odds - build weekly schedule - pull openers/movement,**Pregame / market intake** - after schedule exists   
