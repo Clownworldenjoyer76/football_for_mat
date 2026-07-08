@@ -1,0 +1,58 @@
+name: Pull NFL QB Stats
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "NFL season"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  pull-qb-stats:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Pull QB stats
+        id: pull_qb_stats
+        run: |
+          set +e
+          python docs/win/football/nfl/scripts/00_intake/pull_qb_stats.py --season "${{ inputs.season }}"
+          exit_code=$?
+          echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
+          set -e
+          exit 0
+
+      - name: Upload QB stats log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pull-qb-stats-${{ inputs.season }}-log
+          path: |
+            docs/win/football/nfl/errors/00_intake/pull_qb_stats.txt
+            docs/win/football/nfl/00_intake/qb/${{ inputs.season }}_qb_stats.csv
+          if-no-files-found: warn
+
+      - name: Commit QB stats output and log
+        if: ${{ always() }}
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Pull NFL QB stats for ${{ inputs.season }}"
+          file_pattern: |
+            docs/win/football/nfl/00_intake/qb/${{ inputs.season }}_qb_stats.csv
+            docs/win/football/nfl/errors/00_intake/pull_qb_stats.txt
+
+      - name: Fail workflow if QB stats failed
+        if: ${{ steps.pull_qb_stats.outputs.exit_code != '0' }}
+        run: exit 1
