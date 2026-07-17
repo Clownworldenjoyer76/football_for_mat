@@ -1,0 +1,37 @@
+name: NFL FTN Charting Pull
+
+on:
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: "Space-separated list of seasons to pull (2022 or later), e.g. 2022 2023 2024 2025"
+        required: true
+        default: "2022 2023 2024 2025"
+
+jobs:
+  pull-ftn-charting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install nflreadpy
+
+      - name: Run pull_ftn_charting.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_ftn_charting.py --seasons ${{ github.event.inputs.seasons }}
+
+      - name: Commit output files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/win/football/nfl/00_intake/qb/ftn/
+          git add docs/win/football/nfl/errors/00_intake/pull_ftn_charting.txt
+          git diff --staged --quiet || git commit -m "Update FTN charting data"
+          git push
