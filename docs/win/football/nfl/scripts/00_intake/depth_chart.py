@@ -52,6 +52,38 @@ def get_team_ids_and_abbrs():
     return teams
 
 
+def resolve_injuries(injuries_field):
+    """
+    The athlete's "injuries" field from the core API is a $ref to a
+    collection endpoint, not inline data. Fetch it and pull the status
+    of each reported injury, matching the old shape:
+    injuries.N.status
+    """
+    if not isinstance(injuries_field, dict) or "$ref" not in injuries_field:
+        return []
+
+    try:
+        injuries_data = fetch_json(injuries_field["$ref"], timeout=10)
+    except Exception as e:
+        print(f"failed to resolve injuries {injuries_field['$ref']}: {e}")
+        return []
+
+    injuries_out = []
+    for item in injuries_data.get("items", []):
+        if isinstance(item, dict) and "$ref" in item:
+            try:
+                item = fetch_json(item["$ref"], timeout=10)
+            except Exception as e:
+                print(f"failed to resolve injury item: {e}")
+                continue
+
+        status = item.get("status", "")
+        if status:
+            injuries_out.append({"status": status})
+
+    return injuries_out
+
+
 def resolve_athlete_ref(ref_url):
     if ref_url in athlete_cache:
         return athlete_cache[ref_url]
@@ -60,7 +92,10 @@ def resolve_athlete_ref(ref_url):
     except Exception as e:
         print(f"failed to resolve {ref_url}: {e}")
         data = {}
+
     result = {field: data.get(field, "") for field in ATHLETE_FIELDS}
+    result["injuries"] = resolve_injuries(data.get("injuries", {}))
+
     athlete_cache[ref_url] = result
     return result
 
@@ -87,7 +122,11 @@ def build_old_shape(core_response, team_id, team_abbr):
                 if isinstance(athlete_ref, dict) and "$ref" in athlete_ref:
                     resolved = resolve_athlete_ref(athlete_ref["$ref"])
                 else:
-                    resolved = {field: athlete_ref.get(field, "") for field in ATHLETE_FIELDS} if isinstance(athlete_ref, dict) else {}
+                    if isinstance(athlete_ref, dict):
+                        resolved = {field: athlete_ref.get(field, "") for field in ATHLETE_FIELDS}
+                        resolved["injuries"] = []
+                    else:
+                        resolved = {}
                 athletes_out.append(resolved)
 
             positions_out[pos_key] = {
