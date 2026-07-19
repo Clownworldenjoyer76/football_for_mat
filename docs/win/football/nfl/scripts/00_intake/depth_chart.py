@@ -44,16 +44,21 @@ def resolve_athlete_ref(ref_url):
     return data
 
 
+ATHLETE_FIELDS = ["id", "displayName", "shortName", "guid", "uid"]
+
+
 def resolve_refs_in_obj(obj):
     """
     Recursively walks the object. Wherever a dict has a single "$ref" key
-    (ESPN's reference-link pattern), fetches that URL and replaces the
-    dict with the actual resolved data.
+    (ESPN's reference-link pattern), fetches that URL and pulls only the
+    needed athlete fields — does NOT recurse further into the resolved
+    athlete's own nested refs (team, position, statistics, etc.), since
+    that would trigger hundreds of extra API calls per athlete.
     """
     if isinstance(obj, dict):
         if set(obj.keys()) == {"$ref"}:
             resolved = resolve_athlete_ref(obj["$ref"])
-            return resolve_refs_in_obj(resolved)
+            return {field: resolved.get(field, "") for field in ATHLETE_FIELDS}
         return {k: resolve_refs_in_obj(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [resolve_refs_in_obj(v) for v in obj]
