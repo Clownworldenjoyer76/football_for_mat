@@ -54,32 +54,19 @@ def get_team_ids_and_abbrs():
 
 def resolve_injuries(injuries_field):
     """
-    The athlete's "injuries" field from the core API is a $ref to a
-    collection endpoint, not inline data. Fetch it and pull the status
-    of each reported injury, matching the old shape:
-    injuries.N.status
+    The athlete's "injuries" field is already a list of fully-populated
+    injury objects (each with a "status" key directly present) — no
+    extra fetch is needed.
     """
-    if not isinstance(injuries_field, dict) or "$ref" not in injuries_field:
-        return []
-
-    try:
-        injuries_data = fetch_json(injuries_field["$ref"], timeout=10)
-    except Exception as e:
-        print(f"failed to resolve injuries {injuries_field['$ref']}: {e}")
+    if not isinstance(injuries_field, list):
         return []
 
     injuries_out = []
-    for item in injuries_data.get("items", []):
-        if isinstance(item, dict) and "$ref" in item:
-            try:
-                item = fetch_json(item["$ref"], timeout=10)
-            except Exception as e:
-                print(f"failed to resolve injury item: {e}")
-                continue
-
-        status = item.get("status", "")
-        if status:
-            injuries_out.append({"status": status})
+    for item in injuries_field:
+        if isinstance(item, dict):
+            status = item.get("status", "")
+            if status:
+                injuries_out.append({"status": status})
 
     return injuries_out
 
