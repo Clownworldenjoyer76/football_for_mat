@@ -16,7 +16,7 @@ import os
 import re
 
 INPUT_PATH = "docs/win/football/nfl/data/raw/raw_depth.csv"
-OUTPUT_ROOT = "docs/win/football/nfl/data/masterdepth_charts"
+OUTPUT_ROOT = "docs/win/football/nfl/data/master/depth_charts"
 
 OUT_HEADER = [
     "sport",
