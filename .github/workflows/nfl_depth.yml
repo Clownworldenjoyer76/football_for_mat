@@ -1,10 +1,10 @@
-name: NFL Depth Chart Cleanup
+name: NFL Depth Chart Pull and Cleanup
 
 on:
   workflow_dispatch:
 
 jobs:
-  depth-cleanup:
+  pull-and-clean-depth-chart:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -15,6 +15,10 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Run depth_chart.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/depth_chart.py
+
       - name: Run depth_cleanup.py
         run: |
           python docs/win/football/nfl/scripts/00_intake/depth_cleanup.py
@@ -23,6 +27,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+          git add docs/win/football/nfl/data/raw/raw_depth.csv
           git add docs/win/football/nfl/data/master/
-          git diff --staged --quiet || git commit -m "Update team depth chart files"
+          git diff --staged --quiet || git commit -m "Update raw_depth.csv and team depth chart files"
           git push
