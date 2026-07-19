@@ -1,0 +1,33 @@
+name: NFL Roster Update
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pull-and-clean-roster:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run pull_raw_roster.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_raw_roster.py
+
+      - name: Run roster_cleanup.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/roster_cleanup.py
+
+      - name: Commit output files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/win/football/nfl/data/raw/raw_roster.csv
+          git add docs/win/football/nfl/data/master/roster_master.csv
+          git diff --staged --quiet || git commit -m "Update raw_roster.csv and roster_master.csv"
+          git push
