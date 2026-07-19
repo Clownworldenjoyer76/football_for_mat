@@ -1,14 +1,19 @@
 """
 depth_chart.py
 
-Pulls depth chart data for every NFL team from the ESPN API, flattens the
-JSON response fully, resolves athlete $ref links into actual athlete
-names/ids, and writes one combined raw CSV.
+Pulls depth chart data for every NFL team from ESPN's season-specific
+core API (which supports selecting the current season, unlike the old
+site API endpoint), reshapes the response to match the original
+depthchart.N.positions.X.athletes.N.* column structure, and writes one
+combined raw CSV.
+
+Output structure matches the original raw_depth.csv exactly, so
+depth_cleanup.py does not need to be changed.
 
 Endpoints used:
     https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams
     https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/teams/{id}/depthcharts
-    https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/athletes/{athlete_id} (ref resolution)
+    (athlete $ref links resolved automatically)
 
 Output:
     docs/win/football/nfl/data/raw/raw_depth.csv
@@ -26,44 +31,91 @@ DEPTHCHART_URL_TEMPLATE = "https://sports.core.api.espn.com/v2/sports/football/l
 OUTPUT_PATH = "docs/win/football/nfl/data/raw/raw_depth.csv"
 
 athlete_cache = {}
+ATHLETE_FIELDS = ["id", "displayName", "shortName", "guid", "uid"]
 
 
-def fetch_json(url):
-    with urllib.request.urlopen(url) as response:
+def fetch_json(url, timeout=10):
+    with urllib.request.urlopen(url, timeout=timeout) as response:
         return json.loads(response.read().decode())
+
+
+def get_team_ids_and_abbrs():
+    data = fetch_json(TEAMS_URL)
+    teams = []
+    for league in data.get("sports", [{}])[0].get("leagues", [{}]):
+        for team_entry in league.get("teams", []):
+            team = team_entry.get("team", {})
+            team_id = team.get("id")
+            abbr = team.get("abbreviation")
+            if team_id:
+                teams.append((team_id, abbr))
+    return teams
 
 
 def resolve_athlete_ref(ref_url):
     if ref_url in athlete_cache:
         return athlete_cache[ref_url]
     try:
-        data = fetch_json(ref_url)
-    except Exception:
+        data = fetch_json(ref_url, timeout=10)
+    except Exception as e:
+        print(f"failed to resolve {ref_url}: {e}")
         data = {}
-    athlete_cache[ref_url] = data
-    return data
+    result = {field: data.get(field, "") for field in ATHLETE_FIELDS}
+    athlete_cache[ref_url] = result
+    return result
 
 
-ATHLETE_FIELDS = ["id", "displayName", "shortName", "guid", "uid"]
-
-
-def resolve_refs_in_obj(obj):
+def build_old_shape(core_response, team_id, team_abbr):
     """
-    Recursively walks the object. Wherever a dict has a single "$ref" key
-    (ESPN's reference-link pattern), fetches that URL and pulls only the
-    needed athlete fields — does NOT recurse further into the resolved
-    athlete's own nested refs (team, position, statistics, etc.), since
-    that would trigger hundreds of extra API calls per athlete.
+    Converts the core API's {items:[{id,name,positions:{pos:{position,athletes:[{rank,athlete:{$ref}}]}}}]}
+    shape into the old site API's {depthchart:[{id,name,positions:{pos:{position,athletes:[{id,displayName,...}]}}}]} shape.
     """
-    if isinstance(obj, dict):
-        if set(obj.keys()) == {"$ref"}:
-            resolved = resolve_athlete_ref(obj["$ref"])
-            return {field: resolved.get(field, "") for field in ATHLETE_FIELDS}
-        return {k: resolve_refs_in_obj(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [resolve_refs_in_obj(v) for v in obj]
-    else:
-        return obj
+    depthchart = []
+
+    for item in core_response.get("items", []):
+        positions_out = {}
+        for pos_key, pos_val in item.get("positions", {}).items():
+            position_info = pos_val.get("position", {})
+            athletes_raw = pos_val.get("athletes", [])
+
+            # sort by rank so list order = depth chart order
+            athletes_sorted = sorted(athletes_raw, key=lambda a: a.get("rank", 999))
+
+            athletes_out = []
+            for a in athletes_sorted:
+                athlete_ref = a.get("athlete", {})
+                if isinstance(athlete_ref, dict) and "$ref" in athlete_ref:
+                    resolved = resolve_athlete_ref(athlete_ref["$ref"])
+                else:
+                    resolved = {field: athlete_ref.get(field, "") for field in ATHLETE_FIELDS} if isinstance(athlete_ref, dict) else {}
+                athletes_out.append(resolved)
+
+            positions_out[pos_key] = {
+                "position": {
+                    "abbreviation": position_info.get("abbreviation", ""),
+                    "name": position_info.get("name", ""),
+                    "displayName": position_info.get("displayName", ""),
+                },
+                "athletes": athletes_out,
+            }
+
+        depthchart.append({
+            "id": item.get("id", ""),
+            "name": item.get("name", ""),
+            "positions": positions_out,
+        })
+
+    return {
+        "depthchart": depthchart,
+        "team": {
+            "id": team_id,
+            "abbreviation": team_abbr,
+        },
+        "team_id": team_id,
+        "season": {
+            "year": SEASON,
+        },
+    }
 
 
 def flatten(obj, parent_key="", sep="."):
@@ -81,34 +133,25 @@ def flatten(obj, parent_key="", sep="."):
     return items
 
 
-def get_team_ids():
-    data = fetch_json(TEAMS_URL)
-    team_ids = []
-    for league in data.get("sports", [{}])[0].get("leagues", [{}]):
-        for team_entry in league.get("teams", []):
-            team = team_entry.get("team", {})
-            team_id = team.get("id")
-            if team_id:
-                team_ids.append(team_id)
-    return team_ids
-
-
 def main():
-    team_ids = get_team_ids()
+    teams = get_team_ids_and_abbrs()
 
     all_rows = []
     all_columns = set()
 
-    for team_id in team_ids:
+    for team_id, team_abbr in teams:
         url = DEPTHCHART_URL_TEMPLATE.format(season=SEASON, team_id=team_id)
-        depth_data = fetch_json(url)
-        depth_data = resolve_refs_in_obj(depth_data)
+        try:
+            core_data = fetch_json(url, timeout=15)
+        except Exception as e:
+            print(f"failed to pull depth chart for team_id={team_id}: {e}")
+            continue
 
-        flat_row = flatten(depth_data)
-        flat_row["team_id"] = team_id
-        flat_row["season_requested"] = SEASON
+        reshaped = build_old_shape(core_data, team_id, team_abbr)
+        flat_row = flatten(reshaped)
         all_rows.append(flat_row)
         all_columns.update(flat_row.keys())
+        print(f"team={team_abbr} done")
 
     fieldnames = sorted(all_columns)
 
