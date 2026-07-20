@@ -76,10 +76,18 @@ def get_score_and_status(game_id):
     except Exception as e:
         return "", "", False, "", f"failed to fetch competition: {e}"
 
-    status = comp.get("status", {})
-    status_type = status.get("type", {})
-    is_final = status_type.get("completed", False)
-    status_text = status_type.get("description", "")
+    status_ref = comp.get("status", {}).get("$ref")
+    is_final = False
+    status_text = ""
+
+    if status_ref:
+        try:
+            status = fetch_json(status_ref)
+            status_type = status.get("type", {})
+            is_final = status_type.get("completed", False)
+            status_text = status_type.get("description", "")
+        except Exception as e:
+            log([f"game_id={game_id} failed to resolve status: {e}"])
 
     away_score = ""
     home_score = ""
