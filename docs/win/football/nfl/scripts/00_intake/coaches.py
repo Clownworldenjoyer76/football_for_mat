@@ -23,6 +23,7 @@ SEASON = 2026
 TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
 COACHES_URL_TEMPLATE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/teams/{team_id}/coaches"
 
+TEAM_MASTER_PATH = "docs/win/football/nfl/data/master/team_master.csv"
 OUTPUT_PATH = "docs/win/football/nfl/data/master/coaches_master.csv"
 
 HEADER = [
@@ -30,12 +31,25 @@ HEADER = [
     "league",
     "name",
     "team",
+    "team_id",
     "experience",
     "career_record",
     "post_season_career_record",
     "id",
     "uid",
 ]
+
+
+def get_team_abbr_to_id():
+    lookup = {}
+    with open(TEAM_MASTER_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            abbr = row.get("team_abbr", "")
+            team_id = row.get("team_id", "")
+            if abbr and abbr not in lookup:
+                lookup[abbr] = team_id
+    return lookup
 
 
 def fetch_json(url, timeout=10):
@@ -93,6 +107,7 @@ def get_career_records(coach):
 
 def main():
     teams = get_teams()
+    team_abbr_to_id = get_team_abbr_to_id()
     rows = []
 
     for team_id, team_abbr in teams:
@@ -122,6 +137,7 @@ def main():
             "league": "nfl",
             "name": f"{coach.get('firstName', '')} {coach.get('lastName', '')}".strip(),
             "team": team_abbr,
+            "team_id": team_abbr_to_id.get(team_abbr, ""),
             "experience": coach.get("experience", ""),
             "career_record": career_record,
             "post_season_career_record": post_season_career_record,
