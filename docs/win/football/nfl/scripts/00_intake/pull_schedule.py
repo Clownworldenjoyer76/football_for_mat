@@ -62,7 +62,7 @@ CANONICAL_TEAM_COLUMN = "canonical_team"
 
 NFL_DIR = Path(__file__).resolve().parents[2]
 
-TEAM_MAP_FILE = NFL_DIR / "config" / "mapping" / "team_map_nfl.csv"
+TEAM_MAP_FILE = NFL_DIR / "config" / "mapping" / "team_map.csv"
 STADIUM_MAP_FILE = NFL_DIR / "config" / "mapping" / "stadium_map_nfl.csv"
 
 OUTPUT_DIR = NFL_DIR / "00_intake" / "schedule"
