@@ -1,0 +1,29 @@
+name: NFL Final Scores Pull
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pull-final-scores:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run pull_final_scores.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_final_scores.py
+
+      - name: Commit output files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/win/football/nfl/06_final_scores/results/
+          git add docs/win/football/nfl/errors/00_intake/pull_final_scores.txt
+          git diff --staged --quiet || git commit -m "Update final scores results"
+          git push
