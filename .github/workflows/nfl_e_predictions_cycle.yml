@@ -1,4 +1,4 @@
-name: NFL ESPN Predictions Pull
+name: NFL E Predictions Pull
 
 on:
   workflow_dispatch:
@@ -17,13 +17,13 @@ jobs:
 
       - name: Run pull_espn_predictions.py
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_espn_predictions.py
+          python docs/win/football/nfl/scripts/00_intake/pull_e_predictions.py
 
       - name: Commit output files
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add docs/win/football/nfl/00_intake/predictions/e_predictions/
-          git add docs/win/football/nfl/errors/00_intake/pull_espn_predictions.txt
+          git add docs/win/football/nfl/errors/00_intake/pull_e_predictions.txt
           git diff --staged --quiet || git commit -m "Update ESPN predictions"
           git push
