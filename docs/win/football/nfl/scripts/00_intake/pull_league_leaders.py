@@ -49,6 +49,8 @@ def extract_id(ref_url, segment):
 
 
 def main():
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+
     try:
         data = fetch_json(LEADERS_URL)
     except Exception as e:
@@ -74,7 +76,6 @@ def main():
                 "displayValue": leader.get("displayValue", ""),
             })
 
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=OUTPUT_HEADER)
         writer.writeheader()
