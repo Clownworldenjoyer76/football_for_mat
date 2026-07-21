@@ -1,0 +1,28 @@
+name: NFL QBR Pull (Current Week)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pull-e-qbr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run pull_e_qbr.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_e_qbr.py
+
+      - name: Commit output files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/win/football/nfl/data/qb_data/qbr_data/
+          git diff --staged --quiet || git commit -m "Update current week QBR data"
+          git push
