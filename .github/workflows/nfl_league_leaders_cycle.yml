@@ -1,0 +1,28 @@
+name: NFL League Leaders Pull
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pull-league-leaders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run pull_league_leaders.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_league_leaders.py
+
+      - name: Commit output file
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/win/football/nfl/data/league_leaders/
+          git diff --staged --quiet || git commit -m "Update league leaders data"
+          git push
