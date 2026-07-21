@@ -31,7 +31,7 @@ SCHEDULE_PATH = f"docs/win/football/nfl/00_intake/schedule/{SEASON}_schedule.csv
 PREDICTOR_URL_TEMPLATE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/{game_id}/competitions/{game_id}/predictor"
 
 OUTPUT_DIR = "docs/win/football/nfl/00_intake/predictions/e_predictions"
-ERROR_LOG_PATH = "docs/win/football/nfl/errors/00_intake/pull_espn_predictions.txt"
+ERROR_LOG_PATH = "docs/win/football/nfl/errors/00_intake/pull_e_predictions.txt"
 
 OUTPUT_HEADER = [
     "season",
