@@ -1,5 +1,5 @@
 """
-pull_e_qbr.py
+pull_qbr.py
 
 Pulls ESPN QBR data for the CURRENT active NFL week (regular season or
 playoffs, auto-detected) — no manual changes needed as the season
