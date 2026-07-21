@@ -113,11 +113,13 @@ def main():
         print("no QBR data available for this week yet")
         return
 
-    fieldnames = sorted({key for row in rows for key in row.keys()})
-    # keep identifying columns first
-    ordered_fieldnames = ["season", "week", "athlete_id", "team_id"] + [
-        f for f in fieldnames if f not in ("season", "week", "athlete_id", "team_id")
-    ]
+    ordered_fieldnames = ["season", "week", "athlete_id", "team_id"]
+    seen = set(ordered_fieldnames)
+    for row in rows:
+        for key in row.keys():
+            if key not in seen:
+                ordered_fieldnames.append(key)
+                seen.add(key)
 
     season_folder = os.path.join(OUTPUT_ROOT, str(season))
     os.makedirs(season_folder, exist_ok=True)
