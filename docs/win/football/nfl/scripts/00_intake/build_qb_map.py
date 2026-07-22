@@ -36,8 +36,6 @@ OUTPUT_HEADERS = [
     "position_abb",
     "position.id",
     "team_id",
-    "uid",
-    "guid",
 ]
 
 
@@ -101,8 +99,6 @@ def main():
                 "position_abb": depth_row.get("position_abb", ""),
                 "position.id": "8",
                 "team_id": team_id,
-                "uid": player_id,
-                "guid": player_id,
             }
             rows_out.append(out_row)
 
