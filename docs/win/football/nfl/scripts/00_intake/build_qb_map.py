@@ -90,7 +90,7 @@ def main():
 
             out_row = {
                 "sport": "football",
-                "league": "football",
+                "league": "nfl",
                 "player_id": player_id,
                 "qb_name": row.get("displayName", ""),
                 "team_abbr": team_abbr,
