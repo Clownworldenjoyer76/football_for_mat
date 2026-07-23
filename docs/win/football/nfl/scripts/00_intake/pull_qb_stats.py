@@ -61,7 +61,21 @@ OUTPUT_HEADERS = [
 def main():
     input_files = sorted(glob.glob(os.path.join(INPUT_DIR, "*_pbp.csv.gz")))
 
-    df_list = [pd.read_csv(f, compression="gzip", low_memory=False) for f in input_files]
+    df_list = []
+    for f in input_files:
+        if os.path.getsize(f) == 0:
+            print(f"WARNING: {f} is empty (0 bytes) — skipping.")
+            continue
+        try:
+            df_list.append(pd.read_csv(f, compression="gzip", low_memory=False))
+        except pd.errors.EmptyDataError:
+            print(f"WARNING: {f} has no data rows — skipping.")
+            continue
+
+    if not df_list:
+        print("WARNING: No valid PBP files found. Exiting.")
+        return
+
     df = pd.concat(df_list, ignore_index=True)
 
     dropback_df = df[df["qb_dropback"] == 1].copy()
