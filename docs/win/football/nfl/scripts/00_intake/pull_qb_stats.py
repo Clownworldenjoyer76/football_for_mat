@@ -26,11 +26,12 @@ Order of operations:
 Manual run only.
 """
 
+import glob
 import os
 import pandas as pd
 
 BASE_DIR = "docs/win/football/nfl"
-INPUT_FILE = os.path.join(BASE_DIR, "00_intake/pbp/2021_pbp.csv.gz")
+INPUT_DIR = os.path.join(BASE_DIR, "00_intake/pbp")
 OUTPUT_DIR = os.path.join(BASE_DIR, "00_intake/qb")
 
 GROUP_COLS = ["season", "week", "posteam", "passer_player_id", "passer_player_name"]
@@ -58,7 +59,10 @@ OUTPUT_HEADERS = [
 
 
 def main():
-    df = pd.read_csv(INPUT_FILE, compression="gzip", low_memory=False)
+    input_files = sorted(glob.glob(os.path.join(INPUT_DIR, "*_pbp.csv.gz")))
+
+    df_list = [pd.read_csv(f, compression="gzip", low_memory=False) for f in input_files]
+    df = pd.concat(df_list, ignore_index=True)
 
     dropback_df = df[df["qb_dropback"] == 1].copy()
     pass_df = df[df["pass_attempt"] == 1].copy()
