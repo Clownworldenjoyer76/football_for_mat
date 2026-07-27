@@ -44,19 +44,18 @@ OUTPUT_HEADERS = [
     "team",
     "player_id",
     "qb_name",
+    "starts",
     "dropbacks",
     "epa_per_play",
     "cpoe",
     "air_yards",
-    "sack_rate",
-    "interception_rate",
-    "fumble_rate",
-    "starts",
     "adjusted_completion_pct",
+    "sack_rate",
     "pressure_to_sack_rate",
     "turnover_worthy_play_rate",
+    "interception_rate",
+    "fumble_rate",
 ]
-
 
 def main():
     input_files = sorted(glob.glob(os.path.join(INPUT_DIR, "*_pbp.csv.gz")))
