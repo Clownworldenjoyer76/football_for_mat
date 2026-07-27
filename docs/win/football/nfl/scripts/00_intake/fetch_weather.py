@@ -28,10 +28,7 @@ Behavior:
     - Logs any issues or failed matches to:
         docs/win/football/nfl/errors/00_intake/fetch_weather.txt
 
-Manual run only.
 
-Usage:
-    python fetch_weather.py --week 1
 """
 
 import csv
