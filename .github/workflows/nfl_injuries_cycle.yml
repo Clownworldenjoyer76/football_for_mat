@@ -1,0 +1,27 @@
+name: NFL Injuries Pull
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pull-injuries:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run pull_injuries.py
+        run: python docs/win/football/nfl/scripts/00_intake/pull_injuries.py
+
+      - name: Commit and push output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/win/football/nfl/00_intake/injuries/
+          git diff --cached --quiet || git commit -m "Update NFL injuries data"
+          git push
