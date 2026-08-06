@@ -140,13 +140,14 @@ def process_row(path, lineno, row, games, order):
 
     rec = games[gid]
     prefix = "home" if side == "homeTeam" else "away"
+    opp_prefix = "away" if prefix == "home" else "home"
 
     if rec[prefix + "_prob"]:
         log.append("DUPLICATE %s line %d: second %s row for game_id %s (overwriting)"
                    % (path, lineno, side, gid))
 
     rec[prefix + "_prob"] = to_decimal_prob(row.get("gameProjection"))
-    rec[prefix + "_rating"] = (row.get("oppSeasonStrengthRating") or "").strip()
+    rec[opp_prefix + "_rating"] = (row.get("oppSeasonStrengthRating") or "").strip()
     rec[prefix + "_PtDiff"] = (row.get("teamPredPtDiff") or "").strip()
 
     tie = to_decimal_prob(row.get("teamChanceTie"))
