@@ -80,6 +80,11 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/00_intake/build_travel.py
 
+      - name: Validate Tuesday outputs
+        run: |
+          python docs/win/football/nfl/scripts/validation/validate_tuesday.py \
+            --season "$NFL_SEASON"
+            
       - name: Commit and push all Tuesday outputs
         run: |
           git config user.name "github-actions[bot]"
