@@ -71,6 +71,10 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_e_predictions.py
 
+      - name: Validate daily outputs
+        run: |
+          python docs/win/football/nfl/scripts/validation/validate_daily.py
+
       - name: Commit and push all daily outputs
         run: |
           git config user.name "github-actions[bot]"
