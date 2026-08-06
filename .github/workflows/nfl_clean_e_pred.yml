@@ -1,0 +1,35 @@
+name: Clean E Predictions (NFL)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run clean_e_pred.py
+        run: python docs/win/football/nfl/scripts/00_intake/clean_e_pred.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/win/football/nfl/00_intake/predictions/clean \
+                  docs/win/football/nfl/errors/00_intake/clean_e_pred.txt
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "clean_e_pred: update cleaned NFL predictions"
+            git push
+          fi
