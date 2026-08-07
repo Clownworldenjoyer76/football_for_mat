@@ -1,0 +1,71 @@
+name: Pull Weekly Predictions
+
+# MANUAL RUN ONLY. Actions tab -> "Pull Weekly Predictions" -> Run workflow.
+#
+# Source: Clownworldenjoyer76/nikki_and_mat_bets  ->  docs/data/weekly/
+# Target: (this repo)                             ->  docs/win/football/nfl/00_intake/predictions/drat/
+#
+# The target folder is a MIRROR: it is deleted and recreated on every run.
+# Anything in it that is not in the source folder will be removed.
+#
+# Place this file at: .github/workflows/pull-weekly-predictions.yml
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+
+    env:
+      SOURCE_REPO: Clownworldenjoyer76/nikki_and_mat_bets
+      SOURCE_BRANCH: main
+      SOURCE_PATH: docs/data/weekly
+      TARGET_PATH: docs/win/football/nfl/00_intake/predictions/drat
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ env.SOURCE_BRANCH }}
+          path: .source
+
+      - name: Verify source folder exists
+        run: |
+          set -e
+          if [ ! -d ".source/${SOURCE_PATH}" ]; then
+            echo "ERROR: ${SOURCE_PATH} not found in ${SOURCE_REPO}@${SOURCE_BRANCH}"
+            exit 1
+          fi
+          echo "Files found in source:"
+          ls -la ".source/${SOURCE_PATH}"
+
+      - name: Replace target path with source contents
+        run: |
+          set -e
+          # MIRROR: target folder is wiped first, so nothing stale survives.
+          rm -rf "${TARGET_PATH}"
+          mkdir -p "${TARGET_PATH}"
+          cp -R ".source/${SOURCE_PATH}/." "${TARGET_PATH}/"
+          echo "Files now in ${TARGET_PATH}:"
+          ls -la "${TARGET_PATH}"
+
+      - name: Commit and push
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A "${TARGET_PATH}"
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Pull weekly predictions from ${SOURCE_REPO}"
+          git push
