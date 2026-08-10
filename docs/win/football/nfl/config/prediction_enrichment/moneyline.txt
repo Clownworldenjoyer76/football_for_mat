@@ -1,0 +1,169 @@
+docs/win/football/nfl/config/historical_prediction_enrichment.csv is a machine-readable translation of the actionable findings from the historical ALL4 test.
+
+Critical fact: every row measures whether a selected team won the game outright. SpreadBucket and OddsTotalBucket are only conditions describing the game; they are not ATS or over/under results. The historical script explicitly created one selection row per selected side and set Won by comparing that side to the actual game winner. Pasted text.txt
+
+What one row means
+
+Example conceptually:
+
+EPRED | SpreadBucket=Fav -10+ | historical_win_rate=88.37%
+
+means:
+
+When EPRED selected a team, and that selected team was a market favorite of -10 or greater, the EPRED-selected team won the game outright 88.37% of the time.
+
+It does NOT mean the favorite covered -10 88.37% of the time.
+
+⸻
+
+Every column
+
+Column	Meaning
+rule_id	Unique identifier such as HE0097.
+active	1 means the rule is permitted to be used; 0 means it is disabled.
+pipeline_supported	1 means the current pipeline contains enough data to evaluate the rule.
+unsupported_reason	Why a rule cannot currently be evaluated.
+family	Which prediction source/consensus the historical result belongs to.
+family_eligibility_code	Machine instruction describing when that family exists for a game.
+family_selected_side_code	Machine instruction describing how to determine which side that family selected.
+family_selected_probability_code	Machine instruction describing which probability belongs to that selected side.
+test	Historical feature or feature-combination that was tested.
+source_condition	Human-readable historical condition, e.g. ProbBucket=75-79.9% or RatingGapBucket=10+ | SpreadBucket=Fav -10+.
+condition_count	Number of conditions required by the rule: normally 1 or 2.
+
+condition_1_*
+
+Column	Meaning
+condition_1_test_feature	Historical feature name, such as ProbBucket, SpreadBucket, RatingGapBucket.
+condition_1_feature_code	Machine-friendly identifier for that feature.
+condition_1_formula_code	Exact calculation the current pipeline must perform to recreate the historical feature.
+condition_1_source_paths	Which current pipeline file(s) supply the required raw values.
+condition_1_source_columns	Exact source columns required.
+condition_1_match_type	How the calculated current value is compared with the historical condition.
+condition_1_min_inclusive	Lower numeric boundary when applicable.
+condition_1_max_exclusive	Upper numeric boundary when applicable.
+condition_1_equals_value	Required value for categorical conditions such as Agree, Disagree, Market Favorite.
+condition_1_null_required	Indicates a rule whose condition requires a missing/null value.
+condition_1_source_bucket_label	Original human-readable bucket label from the historical test.
+
+condition_2_* contains the same fields for the second half of a two-condition interaction. If condition_count=1, those fields are empty.
+
+⸻
+
+Historical-result columns
+
+Column	Meaning
+games	Number of historical selections matching that exact rule.
+wins	Number where that family’s selected team won outright.
+losses	Number where that family’s selected team lost outright.
+historical_win_rate_pct	wins / games × 100.
+wilson95_low_pct	Lower bound of the 95% Wilson confidence interval for that win rate.
+wilson95_high_pct	Upper bound of the 95% Wilson confidence interval.
+family_baseline_win_pct	Overall outright-win rate for that family before applying this condition.
+lift_vs_family_pct_points	Rule win rate minus that family’s normal win rate.
+eligible_seasons	Number of historical seasons with enough observations to evaluate consistency.
+season_consistency_pct	Percentage of eligible seasons where the rule’s effect was in the same direction as the overall historical effect.
+forward_checks	Number of forward-period validation checks performed.
+forward_successes	Number of those checks where the effect repeated in the expected direction.
+forward_success_pct	forward_successes / forward_checks × 100.
+action_direction	POSITIVE if historical performance was above the family baseline; NEGATIVE if below it.
+action_strength_abs_lift_pp	Absolute size of the lift/drop, ignoring sign.
+source_file	Historical result file from which the rule was taken.
+
+The historical testing compared each condition against that prediction family’s own baseline, not against 50%. Pasted text.txt
+
+family
+
+Value	What it means
+DRAT	Team selected by higher DRAT win probability.
+EPRED	Team selected by higher normalized EPRED win probability.
+MARKET	Market-selected team, primarily from no-vig moneyline probability.
+DRAT_EPRED_CONSENSUS	Exists only when DRAT and EPRED selected the same team; probability is their mean.
+ALL3_CONSENSUS	Exists only when DRAT, EPRED and market selected the same team; probability is their mean.
+
+The current implementation recreates those five family contexts explicitly. enrich_pred_FIXED.py
+
+condition_*_formula_code
+
+These tell enrich_pred.py how to recreate the historical condition for a current game. enrich_pred_FIXED.py
+
+Formula code	Calculation
+USE_FAMILY_SELECTED_PROB	Probability assigned by that family to its selected team.
+MARKET_ROLE_FOR_FAMILY_SELECTED_SIDE	Whether the selected team is market favorite, underdog, or even.
+SPREAD_FOR_FAMILY_SELECTED_SIDE	Current spread belonging to the team selected by that family.
+EPRED_RATING_SELECTED_MINUS_OPPONENT	EPRED rating of selected team minus opponent rating.
+RAW_EPRED_MATCHUP_QUALITY	EPRED matchupQuality.
+RAW_WEEK	NFL week number.
+RAW_MARKET_TOTAL	Pregame market total.
+COMPARE_DRAT_PICK_TO_EPRED_PICK	Agree or Disagree.
+COMPARE_FAMILY_PICK_TO_MARKET_PICK	Whether this family’s selected winner agrees with market-selected winner.
+ABS_DRAT_HOME_PROB_MINUS_EPRED_NORMALIZED_HOME_PROB_X100	Absolute DRAT-vs-EPRED probability difference in percentage points.
+FAMILY_SELECTED_PROB_MINUS_MARKET_SELECTED_PROB_X100	Family probability minus market probability for that same selected side.
+UNAVAILABLE	Historical feature cannot be recreated with current pipeline data.
+
+Match types
+
+Value	Meaning
+TEXT_EQUALS	Current value must exactly equal the stored category.
+NUMERIC_RANGE	Current numeric value must fall inside the stored historical bucket.
+IS_NULL	Current value must be missing/null.
+
+The enrichment script evaluates those machine-readable conditions rather than parsing the English source_condition. enrich_pred_FIXED.py
+
+Features represented by the rules
+
+ProbBucket = selected team’s predicted win probability.
+
+MarketRole = favorite / underdog / even.
+
+SpreadBucket = spread attached to the selected team.
+
+RatingGapBucket = EPRED rating of selected team minus opponent.
+
+MatchupBucket = EPRED matchup quality.
+
+WeekBucket = part of season.
+
+OddsTotalBucket = market game-total range.
+
+DratEpredAgreement = whether DRAT and EPRED chose the same winner.
+
+SelectedVsMarket = whether the family-selected winner agrees with the market-selected winner.
+
+ModelDiffBucket = magnitude of DRAT-vs-EPRED probability disagreement.
+
+ModelMarketEdgeBucket = difference between family win probability and market no-vig win probability.
+
+The historical test also generated weather/surface-related conditions. Pasted text.txt
+
+The 25 unsupported rows
+
+Those rules were retained but marked inactive/unsupported because the current pipeline cannot reproduce the historical condition correctly:
+
+Historical feature	Reason
+SurfaceBucket	Historical test used Dome/Indoor vs Outdoor; current surface field describes playing surface material, so they are not equivalent.
+WindBucket	Current enrichment inputs do not provide the required wind-speed field.
+TemperatureBucket	Required temperature is unavailable.
+PrecipBucket	Required precipitation probability is unavailable.
+
+So the master contains 397 historical actionable rules: 372 that the current pipeline can evaluate and 25 preserved but disabled because their required current input is unavailable or incompatible.
+
+Most important interpretation
+
+A rule such as:
+
+SpreadBucket=Dog +0.5 to +2.5
+
+means:
+
+How often did the selected team win the game outright when it happened to be a +0.5 to +2.5 underdog?
+
+A rule such as:
+
+OddsTotalBucket=48-51.5
+
+means:
+
+How often did the selected team win outright when the game’s market total was 48–51.5?
+
+Neither field measures covering a spread or going over/under. That distinction comes directly from how the historical selection rows and Won outcome were constructed. Pasted text.txt
