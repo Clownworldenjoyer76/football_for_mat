@@ -35,7 +35,6 @@ ODDS_REL = Path("docs/win/football/nfl/00_intake/odds")
 OUTPUT_REL = Path("docs/win/football/nfl/00_intake/predictions/enriched")
 
 
-
 def list_weekly_schedule_files(schedule_dir: Path) -> list[Path]:
     files = sorted(schedule_dir.glob("week_*_NFL_weekly_schedule.csv"))
     if not files:
@@ -191,7 +190,6 @@ def find_latest_odds_file(odds_dir: Path) -> Path:
 
     candidates.sort()
     return candidates[-1][2]
-
 
 
 def find_drat_file(drat_dir: Path, season: int, week: int) -> Path:
@@ -539,8 +537,18 @@ def condition_matches(rule, n, value):
         x = num(value)
         if x is None:
             return False
+
         lo = num(rule.get(prefix + "min_inclusive"))
         hi = num(rule.get(prefix + "max_exclusive"))
+        test_feature = s(rule.get(prefix + "test_feature"))
+
+        if test_feature == "SpreadBucket":
+            if lo is not None and x <= lo:
+                return False
+            if hi is not None and x > hi:
+                return False
+            return True
+
         if lo is not None and x < lo:
             return False
         if hi is not None and x >= hi:
