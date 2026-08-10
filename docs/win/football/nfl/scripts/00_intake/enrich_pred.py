@@ -193,6 +193,31 @@ def find_latest_odds_file(odds_dir: Path) -> Path:
     return candidates[-1][2]
 
 
+
+def find_drat_file(drat_dir: Path, season: int, week: int) -> Path:
+    pattern = re.compile(
+        rf"^{re.escape(str(season))}_wk0*{week}_odds\.csv$",
+        re.IGNORECASE,
+    )
+    matches = [
+        p for p in drat_dir.glob(f"{season}_wk*_odds.csv")
+        if pattern.fullmatch(p.name)
+    ]
+
+    if len(matches) == 1:
+        return matches[0]
+
+    if not matches:
+        raise FileNotFoundError(
+            f"No DRAT file matching season={season}, week={week} found in {drat_dir}"
+        )
+
+    raise RuntimeError(
+        f"Multiple DRAT files match season={season}, week={week}: "
+        + ", ".join(p.name for p in matches)
+    )
+
+
 def epred_content_matches(path: Path, season: int, week: int, season_type: str) -> bool:
     try:
         rows = read_csv(path)
@@ -635,7 +660,7 @@ def process_week(
     schedule = read_csv(schedule_path)
     season, season_type, week = schedule_identity(schedule, schedule_path)
 
-    drat_path = root / DRAT_REL / f"{season}_wk{week}_odds.csv"
+    drat_path = find_drat_file(root / DRAT_REL, season, week)
     epred_path = find_epred_file(root / EPRED_REL, season, week, season_type)
     output_path = root / OUTPUT_REL / f"week_{week}_NFL_enriched.csv"
 
@@ -912,9 +937,6 @@ def main():
             completed.append(
                 process_week(root, schedule_path, odds_path, odds, master)
             )
-        except FileNotFoundError:
-            # A weekly schedule without matching EPRED/DRAT inputs is not processed.
-            continue
         except Exception as exc:
             failures.append(f"{schedule_path.name}: {exc}")
 
