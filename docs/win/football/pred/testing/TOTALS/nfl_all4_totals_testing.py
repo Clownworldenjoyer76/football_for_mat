@@ -96,16 +96,25 @@ def moneyline_to_num(series: pd.Series) -> pd.Series:
 
 def spread_to_num(series: pd.Series) -> pd.Series:
     s = series.astype("string").str.strip()
+
+    # Only whole-point and half-point spreads are supported.
+    # Quarter-point spread notation is explicitly rejected.
+    quarter_point = s.str.contains("¼|¾", regex=True, na=False)
+
     s = (
         s.str.replace("½", ".5", regex=False)
-         .str.replace("¼", ".25", regex=False)
-         .str.replace("¾", ".75", regex=False)
          .str.replace("−", "-", regex=False)
     )
     u = s.str.upper()
     s = s.mask(u.isin(["PK", "PICK", "PICKEM", "PICK'EM"]), "0")
+
     extracted = s.str.extract(r"^([+-]?\d+(?:\.\d+)?)", expand=False)
-    return pd.to_numeric(extracted, errors="coerce")
+    out = pd.to_numeric(extracted, errors="coerce")
+
+    # Reject decimal quarter points such as 2.25, 2.75, -3.25, -3.75.
+    whole_or_half = out.notna() & np.isclose(out * 2, np.round(out * 2))
+    out = out.where(whole_or_half & ~quarter_point, np.nan)
+    return out
 
 
 def implied_prob(ml: pd.Series) -> pd.Series:
@@ -163,13 +172,26 @@ def edge_bucket(x):
 
 
 def spread_bucket(x):
-    return bucket_numeric(
-        x,
-        [-np.inf, -10, -7, -4, -3, 0, .000001, 3, 4, 7, 10, np.inf],
-        ["Fav -10+", "Fav -7 to -9.5", "Fav -4 to -6.5", "Fav -3 to -3.5",
-         "Fav -0.5 to -2.5", "Pickem", "Dog +0.5 to +2.5", "Dog +3 to +3.5",
-         "Dog +4 to +6.5", "Dog +7 to +9.5", "Dog +10+"],
-    )
+    values = pd.to_numeric(x, errors="coerce")
+    out = pd.Series("Unknown", index=values.index, dtype="string")
+
+    # Only whole-point and half-point spreads are valid.
+    valid = values.notna() & np.isclose(values * 2, np.round(values * 2))
+    v = values.where(valid)
+
+    out.loc[v <= -10] = "Fav -10+"
+    out.loc[(v >= -9.5) & (v <= -7)] = "Fav -7 to -9.5"
+    out.loc[(v >= -6.5) & (v <= -4)] = "Fav -4 to -6.5"
+    out.loc[(v >= -3.5) & (v <= -3)] = "Fav -3 to -3.5"
+    out.loc[(v >= -2.5) & (v <= -0.5)] = "Fav -0.5 to -2.5"
+    out.loc[v == 0] = "Pickem"
+    out.loc[(v >= 0.5) & (v <= 2.5)] = "Dog +0.5 to +2.5"
+    out.loc[(v >= 3) & (v <= 3.5)] = "Dog +3 to +3.5"
+    out.loc[(v >= 4) & (v <= 6.5)] = "Dog +4 to +6.5"
+    out.loc[(v >= 7) & (v <= 9.5)] = "Dog +7 to +9.5"
+    out.loc[v >= 10] = "Dog +10+"
+
+    return out
 
 
 def matchup_bucket(x):
@@ -616,6 +638,7 @@ def build_selection_rows(f: pd.DataFrame) -> pd.DataFrame:
 
     return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
 
+
 def wilson_interval(wins, n, z=1.96):
     if n <= 0:
         return np.nan, np.nan
@@ -711,6 +734,7 @@ def test_condition(family_df, condition_df, family_baseline):
             round(forward_pct * 100, 2) if pd.notna(forward_pct) else np.nan
         ),
     }
+
 
 def run_tests(sel: pd.DataFrame):
     single_features = [
@@ -823,6 +847,7 @@ def run_tests(sel: pd.DataFrame):
 
     return baselines, results, actionable
 
+
 def build_implementation(actionable: pd.DataFrame):
     if actionable.empty:
         return pd.DataFrame(columns=[
@@ -852,6 +877,7 @@ def build_implementation(actionable: pd.DataFrame):
         "Hit_Pct": "Historical_Hit_Pct",
         "Lift_vs_Family": "Lift_Points",
     })
+
 
 def main():
     args = parse_args()
