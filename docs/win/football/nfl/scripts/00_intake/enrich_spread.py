@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
 """
-GitHub Actions NFL weekly historical-prediction enrichment.
+GitHub Actions NFL weekly historical spread-prediction enrichment.
 
 READS ONLY:
   docs/win/football/nfl/00_intake/schedule/weekly/week_{WEEK}_NFL_weekly_schedule.csv
   docs/win/football/nfl/00_intake/predictions/final/*_clean_predictions.csv
   docs/win/football/nfl/00_intake/predictions/drat/{SEASON}_wk{WEEK}_odds.csv
   docs/win/football/nfl/00_intake/odds/{MOST_RECENT_DATE}_NFL_odds.csv
-  docs/win/football/nfl/config/historical_prediction_enrichment.csv
+  docs/win/football/nfl/config/prediction_enrichment/spread_enrichment.csv
 
 WRITES ONLY:
-  docs/win/football/nfl/00_intake/predictions/enriched/week_{WEEK}_NFL_enriched.csv
+  docs/win/football/nfl/00_intake/predictions/enriched/spread/week_{WEEK}_NFL_enriched.csv
 
 The historical bucket boundaries and rule conditions are read from
-historical_prediction_enrichment.csv. They are not hard-coded here.
+spread_enrichment.csv. They are not hard-coded here.
 """
 
 from __future__ import annotations
 
 import csv
-import math
 import os
 import re
 import sys
@@ -27,12 +26,12 @@ from datetime import datetime
 from pathlib import Path
 
 
-MASTER_REL = Path("docs/win/football/nfl/config/historical_prediction_enrichment.csv")
+MASTER_REL = Path("docs/win/football/nfl/config/prediction_enrichment/spread_enrichment.csv")
 SCHEDULE_REL = Path("docs/win/football/nfl/00_intake/schedule/weekly")
 EPRED_REL = Path("docs/win/football/nfl/00_intake/predictions/final")
 DRAT_REL = Path("docs/win/football/nfl/00_intake/predictions/drat")
 ODDS_REL = Path("docs/win/football/nfl/00_intake/odds")
-OUTPUT_REL = Path("docs/win/football/nfl/00_intake/predictions/enriched")
+OUTPUT_REL = Path("docs/win/football/nfl/00_intake/predictions/enriched/spread")
 
 
 def list_weekly_schedule_files(schedule_dir: Path) -> list[Path]:
@@ -138,23 +137,6 @@ def iso_dt(value):
         return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
     except ValueError:
         return datetime.min
-
-
-def odds_file_date(path: Path):
-    name = path.name
-    patterns = [
-        (r"^(\d{4}-\d{2}-\d{2})", "%Y-%m-%d"),
-        (r"^(\d{8})", "%Y%m%d"),
-        (r"^(\d{2}-\d{2}-\d{4})", "%m-%d-%Y"),
-    ]
-    for pattern, fmt in patterns:
-        m = re.match(pattern, name)
-        if m:
-            try:
-                return datetime.strptime(m.group(1), fmt).date()
-            except ValueError:
-                pass
-    return None
 
 
 def find_latest_odds_file(odds_dir: Path) -> Path:
@@ -588,7 +570,7 @@ def match_rules(g, master_rows, contexts):
                 "family": family,
                 "side": family_ctx["side"],
                 "condition": s(rule.get("source_condition")),
-                "historical_win_rate_pct": num(rule.get("historical_win_rate_pct")),
+                "historical_cover_rate_pct": num(rule.get("historical_cover_rate_pct")),
                 "lift_pp": num(rule.get("lift_vs_family_pct_points")),
                 "direction": s(rule.get("action_direction")),
                 "games": num(rule.get("games")),
@@ -638,8 +620,8 @@ def build_summary_fields(g, matches):
 
         for label, item in [("strongest_positive", sp), ("strongest_negative", sn)]:
             g[f"{side_name}_{label}_rule_id"] = item["rule_id"] if item else ""
-            g[f"{side_name}_{label}_hist_win_rate_pct"] = (
-                item["historical_win_rate_pct"] if item else ""
+            g[f"{side_name}_{label}_hist_cover_rate_pct"] = (
+                item["historical_cover_rate_pct"] if item else ""
             )
             g[f"{side_name}_{label}_lift_pp"] = item["lift_pp"] if item else ""
             g[f"{side_name}_{label}_games"] = item["games"] if item else ""
@@ -742,12 +724,9 @@ def process_week(
             base.get("bookmaker"),
         )
 
-        # DRAT straight-up / moneyline winner probabilities.
         g["drat_home_prob"] = num(dr.get("home_prob")) if dr else ""
         g["drat_away_prob"] = num(dr.get("away_prob")) if dr else ""
 
-        # EPRED straight-up / moneyline winner probabilities.
-        # Normalize home/away to exclude tie probability exactly as in the historical test.
         eph_raw = num(ep.get("home_prob")) if ep else None
         epa_raw = num(ep.get("away_prob")) if ep else None
         g["epred_home_prob_raw"] = eph_raw if eph_raw is not None else ""
@@ -767,7 +746,6 @@ def process_week(
         g["epred_away_rating"] = num(ep.get("away_rating")) if ep else ""
         g["epred_matchupQuality"] = num(ep.get("matchupQuality")) if ep else ""
 
-        # Current market values: most recent raw odds file first, weekly-schedule fallback.
         def market_value(field):
             if odds_rec and s(odds_rec.get(field)) != "":
                 return odds_rec.get(field)
@@ -856,21 +834,21 @@ def process_week(
         "home_matched_rule_count",
         "home_matched_rule_ids",
         "home_strongest_positive_rule_id",
-        "home_strongest_positive_hist_win_rate_pct",
+        "home_strongest_positive_hist_cover_rate_pct",
         "home_strongest_positive_lift_pp",
         "home_strongest_positive_games",
         "home_strongest_negative_rule_id",
-        "home_strongest_negative_hist_win_rate_pct",
+        "home_strongest_negative_hist_cover_rate_pct",
         "home_strongest_negative_lift_pp",
         "home_strongest_negative_games",
         "away_matched_rule_count",
         "away_matched_rule_ids",
         "away_strongest_positive_rule_id",
-        "away_strongest_positive_hist_win_rate_pct",
+        "away_strongest_positive_hist_cover_rate_pct",
         "away_strongest_positive_lift_pp",
         "away_strongest_positive_games",
         "away_strongest_negative_rule_id",
-        "away_strongest_negative_hist_win_rate_pct",
+        "away_strongest_negative_hist_cover_rate_pct",
         "away_strongest_negative_lift_pp",
         "away_strongest_negative_games",
         "drat_matched_rule_count",
@@ -917,10 +895,10 @@ def main():
         [
             "rule_id", "active", "pipeline_supported", "family", "condition_count",
             "condition_1_formula_code", "condition_1_match_type",
-            "historical_win_rate_pct", "lift_vs_family_pct_points",
+            "historical_cover_rate_pct", "lift_vs_family_pct_points",
             "action_direction",
         ],
-        "historical prediction enrichment master",
+        "historical spread enrichment master",
     )
 
     odds_path = find_latest_odds_file(root / ODDS_REL)
@@ -956,7 +934,7 @@ def main():
             "No weekly schedule had all required matching DRAT and EPRED inputs."
         )
 
-    print(f"Historical master: {master_path}")
+    print(f"Historical spread master: {master_path}")
     print(f"Latest odds file: {odds_path}")
     print(f"Weeks enriched: {len(completed)}")
     for result in completed:

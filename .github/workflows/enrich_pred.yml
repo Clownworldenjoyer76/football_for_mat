@@ -1,4 +1,4 @@
-name: Enrich NFL Predictions
+name: BLAH NFL Predictions
 
 on:
   workflow_dispatch:
@@ -7,22 +7,48 @@ permissions:
   contents: write
 
 jobs:
-  enrich:
+  clean:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
-      - run: python docs/win/football/nfl/scripts/00_intake/enrich_pred.py
+      - name: Install Python dependencies
+        run: python -m pip install pandas numpy
 
-      - run: |
+      - name: Run clean_e_pred.py
+        run: python docs/win/football/nfl/scripts/00_intake/clean_e_pred.py
+
+      - name: Run finalize_pred.py
+        run: python docs/win/football/nfl/scripts/00_intake/finalize_pred.py
+
+      - name: Run enrich_moneyline.py
+        run: python docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py
+
+      - name: Run enrich_spread.py
+        run: python docs/win/football/nfl/scripts/00_intake/enrich_spread.py
+
+      - name: Run enrich_totals.py
+        run: python docs/win/football/nfl/scripts/00_intake/enrich_totals.py
+
+      - name: Commit and push
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/win/football/nfl/00_intake/predictions/enriched/
-          git diff --cached --quiet && exit 0
-          git commit -m "Update enriched NFL predictions"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          git add docs/win/football/nfl/00_intake/predictions/clean \
+                  docs/win/football/nfl/00_intake/predictions/final \
+                  docs/win/football/nfl/00_intake/predictions/enriched/ \
+                  docs/win/football/nfl/errors/00_intake/clean_e_pred.txt \
+                  docs/win/football/nfl/errors/00_intake/finalize_pred.txt
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update NFL predictions and enrichment"
+            git push
+          fi
