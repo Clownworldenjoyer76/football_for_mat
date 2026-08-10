@@ -1,0 +1,15 @@
+Add a **DRAT reliability adjustment** to the pipeline instead of using raw DRAT probability at face value.
+
+Use the historical results like this:
+
+* **DRAT ≥80% + market agrees:** increase confidence in that team.
+* **DRAT picks the market underdog:** sharply reduce confidence in the DRAT pick; historically those went only **45.28%**.
+* **DRAT 75–79.9%:** do not treat it as automatically stronger than 70–74.9%; that band underperformed.
+* **Weeks 1–3:** reduce the weight given to DRAT because its historical accuracy was lower.
+* **Stronger market favorite + DRAT agreement:** give more confidence than DRAT probability alone.
+
+So the actionable pipeline field is essentially:
+
+**`drat_reliability_adjustment`**
+
+It would modify how much influence DRAT gets for each upcoming game based on the historical situations where DRAT has actually been strong or weak.
