@@ -1,0 +1,40 @@
+NFL FOUR-DATASET HISTORICAL TESTING
+======================================
+Usable joined historical games: 1406
+Actionable repeatable findings: 397
+
+SOURCE / CONSENSUS BASELINES
+ALL3_CONSENSUS: 798-379 = 67.8%
+MARKET: 937-465 = 66.83%
+DRAT_EPRED_CONSENSUS: 822-412 = 66.61%
+DRAT: 923-479 = 65.83%
+EPRED: 889-513 = 63.41%
+
+PROBABILITY BENCHMARKS
+MARKET_NO_VIG: accuracy 66.83% | Brier 0.21188
+ALL3_MEAN: accuracy 65.34% | Brier 0.21506
+DRAT: accuracy 65.83% | Brier 0.21537
+DRAT_EPRED_MEAN: accuracy 65.19% | Brier 0.21775
+EPRED: accuracy 63.41% | Brier 0.22393
+
+TOP ACTIONABLE FINDINGS
+EPRED | SelectedVsMarket=Disagree | ModelMarketEdgeBucket=+10 pts+ | 23-65 | 26.14% | lift -37.27 pts | forward 3/3
+EPRED | DratEpredAgreement=Disagree | MarketRole=Market Underdog | 38-76 | 33.33% | lift -30.08 pts | forward 3/3
+EPRED | SelectedVsMarket=Disagree | 62-110 | 36.05% | lift -27.36 pts | forward 4/4
+EPRED | ModelMarketEdgeBucket=+10 pts+ | 46-80 | 36.51% | lift -26.9 pts | forward 3/3
+EPRED | MarketRole=Market Underdog | 62-107 | 36.69% | lift -26.72 pts | forward 4/4
+EPRED | SpreadBucket=Dog +0.5 to +2.5 | 49-81 | 37.69% | lift -25.72 pts | forward 4/4
+MARKET | ProbBucket=85-89.9% | 62-5 | 92.54% | lift 25.7 pts | forward 3/3
+MARKET | ProbBucket=85-89.9% | MarketRole=Market Favorite | 62-5 | 92.54% | lift 25.7 pts | forward 3/3
+MARKET | ProbBucket=85-89.9% | SpreadBucket=Fav -10+ | 62-5 | 92.54% | lift 25.7 pts | forward 3/3
+MARKET | SelectedVsMarket=Agree | ProbBucket=85-89.9% | 62-5 | 92.54% | lift 25.7 pts | forward 3/3
+MARKET | ProbBucket=85-89.9% | RatingGapBucket=10+ | 46-4 | 92.0% | lift 25.17 pts | forward 2/2
+EPRED | SpreadBucket=Fav -10+ | 114-15 | 88.37% | lift 24.96 pts | forward 4/4
+EPRED | RatingGapBucket=10+ | SpreadBucket=Fav -10+ | 82-11 | 88.17% | lift 24.76 pts | forward 4/4
+DRAT_EPRED_CONSENSUS | SelectedVsMarket=Disagree | 24-33 | 42.11% | lift -24.51 pts | forward 3/3
+EPRED | DratEpredAgreement=Disagree | 67-101 | 39.88% | lift -23.53 pts | forward 4/4
+DRAT | SelectedVsMarket=Disagree | ProbBucket=<55% | 36-49 | 42.35% | lift -23.48 pts | forward 3/3
+EPRED | RatingGapBucket=0 to 2.9 | SpreadBucket=Dog +0.5 to +2.5 | 22-33 | 40.0% | lift -23.41 pts | forward 3/3
+MARKET | ProbBucket=<55% | RatingGapBucket=0 to 2.9 | 24-31 | 43.64% | lift -23.2 pts | forward 2/2
+DRAT_EPRED_CONSENSUS | MarketRole=Market Underdog | 24-31 | 43.64% | lift -22.98 pts | forward 3/3
+DRAT_EPRED_CONSENSUS | DratEpredAgreement=Agree | MarketRole=Market Underdog | 24-31 | 43.64% | lift -22.98 pts | forward 3/3
