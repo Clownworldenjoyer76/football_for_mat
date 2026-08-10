@@ -10,7 +10,7 @@ READS ONLY:
   docs/win/football/nfl/config/prediction_enrichment/spread_enrichment.csv
 
 WRITES ONLY:
-  docs/win/football/nfl/00_intake/predictions/enriched/Spread/week_{WEEK}_NFL_enriched.csv
+  docs/win/football/nfl/00_intake/predictions/enriched/spread/week_{WEEK}_NFL_enriched.csv
 
 The historical bucket boundaries and rule conditions are read from
 spread_enrichment.csv. They are not hard-coded here.
@@ -31,7 +31,7 @@ SCHEDULE_REL = Path("docs/win/football/nfl/00_intake/schedule/weekly")
 EPRED_REL = Path("docs/win/football/nfl/00_intake/predictions/final")
 DRAT_REL = Path("docs/win/football/nfl/00_intake/predictions/drat")
 ODDS_REL = Path("docs/win/football/nfl/00_intake/odds")
-OUTPUT_REL = Path("docs/win/football/nfl/00_intake/predictions/enriched/Spread")
+OUTPUT_REL = Path("docs/win/football/nfl/00_intake/predictions/enriched/spread")
 
 
 def list_weekly_schedule_files(schedule_dir: Path) -> list[Path]:
