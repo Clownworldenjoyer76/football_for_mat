@@ -159,15 +159,36 @@ def odds_file_date(path: Path):
 
 
 def find_latest_odds_file(odds_dir: Path) -> Path:
+    """
+    Select the direct-child *_NFL_odds.csv file containing the most recent
+    actual odds update. Filename format is irrelevant.
+    """
     candidates = []
+
     for p in odds_dir.glob("*_NFL_odds.csv"):
-        d = odds_file_date(p)
-        if d is not None:
-            candidates.append((d, p.name, p))
+        try:
+            rows = read_csv(p)
+        except Exception:
+            continue
+
+        latest_update = datetime.min
+        found_update = False
+
+        for r in rows:
+            dt = iso_dt(r.get("last_update"))
+            if dt != datetime.min:
+                found_update = True
+                if dt > latest_update:
+                    latest_update = dt
+
+        if found_update:
+            candidates.append((latest_update, p.name, p))
+
     if not candidates:
         raise FileNotFoundError(
-            f"No date-prefixed *_NFL_odds.csv file found in {odds_dir}"
+            f"No *_NFL_odds.csv file with a valid last_update value found in {odds_dir}"
         )
+
     candidates.sort()
     return candidates[-1][2]
 
