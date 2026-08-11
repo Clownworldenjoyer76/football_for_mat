@@ -3,7 +3,8 @@ name: NFL Training Step 1
 # MANUAL RUN ONLY.
 # Builds the 2021-2025 historical core training table,
 # appends historical odds/weather fields,
-# then adds final-game training targets.
+# adds final-game training targets,
+# then applies historical moneyline/ATS/totals enrichment rules.
 # Input/source files are read-only.
 # Output:
 # docs/win/football/nfl/training/historical_core_2021_2025.csv
@@ -43,6 +44,10 @@ jobs:
       - name: Add final-game targets
         run: |
           python docs/win/football/nfl/scripts/training/step3.py
+
+      - name: Apply historical enrichment rules
+        run: |
+          python docs/win/football/nfl/scripts/training/step4.py
 
       - name: Commit training output
         run: |
