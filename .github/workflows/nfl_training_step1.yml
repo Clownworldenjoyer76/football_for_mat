@@ -1,7 +1,9 @@
+```yaml
 name: NFL Training Step 1
 
 # MANUAL RUN ONLY.
-# Builds the 2021-2025 historical core training table.
+# Builds the 2021-2025 historical core training table,
+# then appends historical odds/weather fields.
 # Input files are read-only.
 # Output:
 # docs/win/football/nfl/training/historical_core_2021_2025.csv
@@ -34,6 +36,10 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/training/step1.py
 
+      - name: Add historical odds and weather fields
+        run: |
+          python docs/win/football/nfl/scripts/training/step2.py
+
       - name: Commit training output
         run: |
           git config user.name "github-actions[bot]"
@@ -47,3 +53,4 @@ jobs:
             git commit -m "Build NFL historical training core"
             git push
           fi
+```
