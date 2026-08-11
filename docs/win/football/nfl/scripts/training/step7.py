@@ -23,6 +23,12 @@ READS/WRITES IN PLACE:
   docs/win/football/nfl/training/historical_core_2024.csv
   docs/win/football/nfl/training/historical_core_2025.csv
 
+2021 EXCEPTION:
+  The historical team/QB intake directories begin with 2021.
+  There are no 2020_team_stats.csv or 2020_qb_stats.csv source files.
+  Therefore 2021 Week 1 remains unchanged rather than causing the
+  workflow to fail.
+
 Only Week 1 Step 5 / Step 6 feature columns are populated.
 Rows from Week 2 onward are not modified.
 
@@ -782,7 +788,10 @@ def process_season(
         str,
         tuple[str, str],
     ],
-) -> tuple[pd.DataFrame, dict[str, int]]:
+) -> tuple[
+    pd.DataFrame,
+    dict[str, int],
+]:
     training_path = (
         TRAINING_PATHS[
             season
@@ -863,6 +872,47 @@ def process_season(
         season - 1
     )
 
+    team_home_matches = 0
+    team_away_matches = 0
+    team_both_matches = 0
+
+    qb_home_matches = 0
+    qb_away_matches = 0
+    qb_both_matches = 0
+
+    missing_game_ids = 0
+
+    # The available historical team/QB intake starts in 2021.
+    # Therefore the 2021 training file has no 2020 source from
+    # which to populate its Week 1 lagged values.
+    #
+    # Leave 2021 unchanged and continue with 2022-2025.
+    if season == 2021:
+        print(
+            "Season 2021: Week 1 prior-season fallback "
+            "skipped because 2020 team/QB source files "
+            "are unavailable."
+        )
+
+        stats = {
+            "rows": original_row_count,
+            "week_one_rows": len(
+                week_one_indexes
+            ),
+            "team_home_matches": 0,
+            "team_away_matches": 0,
+            "team_both_matches": 0,
+            "qb_home_matches": 0,
+            "qb_away_matches": 0,
+            "qb_both_matches": 0,
+            "missing_game_ids": 0,
+        }
+
+        return (
+            training,
+            stats,
+        )
+
     final_team_rows = (
         load_final_team_rows(
             prior_season
@@ -874,16 +924,6 @@ def process_season(
             prior_season
         )
     )
-
-    team_home_matches = 0
-    team_away_matches = 0
-    team_both_matches = 0
-
-    qb_home_matches = 0
-    qb_away_matches = 0
-    qb_both_matches = 0
-
-    missing_game_ids = 0
 
     for index in week_one_indexes:
         row = training.loc[
