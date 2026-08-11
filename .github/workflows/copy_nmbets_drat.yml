@@ -1,14 +1,12 @@
 name: Copy NMBETS
 
-# MANUAL RUN ONLY. Actions tab -> "Pull Weekly Predictions" -> Run workflow.
+# MANUAL RUN ONLY.  
 #
 # Source: Clownworldenjoyer76/nikki_and_mat_bets  ->  docs/data/weekly/
-# Target: (this repo)                             ->  docs/win/football/nfl/00_intake/predictions/drat/
+# Target: (this repo)                             ->  docs/win/football/nfl/00_intake/predictions/drat/raw/
 #
 # The target folder is a MIRROR: it is deleted and recreated on every run.
-# Anything in it that is not in the source folder will be removed.
-#
-# Place this file at: .github/workflows/pull-weekly-predictions.yml
+
 
 on:
   workflow_dispatch:
@@ -24,7 +22,7 @@ jobs:
       SOURCE_REPO: Clownworldenjoyer76/nikki_and_mat_bets
       SOURCE_BRANCH: main
       SOURCE_PATH: docs/data/weekly
-      TARGET_PATH: docs/win/football/nfl/00_intake/predictions/drat
+      TARGET_PATH: docs/win/football/nfl/00_intake/predictions/drat/raw
 
     steps:
       - name: Checkout this repo
