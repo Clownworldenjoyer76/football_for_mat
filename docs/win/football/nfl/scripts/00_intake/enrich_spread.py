@@ -5,7 +5,7 @@ GitHub Actions NFL weekly historical spread-prediction enrichment.
 READS ONLY:
   docs/win/football/nfl/00_intake/schedule/weekly/week_{WEEK}_NFL_weekly_schedule.csv
   docs/win/football/nfl/00_intake/predictions/final/*_clean_predictions.csv
-  docs/win/football/nfl/00_intake/predictions/drat/raw/{SEASON}_wk{WEEK}_odds.csv
+  docs/win/football/nfl/00_intake/predictions/drat/clean/{SEASON}_wk{WEEK}_odds.csv
   docs/win/football/nfl/00_intake/odds/{MOST_RECENT_DATE}_NFL_odds.csv
   docs/win/football/nfl/config/prediction_enrichment/spread_enrichment.csv
 
@@ -29,7 +29,7 @@ from pathlib import Path
 MASTER_REL = Path("docs/win/football/nfl/config/prediction_enrichment/spread_enrichment.csv")
 SCHEDULE_REL = Path("docs/win/football/nfl/00_intake/schedule/weekly")
 EPRED_REL = Path("docs/win/football/nfl/00_intake/predictions/final")
-DRAT_REL = Path("docs/win/football/nfl/00_intake/predictions/drat/raw")
+DRAT_REL = Path("docs/win/football/nfl/00_intake/predictions/drat/clean")
 ODDS_REL = Path("docs/win/football/nfl/00_intake/odds")
 OUTPUT_REL = Path("docs/win/football/nfl/00_intake/predictions/enriched/spread")
 
