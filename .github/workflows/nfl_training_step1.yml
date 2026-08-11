@@ -8,7 +8,8 @@ name: NFL Training Step 1
 # applies historical enrichment rules,
 # adds Week N-1 lagged team statistics,
 # splits the historical training table by season,
-# then adds latest-prior-week QB statistics.
+# adds latest-prior-week QB statistics,
+# then fills Week 1 team/QB values from the prior season.
 
 # Input/source files are read-only.
 
@@ -70,6 +71,10 @@ jobs:
       - name: Add lagged QB statistics
         run: |
           python docs/win/football/nfl/scripts/training/step6.py
+
+      - name: Add Week 1 prior-season team and QB statistics
+        run: |
+          python docs/win/football/nfl/scripts/training/step7.py
 
       - name: Commit training output
         run: |
