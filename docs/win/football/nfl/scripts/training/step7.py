@@ -46,22 +46,10 @@ import pandas as pd
 
 NFL_ROOT = Path("docs/win/football/nfl")
 
-TRAINING_DIR = (
-    NFL_ROOT / "training"
-)
-
-TEAM_STATS_DIR = (
-    NFL_ROOT / "00_intake/team_stats"
-)
-
-QB_STATS_DIR = (
-    NFL_ROOT / "00_intake/qb"
-)
-
-GAMES_PATH = (
-    NFL_ROOT
-    / "data/historic_data/games/games_2010_2025.csv"
-)
+TRAINING_DIR = NFL_ROOT / "training"
+TEAM_STATS_DIR = NFL_ROOT / "00_intake/team_stats"
+QB_STATS_DIR = NFL_ROOT / "00_intake/qb"
+GAMES_PATH = NFL_ROOT / "data/historic_data/games/games_2010_2025.csv"
 
 TRAINING_SEASONS = [
     2021,
@@ -72,10 +60,7 @@ TRAINING_SEASONS = [
 ]
 
 TRAINING_PATHS = {
-    season: (
-        TRAINING_DIR
-        / f"historical_core_{season}.csv"
-    )
+    season: TRAINING_DIR / f"historical_core_{season}.csv"
     for season in TRAINING_SEASONS
 }
 
@@ -184,9 +169,7 @@ STEP7_COLUMNS = [
 ]
 
 
-def read_csv(
-    path: Path,
-) -> pd.DataFrame:
+def read_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(
             f"Missing input file: {path}"
@@ -213,8 +196,7 @@ def require_columns(
 
     if missing:
         raise ValueError(
-            f"{label}: missing required columns: "
-            f"{missing}"
+            f"{label}: missing required columns: {missing}"
         )
 
 
@@ -269,18 +251,14 @@ def normalize_integer_key(
     return numeric.astype("Int64")
 
 
-def normalize_team(
-    value: object,
-) -> str:
+def normalize_team(value: object) -> str:
     if pd.isna(value):
         return ""
 
     return str(value).strip().upper()
 
 
-def normalize_player_id(
-    value: object,
-) -> str:
+def normalize_player_id(value: object) -> str:
     if pd.isna(value):
         return ""
 
@@ -297,9 +275,7 @@ def normalize_player_id(
     return text
 
 
-def normalize_game_id(
-    value: object,
-) -> str:
+def normalize_game_id(value: object) -> str:
     if pd.isna(value):
         return ""
 
@@ -346,9 +322,7 @@ def clean_numeric_value(
 
     numeric_value = float(value)
 
-    if not math.isfinite(
-        numeric_value
-    ):
+    if not math.isfinite(numeric_value):
         return None
 
     return numeric_value
@@ -372,17 +346,12 @@ def load_games_qb_index() -> dict[
         GAMES_REQUIRED_COLUMNS
     ].copy()
 
-    games["_game_key"] = games[
-        "game_id"
-    ].map(
-        normalize_game_id
+    games["_game_key"] = (
+        games["game_id"]
+        .map(normalize_game_id)
     )
 
-    blank_game_ids = (
-        games["_game_key"].eq("")
-    )
-
-    if blank_game_ids.any():
+    if games["_game_key"].eq("").any():
         raise ValueError(
             "Historical games file contains blank "
             "game_id values."
@@ -390,9 +359,7 @@ def load_games_qb_index() -> dict[
 
     duplicate_game_ids = (
         games["_game_key"]
-        .duplicated(
-            keep=False
-        )
+        .duplicated(keep=False)
     )
 
     if duplicate_game_ids.any():
@@ -418,9 +385,9 @@ def load_games_qb_index() -> dict[
     ] = {}
 
     for _, row in games.iterrows():
-        game_id = row[
-            "_game_key"
-        ]
+        game_id = str(
+            row["_game_key"]
+        )
 
         qb_index[game_id] = (
             normalize_player_id(
@@ -475,9 +442,7 @@ def load_final_team_rows(
 
     team_stats["_team_key"] = (
         team_stats["team"]
-        .map(
-            normalize_team
-        )
+        .map(normalize_team)
     )
 
     valid_seasons = sorted(
@@ -630,9 +595,7 @@ def load_final_qb_rows(
 
     qb_stats["_player_key"] = (
         qb_stats["player_id"]
-        .map(
-            normalize_player_id
-        )
+        .map(normalize_player_id)
     )
 
     valid_seasons = sorted(
@@ -675,8 +638,8 @@ def load_final_qb_rows(
     ].copy()
 
     # Match Step 6's deterministic handling of multiple
-    # player rows in the same season/week:
-    # retain the row with the most dropbacks.
+    # player rows in the same season/week: retain the row
+    # with the most dropbacks.
     qb_stats["_dropbacks_sort"] = (
         qb_stats["dropbacks"]
         .fillna(-1)
@@ -700,8 +663,8 @@ def load_final_qb_rows(
         keep="last",
     )
 
-    # Now retain each player's final available row
-    # from the prior season.
+    # Retain each player's final available row from the
+    # prior season.
     qb_stats = (
         qb_stats
         .sort_values(
@@ -741,9 +704,7 @@ def load_final_qb_rows(
                 )
             )
 
-        final_rows[player_id] = (
-            values
-        )
+        final_rows[player_id] = values
 
     return final_rows
 
@@ -754,6 +715,13 @@ def assign_value(
     column: str,
     value: float | None,
 ) -> None:
+    """
+    Training CSVs are intentionally read with dtype=str.
+
+    Pandas may represent those columns with a strict string dtype,
+    which rejects direct assignment of Python floats. Write finite
+    numeric values back as strings so the CSV schema stays unchanged.
+    """
     if value is None:
         training.at[
             index,
@@ -763,7 +731,7 @@ def assign_value(
         training.at[
             index,
             column,
-        ] = value
+        ] = str(value)
 
 
 def subtract_values(
@@ -791,6 +759,7 @@ def process_season(
 ) -> tuple[
     pd.DataFrame,
     dict[str, int],
+    bool,
 ]:
     training_path = (
         TRAINING_PATHS[
@@ -886,7 +855,7 @@ def process_season(
     # Therefore the 2021 training file has no 2020 source from
     # which to populate its Week 1 lagged values.
     #
-    # Leave 2021 unchanged and continue with 2022-2025.
+    # Leave 2021 completely unchanged and do not rewrite the file.
     if season == 2021:
         print(
             "Season 2021: Week 1 prior-season fallback "
@@ -911,7 +880,16 @@ def process_season(
         return (
             training,
             stats,
+            False,
         )
+
+    non_week_one_before = (
+        training.loc[
+            ~week_one_mask,
+            STEP7_COLUMNS,
+        ]
+        .copy()
+    )
 
     final_team_rows = (
         load_final_team_rows(
@@ -969,7 +947,6 @@ def process_season(
                         metric
                     ],
                 )
-
         else:
             for metric in TEAM_METRICS:
                 assign_value(
@@ -994,7 +971,6 @@ def process_season(
                         metric
                     ],
                 )
-
         else:
             for metric in TEAM_METRICS:
                 assign_value(
@@ -1094,7 +1070,6 @@ def process_season(
                         metric
                     ],
                 )
-
         else:
             for metric in QB_METRICS:
                 assign_value(
@@ -1119,7 +1094,6 @@ def process_season(
                         metric
                     ],
                 )
-
         else:
             for metric in QB_METRICS:
                 assign_value(
@@ -1183,6 +1157,21 @@ def process_season(
             f"during Step 7."
         )
 
+    non_week_one_after = (
+        training.loc[
+            ~week_one_mask,
+            STEP7_COLUMNS,
+        ]
+    )
+
+    if not non_week_one_after.equals(
+        non_week_one_before
+    ):
+        raise RuntimeError(
+            f"{season}: Step 7 modified "
+            f"Week 2+ feature values."
+        )
+
     stats = {
         "rows": original_row_count,
         "week_one_rows": len(
@@ -1214,6 +1203,7 @@ def process_season(
     return (
         training,
         stats,
+        True,
     )
 
 
@@ -1255,7 +1245,9 @@ def write_outputs(
                 encoding="utf-8",
             )
 
-        for season in TRAINING_SEASONS:
+        for season in sorted(
+            temp_paths
+        ):
             temp_paths[
                 season
             ].replace(
@@ -1293,14 +1285,16 @@ def main() -> int:
         (
             training,
             stats,
+            should_write,
         ) = process_season(
             season,
             games_qb_index,
         )
 
-        outputs[
-            season
-        ] = training
+        if should_write:
+            outputs[
+                season
+            ] = training
 
         results[
             season
@@ -1421,10 +1415,16 @@ def main() -> int:
             f"{stats['missing_game_ids']}"
         )
 
-        print(
-            f"Wrote: "
-            f"{TRAINING_PATHS[season]}"
-        )
+        if season == 2021:
+            print(
+                "Wrote: no "
+                "(2021 left unchanged)"
+            )
+        else:
+            print(
+                f"Wrote: "
+                f"{TRAINING_PATHS[season]}"
+            )
 
         print()
 
