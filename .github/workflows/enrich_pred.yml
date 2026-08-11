@@ -37,6 +37,9 @@ jobs:
       - name: Run enrich_totals.py
         run: python docs/win/football/nfl/scripts/00_intake/enrich_totals.py
 
+      - name: Run enrich_combine.py
+        run: python docs/win/football/nfl/scripts/00_intake/enrich_combine.py
+
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
