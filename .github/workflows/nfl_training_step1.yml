@@ -5,7 +5,8 @@ name: NFL Training Step 1
 # appends historical odds/weather fields,
 # adds final-game training targets,
 # applies historical enrichment rules,
-# then adds Week N-1 lagged team statistics.
+# adds Week N-1 lagged team statistics,
+# then adds latest-prior-week QB statistics.
 # Input/source files are read-only.
 # Output:
 # docs/win/football/nfl/training/historical_core_2021_2025.csv
@@ -53,6 +54,10 @@ jobs:
       - name: Add lagged team statistics
         run: |
           python docs/win/football/nfl/scripts/training/step5.py
+
+      - name: Add lagged QB statistics
+        run: |
+          python docs/win/football/nfl/scripts/training/step6.py
 
       - name: Commit training output
         run: |
