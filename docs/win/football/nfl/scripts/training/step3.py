@@ -59,7 +59,12 @@ def require_columns(df: pd.DataFrame, required: list[str], path: Path) -> None:
 def numeric(series: pd.Series, column_name: str) -> pd.Series:
     converted = pd.to_numeric(series, errors="coerce")
 
-    bad_mask = converted.isna() & series.notna() & series.astype(str).str.strip().ne("")
+    bad_mask = (
+        converted.isna()
+        & series.notna()
+        & series.astype(str).str.strip().ne("")
+    )
+
     if bad_mask.any():
         bad_values = series.loc[bad_mask].astype(str).unique()[:10]
         raise ValueError(
@@ -75,8 +80,10 @@ def main() -> int:
 
     original_row_count = len(df)
 
-    # Make reruns idempotent: replace previously generated Step 3 columns.
-    existing_targets = [column for column in TARGET_COLUMNS if column in df.columns]
+    # Make reruns idempotent.
+    existing_targets = [
+        column for column in TARGET_COLUMNS if column in df.columns
+    ]
     if existing_targets:
         df = df.drop(columns=existing_targets)
 
@@ -85,22 +92,30 @@ def main() -> int:
     spread_line = numeric(df["spread_line"], "spread_line")
     total_line = numeric(df["total_line"], "total_line")
 
+    # Final score targets.
     df["margin"] = home_score - away_score
     df["total_points"] = home_score + away_score
     df["home_win"] = (home_score > away_score).astype("int64")
-    df["home_ats_margin"] = df["margin"] + spread_line
+
+    # ATS target.
+    # spread_line convention in this dataset:
+    # positive = home favorite
+    # negative = home underdog
+    df["home_ats_margin"] = df["margin"] - spread_line
 
     df["home_ats_result"] = "PUSH"
     df.loc[df["home_ats_margin"] > 0, "home_ats_result"] = "WIN"
     df.loc[df["home_ats_margin"] < 0, "home_ats_result"] = "LOSS"
 
+    # Total target.
     df["total_result"] = "PUSH"
     df.loc[df["total_points"] > total_line, "total_result"] = "OVER"
     df.loc[df["total_points"] < total_line, "total_result"] = "UNDER"
 
     if len(df) != original_row_count:
         raise RuntimeError(
-            f"Row count changed during Step 3: before={original_row_count} after={len(df)}"
+            f"Row count changed during Step 3: "
+            f"before={original_row_count} after={len(df)}"
         )
 
     temp_path = TRAINING_PATH.with_suffix(".step3.tmp.csv")
