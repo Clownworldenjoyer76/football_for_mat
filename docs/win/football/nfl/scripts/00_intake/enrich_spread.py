@@ -5,7 +5,7 @@ GitHub Actions NFL weekly historical spread-prediction enrichment.
 READS ONLY:
   docs/win/football/nfl/00_intake/schedule/weekly/week_{WEEK}_NFL_weekly_schedule.csv
   docs/win/football/nfl/00_intake/predictions/final/*_clean_predictions.csv
-  docs/win/football/nfl/00_intake/predictions/drat/clean/{SEASON}_wk{WEEK}_odds.csv
+  docs/win/football/nfl/00_intake/predictions/drat/clean/{SEASON}_week_{WEEK}_drat.csv
   docs/win/football/nfl/00_intake/odds/{MOST_RECENT_DATE}_NFL_odds.csv
   docs/win/football/nfl/config/prediction_enrichment/spread_enrichment.csv
 
@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import csv
 import os
-import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -175,26 +174,14 @@ def find_latest_odds_file(odds_dir: Path) -> Path:
 
 
 def find_drat_file(drat_dir: Path, season: int, week: int) -> Path:
-    pattern = re.compile(
-        rf"^{re.escape(str(season))}_wk0*{week}_odds\.csv$",
-        re.IGNORECASE,
-    )
-    matches = [
-        p for p in drat_dir.glob(f"{season}_wk*_odds.csv")
-        if pattern.fullmatch(p.name)
-    ]
+    filename = f"{season}_week_{week}_drat.csv"
+    path = drat_dir / filename
 
-    if len(matches) == 1:
-        return matches[0]
+    if path.exists():
+        return path
 
-    if not matches:
-        raise FileNotFoundError(
-            f"No DRAT file matching season={season}, week={week} found in {drat_dir}"
-        )
-
-    raise RuntimeError(
-        f"Multiple DRAT files match season={season}, week={week}: "
-        + ", ".join(p.name for p in matches)
+    raise FileNotFoundError(
+        f"DRAT file not found: {path}"
     )
 
 
