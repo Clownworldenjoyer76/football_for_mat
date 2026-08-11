@@ -1,0 +1,58 @@
+name: NFL Clean DRAT
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  clean-drat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Run clean_drat.py
+        id: clean_drat
+        shell: bash
+        run: |
+          set +e
+
+          python docs/win/football/nfl/scripts/00_intake/clean_drat.py
+          status=$?
+
+          set -e
+
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Commit DRAT clean outputs and log
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/football/nfl/00_intake/predictions/drat/clean/
+          git add docs/win/football/nfl/errors/00_intake/clean_drat.txt
+
+          if git diff --cached --quiet; then
+            echo "No DRAT clean output changes to commit."
+          else
+            git commit -m "Clean DRAT prediction files"
+            git push
+          fi
+
+      - name: Fail workflow if clean_drat.py reported errors
+        if: always() && steps.clean_drat.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          echo "clean_drat.py reported one or more errors."
+          echo "See docs/win/football/nfl/errors/00_intake/clean_drat.txt"
+          exit 1
