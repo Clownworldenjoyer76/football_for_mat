@@ -1,22 +1,32 @@
 #!/usr/bin/env python3
 """
-Step 6: append lagged QB statistics to the historical NFL training table.
+Step 6: append lagged QB statistics to the split historical NFL training tables.
 
 For a game in Week N, use each historical starting QB's latest available
 weekly QB-stat row from the same season with source week < N.
 
 Historical starting QB identity is already carried in the training table from:
   docs/win/football/nfl/data/historic_data/games/games_2010_2025.csv
+
 via:
   home_qb_id
   away_qb_id
 
 READS:
-  docs/win/football/nfl/training/historical_core_2021_2025.csv
+  docs/win/football/nfl/training/historical_core_2021.csv
+  docs/win/football/nfl/training/historical_core_2022.csv
+  docs/win/football/nfl/training/historical_core_2023.csv
+  docs/win/football/nfl/training/historical_core_2024.csv
+  docs/win/football/nfl/training/historical_core_2025.csv
+
   docs/win/football/nfl/00_intake/qb/{season}_qb_stats.csv
 
 WRITES:
-  docs/win/football/nfl/training/historical_core_2021_2025.csv
+  docs/win/football/nfl/training/historical_core_2021.csv
+  docs/win/football/nfl/training/historical_core_2022.csv
+  docs/win/football/nfl/training/historical_core_2023.csv
+  docs/win/football/nfl/training/historical_core_2024.csv
+  docs/win/football/nfl/training/historical_core_2025.csv
 
 Appends:
   home_qb_<metric>
@@ -52,9 +62,25 @@ import pandas as pd
 
 NFL_ROOT = Path("docs/win/football/nfl")
 
-TRAINING_PATH = (
-    NFL_ROOT / "training/historical_core_2021_2025.csv"
+TRAINING_DIR = (
+    NFL_ROOT / "training"
 )
+
+TRAINING_SEASONS = [
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+]
+
+TRAINING_PATHS = {
+    season: (
+        TRAINING_DIR
+        / f"historical_core_{season}.csv"
+    )
+    for season in TRAINING_SEASONS
+}
 
 QB_STATS_DIR = (
     NFL_ROOT / "00_intake/qb"
@@ -436,15 +462,18 @@ def latest_prior_values(
     return values[position - 1]
 
 
-def main() -> int:
+def process_training_file(
+    season: int,
+    training_path: Path,
+) -> dict[str, int]:
     training = read_csv(
-        TRAINING_PATH
+        training_path
     )
 
     require_columns(
         training,
         REQUIRED_TRAINING_COLUMNS,
-        "historical training table",
+        f"historical training table {season}",
     )
 
     original_row_count = len(
@@ -465,14 +494,14 @@ def main() -> int:
     training["_season_key"] = (
         normalize_integer_key(
             training["season"],
-            "training season",
+            f"{training_path}: season",
         )
     )
 
     training["_week_key"] = (
         normalize_integer_key(
             training["week"],
-            "training week",
+            f"{training_path}: week",
         )
     )
 
@@ -488,7 +517,7 @@ def main() -> int:
         )
     )
 
-    seasons = sorted(
+    seasons_in_file = sorted(
         int(value)
         for value in (
             training["_season_key"]
@@ -498,8 +527,14 @@ def main() -> int:
         )
     )
 
+    if seasons_in_file != [season]:
+        raise ValueError(
+            f"{training_path}: expected only season "
+            f"{season}, found {seasons_in_file}"
+        )
+
     qb_stats = load_qb_stats(
-        seasons
+        [season]
     )
 
     history = build_history_index(
@@ -520,9 +555,10 @@ def main() -> int:
         ):
             continue
 
-        season = int(
+        row_season = int(
             row["_season_key"]
         )
+
         game_week = int(
             row["_week_key"]
         )
@@ -544,7 +580,7 @@ def main() -> int:
         ):
             home_values = latest_prior_values(
                 history,
-                season,
+                row_season,
                 game_week,
                 home_qb_id,
             )
@@ -555,7 +591,7 @@ def main() -> int:
         ):
             away_values = latest_prior_values(
                 history,
-                season,
+                row_season,
                 game_week,
                 away_qb_id,
             )
@@ -594,9 +630,11 @@ def main() -> int:
         home_column = (
             f"home_qb_{metric}"
         )
+
         away_column = (
             f"away_qb_{metric}"
         )
+
         diff_column = (
             f"qb_{metric}_diff"
         )
@@ -608,8 +646,8 @@ def main() -> int:
 
     if len(training) != original_row_count:
         raise RuntimeError(
-            "Row count changed during Step 6: "
-            f"before={original_row_count} "
+            f"Row count changed during Step 6 for "
+            f"{season}: before={original_row_count} "
             f"after={len(training)}"
         )
 
@@ -624,8 +662,8 @@ def main() -> int:
             column,
         ].notna().any():
             raise RuntimeError(
-                "Week 1 unexpectedly populated in "
-                f"Step 6 column: {column}"
+                f"{season}: Week 1 unexpectedly populated "
+                f"in Step 6 column: {column}"
             )
 
     missing_generated_columns = [
@@ -636,8 +674,8 @@ def main() -> int:
 
     if missing_generated_columns:
         raise RuntimeError(
-            "Step 6 output missing generated columns: "
-            f"{missing_generated_columns}"
+            f"{season}: Step 6 output missing generated "
+            f"columns: {missing_generated_columns}"
         )
 
     week_one_count = int(
@@ -654,7 +692,7 @@ def main() -> int:
     )
 
     temp_path = (
-        TRAINING_PATH
+        training_path
         .with_suffix(".step6.tmp.csv")
     )
 
@@ -665,7 +703,11 @@ def main() -> int:
     )
 
     temp_path.replace(
-        TRAINING_PATH
+        training_path
+    )
+
+    print(
+        f"Season {season}"
     )
 
     print(
@@ -702,7 +744,89 @@ def main() -> int:
     )
 
     print(
-        f"Wrote: {TRAINING_PATH}"
+        f"Wrote: {training_path}"
+    )
+
+    print()
+
+    return {
+        "rows": len(training),
+        "home_matches": home_match_count,
+        "away_matches": away_match_count,
+        "both_matches": both_match_count,
+        "week_one_rows": week_one_count,
+    }
+
+
+def main() -> int:
+    total_rows = 0
+    total_home_matches = 0
+    total_away_matches = 0
+    total_both_matches = 0
+    total_week_one_rows = 0
+
+    for season in TRAINING_SEASONS:
+        training_path = TRAINING_PATHS[
+            season
+        ]
+
+        result = process_training_file(
+            season,
+            training_path,
+        )
+
+        total_rows += result[
+            "rows"
+        ]
+
+        total_home_matches += result[
+            "home_matches"
+        ]
+
+        total_away_matches += result[
+            "away_matches"
+        ]
+
+        total_both_matches += result[
+            "both_matches"
+        ]
+
+        total_week_one_rows += result[
+            "week_one_rows"
+        ]
+
+    print(
+        "Step 6 complete."
+    )
+
+    print(
+        f"Season files processed: "
+        f"{len(TRAINING_SEASONS)}"
+    )
+
+    print(
+        f"Total rows processed: "
+        f"{total_rows}"
+    )
+
+    print(
+        f"Total home QB prior-row matches: "
+        f"{total_home_matches}/{total_rows}"
+    )
+
+    print(
+        f"Total away QB prior-row matches: "
+        f"{total_away_matches}/{total_rows}"
+    )
+
+    print(
+        f"Total both-QB prior-row matches: "
+        f"{total_both_matches}/{total_rows}"
+    )
+
+    print(
+        f"Total Week 1 rows left for fallback: "
+        f"{total_week_one_rows}"
     )
 
     return 0
