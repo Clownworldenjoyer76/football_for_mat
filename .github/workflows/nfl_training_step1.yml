@@ -1,15 +1,23 @@
 name: NFL Training Step 1
 
 # MANUAL RUN ONLY.
+
 # Builds the 2021-2025 historical core training table,
 # appends historical odds/weather fields,
 # adds final-game training targets,
 # applies historical enrichment rules,
 # adds Week N-1 lagged team statistics,
+# splits the historical training table by season,
 # then adds latest-prior-week QB statistics.
+
 # Input/source files are read-only.
-# Output:
-# docs/win/football/nfl/training/historical_core_2021_2025.csv
+
+# Outputs:
+# docs/win/football/nfl/training/historical_core_2021.csv
+# docs/win/football/nfl/training/historical_core_2022.csv
+# docs/win/football/nfl/training/historical_core_2023.csv
+# docs/win/football/nfl/training/historical_core_2024.csv
+# docs/win/football/nfl/training/historical_core_2025.csv
 
 on:
   workflow_dispatch:
@@ -55,6 +63,10 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/training/step5.py
 
+      - name: Split historical training table by season
+        run: |
+          python docs/win/football/nfl/scripts/training/step5_split.py
+
       - name: Add lagged QB statistics
         run: |
           python docs/win/football/nfl/scripts/training/step6.py
@@ -64,7 +76,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add docs/win/football/nfl/training/historical_core_2021_2025.csv
+          git add \
+            docs/win/football/nfl/training/historical_core_2021.csv \
+            docs/win/football/nfl/training/historical_core_2022.csv \
+            docs/win/football/nfl/training/historical_core_2023.csv \
+            docs/win/football/nfl/training/historical_core_2024.csv \
+            docs/win/football/nfl/training/historical_core_2025.csv
 
           if git diff --cached --quiet; then
             echo "No training output changes to commit."
