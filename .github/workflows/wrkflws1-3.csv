@@ -1,28 +1,28 @@
-yml,solo-yml,Runs Scripts,Purpose,Run Time
-01,nfl_schedule.yml,docs/win/football/nfl/scripts/00_intake/pull_schedule.py,Pull full NFL schedule/base game metadata,**As needed** before odds cycle if schedule may have changed
-02,nfl_odds_cycle.yml,pull_odds.py → build_weekly_schedule.py → pull_opening_odds.py,Pull current odds - build weekly schedule - pull openers/movement,**Pregame / market intake** - after schedule exists
-01,nfl_pbp_cycle.yml,docs/win/football/nfl/scripts/00_intake/pull_pbp.py,Pull play-by-play after completed games,**Postgame** - next morning after NFL games
-02,nfl_depth.yml,docs/win/football/nfl/scripts/00_intake/depth_chart.py → docs/win/football/nfl/scripts/00_intake/depth_cleanup.py,depth chart builder,everyday
-01,nfl_coaches_cycle.yml,docs/win/football/nfl/scripts/00_intake/coaches.py,updates docs/win/football/nfl/data/master/coaches_master.csv,weekly
-02,nfl_roster_update.yml,docs/win/football/nfl/scripts/00_intake/pull_raw_roster.py → docs/win/football/nfl/scripts/00_intake/roster_cleanup.py,updates docs/win/football/nfl/data/master/roster_master.csv,everyday
-01,nfl_league_master_cycle.yml,docs/win/football/nfl/scripts/00_intake/league_master.py,creates docs/win/football/nfl/data/master/league_master.csv and docs/win/football/nfl/data/master/league_standings.csv,tuesday morning
-01,nfl_final_scores_cycle.yml,docs/win/football/nfl/scripts/00_intake/pull_final_scores.py, creates final score files at docs/win/football/nfl/06_final_scores/results/{season}*{season_type}*{week}.csv, tuesday morning
-02,nfl_e_predictions_cycle.yml,docs/win/football/nfl/scripts/00_intake/pull_e_predictions.py, creates e_predictions,daily
-01,nfl_qbr_cycle.yml,docs/win/football/nfl/scripts/00_intake/pull_qbr.py,Pulls ESPN QBR data for the CURRENT active NFL week,weekly
-01,nfl_team_power_index.yml,docs/win/football/nfl/scripts/00_intake/team_power_index.py,Pulls ESPN's season-level Football Power Index (FPI) data for every NFL team for the current season,weekly
-01,nfl_league_leaders_cycle.yml,docs/win/football/nfl/scripts/00_intake/pull_league_leaders.py,Pulls ESPN's league-wide statistical leaders (top 25 per category) for the NFL regular season,starts after week 1 and runs weekly
-01,nfl_market_futures_cycle.yml,docs/win/football/nfl/scripts/00_intake/pull_market_futures.py,Pulls ESPN's season-long futures/props betting markets for the NFL,weekly
-02,build_qb_map.yml,docs/win/football/nfl/scripts/00_intake/build_qb_map.py,Builds docs/win/football/nfl/config/mapping/qb_map_nfl.csv,Every morning
-01,qb_stats.yml,docs/win/football/nfl/scripts/00_intake/pull_qb_stats.py,Builds docs/win/football/nfl/00_intake/qb/{season}_qb_stats.csv AND Aggregates play-by-play data into per season/week/team/QB stats.,weekly
-02,nfl_fetch_weather_cycle.yml,docs/win/football/nfl/scripts/00_intake/fetch_weather.py,Fetches weather forecast data from api.met.no for NFL games in a given week's schedule file,daily
-02,nfl_injuries_cycle.yml,docs/win/football/nfl/scripts/00_intake/pull_injuries.py,Pulls NFL injury report data from ESPN's site API and writes output,daily
-01,nfl_build_travel_cycle.yml,docs/win/football/nfl/scripts/00_intake/build_travel.py,travel file builder,weekly
-01,,docs/win/football/nfl/scripts/00_intake/pull_team_stats.py,,
-01,,docs/win/football/nfl/scripts/validation/validate_tuesday.py,,
-02,,docs/win/football/nfl/scripts/validation/validate_daily.py,,
-03,,docs/win/football/nfl/scripts/00_intake/clean_e_pred.py,,
-03,,docs/win/football/nfl/scripts/00_intake/finalize_pred.py,,
-03,,docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py,,
-03,,docs/win/football/nfl/scripts/00_intake/enrich_spread.py,,
-03,,docs/win/football/nfl/scripts/00_intake/enrich_totals.py,,
-03,,docs/win/football/nfl/scripts/00_intake/enrich_combine.py,,
+yml,order,Runs Scripts,Purpose,Run Time,solo-yml
+01,1,docs/win/football/nfl/scripts/00_intake/pull_schedule.py,Pull full NFL schedule/base game metadata,**As needed** before odds cycle if schedule may have changed,nfl_schedule.yml
+01,2,docs/win/football/nfl/scripts/00_intake/pull_final_scores.py, creates final score files at docs/win/football/nfl/06_final_scores/results/{season}*{season_type}*{week}.csv, tuesday morning,nfl_final_scores_cycle.yml
+01,3,docs/win/football/nfl/scripts/00_intake/pull_pbp.py,Pull play-by-play after completed games,**Postgame** - next morning after NFL games,nfl_pbp_cycle.yml
+01,4,docs/win/football/nfl/scripts/00_intake/pull_team_stats.py,,,
+01,5,docs/win/football/nfl/scripts/00_intake/pull_qb_stats.py,Builds docs/win/football/nfl/00_intake/qb/{season}_qb_stats.csv AND Aggregates play-by-play data into per season/week/team/QB stats.,weekly,qb_stats.yml
+01,6,docs/win/football/nfl/scripts/00_intake/league_master.py,creates docs/win/football/nfl/data/master/league_master.csv and docs/win/football/nfl/data/master/league_standings.csv,tuesday morning,nfl_league_master_cycle.yml
+01,7,docs/win/football/nfl/scripts/00_intake/coaches.py,updates docs/win/football/nfl/data/master/coaches_master.csv,weekly,nfl_coaches_cycle.yml
+01,8,docs/win/football/nfl/scripts/00_intake/pull_qbr.py,Pulls ESPN QBR data for the CURRENT active NFL week,weekly,nfl_qbr_cycle.yml
+01,9,docs/win/football/nfl/scripts/00_intake/team_power_index.py,Pulls ESPN's season-level Football Power Index (FPI) data for every NFL team for the current season,weekly,nfl_team_power_index.yml
+01,10,docs/win/football/nfl/scripts/00_intake/pull_league_leaders.py,Pulls ESPN's league-wide statistical leaders (top 25 per category) for the NFL regular season,starts after week 1 and runs weekly,nfl_league_leaders_cycle.yml
+01,11,docs/win/football/nfl/scripts/00_intake/pull_market_futures.py,Pulls ESPN's season-long futures/props betting markets for the NFL,weekly,nfl_market_futures_cycle.yml
+01,12,docs/win/football/nfl/scripts/00_intake/build_travel.py,travel file builder,weekly,nfl_build_travel_cycle.yml
+01,13,docs/win/football/nfl/scripts/validation/validate_tuesday.py,,,
+02,1-3,pull_odds.py → build_weekly_schedule.py → pull_opening_odds.py,Pull current odds - build weekly schedule - pull openers/movement,**Pregame / market intake** - after schedule exists,nfl_odds_cycle.yml
+02,4-5,docs/win/football/nfl/scripts/00_intake/pull_raw_roster.py → docs/win/football/nfl/scripts/00_intake/roster_cleanup.py,updates docs/win/football/nfl/data/master/roster_master.csv,everyday,nfl_roster_update.yml
+02,6-7,docs/win/football/nfl/scripts/00_intake/depth_chart.py → docs/win/football/nfl/scripts/00_intake/depth_cleanup.py,depth chart builder,everyday,nfl_depth.yml
+02,8,docs/win/football/nfl/scripts/00_intake/build_qb_map.py,Builds docs/win/football/nfl/config/mapping/qb_map_nfl.csv,Every morning,build_qb_map.yml
+02,9,docs/win/football/nfl/scripts/00_intake/pull_injuries.py,Pulls NFL injury report data from ESPN's site API and writes output,daily,nfl_injuries_cycle.yml
+02,10,docs/win/football/nfl/scripts/00_intake/fetch_weather.py,Fetches weather forecast data from api.met.no for NFL games in a given week's schedule file,daily,nfl_fetch_weather_cycle.yml
+02,11,docs/win/football/nfl/scripts/00_intake/pull_e_predictions.py, creates e_predictions,daily,nfl_e_predictions_cycle.yml
+02,12,docs/win/football/nfl/scripts/validation/validate_daily.py,,,
+03,1,docs/win/football/nfl/scripts/00_intake/clean_e_pred.py,,,
+03,2,docs/win/football/nfl/scripts/00_intake/finalize_pred.py,,,
+03,3,docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py,,,
+03,4,docs/win/football/nfl/scripts/00_intake/enrich_spread.py,,,
+03,5,docs/win/football/nfl/scripts/00_intake/enrich_totals.py,,,
+03,6,docs/win/football/nfl/scripts/00_intake/enrich_combine.py,,,
