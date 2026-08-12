@@ -31,6 +31,10 @@ Travel calculations mirror the existing build_travel.py conventions:
 Historical-team abbreviation normalization:
   WAS -> WSH
   LA  -> LAR
+
+The historical games source contains domestic home-stadium values for the
+seven 2025 NFL international games. Those games are explicitly identified
+below so international_flag remains correct.
 """
 
 from __future__ import annotations
@@ -46,9 +50,14 @@ import unicodedata
 import pandas as pd
 
 
-NFL_ROOT = Path("docs/win/football/nfl")
+NFL_ROOT = Path(
+    "docs/win/football/nfl"
+)
 
-TRAINING_DIR = NFL_ROOT / "training"
+TRAINING_DIR = (
+    NFL_ROOT
+    / "training"
+)
 
 GAMES_PATH = (
     NFL_ROOT
@@ -124,8 +133,6 @@ BLANK_VALUES = {
     "null",
 }
 
-# Historical game data uses these abbreviations while
-# team_master.csv uses the corresponding current ESPN abbreviations.
 TEAM_ABBR_ALIASES = {
     "WAS": "WSH",
     "LA": "LAR",
@@ -135,12 +142,67 @@ INTERNATIONAL_STADIUMS = {
     "allianz arena",
     "arena corinthians",
     "azteca stadium",
+    "corinthians arena",
+    "croke park",
     "deutsche bank park",
     "estadio azteca",
     "neo quimica arena",
+    "olympic stadium",
+    "santiago bernabeu stadium",
     "tottenham hotspur stadium",
     "tottenham stadium",
     "wembley stadium",
+}
+
+# Key format:
+#   (season, week, home_team, away_team)
+#
+# The historical games source currently carries the domestic home stadium
+# for these 2025 international games, so stadium-name detection alone would
+# incorrectly mark them as domestic.
+INTERNATIONAL_GAME_KEYS = {
+    (
+        2025,
+        1,
+        "LAC",
+        "KC",
+    ),
+    (
+        2025,
+        4,
+        "PIT",
+        "MIN",
+    ),
+    (
+        2025,
+        5,
+        "CLE",
+        "MIN",
+    ),
+    (
+        2025,
+        6,
+        "NYJ",
+        "DEN",
+    ),
+    (
+        2025,
+        7,
+        "JAX",
+        "LAR",
+    ),
+    (
+        2025,
+        10,
+        "IND",
+        "ATL",
+    ),
+    (
+        2025,
+        11,
+        "MIA",
+        "WSH",
+    ),
 }
 
 
@@ -255,6 +317,7 @@ def parse_int(
         number = float(
             text
         )
+
     except ValueError as exc:
         raise ValueError(
             f"{label}: invalid integer value "
@@ -302,6 +365,7 @@ def parse_float(
         number = float(
             text
         )
+
     except ValueError as exc:
         raise ValueError(
             f"{label}: invalid numeric value "
@@ -704,6 +768,29 @@ def location_to_neutral_flag(
     )
 
 
+def is_international_game(
+    game_key: tuple[
+        int,
+        int,
+        str,
+        str,
+    ],
+    stadium: str,
+) -> int:
+    if game_key in INTERNATIONAL_GAME_KEYS:
+        return 1
+
+    if (
+        stadium_key(
+            stadium
+        )
+        in INTERNATIONAL_STADIUMS
+    ):
+        return 1
+
+    return 0
+
+
 def process_season(
     season: int,
     games_lookup: dict[
@@ -1017,11 +1104,11 @@ def process_season(
             )
         )
 
-        international = int(
-            stadium_key(
-                source_stadium
+        international = (
+            is_international_game(
+                game_key,
+                source_stadium,
             )
-            in INTERNATIONAL_STADIUMS
         )
 
         neutral_games += (
