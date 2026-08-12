@@ -9,7 +9,8 @@ name: NFL Training Step 1
 # adds Week N-1 lagged team statistics,
 # splits the historical training table by season,
 # adds latest-prior-week QB statistics,
-# then fills Week 1 team/QB values from the prior season.
+# fills Week 1 team/QB values from the prior season,
+# then adds rest difference and historical travel values.
 
 # Input/source files are read-only.
 
@@ -75,6 +76,10 @@ jobs:
       - name: Add Week 1 prior-season team and QB statistics
         run: |
           python docs/win/football/nfl/scripts/training/step7.py
+
+      - name: Add rest difference and historical travel values
+        run: |
+          python docs/win/football/nfl/scripts/training/step9.py
 
       - name: Commit training output
         run: |
