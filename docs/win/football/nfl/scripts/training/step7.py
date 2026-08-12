@@ -1,37 +1,41 @@
 #!/usr/bin/env python3
 """
-Step 7: fill Week 1 team and QB lagged statistics using the final
-available rows from the previous season.
+Step 7: fill Week 1 team and QB lagged features from the prior season.
 
-For each Week 1 game:
+For each Week 1 game in the 2022-2025 historical training files:
 
-TEAM VALUES:
-  Use the final available prior-season row for the home/away team from:
+TEAM FEATURES
+  Use the final available prior-season row for each team from:
     docs/win/football/nfl/00_intake/team_stats/{season-1}_team_stats.csv
 
-QB VALUES:
-  Identify the historical starting QBs using home_qb_id / away_qb_id from:
+QB FEATURES
+  Find the Week 1 game in:
     docs/win/football/nfl/data/historic_data/games/games_2010_2025.csv
+
+  Match that game by:
+    season
+    week
+    home_team
+    away_team
+
+  Take:
+    home_qb_id
+    away_qb_id
 
   Then use each QB's final available prior-season row from:
     docs/win/football/nfl/00_intake/qb/{season-1}_qb_stats.csv
 
 READS/WRITES IN PLACE:
-  docs/win/football/nfl/training/historical_core_2021.csv
   docs/win/football/nfl/training/historical_core_2022.csv
   docs/win/football/nfl/training/historical_core_2023.csv
   docs/win/football/nfl/training/historical_core_2024.csv
   docs/win/football/nfl/training/historical_core_2025.csv
 
-2021 EXCEPTION:
-  The historical team/QB intake directories begin with 2021.
-  There are no 2020_team_stats.csv or 2020_qb_stats.csv source files.
-  Therefore 2021 Week 1 remains unchanged rather than causing the
-  workflow to fail.
+2021 is intentionally left unchanged because the required 2020 team/QB
+source files do not exist in the intake directories.
 
-Only Week 1 Step 5 / Step 6 feature columns are populated.
-Rows from Week 2 onward are not modified.
-
+Only Week 1 Step 5 / Step 6 feature columns are changed.
+Rows from Week 2 onward are not changed.
 No raw source files are edited.
 """
 
@@ -51,13 +55,7 @@ TEAM_STATS_DIR = NFL_ROOT / "00_intake/team_stats"
 QB_STATS_DIR = NFL_ROOT / "00_intake/qb"
 GAMES_PATH = NFL_ROOT / "data/historic_data/games/games_2010_2025.csv"
 
-TRAINING_SEASONS = [
-    2021,
-    2022,
-    2023,
-    2024,
-    2025,
-]
+TRAINING_SEASONS = [2022, 2023, 2024, 2025]
 
 TRAINING_PATHS = {
     season: TRAINING_DIR / f"historical_core_{season}.csv"
@@ -88,6 +86,25 @@ QB_METRICS = [
     "fumble_rate",
 ]
 
+TRAINING_REQUIRED_COLUMNS = [
+    "game_id",
+    "season",
+    "week",
+    "home_team",
+    "away_team",
+    "home_qb_id",
+    "away_qb_id",
+]
+
+GAMES_REQUIRED_COLUMNS = [
+    "season",
+    "week",
+    "home_team",
+    "away_team",
+    "home_qb_id",
+    "away_qb_id",
+]
+
 TEAM_SOURCE_REQUIRED_COLUMNS = [
     "season",
     "week",
@@ -98,27 +115,9 @@ TEAM_SOURCE_REQUIRED_COLUMNS = [
 QB_SOURCE_REQUIRED_COLUMNS = [
     "season",
     "week",
-    "team",
     "player_id",
-    "qb_name",
     "dropbacks",
     *QB_METRICS,
-]
-
-GAMES_REQUIRED_COLUMNS = [
-    "game_id",
-    "home_qb_id",
-    "away_qb_id",
-]
-
-TRAINING_REQUIRED_COLUMNS = [
-    "game_id",
-    "season",
-    "week",
-    "home_team",
-    "away_team",
-    "home_qb_id",
-    "away_qb_id",
 ]
 
 HOME_TEAM_COLUMNS = [
@@ -136,12 +135,6 @@ TEAM_DIFF_COLUMNS = [
     for metric in TEAM_METRICS
 ]
 
-STEP5_COLUMNS = [
-    *HOME_TEAM_COLUMNS,
-    *AWAY_TEAM_COLUMNS,
-    *TEAM_DIFF_COLUMNS,
-]
-
 HOME_QB_COLUMNS = [
     f"home_qb_{metric}"
     for metric in QB_METRICS
@@ -157,16 +150,22 @@ QB_DIFF_COLUMNS = [
     for metric in QB_METRICS
 ]
 
-STEP6_COLUMNS = [
+STEP7_FEATURE_COLUMNS = [
+    *HOME_TEAM_COLUMNS,
+    *AWAY_TEAM_COLUMNS,
+    *TEAM_DIFF_COLUMNS,
     *HOME_QB_COLUMNS,
     *AWAY_QB_COLUMNS,
     *QB_DIFF_COLUMNS,
 ]
 
-STEP7_COLUMNS = [
-    *STEP5_COLUMNS,
-    *STEP6_COLUMNS,
-]
+BLANK_STRINGS = {
+    "",
+    "nan",
+    "none",
+    "<na>",
+    "null",
+}
 
 
 def read_csv(path: Path) -> pd.DataFrame:
@@ -178,6 +177,8 @@ def read_csv(path: Path) -> pd.DataFrame:
     return pd.read_csv(
         path,
         dtype=str,
+        keep_default_na=False,
+        na_filter=False,
         encoding="utf-8-sig",
         low_memory=False,
     )
@@ -200,136 +201,129 @@ def require_columns(
         )
 
 
-def normalize_integer_key(
-    series: pd.Series,
-    column_name: str,
-) -> pd.Series:
-    numeric = pd.to_numeric(
-        series,
-        errors="coerce",
-    )
-
-    bad = (
-        numeric.isna()
-        & series.notna()
-        & series.astype(str).str.strip().ne("")
-    )
-
-    if bad.any():
-        values = (
-            series.loc[bad]
-            .astype(str)
-            .drop_duplicates()
-            .head(10)
-            .tolist()
-        )
-
-        raise ValueError(
-            f"{column_name}: invalid numeric values: "
-            + ", ".join(values)
-        )
-
-    non_integer = (
-        numeric.notna()
-        & ((numeric % 1).abs() > 1e-9)
-    )
-
-    if non_integer.any():
-        values = (
-            series.loc[non_integer]
-            .astype(str)
-            .drop_duplicates()
-            .head(10)
-            .tolist()
-        )
-
-        raise ValueError(
-            f"{column_name}: non-integer values: "
-            + ", ".join(values)
-        )
-
-    return numeric.astype("Int64")
-
-
-def normalize_team(value: object) -> str:
-    if pd.isna(value):
-        return ""
-
-    return str(value).strip().upper()
-
-
-def normalize_player_id(value: object) -> str:
-    if pd.isna(value):
+def clean_text(value: object) -> str:
+    if value is None:
         return ""
 
     text = str(value).strip()
 
-    if text.lower() in {
-        "",
-        "<na>",
-        "nan",
-        "none",
-    }:
+    if text.lower() in BLANK_STRINGS:
         return ""
 
     return text
 
 
-def normalize_game_id(value: object) -> str:
-    if pd.isna(value):
+def normalize_team(value: object) -> str:
+    return clean_text(value).upper()
+
+
+def normalize_player_id(value: object) -> str:
+    return clean_text(value)
+
+
+def parse_int(
+    value: object,
+    label: str,
+) -> int:
+    text = clean_text(value)
+
+    if text == "":
+        raise ValueError(
+            f"{label}: blank integer value"
+        )
+
+    try:
+        numeric = float(text)
+    except ValueError as exc:
+        raise ValueError(
+            f"{label}: invalid integer value {text!r}"
+        ) from exc
+
+    if not math.isfinite(numeric):
+        raise ValueError(
+            f"{label}: non-finite integer value {text!r}"
+        )
+
+    rounded = round(numeric)
+
+    if abs(numeric - rounded) > 1e-9:
+        raise ValueError(
+            f"{label}: non-integer value {text!r}"
+        )
+
+    return int(rounded)
+
+
+def parse_optional_float(
+    value: object,
+    label: str,
+) -> float | None:
+    text = clean_text(value)
+
+    if text == "":
+        return None
+
+    try:
+        numeric = float(text)
+    except ValueError as exc:
+        raise ValueError(
+            f"{label}: invalid numeric value {text!r}"
+        ) from exc
+
+    if not math.isfinite(numeric):
+        return None
+
+    return numeric
+
+
+def normalize_numeric_string(
+    value: object,
+    label: str,
+) -> str:
+    text = clean_text(value)
+
+    if text == "":
         return ""
 
-    return str(value).strip()
-
-
-def numeric_metric(
-    series: pd.Series,
-    column_name: str,
-) -> pd.Series:
-    converted = pd.to_numeric(
-        series,
-        errors="coerce",
+    numeric = parse_optional_float(
+        text,
+        label,
     )
 
-    bad = (
-        converted.isna()
-        & series.notna()
-        & series.astype(str).str.strip().ne("")
+    if numeric is None:
+        return ""
+
+    return text
+
+
+def diff_string(
+    home_value: str,
+    away_value: str,
+    label: str,
+) -> str:
+    home_numeric = parse_optional_float(
+        home_value,
+        f"{label}: home",
     )
 
-    if bad.any():
-        values = (
-            series.loc[bad]
-            .astype(str)
-            .drop_duplicates()
-            .head(10)
-            .tolist()
-        )
+    away_numeric = parse_optional_float(
+        away_value,
+        f"{label}: away",
+    )
 
-        raise ValueError(
-            f"{column_name}: non-numeric values: "
-            + ", ".join(values)
-        )
+    if (
+        home_numeric is None
+        or away_numeric is None
+    ):
+        return ""
 
-    return converted
-
-
-def clean_numeric_value(
-    value: object,
-) -> float | None:
-    if pd.isna(value):
-        return None
-
-    numeric_value = float(value)
-
-    if not math.isfinite(numeric_value):
-        return None
-
-    return numeric_value
+    return str(
+        home_numeric - away_numeric
+    )
 
 
-def load_games_qb_index() -> dict[
-    str,
+def build_games_qb_index() -> dict[
+    tuple[int, int, str, str],
     tuple[str, str],
 ]:
     games = read_csv(
@@ -342,54 +336,71 @@ def load_games_qb_index() -> dict[
         "historical games",
     )
 
-    games = games[
-        GAMES_REQUIRED_COLUMNS
-    ].copy()
-
-    games["_game_key"] = (
-        games["game_id"]
-        .map(normalize_game_id)
-    )
-
-    if games["_game_key"].eq("").any():
-        raise ValueError(
-            "Historical games file contains blank "
-            "game_id values."
-        )
-
-    duplicate_game_ids = (
-        games["_game_key"]
-        .duplicated(keep=False)
-    )
-
-    if duplicate_game_ids.any():
-        values = (
-            games.loc[
-                duplicate_game_ids,
-                "_game_key",
-            ]
-            .drop_duplicates()
-            .head(10)
-            .tolist()
-        )
-
-        raise ValueError(
-            "Historical games file contains duplicate "
-            "game_id values: "
-            + ", ".join(values)
-        )
-
-    qb_index: dict[
-        str,
+    index: dict[
+        tuple[int, int, str, str],
         tuple[str, str],
     ] = {}
 
-    for _, row in games.iterrows():
-        game_id = str(
-            row["_game_key"]
+    for row_number, row in games.iterrows():
+        season_text = clean_text(
+            row["season"]
+        )
+        week_text = clean_text(
+            row["week"]
         )
 
-        qb_index[game_id] = (
+        if (
+            season_text == ""
+            or week_text == ""
+        ):
+            continue
+
+        season = parse_int(
+            season_text,
+            f"{GAMES_PATH} row {row_number + 2}: season",
+        )
+
+        week = parse_int(
+            week_text,
+            f"{GAMES_PATH} row {row_number + 2}: week",
+        )
+
+        if (
+            season not in TRAINING_SEASONS
+            or week != 1
+        ):
+            continue
+
+        home_team = normalize_team(
+            row["home_team"]
+        )
+
+        away_team = normalize_team(
+            row["away_team"]
+        )
+
+        if (
+            home_team == ""
+            or away_team == ""
+        ):
+            raise ValueError(
+                f"{GAMES_PATH} row {row_number + 2}: "
+                "blank home/away team for a required Week 1 game"
+            )
+
+        key = (
+            season,
+            week,
+            home_team,
+            away_team,
+        )
+
+        if key in index:
+            raise ValueError(
+                f"{GAMES_PATH}: duplicate Week 1 game key: {key}"
+            )
+
+        index[key] = (
             normalize_player_id(
                 row["home_qb_id"]
             ),
@@ -398,14 +409,14 @@ def load_games_qb_index() -> dict[
             ),
         )
 
-    return qb_index
+    return index
 
 
 def load_final_team_rows(
     prior_season: int,
 ) -> dict[
     str,
-    dict[str, float | None],
+    dict[str, str],
 ]:
     path = (
         TEAM_STATS_DIR
@@ -422,143 +433,94 @@ def load_final_team_rows(
         f"team stats {prior_season}",
     )
 
-    team_stats = team_stats[
-        TEAM_SOURCE_REQUIRED_COLUMNS
-    ].copy()
-
-    team_stats["_season_key"] = (
-        normalize_integer_key(
-            team_stats["season"],
-            f"{path}: season",
-        )
-    )
-
-    team_stats["_week_key"] = (
-        normalize_integer_key(
-            team_stats["week"],
-            f"{path}: week",
-        )
-    )
-
-    team_stats["_team_key"] = (
-        team_stats["team"]
-        .map(normalize_team)
-    )
-
-    valid_seasons = sorted(
-        int(value)
-        for value in (
-            team_stats["_season_key"]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-    )
-
-    if valid_seasons != [
-        prior_season
-    ]:
-        raise ValueError(
-            f"{path}: expected only season "
-            f"{prior_season}, found "
-            f"{valid_seasons}"
-        )
-
-    for metric in TEAM_METRICS:
-        team_stats[metric] = (
-            numeric_metric(
-                team_stats[metric],
-                f"{path}: {metric}",
-            )
-        )
-
-    team_stats = team_stats[
-        team_stats["_week_key"].notna()
-        & team_stats["_team_key"].ne("")
-    ].copy()
-
-    duplicate_keys = (
-        team_stats.duplicated(
-            subset=[
-                "_season_key",
-                "_week_key",
-                "_team_key",
-            ],
-            keep=False,
-        )
-    )
-
-    if duplicate_keys.any():
-        duplicates = (
-            team_stats.loc[
-                duplicate_keys,
-                [
-                    "_season_key",
-                    "_week_key",
-                    "_team_key",
-                ],
-            ]
-            .head(10)
-            .to_dict(
-                orient="records"
-            )
-        )
-
-        raise ValueError(
-            f"{path}: duplicate "
-            f"season/week/team rows: "
-            f"{duplicates}"
-        )
-
-    team_stats = (
-        team_stats
-        .sort_values(
-            by=[
-                "_team_key",
-                "_week_key",
-            ],
-            kind="stable",
-        )
-        .groupby(
-            "_team_key",
-            sort=False,
-            as_index=False,
-        )
-        .tail(1)
-    )
-
-    final_rows: dict[
+    candidates: dict[
         str,
-        dict[str, float | None],
+        tuple[int, dict[str, str]],
     ] = {}
 
-    for _, row in team_stats.iterrows():
-        team = str(
-            row["_team_key"]
+    seen_keys: set[
+        tuple[int, int, str]
+    ] = set()
+
+    for row_number, row in team_stats.iterrows():
+        season = parse_int(
+            row["season"],
+            f"{path} row {row_number + 2}: season",
+        )
+
+        if season != prior_season:
+            raise ValueError(
+                f"{path} row {row_number + 2}: "
+                f"expected season {prior_season}, found {season}"
+            )
+
+        week = parse_int(
+            row["week"],
+            f"{path} row {row_number + 2}: week",
+        )
+
+        team = normalize_team(
+            row["team"]
+        )
+
+        if team == "":
+            raise ValueError(
+                f"{path} row {row_number + 2}: blank team"
+            )
+
+        source_key = (
+            season,
+            week,
+            team,
+        )
+
+        if source_key in seen_keys:
+            raise ValueError(
+                f"{path}: duplicate season/week/team row: "
+                f"{source_key}"
+            )
+
+        seen_keys.add(
+            source_key
         )
 
         values: dict[
             str,
-            float | None,
+            str,
         ] = {}
 
         for metric in TEAM_METRICS:
             values[metric] = (
-                clean_numeric_value(
-                    row[metric]
+                normalize_numeric_string(
+                    row[metric],
+                    f"{path} row {row_number + 2}: {metric}",
                 )
             )
 
-        final_rows[team] = values
+        current = candidates.get(
+            team
+        )
 
-    return final_rows
+        if (
+            current is None
+            or week > current[0]
+        ):
+            candidates[team] = (
+                week,
+                values,
+            )
+
+    return {
+        team: values
+        for team, (_, values) in candidates.items()
+    }
 
 
 def load_final_qb_rows(
     prior_season: int,
 ) -> dict[
     str,
-    dict[str, float | None],
+    dict[str, str],
 ]:
     path = (
         QB_STATS_DIR
@@ -575,191 +537,190 @@ def load_final_qb_rows(
         f"QB stats {prior_season}",
     )
 
-    qb_stats = qb_stats[
-        QB_SOURCE_REQUIRED_COLUMNS
-    ].copy()
-
-    qb_stats["_season_key"] = (
-        normalize_integer_key(
-            qb_stats["season"],
-            f"{path}: season",
-        )
-    )
-
-    qb_stats["_week_key"] = (
-        normalize_integer_key(
-            qb_stats["week"],
-            f"{path}: week",
-        )
-    )
-
-    qb_stats["_player_key"] = (
-        qb_stats["player_id"]
-        .map(normalize_player_id)
-    )
-
-    valid_seasons = sorted(
-        int(value)
-        for value in (
-            qb_stats["_season_key"]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-    )
-
-    if valid_seasons != [
-        prior_season
-    ]:
-        raise ValueError(
-            f"{path}: expected only season "
-            f"{prior_season}, found "
-            f"{valid_seasons}"
-        )
-
-    qb_stats["dropbacks"] = (
-        numeric_metric(
-            qb_stats["dropbacks"],
-            f"{path}: dropbacks",
-        )
-    )
-
-    for metric in QB_METRICS:
-        qb_stats[metric] = (
-            numeric_metric(
-                qb_stats[metric],
-                f"{path}: {metric}",
-            )
-        )
-
-    qb_stats = qb_stats[
-        qb_stats["_week_key"].notna()
-        & qb_stats["_player_key"].ne("")
-    ].copy()
-
-    # Match Step 6's deterministic handling of multiple
-    # player rows in the same season/week: retain the row
-    # with the most dropbacks.
-    qb_stats["_dropbacks_sort"] = (
-        qb_stats["dropbacks"]
-        .fillna(-1)
-    )
-
-    qb_stats = qb_stats.sort_values(
-        by=[
-            "_player_key",
-            "_week_key",
-            "_dropbacks_sort",
-        ],
-        kind="stable",
-    )
-
-    qb_stats = qb_stats.drop_duplicates(
-        subset=[
-            "_season_key",
-            "_player_key",
-            "_week_key",
-        ],
-        keep="last",
-    )
-
-    # Retain each player's final available row from the
-    # prior season.
-    qb_stats = (
-        qb_stats
-        .sort_values(
-            by=[
-                "_player_key",
-                "_week_key",
-            ],
-            kind="stable",
-        )
-        .groupby(
-            "_player_key",
-            sort=False,
-            as_index=False,
-        )
-        .tail(1)
-    )
-
-    final_rows: dict[
-        str,
-        dict[str, float | None],
+    per_week: dict[
+        tuple[str, int],
+        tuple[float, int, dict[str, str]],
     ] = {}
 
-    for _, row in qb_stats.iterrows():
-        player_id = str(
-            row["_player_key"]
+    for row_number, row in qb_stats.iterrows():
+        season = parse_int(
+            row["season"],
+            f"{path} row {row_number + 2}: season",
+        )
+
+        if season != prior_season:
+            raise ValueError(
+                f"{path} row {row_number + 2}: "
+                f"expected season {prior_season}, found {season}"
+            )
+
+        week = parse_int(
+            row["week"],
+            f"{path} row {row_number + 2}: week",
+        )
+
+        player_id = normalize_player_id(
+            row["player_id"]
+        )
+
+        if player_id == "":
+            continue
+
+        dropbacks_numeric = parse_optional_float(
+            row["dropbacks"],
+            f"{path} row {row_number + 2}: dropbacks",
+        )
+
+        dropbacks = (
+            -1.0
+            if dropbacks_numeric is None
+            else dropbacks_numeric
         )
 
         values: dict[
             str,
-            float | None,
+            str,
         ] = {}
 
         for metric in QB_METRICS:
             values[metric] = (
-                clean_numeric_value(
-                    row[metric]
+                normalize_numeric_string(
+                    row[metric],
+                    f"{path} row {row_number + 2}: {metric}",
                 )
             )
 
-        final_rows[player_id] = values
+        key = (
+            player_id,
+            week,
+        )
 
-    return final_rows
+        current = per_week.get(
+            key
+        )
+
+        if (
+            current is None
+            or dropbacks > current[0]
+            or (
+                dropbacks == current[0]
+                and row_number > current[1]
+            )
+        ):
+            per_week[key] = (
+                dropbacks,
+                row_number,
+                values,
+            )
+
+    final_rows: dict[
+        str,
+        tuple[int, dict[str, str]],
+    ] = {}
+
+    for (
+        player_id,
+        week,
+    ), (
+        _dropbacks,
+        _row_number,
+        values,
+    ) in per_week.items():
+        current = final_rows.get(
+            player_id
+        )
+
+        if (
+            current is None
+            or week > current[0]
+        ):
+            final_rows[player_id] = (
+                week,
+                values,
+            )
+
+    return {
+        player_id: values
+        for player_id, (_, values) in final_rows.items()
+    }
 
 
-def assign_value(
+def validate_training_file(
     training: pd.DataFrame,
-    index: object,
-    column: str,
-    value: float | None,
-) -> None:
-    """
-    Training CSVs are intentionally read with dtype=str.
-
-    Pandas may represent those columns with a strict string dtype,
-    which rejects direct assignment of Python floats. Write finite
-    numeric values back as strings so the CSV schema stays unchanged.
-    """
-    if value is None:
-        training.at[
-            index,
-            column,
-        ] = pd.NA
-    else:
-        training.at[
-            index,
-            column,
-        ] = str(value)
-
-
-def subtract_values(
-    home_value: float | None,
-    away_value: float | None,
-) -> float | None:
-    if (
-        home_value is None
-        or away_value is None
-    ):
-        return None
-
-    return (
-        home_value
-        - away_value
+    season: int,
+    path: Path,
+) -> list[int]:
+    require_columns(
+        training,
+        [
+            *TRAINING_REQUIRED_COLUMNS,
+            *STEP7_FEATURE_COLUMNS,
+        ],
+        f"historical training table {season}",
     )
+
+    if len(
+        training.columns
+    ) != len(
+        set(training.columns)
+    ):
+        raise ValueError(
+            f"{path}: duplicate column names"
+        )
+
+    seasons_found: set[
+        int
+    ] = set()
+
+    week_one_indexes: list[
+        int
+    ] = []
+
+    for index, row in training.iterrows():
+        row_season = parse_int(
+            row["season"],
+            f"{path} row {index + 2}: season",
+        )
+
+        row_week = parse_int(
+            row["week"],
+            f"{path} row {index + 2}: week",
+        )
+
+        seasons_found.add(
+            row_season
+        )
+
+        if row_week == 1:
+            week_one_indexes.append(
+                index
+            )
+
+    if seasons_found != {
+        season
+    }:
+        raise ValueError(
+            f"{path}: expected only season {season}, "
+            f"found {sorted(seasons_found)}"
+        )
+
+    if not week_one_indexes:
+        raise RuntimeError(
+            f"{path}: no Week 1 rows found"
+        )
+
+    return week_one_indexes
 
 
 def process_season(
     season: int,
     games_qb_index: dict[
-        str,
+        tuple[int, int, str, str],
         tuple[str, str],
     ],
 ) -> tuple[
     pd.DataFrame,
     dict[str, int],
-    bool,
 ]:
     training_path = (
         TRAINING_PATHS[
@@ -771,15 +732,6 @@ def process_season(
         training_path
     )
 
-    require_columns(
-        training,
-        [
-            *TRAINING_REQUIRED_COLUMNS,
-            *STEP7_COLUMNS,
-        ],
-        f"historical training table {season}",
-    )
-
     original_columns = (
         training.columns.tolist()
     )
@@ -788,107 +740,33 @@ def process_season(
         training
     )
 
-    season_keys = (
-        normalize_integer_key(
-            training["season"],
-            f"{training_path}: season",
-        )
-    )
-
-    week_keys = (
-        normalize_integer_key(
-            training["week"],
-            f"{training_path}: week",
-        )
-    )
-
-    seasons_in_file = sorted(
-        int(value)
-        for value in (
-            season_keys
-            .dropna()
-            .unique()
-            .tolist()
-        )
-    )
-
-    if seasons_in_file != [
-        season
-    ]:
-        raise ValueError(
-            f"{training_path}: expected only "
-            f"season {season}, found "
-            f"{seasons_in_file}"
-        )
-
-    week_one_mask = (
-        week_keys == 1
-    )
-
     week_one_indexes = (
-        training.index[
-            week_one_mask
-        ].tolist()
-    )
-
-    if not week_one_indexes:
-        raise RuntimeError(
-            f"{training_path}: no Week 1 "
-            f"rows found."
-        )
-
-    prior_season = (
-        season - 1
-    )
-
-    team_home_matches = 0
-    team_away_matches = 0
-    team_both_matches = 0
-
-    qb_home_matches = 0
-    qb_away_matches = 0
-    qb_both_matches = 0
-
-    missing_game_ids = 0
-
-    # The available historical team/QB intake starts in 2021.
-    # Therefore the 2021 training file has no 2020 source from
-    # which to populate its Week 1 lagged values.
-    #
-    # Leave 2021 completely unchanged and do not rewrite the file.
-    if season == 2021:
-        print(
-            "Season 2021: Week 1 prior-season fallback "
-            "skipped because 2020 team/QB source files "
-            "are unavailable."
-        )
-
-        stats = {
-            "rows": original_row_count,
-            "week_one_rows": len(
-                week_one_indexes
-            ),
-            "team_home_matches": 0,
-            "team_away_matches": 0,
-            "team_both_matches": 0,
-            "qb_home_matches": 0,
-            "qb_away_matches": 0,
-            "qb_both_matches": 0,
-            "missing_game_ids": 0,
-        }
-
-        return (
+        validate_training_file(
             training,
-            stats,
-            False,
+            season,
+            training_path,
         )
+    )
+
+    non_week_one_mask = pd.Series(
+        True,
+        index=training.index,
+    )
+
+    non_week_one_mask.loc[
+        week_one_indexes
+    ] = False
 
     non_week_one_before = (
         training.loc[
-            ~week_one_mask,
-            STEP7_COLUMNS,
+            non_week_one_mask,
+            :,
         ]
-        .copy()
+        .copy(deep=True)
+    )
+
+    prior_season = (
+        season - 1
     )
 
     final_team_rows = (
@@ -903,21 +781,25 @@ def process_season(
         )
     )
 
-    for index in week_one_indexes:
-        row = training.loc[
-            index
-        ]
+    team_side_matches = 0
+    game_matches = 0
+    qb_id_available = 0
+    qb_prior_source_matches = 0
+    training_qb_id_mismatches = 0
 
-        home_team = (
-            normalize_team(
-                row["home_team"]
-            )
+    for index in week_one_indexes:
+        home_team = normalize_team(
+            training.at[
+                index,
+                "home_team",
+            ]
         )
 
-        away_team = (
-            normalize_team(
-                row["away_team"]
-            )
+        away_team = normalize_team(
+            training.at[
+                index,
+                "away_team",
+            ]
         )
 
         home_team_values = (
@@ -932,112 +814,115 @@ def process_season(
             )
         )
 
-        if (
-            home_team_values
-            is not None
-        ):
-            team_home_matches += 1
+        if home_team_values is None:
+            raise RuntimeError(
+                f"{season} Week 1: no prior-season team row "
+                f"found for home team {home_team}"
+            )
 
-            for metric in TEAM_METRICS:
-                assign_value(
-                    training,
-                    index,
-                    f"home_{metric}",
-                    home_team_values[
-                        metric
-                    ],
-                )
-        else:
-            for metric in TEAM_METRICS:
-                assign_value(
-                    training,
-                    index,
-                    f"home_{metric}",
-                    None,
-                )
+        if away_team_values is None:
+            raise RuntimeError(
+                f"{season} Week 1: no prior-season team row "
+                f"found for away team {away_team}"
+            )
 
-        if (
-            away_team_values
-            is not None
-        ):
-            team_away_matches += 1
-
-            for metric in TEAM_METRICS:
-                assign_value(
-                    training,
-                    index,
-                    f"away_{metric}",
-                    away_team_values[
-                        metric
-                    ],
-                )
-        else:
-            for metric in TEAM_METRICS:
-                assign_value(
-                    training,
-                    index,
-                    f"away_{metric}",
-                    None,
-                )
-
-        if (
-            home_team_values
-            is not None
-            and away_team_values
-            is not None
-        ):
-            team_both_matches += 1
+        team_side_matches += 2
 
         for metric in TEAM_METRICS:
             home_value = (
-                None
-                if home_team_values
-                is None
-                else home_team_values[
+                home_team_values[
                     metric
                 ]
             )
 
             away_value = (
-                None
-                if away_team_values
-                is None
-                else away_team_values[
+                away_team_values[
                     metric
                 ]
             )
 
-            assign_value(
-                training,
+            training.at[
+                index,
+                f"home_{metric}",
+            ] = home_value
+
+            training.at[
+                index,
+                f"away_{metric}",
+            ] = away_value
+
+            training.at[
                 index,
                 f"{metric}_diff",
-                subtract_values(
-                    home_value,
-                    away_value,
+            ] = diff_string(
+                home_value,
+                away_value,
+                (
+                    f"{season} Week 1 "
+                    f"{away_team} at {home_team} "
+                    f"{metric}"
                 ),
             )
 
-        game_id = (
-            normalize_game_id(
-                row["game_id"]
-            )
+        game_key = (
+            season,
+            1,
+            home_team,
+            away_team,
         )
 
         qb_ids = (
             games_qb_index.get(
-                game_id
+                game_key
             )
         )
 
         if qb_ids is None:
-            missing_game_ids += 1
-            home_qb_id = ""
-            away_qb_id = ""
-        else:
-            (
-                home_qb_id,
-                away_qb_id,
-            ) = qb_ids
+            raise RuntimeError(
+                f"{season} Week 1: historical game not found "
+                f"for {away_team} at {home_team}"
+            )
+
+        game_matches += 1
+
+        (
+            home_qb_id,
+            away_qb_id,
+        ) = qb_ids
+
+        training_home_qb_id = (
+            normalize_player_id(
+                training.at[
+                    index,
+                    "home_qb_id",
+                ]
+            )
+        )
+
+        training_away_qb_id = (
+            normalize_player_id(
+                training.at[
+                    index,
+                    "away_qb_id",
+                ]
+            )
+        )
+
+        if (
+            home_qb_id
+            and training_home_qb_id
+            and home_qb_id
+            != training_home_qb_id
+        ):
+            training_qb_id_mismatches += 1
+
+        if (
+            away_qb_id
+            and training_away_qb_id
+            and away_qb_id
+            != training_away_qb_id
+        ):
+            training_qb_id_mismatches += 1
 
         home_qb_values = (
             final_qb_rows.get(
@@ -1055,97 +940,63 @@ def process_season(
             else None
         )
 
-        if (
-            home_qb_values
-            is not None
-        ):
-            qb_home_matches += 1
+        if home_qb_id:
+            qb_id_available += 1
 
-            for metric in QB_METRICS:
-                assign_value(
-                    training,
-                    index,
-                    f"home_qb_{metric}",
-                    home_qb_values[
-                        metric
-                    ],
-                )
-        else:
-            for metric in QB_METRICS:
-                assign_value(
-                    training,
-                    index,
-                    f"home_qb_{metric}",
-                    None,
-                )
+        if away_qb_id:
+            qb_id_available += 1
 
-        if (
-            away_qb_values
-            is not None
-        ):
-            qb_away_matches += 1
+        if home_qb_values is not None:
+            qb_prior_source_matches += 1
 
-            for metric in QB_METRICS:
-                assign_value(
-                    training,
-                    index,
-                    f"away_qb_{metric}",
-                    away_qb_values[
-                        metric
-                    ],
-                )
-        else:
-            for metric in QB_METRICS:
-                assign_value(
-                    training,
-                    index,
-                    f"away_qb_{metric}",
-                    None,
-                )
-
-        if (
-            home_qb_values
-            is not None
-            and away_qb_values
-            is not None
-        ):
-            qb_both_matches += 1
+        if away_qb_values is not None:
+            qb_prior_source_matches += 1
 
         for metric in QB_METRICS:
             home_value = (
-                None
-                if home_qb_values
-                is None
+                ""
+                if home_qb_values is None
                 else home_qb_values[
                     metric
                 ]
             )
 
             away_value = (
-                None
-                if away_qb_values
-                is None
+                ""
+                if away_qb_values is None
                 else away_qb_values[
                     metric
                 ]
             )
 
-            assign_value(
-                training,
+            training.at[
+                index,
+                f"home_qb_{metric}",
+            ] = home_value
+
+            training.at[
+                index,
+                f"away_qb_{metric}",
+            ] = away_value
+
+            training.at[
                 index,
                 f"qb_{metric}_diff",
-                subtract_values(
-                    home_value,
-                    away_value,
+            ] = diff_string(
+                home_value,
+                away_value,
+                (
+                    f"{season} Week 1 "
+                    f"{away_team} at {home_team} "
+                    f"QB {metric}"
                 ),
             )
 
-    if len(training) != original_row_count:
+    if len(
+        training
+    ) != original_row_count:
         raise RuntimeError(
-            f"{season}: row count changed "
-            f"during Step 7: "
-            f"before={original_row_count} "
-            f"after={len(training)}"
+            f"{season}: row count changed during Step 7"
         )
 
     if (
@@ -1153,14 +1004,13 @@ def process_season(
         != original_columns
     ):
         raise RuntimeError(
-            f"{season}: column order changed "
-            f"during Step 7."
+            f"{season}: column order changed during Step 7"
         )
 
     non_week_one_after = (
         training.loc[
-            ~week_one_mask,
-            STEP7_COLUMNS,
+            non_week_one_mask,
+            :,
         ]
     )
 
@@ -1168,42 +1018,92 @@ def process_season(
         non_week_one_before
     ):
         raise RuntimeError(
-            f"{season}: Step 7 modified "
-            f"Week 2+ feature values."
+            f"{season}: Step 7 modified Week 2+ rows"
         )
 
+    for index in week_one_indexes:
+        for metric in TEAM_METRICS:
+            expected = diff_string(
+                training.at[
+                    index,
+                    f"home_{metric}",
+                ],
+                training.at[
+                    index,
+                    f"away_{metric}",
+                ],
+                (
+                    f"{season} validation "
+                    f"{metric}"
+                ),
+            )
+
+            actual = clean_text(
+                training.at[
+                    index,
+                    f"{metric}_diff",
+                ]
+            )
+
+            if actual != expected:
+                raise RuntimeError(
+                    f"{season}: invalid Week 1 "
+                    f"{metric}_diff at row {index + 2}"
+                )
+
+        for metric in QB_METRICS:
+            expected = diff_string(
+                training.at[
+                    index,
+                    f"home_qb_{metric}",
+                ],
+                training.at[
+                    index,
+                    f"away_qb_{metric}",
+                ],
+                (
+                    f"{season} validation "
+                    f"QB {metric}"
+                ),
+            )
+
+            actual = clean_text(
+                training.at[
+                    index,
+                    f"qb_{metric}_diff",
+                ]
+            )
+
+            if actual != expected:
+                raise RuntimeError(
+                    f"{season}: invalid Week 1 "
+                    f"qb_{metric}_diff at row {index + 2}"
+                )
+
     stats = {
-        "rows": original_row_count,
-        "week_one_rows": len(
+        "week_one_games": len(
             week_one_indexes
         ),
-        "team_home_matches": (
-            team_home_matches
+        "team_side_matches": (
+            team_side_matches
         ),
-        "team_away_matches": (
-            team_away_matches
+        "historical_game_matches": (
+            game_matches
         ),
-        "team_both_matches": (
-            team_both_matches
+        "qb_ids_available": (
+            qb_id_available
         ),
-        "qb_home_matches": (
-            qb_home_matches
+        "qb_prior_source_matches": (
+            qb_prior_source_matches
         ),
-        "qb_away_matches": (
-            qb_away_matches
-        ),
-        "qb_both_matches": (
-            qb_both_matches
-        ),
-        "missing_game_ids": (
-            missing_game_ids
+        "training_qb_id_mismatches": (
+            training_qb_id_mismatches
         ),
     }
 
     return (
         training,
         stats,
-        True,
     )
 
 
@@ -1219,9 +1119,7 @@ def write_outputs(
     ] = {}
 
     try:
-        for season, training in (
-            outputs.items()
-        ):
+        for season in TRAINING_SEASONS:
             output_path = (
                 TRAINING_PATHS[
                     season
@@ -1239,15 +1137,16 @@ def write_outputs(
                 season
             ] = temp_path
 
-            training.to_csv(
+            outputs[
+                season
+            ].to_csv(
                 temp_path,
                 index=False,
                 encoding="utf-8",
+                lineterminator="\n",
             )
 
-        for season in sorted(
-            temp_paths
-        ):
+        for season in TRAINING_SEASONS:
             temp_paths[
                 season
             ].replace(
@@ -1268,7 +1167,7 @@ def write_outputs(
 
 def main() -> int:
     games_qb_index = (
-        load_games_qb_index()
+        build_games_qb_index()
     )
 
     outputs: dict[
@@ -1285,16 +1184,14 @@ def main() -> int:
         (
             training,
             stats,
-            should_write,
         ) = process_season(
             season,
             games_qb_index,
         )
 
-        if should_write:
-            outputs[
-                season
-            ] = training
+        outputs[
+            season
+        ] = training
 
         results[
             season
@@ -1304,180 +1201,41 @@ def main() -> int:
         outputs
     )
 
-    total_week_one_rows = 0
-    total_team_home = 0
-    total_team_away = 0
-    total_team_both = 0
-    total_qb_home = 0
-    total_qb_away = 0
-    total_qb_both = 0
-    total_missing_games = 0
+    print(
+        "Step 7 complete."
+    )
 
     for season in TRAINING_SEASONS:
         stats = results[
             season
         ]
 
-        total_week_one_rows += (
-            stats["week_one_rows"]
-        )
-
-        total_team_home += (
+        total_qb_sides = (
             stats[
-                "team_home_matches"
+                "week_one_games"
             ]
-        )
-
-        total_team_away += (
-            stats[
-                "team_away_matches"
-            ]
-        )
-
-        total_team_both += (
-            stats[
-                "team_both_matches"
-            ]
-        )
-
-        total_qb_home += (
-            stats[
-                "qb_home_matches"
-            ]
-        )
-
-        total_qb_away += (
-            stats[
-                "qb_away_matches"
-            ]
-        )
-
-        total_qb_both += (
-            stats[
-                "qb_both_matches"
-            ]
-        )
-
-        total_missing_games += (
-            stats[
-                "missing_game_ids"
-            ]
+            * 2
         )
 
         print(
-            f"Season {season}"
+            f"{season}: "
+            f"Week 1 games="
+            f"{stats['week_one_games']}, "
+            f"team sides matched="
+            f"{stats['team_side_matches']}/"
+            f"{total_qb_sides}, "
+            f"historical games matched="
+            f"{stats['historical_game_matches']}/"
+            f"{stats['week_one_games']}, "
+            f"QB IDs available="
+            f"{stats['qb_ids_available']}/"
+            f"{total_qb_sides}, "
+            f"QBs with prior-season stats="
+            f"{stats['qb_prior_source_matches']}/"
+            f"{total_qb_sides}, "
+            f"training/source QB-ID mismatches="
+            f"{stats['training_qb_id_mismatches']}"
         )
-
-        print(
-            f"Week 1 rows: "
-            f"{stats['week_one_rows']}"
-        )
-
-        print(
-            f"Home team prior-season matches: "
-            f"{stats['team_home_matches']}/"
-            f"{stats['week_one_rows']}"
-        )
-
-        print(
-            f"Away team prior-season matches: "
-            f"{stats['team_away_matches']}/"
-            f"{stats['week_one_rows']}"
-        )
-
-        print(
-            f"Both-team prior-season matches: "
-            f"{stats['team_both_matches']}/"
-            f"{stats['week_one_rows']}"
-        )
-
-        print(
-            f"Home QB prior-season matches: "
-            f"{stats['qb_home_matches']}/"
-            f"{stats['week_one_rows']}"
-        )
-
-        print(
-            f"Away QB prior-season matches: "
-            f"{stats['qb_away_matches']}/"
-            f"{stats['week_one_rows']}"
-        )
-
-        print(
-            f"Both-QB prior-season matches: "
-            f"{stats['qb_both_matches']}/"
-            f"{stats['week_one_rows']}"
-        )
-
-        print(
-            f"Week 1 game IDs missing from "
-            f"historical games: "
-            f"{stats['missing_game_ids']}"
-        )
-
-        if season == 2021:
-            print(
-                "Wrote: no "
-                "(2021 left unchanged)"
-            )
-        else:
-            print(
-                f"Wrote: "
-                f"{TRAINING_PATHS[season]}"
-            )
-
-        print()
-
-    print(
-        "Step 7 complete."
-    )
-
-    print(
-        f"Total Week 1 rows: "
-        f"{total_week_one_rows}"
-    )
-
-    print(
-        f"Total home team matches: "
-        f"{total_team_home}/"
-        f"{total_week_one_rows}"
-    )
-
-    print(
-        f"Total away team matches: "
-        f"{total_team_away}/"
-        f"{total_week_one_rows}"
-    )
-
-    print(
-        f"Total both-team matches: "
-        f"{total_team_both}/"
-        f"{total_week_one_rows}"
-    )
-
-    print(
-        f"Total home QB matches: "
-        f"{total_qb_home}/"
-        f"{total_week_one_rows}"
-    )
-
-    print(
-        f"Total away QB matches: "
-        f"{total_qb_away}/"
-        f"{total_week_one_rows}"
-    )
-
-    print(
-        f"Total both-QB matches: "
-        f"{total_qb_both}/"
-        f"{total_week_one_rows}"
-    )
-
-    print(
-        f"Total Week 1 game IDs missing "
-        f"from historical games: "
-        f"{total_missing_games}"
-    )
 
     return 0
 
