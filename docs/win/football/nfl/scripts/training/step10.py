@@ -110,7 +110,7 @@ TRAINING_REQUIRED = [
     "week",
     "home_team",
     "away_team",
-    "gameday",
+    "game_date",
 ]
 
 COUNT_FEATURES = {
@@ -981,13 +981,13 @@ def kickoff_timestamp(row: pd.Series) -> pd.Timestamp:
         parsed = parse_timestamp(row["commence_time"])
         if parsed is not None:
             return parsed
-    gameday = clean(row["gameday"])
+    game_date = clean(row["game_date"])
     try:
         # Midnight UTC deliberately excludes same-day timestamp snapshots when
         # an exact kickoff timestamp is unavailable, preventing post-kickoff leakage.
-        return pd.Timestamp(gameday, tz="UTC")
+        return pd.Timestamp(game_date, tz="UTC")
     except Exception as exc:
-        raise ValueError(f"Invalid gameday {gameday!r}") from exc
+        raise ValueError(f"Invalid game_date {game_date!r}") from exc
 
 
 def resolve_injury_player(
