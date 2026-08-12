@@ -38,6 +38,8 @@ Leakage protection:
   - injury/depth values are matched to the target game's team/week
   - 2025 timestamp-based depth charts use the latest snapshot strictly before kickoff
   - snap-count and participation weighting uses only games from an earlier week
+  - Week 1 snap/participation weighting falls back to the latest prior-season usage
+  - if an entire injury source week is absent, the latest strictly earlier injury week is used
   - current-game snap counts/participation are never used for the current game
 
 Depth-chart handling:
@@ -110,7 +112,7 @@ TRAINING_REQUIRED = [
     "week",
     "home_team",
     "away_team",
-    "game_date",
+    "gameday",
 ]
 
 COUNT_FEATURES = {
@@ -439,6 +441,38 @@ class SnapProvider:
                 return offense, defense, position
         return None
 
+    def latest(
+        self,
+        team: str,
+        pfr_id: str,
+        name: str,
+    ) -> tuple[float, float, str] | None:
+        identities: list[str] = []
+        if pfr_id:
+            identities.append(f"pfr:{pfr_id}")
+        name_key = normalize_name(name)
+        if name_key:
+            identities.append(f"name:{name_key}")
+
+        for identity in identities:
+            values = self.series.get((team, identity))
+            if values:
+                _, offense, defense, position = values[-1]
+                return offense, defense, position
+
+        for identity in identities:
+            best: tuple[int, float, float, str] | None = None
+            for (_series_team, series_identity), values in self.series.items():
+                if series_identity != identity or not values:
+                    continue
+                candidate = values[-1]
+                if best is None or candidate[0] > best[0]:
+                    best = candidate
+            if best is not None:
+                _, offense, defense, position = best
+                return offense, defense, position
+        return None
+
 
 class ParticipationProvider:
     def __init__(self, df: pd.DataFrame) -> None:
@@ -544,6 +578,31 @@ class ParticipationProvider:
         if index < 0:
             return None
         _, offense, defense = values[index]
+        return offense, defense
+
+    def latest(
+        self,
+        team: str,
+        gsis_id: str,
+    ) -> tuple[float, float] | None:
+        if not gsis_id:
+            return None
+
+        values = self.series.get((team, gsis_id))
+        if values:
+            _, offense, defense = values[-1]
+            return offense, defense
+
+        best: tuple[int, float, float] | None = None
+        for (_series_team, player_id), player_values in self.series.items():
+            if player_id != gsis_id or not player_values:
+                continue
+            candidate = player_values[-1]
+            if best is None or candidate[0] > best[0]:
+                best = candidate
+        if best is None:
+            return None
+        _, offense, defense = best
         return offense, defense
 
 
@@ -893,7 +952,7 @@ def build_depth_snapshot(records: list[DepthPlayer]) -> DepthSnapshot:
 def load_injuries(
     path: Path,
     players: PlayerCrosswalk,
-) -> dict[tuple[str, int], list[InjuryRecord]]:
+) -> tuple[dict[tuple[str, int], list[InjuryRecord]], list[int]]:
     df = read_parquet(path)
     team_col = choose_column(df, ["team", "club_code"], required=True, label=str(path))
     week_col = choose_column(df, ["week"], required=True, label=str(path))
@@ -910,12 +969,17 @@ def load_injuries(
     modified_col = choose_column(df, ["date_modified", "report_date", "dt"], required=False)
 
     latest: dict[tuple[str, int, str], tuple[pd.Timestamp | None, int, InjuryRecord]] = {}
+    source_weeks: set[int] = set()
 
     for source_index, row in df.iterrows():
         team = normalize_team(row[team_col])
         week = parse_optional_int(row[week_col])
+        if not team or week is None:
+            continue
+        source_weeks.add(week)
+
         status = normalize_injury_status(row[status_col])
-        if not team or week is None or status not in {"out", "doubtful", "questionable"}:
+        if status not in {"out", "doubtful", "questionable"}:
             continue
 
         raw_gsis = clean(row[gsis_col]) if gsis_col else ""
@@ -961,7 +1025,26 @@ def load_injuries(
     output: dict[tuple[str, int], list[InjuryRecord]] = {}
     for (team, week, _), (_, _, record) in latest.items():
         output.setdefault((team, week), []).append(record)
-    return output
+    return output, sorted(source_weeks)
+
+
+def resolve_injury_week(
+    injuries: dict[tuple[str, int], list[InjuryRecord]],
+    source_weeks: list[int],
+    team: str,
+    target_week: int,
+) -> tuple[list[InjuryRecord], int]:
+    if target_week in source_weeks:
+        return injuries.get((team, target_week), []), target_week
+
+    index = bisect_left(source_weeks, target_week) - 1
+    if index < 0:
+        raise RuntimeError(
+            f"No injury source week exists before target week {target_week} for {team}"
+        )
+
+    source_week = source_weeks[index]
+    return injuries.get((team, source_week), []), source_week
 
 
 def normalize_injury_status(value: Any) -> str:
@@ -981,13 +1064,13 @@ def kickoff_timestamp(row: pd.Series) -> pd.Timestamp:
         parsed = parse_timestamp(row["commence_time"])
         if parsed is not None:
             return parsed
-    game_date = clean(row["game_date"])
+    gameday = clean(row["gameday"])
     try:
         # Midnight UTC deliberately excludes same-day timestamp snapshots when
         # an exact kickoff timestamp is unavailable, preventing post-kickoff leakage.
-        return pd.Timestamp(game_date, tz="UTC")
+        return pd.Timestamp(gameday, tz="UTC")
     except Exception as exc:
-        raise ValueError(f"Invalid game_date {game_date!r}") from exc
+        raise ValueError(f"Invalid gameday {gameday!r}") from exc
 
 
 def resolve_injury_player(
@@ -1060,6 +1143,8 @@ def compute_team_features(
     roster: RosterProvider,
     snaps: SnapProvider,
     participation: ParticipationProvider,
+    prior_snaps: SnapProvider | None = None,
+    prior_participation: ParticipationProvider | None = None,
 ) -> dict[str, float]:
     values = {feature: 0.0 for feature in BASE_FEATURES}
     values["depth_starter_changes"] = float(
@@ -1129,6 +1214,13 @@ def compute_team_features(
             resolved.pfr_id,
             resolved.name,
         )
+        if snap_value is None and week == 1 and prior_snaps is not None:
+            snap_value = prior_snaps.latest(
+                team,
+                resolved.pfr_id,
+                resolved.name,
+            )
+
         if snap_value is not None:
             offense_share, defense_share, _ = snap_value
         else:
@@ -1137,6 +1229,16 @@ def compute_team_features(
                 week,
                 resolved.gsis_id,
             )
+            if (
+                participation_value is None
+                and week == 1
+                and prior_participation is not None
+            ):
+                participation_value = prior_participation.latest(
+                    team,
+                    resolved.gsis_id,
+                )
+
             if participation_value is None:
                 offense_share, defense_share = 0.0, 0.0
             else:
@@ -1161,8 +1263,11 @@ def load_season_sources(
     players: PlayerCrosswalk,
 ) -> tuple[
     dict[tuple[str, int], list[InjuryRecord]],
+    list[int],
     DepthProvider,
     RosterProvider,
+    SnapProvider,
+    ParticipationProvider,
     SnapProvider,
     ParticipationProvider,
 ]:
@@ -1172,13 +1277,32 @@ def load_season_sources(
     snap_path = SNAP_DIR / f"snap_counts_{season}.parquet"
     participation_path = PARTICIPATION_DIR / f"pbp_participation_{season}.parquet"
 
-    injuries = load_injuries(injury_path, players)
+    prior_season = season - 1
+    prior_snap_path = SNAP_DIR / f"snap_counts_{prior_season}.parquet"
+    prior_participation_path = (
+        PARTICIPATION_DIR / f"pbp_participation_{prior_season}.parquet"
+    )
+
+    injuries, injury_source_weeks = load_injuries(injury_path, players)
     depth = DepthProvider(read_parquet(depth_path), players)
     roster = RosterProvider(read_parquet(roster_path))
     snaps = SnapProvider(read_parquet(snap_path))
     participation = ParticipationProvider(read_parquet(participation_path))
+    prior_snaps = SnapProvider(read_parquet(prior_snap_path))
+    prior_participation = ParticipationProvider(
+        read_parquet(prior_participation_path)
+    )
 
-    return injuries, depth, roster, snaps, participation
+    return (
+        injuries,
+        injury_source_weeks,
+        depth,
+        roster,
+        snaps,
+        participation,
+        prior_snaps,
+        prior_participation,
+    )
 
 
 def process_season(
@@ -1193,7 +1317,16 @@ def process_season(
         if column in df.columns:
             df = df.drop(columns=[column])
 
-    injuries, depth, roster, snaps, participation = load_season_sources(
+    (
+        injuries,
+        injury_source_weeks,
+        depth,
+        roster,
+        snaps,
+        participation,
+        prior_snaps,
+        prior_participation,
+    ) = load_season_sources(
         season,
         players,
     )
@@ -1241,8 +1374,18 @@ def process_season(
             )
         depth_team_games += 2
 
-        home_injuries = injuries.get((home_team, week), [])
-        away_injuries = injuries.get((away_team, week), [])
+        home_injuries, _home_injury_source_week = resolve_injury_week(
+            injuries,
+            injury_source_weeks,
+            home_team,
+            week,
+        )
+        away_injuries, _away_injury_source_week = resolve_injury_week(
+            injuries,
+            injury_source_weeks,
+            away_team,
+            week,
+        )
         if home_injuries:
             injury_team_games += 1
         if away_injuries:
@@ -1259,6 +1402,8 @@ def process_season(
             roster,
             snaps,
             participation,
+            prior_snaps,
+            prior_participation,
         )
         away_values = compute_team_features(
             away_team,
@@ -1270,6 +1415,8 @@ def process_season(
             roster,
             snaps,
             participation,
+            prior_snaps,
+            prior_participation,
         )
 
         generated: dict[str, float] = {}
