@@ -27,6 +27,10 @@ Travel calculations mirror the existing build_travel.py conventions:
     home-team coordinates, rounded to one decimal
   - time_zones_crossed: absolute UTC-offset difference on the game date
   - direction flags: based on longitude movement from away to home
+
+Historical-team abbreviation normalization:
+  WAS -> WSH
+  LA  -> LAR
 """
 
 from __future__ import annotations
@@ -43,9 +47,18 @@ import pandas as pd
 
 
 NFL_ROOT = Path("docs/win/football/nfl")
+
 TRAINING_DIR = NFL_ROOT / "training"
-GAMES_PATH = NFL_ROOT / "data/historic_data/games/games_2010_2025.csv"
-TEAM_MASTER_PATH = NFL_ROOT / "data/master/team_master.csv"
+
+GAMES_PATH = (
+    NFL_ROOT
+    / "data/historic_data/games/games_2010_2025.csv"
+)
+
+TEAM_MASTER_PATH = (
+    NFL_ROOT
+    / "data/master/team_master.csv"
+)
 
 SEASONS = [
     2021,
@@ -56,7 +69,10 @@ SEASONS = [
 ]
 
 TRAINING_PATHS = {
-    season: TRAINING_DIR / f"historical_core_{season}.csv"
+    season: (
+        TRAINING_DIR
+        / f"historical_core_{season}.csv"
+    )
     for season in SEASONS
 }
 
@@ -106,6 +122,13 @@ BLANK_VALUES = {
     "none",
     "<na>",
     "null",
+}
+
+# Historical game data uses these abbreviations while
+# team_master.csv uses the corresponding current ESPN abbreviations.
+TEAM_ABBR_ALIASES = {
+    "WAS": "WSH",
+    "LA": "LAR",
 }
 
 INTERNATIONAL_STADIUMS = {
@@ -176,9 +199,14 @@ def clean(
 def team_key(
     value: object,
 ) -> str:
-    return clean(
+    key = clean(
         value
     ).upper()
+
+    return TEAM_ABBR_ALIASES.get(
+        key,
+        key,
+    )
 
 
 def stadium_key(
@@ -186,14 +214,16 @@ def stadium_key(
 ) -> str:
     text = unicodedata.normalize(
         "NFKD",
-        clean(value),
+        clean(
+            value
+        ),
     )
 
     text = "".join(
-        ch
-        for ch in text
+        character
+        for character in text
         if not unicodedata.combining(
-            ch
+            character
         )
     )
 
@@ -232,11 +262,16 @@ def parse_int(
         ) from exc
 
     if (
-        not math.isfinite(number)
+        not math.isfinite(
+            number
+        )
         or abs(
             number
-            - round(number)
-        ) > 1e-9
+            - round(
+                number
+            )
+        )
+        > 1e-9
     ):
         raise ValueError(
             f"{label}: invalid integer value "
@@ -244,7 +279,9 @@ def parse_int(
         )
 
     return int(
-        round(number)
+        round(
+            number
+        )
     )
 
 
@@ -294,7 +331,9 @@ def format_number(
         value
     ).is_integer():
         return str(
-            int(value)
+            int(
+                value
+            )
         )
 
     return str(
@@ -346,7 +385,9 @@ def haversine_miles(
         * (
             2
             * math.asin(
-                math.sqrt(a)
+                math.sqrt(
+                    a
+                )
             )
         )
     )
@@ -702,7 +743,9 @@ def process_season(
     )
 
     if (
-        len(df.columns)
+        len(
+            df.columns
+        )
         != len(
             set(
                 df.columns
@@ -728,8 +771,7 @@ def process_season(
 
     output = {
         column: []
-        for column
-        in GENERATED_COLUMNS
+        for column in GENERATED_COLUMNS
     }
 
     historical_matches = 0
