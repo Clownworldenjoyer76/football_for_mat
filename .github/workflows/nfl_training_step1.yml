@@ -10,7 +10,8 @@ name: NFL Training Step 1
 # splits the historical training table by season,
 # adds latest-prior-week QB statistics,
 # fills Week 1 team/QB values from the prior season,
-# then adds rest difference and historical travel values.
+# adds rest difference and historical travel values,
+# then adds historical depth-chart and injury features.
 
 # Input/source files are read-only.
 
@@ -40,10 +41,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install pandas
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas
+          pip install pandas pyarrow
 
       - name: Run historical core build
         run: |
@@ -80,6 +81,10 @@ jobs:
       - name: Add rest difference and historical travel values
         run: |
           python docs/win/football/nfl/scripts/training/step9.py
+
+      - name: Add historical depth and injury features
+        run: |
+          python docs/win/football/nfl/scripts/training/step10.py
 
       - name: Commit training output
         run: |
