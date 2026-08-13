@@ -11,7 +11,7 @@ WRITES ONLY:
   docs/win/football/nfl/01_merge/week_1_NFL_enriched.csv
 """
 
-from projection import apply_models, load_schema, nfl_root, prepare_week
+from projection import run_projection
 
 
 # ============================================================================
@@ -20,43 +20,9 @@ from projection import apply_models, load_schema, nfl_root, prepare_week
 SEASON = 2026
 # ============================================================================
 
-WEEK = 1
-
 
 def main() -> None:
-    root = nfl_root()
-    schema = load_schema(root)
-
-    original, features = prepare_week(
-        root,
-        SEASON,
-        WEEK,
-        True,
-        schema,
-    )
-
-    projected = apply_models(
-        root,
-        original,
-        features,
-    )
-
-    output_dir = root / "01_merge"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    output_path = output_dir / "week_1_NFL_enriched.csv"
-
-    projected.to_csv(
-        output_path,
-        index=False,
-        encoding="utf-8-sig",
-    )
-
-    print(
-        f"WROTE {output_path} | "
-        f"games={len(projected)} | "
-        f"columns={len(projected.columns)}"
-    )
+    run_projection(season=SEASON, week1_mode=True)
 
 
 if __name__ == "__main__":
