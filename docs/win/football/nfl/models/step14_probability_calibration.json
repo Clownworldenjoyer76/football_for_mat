@@ -1,0 +1,74 @@
+{
+  "step": "14_probability_calibration",
+  "created_utc": "2026-08-13T12:46:20.638443+00:00",
+  "source_backtest": "step13_chronological_backtest.csv",
+  "source_backtest_sha256": "16d5b472e39fd97002d1602f604158bf573a57553c36853510c54ed0a96d8a57",
+  "source_rows": 1138,
+  "source_seasons": [
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "method": "one_variable_logistic_platt",
+  "probability_formula": "1 / (1 + exp(-(intercept + slope * x)))",
+  "calibrations": {
+    "moneyline": {
+      "x_definition": "predicted_margin",
+      "positive_outcome": "home win (actual_margin > 0)",
+      "excluded": "actual_margin == 0 (ties)",
+      "intercept": 0.004065546121858006,
+      "slope": 0.13625856192135555,
+      "home_win_probability": "sigmoid(intercept + slope * predicted_margin)",
+      "away_win_probability": "1 - home_win_probability",
+      "diagnostics": {
+        "rows": 1135,
+        "positive_rate": 0.5541850220264317,
+        "brier_score_in_sample": 0.21424698981711562,
+        "log_loss_in_sample": 0.6176997894748817,
+        "x_min": -10.375692369463293,
+        "x_max": 19.369032651286098,
+        "x_mean": 1.9497258015635253
+      },
+      "excluded_rows": 3
+    },
+    "spread": {
+      "x_definition": "predicted_margin - spread_line",
+      "positive_outcome": "home cover (actual_home_ats_result == WIN)",
+      "excluded": "actual_home_ats_result == PUSH",
+      "intercept": 0.009989633677478488,
+      "slope": 0.03592216558021107,
+      "home_cover_probability": "sigmoid(intercept + slope * (predicted_margin - spread_line))",
+      "away_cover_probability": "1 - home_cover_probability",
+      "diagnostics": {
+        "rows": 1109,
+        "positive_rate": 0.5049594229035167,
+        "brier_score_in_sample": 0.24942066255962542,
+        "log_loss_in_sample": 0.6919915923834403,
+        "x_min": -7.804382547195001,
+        "x_max": 8.986773739170191,
+        "x_mean": 0.27580333469970536
+      },
+      "excluded_rows": 29
+    },
+    "total": {
+      "x_definition": "predicted_total - total_line",
+      "positive_outcome": "OVER (actual_total_result == OVER)",
+      "excluded": "actual_total_result == PUSH",
+      "intercept": -0.05353449668978319,
+      "slope": 0.03797885568494725,
+      "over_probability": "sigmoid(intercept + slope * (predicted_total - total_line))",
+      "under_probability": "1 - over_probability",
+      "diagnostics": {
+        "rows": 1128,
+        "positive_rate": 0.4920212765957447,
+        "brier_score_in_sample": 0.24920505308848465,
+        "log_loss_in_sample": 0.691561346232253,
+        "x_min": -7.985040454470443,
+        "x_max": 10.396641582940696,
+        "x_mean": 0.5667713180247543
+      },
+      "excluded_rows": 10
+    }
+  }
+}
