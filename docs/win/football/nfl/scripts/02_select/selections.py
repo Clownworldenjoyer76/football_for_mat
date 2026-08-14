@@ -5,15 +5,14 @@ Step 15 NFL selection engine.
 READS:
   docs/win/football/nfl/config/settings.yaml
   docs/win/football/nfl/config/markets.yaml
-  docs/win/football/nfl/00_intake/predictions/enriched/combined/
-      week_{week}_NFL_enriched.csv
+  docs/win/football/nfl/01_merge/week_{week}_NFL_enriched.csv
   docs/win/football/nfl/00_intake/schedule/weekly/
       week_{week}_NFL_weekly_schedule.csv
   docs/win/football/nfl/data/weather/
       week_{week}_NFL_weekly_weather.csv  (optional unless config requires it)
 
 WRITES:
-  The combined enriched weekly CSV in place by default.
+  The post-projection 01_merge weekly CSV in place by default.
 
 The combined file must already contain the 10 projection/probability fields.
 For each market, this script evaluates both possible sides using current
@@ -1214,7 +1213,7 @@ def main() -> int:
         args.input.resolve()
         if args.input is not None
         else NFL_ROOT
-        / "00_intake/predictions/enriched/combined"
+        / "01_merge"
         / f"week_{week}_NFL_enriched.csv"
     )
     output_path = (
