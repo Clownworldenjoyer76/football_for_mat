@@ -1,0 +1,79 @@
+name: NFL 02 Select
+
+# MANUAL RUN ONLY.
+#
+# Runs the Step 15 NFL selection engine after projection.py /
+# projection_week1.py has added the model prediction fields.
+#
+# The selection engine:
+# - reads settings.yaml and markets.yaml
+# - reads the projected weekly combined enriched CSV
+# - reads the current weekly sportsbook schedule
+# - calculates implied probability, edge, EV, and Kelly
+# - applies configured selection thresholds
+# - appends ML/spread/total selection fields
+# - writes the updated weekly combined enriched CSV back to the repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "NFL season"
+        required: true
+        default: "2026"
+        type: string
+
+      week:
+        description: "NFL week"
+        required: true
+        default: "1"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  nfl-select:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyyaml
+
+      - name: Run NFL selection engine
+        run: |
+          python docs/win/football/nfl/scripts/02_select/selections.py \
+            --season "${{ inputs.season }}" \
+            --week "${{ inputs.week }}"
+
+      - name: Commit selection output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          OUTPUT="docs/win/football/nfl/00_intake/predictions/enriched/combined/week_${{ inputs.week }}_NFL_enriched.csv"
+
+          if [ ! -f "$OUTPUT" ]; then
+            echo "ERROR: Expected selection output not found:"
+            echo "$OUTPUT"
+            exit 1
+          fi
+
+          git add "$OUTPUT"
+
+          if git diff --cached --quiet; then
+            echo "No selection output changes to commit."
+          else
+            git commit -m "Run NFL selections for ${{ inputs.season }} Week ${{ inputs.week }}"
+            git push
+          fi
