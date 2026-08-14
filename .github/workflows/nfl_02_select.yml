@@ -13,6 +13,7 @@ name: NFL 02 Select
 # - applies configured selection thresholds
 # - appends ML/spread/total selection fields
 # - writes a separate weekly selection CSV under 02_select
+# - writes compact moneyline/spread/total selection CSVs under 02_select/clean
 
 on:
   workflow_dispatch:
@@ -56,20 +57,31 @@ jobs:
             --season "${{ inputs.season }}" \
             --week "${{ inputs.week }}"
 
-      - name: Commit selection output
+      - name: Run NFL selection cleanup
+        run: |
+          python docs/win/football/nfl/scripts/02_select/selections_cleanup.py \
+            --season "${{ inputs.season }}" \
+            --week "${{ inputs.week }}"
+
+      - name: Commit selection outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           OUTPUT="docs/win/football/nfl/02_select/week_${{ inputs.week }}_NFL_selected.csv"
+          ML_OUTPUT="docs/win/football/nfl/02_select/clean/week_${{ inputs.week }}_moneyline_selected.csv"
+          SPREAD_OUTPUT="docs/win/football/nfl/02_select/clean/week_${{ inputs.week }}_spread_selected.csv"
+          TOTAL_OUTPUT="docs/win/football/nfl/02_select/clean/week_${{ inputs.week }}_total_selected.csv"
 
-          if [ ! -f "$OUTPUT" ]; then
-            echo "ERROR: Expected selection output not found:"
-            echo "$OUTPUT"
-            exit 1
-          fi
+          for FILE in "$OUTPUT" "$ML_OUTPUT" "$SPREAD_OUTPUT" "$TOTAL_OUTPUT"; do
+            if [ ! -f "$FILE" ]; then
+              echo "ERROR: Expected selection output not found:"
+              echo "$FILE"
+              exit 1
+            fi
+          done
 
-          git add "$OUTPUT"
+          git add "$OUTPUT" "$ML_OUTPUT" "$SPREAD_OUTPUT" "$TOTAL_OUTPUT"
 
           if git diff --cached --quiet; then
             echo "No selection output changes to commit."
