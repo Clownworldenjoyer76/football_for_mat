@@ -39,6 +39,7 @@ SEASON = 2026
 # ============================================================================
 
 WEEK = 1
+SCRIPT_VERSION = "2026-08-14-fix2"
 EXPECTED_FEATURE_COUNT = 260
 MISSING_CAT = "__MISSING__"
 
@@ -1225,7 +1226,7 @@ def add_schedule_context_features(
         work.at[idx, "game_type"] = {
             "reg": "REG", "pre": "PRE", "post": "POST"
         }.get(season_type, season_type.upper())
-        work.at[idx, "week"] = WEEK
+        work.at[idx, "week"] = str(WEEK)
 
         game_date = pd.to_datetime(clean(row["sched_game_date"]), errors="coerce")
         if pd.isna(game_date):
@@ -1526,7 +1527,13 @@ def prepare_model_features(
 ) -> pd.DataFrame:
     teams = TeamNormalizer(root / "config/mapping/team_map.csv")
 
-    work = original.copy()
+    # The intake CSV is read with dtype=str, and newer pandas versions may
+    # back those columns with Arrow string arrays.  This working frame is
+    # intentionally dtype-flexible because model feature construction writes
+    # numeric values (for example week/rest/div_game) into columns that may
+    # already exist as strings in the intake.  The untouched `original` frame
+    # is kept separately for final output preservation.
+    work = original.astype(object).copy()
     work["_original_home_team"] = work["home_team"]
     work["_original_away_team"] = work["away_team"]
 
@@ -1756,6 +1763,7 @@ def apply_models(
 
 
 def main() -> None:
+    print(f"projection_week1.py version={SCRIPT_VERSION}")
     root = nfl_root()
     combined_path = root / "00_intake/predictions/enriched/combined/week_1_NFL_enriched.csv"
     original = read_csv(combined_path)
