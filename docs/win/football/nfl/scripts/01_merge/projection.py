@@ -33,6 +33,9 @@ from catboost import CatBoostRegressor
 SEASON = 2026
 # ============================================================================
 
+SCRIPT_VERSION = "2026-08-14-inseason-fix1"
+EXPECTED_FEATURE_COUNT = 260
+
 NFL_REL = Path("docs/win/football/nfl")
 OUTPUT_COLUMNS = [
     "predicted_margin",
@@ -117,6 +120,13 @@ def clean(value: object) -> str:
     return text
 
 
+def clean_id(value: object) -> str:
+    text = clean(value)
+    if re.fullmatch(r"\d+\.0", text):
+        return text[:-2]
+    return text
+
+
 def normalize_name(value: object) -> str:
     text = unicodedata.normalize("NFKD", clean(value))
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
@@ -131,6 +141,20 @@ def normalize_team(value: object) -> str:
 
 def normalize_position(value: object) -> str:
     return clean(value).upper().replace(" ", "")
+
+
+def position_for_grouping(value: object) -> str:
+    """Normalize common depth-slot variants to the model's broad position codes."""
+    pos = normalize_position(value)
+    aliases = {
+        "LDE": "DE", "RDE": "DE",
+        "LDT": "DT", "RDT": "DT",
+        "LCB": "CB", "RCB": "CB",
+        "LILB": "ILB", "RILB": "ILB",
+        "LOLB": "OLB", "ROLB": "OLB",
+        "SLB": "LB", "WLB": "LB",
+    }
+    return aliases.get(pos, pos)
 
 
 def normalize_game_id(series: pd.Series) -> pd.Series:
@@ -243,7 +267,8 @@ def load_team_name_lookup(root: Path) -> tuple[dict[str, str], dict[str, str]]:
     require_columns(df, ["team_abbr", "canonical_team"], str(path))
     to_abbr: dict[str, str] = {}
     abbr_to_name: dict[str, str] = {}
-    candidates = ["canonical_team", "team_abbr", "alias", "location", "team_name", "nickname", "shortDisplayName"]
+    # Do not use location alone: "Los Angeles" is ambiguous between LAR/LAC.
+    candidates = ["canonical_team", "team_abbr", "alias", "team_name", "nickname", "shortDisplayName"]
     for _, row in df.iterrows():
         abbr = normalize_team(row.get("team_abbr"))
         canonical = clean(row.get("canonical_team"))
@@ -259,6 +284,11 @@ def load_team_name_lookup(root: Path) -> tuple[dict[str, str], dict[str, str]]:
         for value in values:
             key = normalize_name(value)
             if key:
+                existing = to_abbr.get(key)
+                if existing is not None and existing != abbr:
+                    raise ValueError(
+                        f"{path}: ambiguous team alias {value!r} maps to both {existing} and {abbr}"
+                    )
                 to_abbr[key] = abbr
     return to_abbr, abbr_to_name
 
@@ -352,7 +382,7 @@ class CurrentRoster:
                 pfr_id=resolved.pfr_id if resolved else "",
                 espn_id=eid or (resolved.espn_id if resolved else ""),
                 name=name or (resolved.name if resolved else ""),
-                position=normalize_position(row[pos_col]) if pos_col else (resolved.position if resolved else ""),
+                position=position_for_grouping(row[pos_col]) if pos_col else position_for_grouping(resolved.position if resolved else ""),
             )
             if record.espn_id:
                 self.by_espn[record.espn_id] = record
@@ -448,17 +478,18 @@ def load_current_depth(root: Path, players: PlayerCrosswalk) -> dict[str, DepthS
             rank = parse_int(row["depth_chart_rank"])
             if not team or rank is None:
                 continue
-            espn_id = clean(row["player_id"])
+            espn_id = clean_id(row["player_id"])
             name = clean(row["name"])
             resolved = players.resolve(espn_id, name)
-            position = normalize_position(row["position_abb"])
+            slot = normalize_position(row["position_abb"])
+            position = position_for_grouping(row["position_abb"])
             records.append(
                 DepthPlayer(
                     gsis_id=resolved.gsis_id if resolved else "",
                     espn_id=espn_id,
                     name=name,
-                    position=position or (resolved.position if resolved else ""),
-                    slot=position,
+                    position=position or position_for_grouping(resolved.position if resolved else ""),
+                    slot=slot,
                     rank=rank,
                 )
             )
@@ -502,8 +533,8 @@ class HistoricalDepthProvider:
                         gsis_id=gsis or (resolved.gsis_id if resolved else ""),
                         espn_id=espn,
                         name=name or (resolved.name if resolved else ""),
-                        position=normalize_position(row[pos_col]) if pos_col else (resolved.position if resolved else ""),
-                        slot=clean(row[slot_col]),
+                        position=position_for_grouping(row[pos_col]) if pos_col else position_for_grouping(resolved.position if resolved else ""),
+                        slot=normalize_position(row[slot_col]),
                         rank=rank,
                     )
                 )
@@ -537,8 +568,8 @@ class HistoricalDepthProvider:
                         gsis_id=gsis or (resolved.gsis_id if resolved else ""),
                         espn_id=espn,
                         name=name or (resolved.name if resolved else ""),
-                        position=normalize_position(row[pos_col]) if pos_col else (resolved.position if resolved else ""),
-                        slot=clean(row[slot_col]),
+                        position=position_for_grouping(row[pos_col]) if pos_col else position_for_grouping(resolved.position if resolved else ""),
+                        slot=normalize_position(row[slot_col]),
                         rank=rank,
                     )
                 )
@@ -584,7 +615,7 @@ class SnapProvider:
                 week,
                 normalize_percentage(row[off_col]),
                 normalize_percentage(row[def_col]),
-                normalize_position(row[pos_col]) if pos_col else "",
+                position_for_grouping(row[pos_col]) if pos_col else "",
             )
             for identity in identities:
                 self.series.setdefault((team, identity), []).append(item)
@@ -716,7 +747,13 @@ class InjuryRecord:
 def normalize_injury_status(value: object) -> str:
     text = clean(value).casefold().replace("-", " ").replace("_", " ")
     text = " ".join(text.split())
-    if text in {"o", "out"} or text.startswith("out ") or "reserve" in text or "pup" in text:
+    if (
+        text in {"o", "out", "ir"}
+        or text.startswith("out ")
+        or "reserve" in text
+        or "pup" in text
+        or "injured reserve" in text
+    ):
         return "out"
     if text in {"d", "doubtful"} or "doubt" in text:
         return "doubtful"
@@ -727,23 +764,43 @@ def normalize_injury_status(value: object) -> str:
 
 def load_current_injuries(root: Path, season: int, team_lookup: dict[str, str]) -> dict[str, list[InjuryRecord]]:
     path = root / f"00_intake/injuries/{season}_injuries.csv"
-    df = read_csv(path)
-    require_columns(df, ["season", "team", "player_id", "player_name", "position", "game_status"], str(path))
-    output: dict[str, list[InjuryRecord]] = {}
-    # If duplicate reports exist for a player, keep the last row in file order.
-    latest: dict[tuple[str, str], InjuryRecord] = {}
-    for _, row in df.iterrows():
-        status = normalize_injury_status(row["game_status"])
-        if status not in {"out", "doubtful", "questionable"}:
+    df = read_csv(path, allow_empty_rows=True)
+    require_columns(
+        df,
+        ["season", "team", "player_id", "player_name", "position", "game_status"],
+        str(path),
+    )
+
+    # Resolve duplicate player reports using report_date first, then file order.
+    # Active/other states participate so a newer Active row supersedes stale Out/Q.
+    latest: dict[tuple[str, str], tuple[tuple[int, int, int], InjuryRecord]] = {}
+    for row_order, (_, row) in enumerate(df.iterrows()):
+        row_season = parse_int(row["season"])
+        if row_season is not None and row_season != season:
             continue
+
         team = team_abbr(row["team"], team_lookup)
-        rid = clean(row["player_id"])
+        rid = clean_id(row["player_id"])
         name = clean(row["player_name"])
         identity = rid or normalize_name(name)
         if not identity:
             continue
-        latest[(team, identity)] = InjuryRecord(rid, name, normalize_position(row["position"]), status)
-    for (team, _), record in latest.items():
+
+        record = InjuryRecord(
+            raw_id=rid,
+            name=name,
+            position=position_for_grouping(row["position"]),
+            status=normalize_injury_status(row["game_status"]),
+        )
+        ts = parse_timestamp(row.get("report_date", ""))
+        rank = (1, int(ts.value), row_order) if ts is not None else (0, 0, row_order)
+        key = (team, identity)
+        previous = latest.get(key)
+        if previous is None or rank > previous[0]:
+            latest[key] = (rank, record)
+
+    output: dict[str, list[InjuryRecord]] = {}
+    for (team, _), (_, record) in latest.items():
         output.setdefault(team, []).append(record)
     return output
 
@@ -795,7 +852,7 @@ def compute_injury_features(
         position = injury.position or current_depth.position_for(gsis, name) or resolved.position
         if not position and previous_depth is not None:
             position = previous_depth.position_for(gsis, name)
-        position = normalize_position(position)
+        position = position_for_grouping(position)
         current_rank = current_depth.rank_for(gsis, name)
         previous_rank = previous_depth.rank_for(gsis, name) if previous_depth is not None else None
 
@@ -852,8 +909,24 @@ def load_schema(root: Path) -> dict:
     missing = [key for key in required if key not in schema]
     if missing:
         raise ValueError(f"{path}: missing schema keys: {missing}")
-    if len(schema["feature_order"]) != 260:
-        raise ValueError(f"{path}: expected 260 features, found {len(schema['feature_order'])}")
+
+    feature_order = list(schema["feature_order"])
+    numeric = list(schema["numeric_features"])
+    categorical = list(schema["categorical_features"])
+    if len(feature_order) != EXPECTED_FEATURE_COUNT:
+        raise ValueError(
+            f"{path}: expected {EXPECTED_FEATURE_COUNT} features, found {len(feature_order)}"
+        )
+    if len(feature_order) != len(set(feature_order)):
+        raise ValueError(f"{path}: feature_order contains duplicate names")
+    if len(numeric) != len(set(numeric)) or len(categorical) != len(set(categorical)):
+        raise ValueError(f"{path}: numeric/categorical feature lists contain duplicates")
+    if set(numeric) & set(categorical):
+        raise ValueError(f"{path}: numeric and categorical feature lists overlap")
+    if set(numeric) | set(categorical) != set(feature_order):
+        raise ValueError(
+            f"{path}: numeric/categorical feature sets do not exactly cover feature_order"
+        )
     return schema
 
 
@@ -893,6 +966,9 @@ def load_team_stats_for_week(root: Path, season: int, week: int, week1_mode: boo
             wanted = week - 1
             valid = group[group["_week"] == wanted]
             if valid.empty:
+                # Match historical Step 5: after a bye, exact N-1 features are
+                # missing rather than carrying forward an older played week.
+                result[normalize_team(team)] = {metric: None for metric in TEAM_METRICS}
                 continue
             if len(valid) > 1:
                 raise ValueError(f"{path}: duplicate team/week rows for {team}, week {wanted}")
@@ -1134,6 +1210,15 @@ def prepare_week(root: Path, season: int, week: int, week1_mode: bool, schema: d
     if season_values != {season} or week_values != {week}:
         raise ValueError(f"{combined_path}: expected only season={season}, week={week}; found seasons={season_values}, weeks={week_values}")
     original = base.copy()
+    collisions = [column for column in OUTPUT_COLUMNS if column in original.columns]
+    if collisions:
+        raise ValueError(
+            f"{combined_path}: prediction columns already exist and would be overwritten: {collisions}"
+        )
+
+    # dtype=str may use Arrow-backed string arrays. Feature construction writes
+    # numeric values into existing source columns, so use a flexible work copy.
+    base = base.astype(object).copy()
     base["base_home_team"] = base["home_team"]
     base["base_away_team"] = base["away_team"]
 
@@ -1144,10 +1229,22 @@ def prepare_week(root: Path, season: int, week: int, week1_mode: bool, schema: d
 
     weekly_schedule_path = root / f"00_intake/schedule/weekly/week_{week}_NFL_weekly_schedule.csv"
     market = read_csv(weekly_schedule_path)
+    require_columns(
+        market,
+        [
+            "game_id", "home_moneyline_american", "away_moneyline_american",
+            "home_spread", "away_spread", "home_spread_american",
+            "away_spread_american", "total", "over_american", "under_american",
+        ],
+        str(weekly_schedule_path),
+    )
+    market["hist_home_spread"] = market["home_spread"]
+    market["hist_away_spread"] = market["away_spread"]
+    market["hist_odds_total"] = market["total"]
+    market["spread_line"] = -pd.to_numeric(market["home_spread"], errors="coerce")
     market = market.rename(columns={
         "home_moneyline_american": "home_moneyline",
         "away_moneyline_american": "away_moneyline",
-        "home_spread": "spread_line",
         "away_spread_american": "away_spread_odds",
         "home_spread_american": "home_spread_odds",
         "total": "total_line",
@@ -1157,12 +1254,8 @@ def prepare_week(root: Path, season: int, week: int, week1_mode: bool, schema: d
     base = merge_game_source(base, market, [
         "away_moneyline", "home_moneyline", "spread_line", "away_spread_odds",
         "home_spread_odds", "total_line", "under_odds", "over_odds",
+        "hist_home_spread", "hist_away_spread", "hist_odds_total",
     ], str(weekly_schedule_path))
-    base["hist_odds_total"] = base["total_line"]
-    base["hist_home_spread"] = base["spread_line"]
-    # away spread line itself, not the odds price
-    away_spread_lookup = read_csv(weekly_schedule_path)[["game_id", "away_spread"]].rename(columns={"away_spread": "hist_away_spread"})
-    base = merge_game_source(base, away_spread_lookup, ["hist_away_spread"], f"{weekly_schedule_path} away spread")
 
     drat_path = root / f"00_intake/predictions/drat/clean/{season}_week_{week}_drat.csv"
     drat = read_csv(drat_path).rename(columns={
@@ -1262,9 +1355,20 @@ def prepare_week(root: Path, season: int, week: int, week1_mode: bool, schema: d
         participation = None
         depth_history = None
     else:
-        snaps = SnapProvider(read_parquet(root / f"data/historic_data/snap_counts/snap_counts_{season}.parquet"))
-        participation = ParticipationProvider(read_parquet(root / f"data/historic_data/participation/pbp_participation_{season}.parquet"))
-        depth_history = HistoricalDepthProvider(read_parquet(root / f"data/historic_data/depth_charts/depth_charts_{season}.parquet"), players)
+        snap_path = root / f"data/historic_data/snap_counts/snap_counts_{season}.parquet"
+        participation_path = root / f"data/historic_data/participation/pbp_participation_{season}.parquet"
+        depth_history_path = root / f"data/historic_data/depth_charts/depth_charts_{season}.parquet"
+        for required_path in [snap_path, participation_path, depth_history_path]:
+            if not required_path.exists():
+                raise FileNotFoundError(
+                    f"Week {week} in-season projection requires current-season source: {required_path}"
+                )
+            if required_path.stat().st_size == 0:
+                raise RuntimeError(f"Required current-season source is zero bytes: {required_path}")
+
+        snaps = SnapProvider(read_parquet(snap_path))
+        participation = ParticipationProvider(read_parquet(participation_path))
+        depth_history = HistoricalDepthProvider(read_parquet(depth_history_path), players)
         prior_snaps = None
         prior_participation = None
     add_injury_features(
@@ -1276,15 +1380,32 @@ def prepare_week(root: Path, season: int, week: int, week1_mode: bool, schema: d
     if missing_features:
         raise RuntimeError(f"Week {week}: could not construct Step 11 features: {missing_features}")
     features = base[schema["feature_order"]].copy()
+    if features.shape[1] != EXPECTED_FEATURE_COUNT:
+        raise RuntimeError(
+            f"Week {week}: expected {EXPECTED_FEATURE_COUNT} model features, found {features.shape[1]}"
+        )
+    if features.columns.tolist() != list(schema["feature_order"]):
+        raise RuntimeError(f"Week {week}: feature names/order do not match Step 11 schema")
+
     numeric = set(schema["numeric_features"])
     categorical = set(schema["categorical_features"])
-    if numeric | categorical != set(schema["feature_order"]):
-        raise ValueError("Step 11 schema numeric/categorical feature sets do not exactly cover feature_order")
     for col in schema["feature_order"]:
         if col in numeric:
             features[col] = pd.to_numeric(features[col], errors="coerce")
-        else:
+        elif col in categorical:
             features[col] = features[col].map(clean).replace("", MISSING_CAT).astype(str)
+        else:
+            raise RuntimeError(f"Schema feature is not classified: {col}")
+
+    spread_line = pd.to_numeric(features["spread_line"], errors="coerce").to_numpy(dtype=float)
+    total_line = pd.to_numeric(features["total_line"], errors="coerce").to_numpy(dtype=float)
+    if not np.isfinite(spread_line).all():
+        bad = original.loc[~np.isfinite(spread_line), "game_id"].tolist()
+        raise ValueError(f"spread_line is missing/non-numeric for game_id values: {bad[:10]}")
+    if not np.isfinite(total_line).all():
+        bad = original.loc[~np.isfinite(total_line), "game_id"].tolist()
+        raise ValueError(f"total_line is missing/non-numeric for game_id values: {bad[:10]}")
+
     return original, features
 
 
@@ -1294,11 +1415,50 @@ def sigmoid(value: np.ndarray | float) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-arr))
 
 
-def apply_models(root: Path, original: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
+def load_calibrations(root: Path) -> dict:
+    path = root / "models/step14_probability_calibration.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Missing input file: {path}")
+    with path.open("r", encoding="utf-8") as f:
+        raw = json.load(f)
+    if raw.get("method") != "one_variable_logistic_platt":
+        raise ValueError(
+            f"{path}: expected method='one_variable_logistic_platt'; found {raw.get('method')!r}"
+        )
+    calibrations = raw.get("calibrations")
+    if not isinstance(calibrations, dict):
+        raise ValueError(f"{path}: missing calibrations object")
+    expected_x = {
+        "moneyline": "predicted_margin",
+        "spread": "predicted_margin - spread_line",
+        "total": "predicted_total - total_line",
+    }
+    for key, x_definition in expected_x.items():
+        section = calibrations.get(key)
+        if not isinstance(section, dict):
+            raise ValueError(f"{path}: missing calibration section {key!r}")
+        if "intercept" not in section or "slope" not in section:
+            raise ValueError(f"{path}: calibration {key!r} lacks intercept/slope")
+        if clean(section.get("x_definition")) != x_definition:
+            raise ValueError(
+                f"{path}: unexpected {key} x_definition: {section.get('x_definition')!r}"
+            )
+    return calibrations
+
+
+def validate_probability_pair(a: np.ndarray, b: np.ndarray, label: str) -> None:
+    if not np.isfinite(a).all() or not np.isfinite(b).all():
+        raise RuntimeError(f"{label}: non-finite probability values")
+    if ((a < 0.0) | (a > 1.0) | (b < 0.0) | (b > 1.0)).any():
+        raise RuntimeError(f"{label}: probabilities outside [0, 1]")
+    if not np.allclose(a + b, 1.0, rtol=0.0, atol=1e-12):
+        raise RuntimeError(f"{label}: complementary probabilities do not sum to 1")
+
+
+def apply_models(root: Path, original: pd.DataFrame, features: pd.DataFrame, schema: dict) -> pd.DataFrame:
     margin_path = root / "models/step11_margin_model.cbm"
     total_path = root / "models/step11_total_points_model.cbm"
-    calibration_path = root / "models/step14_probability_calibration.json"
-    for path in [margin_path, total_path, calibration_path]:
+    for path in [margin_path, total_path]:
         if not path.exists():
             raise FileNotFoundError(f"Missing input file: {path}")
 
@@ -1306,7 +1466,10 @@ def apply_models(root: Path, original: pd.DataFrame, features: pd.DataFrame) -> 
     total_model = CatBoostRegressor()
     margin_model.load_model(str(margin_path))
     total_model.load_model(str(total_path))
-    expected = list(features.columns)
+
+    expected = list(schema["feature_order"])
+    if list(features.columns) != expected:
+        raise RuntimeError("Prediction feature names/order do not match step11_feature_schema.json")
     if list(margin_model.feature_names_) != expected:
         raise RuntimeError("Margin model feature names/order do not match step11_feature_schema.json")
     if list(total_model.feature_names_) != expected:
@@ -1314,19 +1477,38 @@ def apply_models(root: Path, original: pd.DataFrame, features: pd.DataFrame) -> 
 
     predicted_margin = np.asarray(margin_model.predict(features), dtype=float)
     predicted_total = np.asarray(total_model.predict(features), dtype=float)
+    if len(predicted_margin) != len(original) or len(predicted_total) != len(original):
+        raise RuntimeError("Prediction row count does not match projection input")
+    if not np.isfinite(predicted_margin).all():
+        raise RuntimeError("Margin model produced non-finite predictions")
+    if not np.isfinite(predicted_total).all():
+        raise RuntimeError("Total model produced non-finite predictions")
+
     predicted_home = (predicted_total + predicted_margin) / 2.0
     predicted_away = (predicted_total - predicted_margin) / 2.0
 
-    with calibration_path.open("r", encoding="utf-8") as f:
-        calibration = json.load(f)["calibrations"]
+    calibration = load_calibrations(root)
     ml = calibration["moneyline"]
     sp = calibration["spread"]
     tot = calibration["total"]
     spread_line = pd.to_numeric(features["spread_line"], errors="coerce").to_numpy(dtype=float)
     total_line = pd.to_numeric(features["total_line"], errors="coerce").to_numpy(dtype=float)
+
     home_win = sigmoid(float(ml["intercept"]) + float(ml["slope"]) * predicted_margin)
+    away_win = 1.0 - home_win
     home_cover = sigmoid(float(sp["intercept"]) + float(sp["slope"]) * (predicted_margin - spread_line))
+    away_cover = 1.0 - home_cover
     over = sigmoid(float(tot["intercept"]) + float(tot["slope"]) * (predicted_total - total_line))
+    under = 1.0 - over
+
+    validate_probability_pair(home_win, away_win, "moneyline")
+    validate_probability_pair(home_cover, away_cover, "spread")
+    validate_probability_pair(over, under, "total")
+
+    if not np.allclose(predicted_home + predicted_away, predicted_total, rtol=0.0, atol=1e-12):
+        raise RuntimeError("Predicted scores do not sum to predicted_total")
+    if not np.allclose(predicted_home - predicted_away, predicted_margin, rtol=0.0, atol=1e-12):
+        raise RuntimeError("Predicted scores do not reconcile to predicted_margin")
 
     output = original.copy()
     output["predicted_margin"] = predicted_margin
@@ -1334,11 +1516,24 @@ def apply_models(root: Path, original: pd.DataFrame, features: pd.DataFrame) -> 
     output["predicted_home_score"] = predicted_home
     output["predicted_away_score"] = predicted_away
     output["home_win_probability"] = home_win
-    output["away_win_probability"] = 1.0 - home_win
+    output["away_win_probability"] = away_win
     output["home_cover_probability"] = home_cover
-    output["away_cover_probability"] = 1.0 - home_cover
+    output["away_cover_probability"] = away_cover
     output["over_probability"] = over
-    output["under_probability"] = 1.0 - over
+    output["under_probability"] = under
+
+    expected_columns = [*original.columns.tolist(), *OUTPUT_COLUMNS]
+    if output.columns.tolist() != expected_columns:
+        raise RuntimeError(
+            "Final output columns are not original columns plus the exact 10 prediction columns"
+        )
+    if not output["home_team"].equals(original["home_team"]):
+        raise RuntimeError("Final output home_team values changed from the original input")
+    if not output["away_team"].equals(original["away_team"]):
+        raise RuntimeError("Final output away_team values changed from the original input")
+    if output["game_id"].tolist() != original["game_id"].tolist():
+        raise RuntimeError("Final output game_id row order changed")
+    require_unique_game_id(output, "final projection output")
     return output
 
 
@@ -1360,6 +1555,43 @@ def infer_inseason_target_week(root: Path, season: int) -> int:
             "use projection_week1.py for Week 1"
         )
     latest_completed_week = int(available.max())
+
+    # Reject a partially populated completed week before advancing the target.
+    # This compares only teams scheduled to play, so bye weeks remain valid.
+    schedule_path = root / f"00_intake/schedule/{season}_schedule.csv"
+    schedule = read_csv(schedule_path)
+    require_columns(
+        schedule,
+        ["season", "season_type", "week", "home_team", "away_team"],
+        str(schedule_path),
+    )
+    schedule_rows = schedule[
+        (pd.to_numeric(schedule["season"], errors="coerce") == season)
+        & (pd.to_numeric(schedule["week"], errors="coerce") == latest_completed_week)
+        & (schedule["season_type"].map(clean).str.casefold() == "reg")
+    ]
+    if schedule_rows.empty:
+        raise RuntimeError(
+            f"{schedule_path}: no regular-season schedule rows for completed Week {latest_completed_week}"
+        )
+    team_lookup, _ = load_team_name_lookup(root)
+    expected_teams = {
+        team_abbr(value, team_lookup)
+        for value in pd.concat([schedule_rows["home_team"], schedule_rows["away_team"]], ignore_index=True)
+    }
+    actual_teams = {
+        normalize_team(value)
+        for value in df.loc[
+            (season_num == season) & (week_num == latest_completed_week), "team"
+        ].dropna()
+    }
+    missing_teams = sorted(expected_teams - actual_teams)
+    if missing_teams:
+        raise RuntimeError(
+            f"{path}: latest team-stat week {latest_completed_week} is incomplete; "
+            f"missing scheduled teams: {missing_teams}"
+        )
+
     target_week = latest_completed_week + 1
     combined_path = root / f"00_intake/predictions/enriched/combined/week_{target_week}_NFL_enriched.csv"
     if not combined_path.exists():
@@ -1377,8 +1609,8 @@ def run_projection(*, season: int, week1_mode: bool) -> list[Path]:
     output_dir = root / "01_merge"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    original, features = prepare_week(root, season, week, week1_mode)
-    projected = apply_models(root, original, features)
+    original, features = prepare_week(root, season, week, week1_mode, schema)
+    projected = apply_models(root, original, features, schema)
     output_path = output_dir / f"week_{week}_NFL_enriched.csv"
     projected.to_csv(output_path, index=False, encoding="utf-8-sig")
     print(f"WROTE {output_path} | games={len(projected)} | columns={len(projected.columns)}")
@@ -1386,6 +1618,7 @@ def run_projection(*, season: int, week1_mode: bool) -> list[Path]:
 
 
 def main() -> None:
+    print(f"projection.py version={SCRIPT_VERSION}")
     run_projection(season=SEASON, week1_mode=False)
 
 
