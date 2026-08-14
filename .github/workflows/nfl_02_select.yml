@@ -7,12 +7,12 @@ name: NFL 02 Select
 #
 # The selection engine:
 # - reads settings.yaml and markets.yaml
-# - reads the projected weekly combined enriched CSV
+# - reads the projected weekly 01_merge CSV
 # - reads the current weekly sportsbook schedule
 # - calculates implied probability, edge, EV, and Kelly
 # - applies configured selection thresholds
 # - appends ML/spread/total selection fields
-# - writes the updated weekly combined enriched CSV back to the repo
+# - writes a separate weekly selection CSV under 02_select
 
 on:
   workflow_dispatch:
@@ -61,7 +61,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          OUTPUT="docs/win/football/nfl/00_intake/predictions/enriched/combined/week_${{ inputs.week }}_NFL_enriched.csv"
+          OUTPUT="docs/win/football/nfl/02_select/week_${{ inputs.week }}_NFL_selected.csv"
 
           if [ ! -f "$OUTPUT" ]; then
             echo "ERROR: Expected selection output not found:"
