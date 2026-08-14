@@ -12,7 +12,7 @@ READS:
       week_{week}_NFL_weekly_weather.csv  (optional unless config requires it)
 
 WRITES:
-  The post-projection 01_merge weekly CSV in place by default.
+  docs/win/football/nfl/02_select/week_{week}_NFL_selected.csv
 
 The combined file must already contain the 10 projection/probability fields.
 For each market, this script evaluates both possible sides using current
@@ -1219,8 +1219,15 @@ def main() -> int:
     output_path = (
         args.output.resolve()
         if args.output is not None
-        else input_path
+        else NFL_ROOT
+        / "02_select"
+        / f"week_{week}_NFL_selected.csv"
     )
+    if output_path == input_path:
+        fail(
+            "Selection output path must differ from the input path; "
+            "selections.py will not overwrite a file it reads."
+        )
 
     combined = read_csv(
         input_path,
