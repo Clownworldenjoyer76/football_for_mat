@@ -1153,14 +1153,38 @@ def build_output(
                 game_filters,
             )
 
-        selection_rows.append({**ml, **spread, **total})
+        selection_rows.append(
+            {"game_id": row["game_id"], **ml, **spread, **total}
+        )
 
     selection_frame = pd.DataFrame(
         selection_rows,
-        columns=SELECTION_COLUMNS,
+        columns=["game_id", *SELECTION_COLUMNS],
     )
     if len(selection_frame) != len(original):
         fail("Internal selection row-count mismatch")
+
+    validate_unique_game_ids(selection_frame, "selection results")
+    original_ids = set(original["game_id"])
+    selection_ids = set(selection_frame["game_id"])
+    if selection_ids != original_ids:
+        missing_ids = sorted(original_ids - selection_ids)
+        extra_ids = sorted(selection_ids - original_ids)
+        fail(
+            "Selection game_id mismatch: "
+            f"missing={missing_ids[:10]} extra={extra_ids[:10]}"
+        )
+
+    # Reorder selection results by game_id to exactly match the projected
+    # input. Never attach selections by row position because pandas merges
+    # are not a safe ordering contract.
+    selection_frame = original[["game_id"]].merge(
+        selection_frame,
+        on="game_id",
+        how="left",
+        validate="one_to_one",
+        sort=False,
+    )
 
     output = original.copy()
     for column in SELECTION_COLUMNS:
