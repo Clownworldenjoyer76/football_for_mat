@@ -16,21 +16,7 @@ They do not run the existing Step 13, Step 14, or `selections.py` `main()` funct
 python docs/win/football/nfl/models/backtest/run_backtest.py
 ```
 
-The first run reproduces the Step 13 chronological predictions inside this folder. It checkpoints after every held-out kickoff group because the CatBoost walk-forward stage is expensive.
-
-A smoke test can stop after a specific number of new prediction groups:
-
-```bash
-python docs/win/football/nfl/models/backtest/run_backtest.py --max-prediction-groups 2
-```
-
-Continue later by running the normal command again. To discard only the isolated prediction checkpoint/final prediction file and rebuild it:
-
-```bash
-python docs/win/football/nfl/models/backtest/run_backtest.py --reset-predictions
-```
-
-No reset option deletes anything outside this folder.
+The run reproduces the Step 13 chronological prediction process inside this folder, then performs walk-forward calibration, selection, grading, and ROI reporting.
 
 ## Chronology / leakage protection performed here
 
