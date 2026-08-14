@@ -1,0 +1,34 @@
+name: NFL Historical Backtest
+
+# MANUAL RUN ONLY.
+# Runs the isolated historical NFL selection backtest.
+# The backtest script writes only under:
+# docs/win/football/nfl/models/backtest/
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nfl-backtest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyyaml catboost
+
+      - name: Run NFL historical backtest
+        run: |
+          python docs/win/football/nfl/models/backtest/run_backtest.py
