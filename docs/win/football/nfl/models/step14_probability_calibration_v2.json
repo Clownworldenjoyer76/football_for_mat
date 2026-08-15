@@ -1,0 +1,618 @@
+{
+  "step": "14_probability_calibration_v2",
+  "candidate_version": "v2_leak_free_market_residual_probability",
+  "production_cutover": false,
+  "created_utc": "2026-08-15T15:19:52.640400+00:00",
+  "source_backtest": "step13_chronological_backtest_v2.csv",
+  "source_backtest_sha256": "70dc7ecced7e6885943a565c392455c175f2690f5073871cda5aff65e3aa5845",
+  "source_rows": 1138,
+  "source_seasons": [
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "method": "Platt calibration on logit of direct OOF classifier probability",
+  "live_formula": "sigmoid(intercept + slope * logit(raw_classifier_probability))",
+  "validation_method": "expanding chronological calibration: each evaluation season uses only earlier OOF seasons",
+  "calibrations": {
+    "moneyline": {
+      "input_probability": "raw_home_win_probability",
+      "positive_outcome": "home win",
+      "excluded": "ties",
+      "production_calibration": {
+        "method": "sigmoid(intercept + slope * logit(raw_probability))",
+        "intercept": 0.11482248272926353,
+        "slope": 0.6621389272448682,
+        "rows": 1135,
+        "source_seasons": [
+          2022,
+          2023,
+          2024,
+          2025
+        ]
+      },
+      "diagnostics": {
+        "raw_all_oof": {
+          "rows": 1135,
+          "positive_rate": 0.5541850220264317,
+          "mean_probability": 0.5356140054007132,
+          "brier_score": 0.22482675147918835,
+          "log_loss": 0.6443375818760817,
+          "accuracy_at_0_5": 0.641409691629956,
+          "predicted_positive_count": 610,
+          "predicted_negative_count": 525,
+          "probability_min": 0.071542759776564,
+          "probability_max": 0.9592264306746652
+        },
+        "chronological_raw_same_rows": {
+          "rows": 853,
+          "positive_rate": 0.5498241500586166,
+          "mean_probability": 0.5402588517511386,
+          "brier_score": 0.22248489118207435,
+          "log_loss": 0.6406040793268675,
+          "accuracy_at_0_5": 0.652989449003517,
+          "predicted_positive_count": 469,
+          "predicted_negative_count": 384,
+          "probability_min": 0.0905064983063537,
+          "probability_max": 0.9572804959830646
+        },
+        "chronological_calibrated": {
+          "rows": 853,
+          "positive_rate": 0.5498241500586166,
+          "mean_probability": 0.5721299759008455,
+          "brier_score": 0.22149148129333118,
+          "log_loss": 0.63409290088539,
+          "accuracy_at_0_5": 0.6471277842907386,
+          "predicted_positive_count": 564,
+          "predicted_negative_count": 289,
+          "probability_min": 0.20256072770570407,
+          "probability_max": 0.8862322012106756
+        },
+        "chronological_calibration_bins": [
+          {
+            "min_probability": 0.2,
+            "max_probability": 0.30000000000000004,
+            "rows": 14,
+            "mean_probability": 0.27338623850243754,
+            "actual_rate": 0.2857142857142857
+          },
+          {
+            "min_probability": 0.30000000000000004,
+            "max_probability": 0.4,
+            "rows": 93,
+            "mean_probability": 0.36289376437049975,
+            "actual_rate": 0.3010752688172043
+          },
+          {
+            "min_probability": 0.4,
+            "max_probability": 0.5,
+            "rows": 182,
+            "mean_probability": 0.45349899798241367,
+            "actual_rate": 0.3901098901098901
+          },
+          {
+            "min_probability": 0.5,
+            "max_probability": 0.6000000000000001,
+            "rows": 213,
+            "mean_probability": 0.5514015080963182,
+            "actual_rate": 0.5211267605633803
+          },
+          {
+            "min_probability": 0.6000000000000001,
+            "max_probability": 0.7000000000000001,
+            "rows": 175,
+            "mean_probability": 0.6478789099379312,
+            "actual_rate": 0.6742857142857143
+          },
+          {
+            "min_probability": 0.7000000000000001,
+            "max_probability": 0.8,
+            "rows": 111,
+            "mean_probability": 0.7438715474934897,
+            "actual_rate": 0.7567567567567568
+          },
+          {
+            "min_probability": 0.8,
+            "max_probability": 0.9,
+            "rows": 65,
+            "mean_probability": 0.8387146484569272,
+            "actual_rate": 0.8153846153846154
+          }
+        ],
+        "folds": [
+          {
+            "evaluation_season": 2023,
+            "calibration_training_seasons": [
+              2022
+            ],
+            "training_rows": 282,
+            "evaluation_rows": 285,
+            "intercept": 0.22005951685568703,
+            "slope": 0.5894178534532405,
+            "raw_metrics": {
+              "rows": 285,
+              "positive_rate": 0.5649122807017544,
+              "mean_probability": 0.5334322475821176,
+              "brier_score": 0.23553218097289155,
+              "log_loss": 0.6686667844010014,
+              "accuracy_at_0_5": 0.6070175438596491,
+              "predicted_positive_count": 147,
+              "predicted_negative_count": 138,
+              "probability_min": 0.1341808680817803,
+              "probability_max": 0.9572804959830646
+            },
+            "calibrated_metrics": {
+              "rows": 285,
+              "positive_rate": 0.5649122807017544,
+              "mean_probability": 0.5762454440706163,
+              "brier_score": 0.22842513648770116,
+              "log_loss": 0.6481907361654983,
+              "accuracy_at_0_5": 0.624561403508772,
+              "predicted_positive_count": 192,
+              "predicted_negative_count": 93,
+              "probability_min": 0.2934052319610501,
+              "probability_max": 0.8862322012106756
+            }
+          },
+          {
+            "evaluation_season": 2024,
+            "calibration_training_seasons": [
+              2022,
+              2023
+            ],
+            "training_rows": 567,
+            "evaluation_rows": 285,
+            "intercept": 0.1953763613758794,
+            "slope": 0.5725464805272047,
+            "raw_metrics": {
+              "rows": 285,
+              "positive_rate": 0.5473684210526316,
+              "mean_probability": 0.5464886463461988,
+              "brier_score": 0.21019319051276403,
+              "log_loss": 0.6137248132971228,
+              "accuracy_at_0_5": 0.6982456140350877,
+              "predicted_positive_count": 166,
+              "predicted_negative_count": 119,
+              "probability_min": 0.1678150735087422,
+              "probability_max": 0.9482395053850904
+            },
+            "calibrated_metrics": {
+              "rows": 285,
+              "positive_rate": 0.5473684210526316,
+              "mean_probability": 0.5762386356489403,
+              "brier_score": 0.21648533879712392,
+              "log_loss": 0.6236711275681963,
+              "accuracy_at_0_5": 0.6666666666666666,
+              "predicted_positive_count": 199,
+              "predicted_negative_count": 86,
+              "probability_min": 0.32708905567712543,
+              "probability_max": 0.865335410233304
+            }
+          },
+          {
+            "evaluation_season": 2025,
+            "calibration_training_seasons": [
+              2022,
+              2023,
+              2024
+            ],
+            "training_rows": 852,
+            "evaluation_rows": 283,
+            "intercept": 0.14543158915723556,
+            "slope": 0.6569099653863633,
+            "raw_metrics": {
+              "rows": 283,
+              "positive_rate": 0.5371024734982333,
+              "mean_probability": 0.5408598790606044,
+              "brier_score": 0.22172396220811863,
+              "log_loss": 0.6394122767556629,
+              "accuracy_at_0_5": 0.6537102473498233,
+              "predicted_positive_count": 156,
+              "predicted_negative_count": 127,
+              "probability_min": 0.0905064983063537,
+              "probability_max": 0.9462753735470856
+            },
+            "calibrated_metrics": {
+              "rows": 283,
+              "positive_rate": 0.5371024734982333,
+              "mean_probability": 0.5638477269376242,
+              "brier_score": 0.21955034659730166,
+              "log_loss": 0.6303908596859888,
+              "accuracy_at_0_5": 0.6501766784452296,
+              "predicted_positive_count": 173,
+              "predicted_negative_count": 110,
+              "probability_min": 0.20256072770570407,
+              "probability_max": 0.8838992081866576
+            }
+          }
+        ],
+        "excluded_rows": 3
+      }
+    },
+    "spread": {
+      "input_probability": "raw_home_cover_probability",
+      "positive_outcome": "home cover",
+      "excluded": "pushes",
+      "production_calibration": {
+        "method": "sigmoid(intercept + slope * logit(raw_probability))",
+        "intercept": 0.018274061168814856,
+        "slope": -0.03715675348258403,
+        "rows": 1109,
+        "source_seasons": [
+          2022,
+          2023,
+          2024,
+          2025
+        ]
+      },
+      "diagnostics": {
+        "raw_all_oof": {
+          "rows": 1109,
+          "positive_rate": 0.5049594229035167,
+          "mean_probability": 0.48987462192057946,
+          "brier_score": 0.27037701024245536,
+          "log_loss": 0.7393089212081047,
+          "accuracy_at_0_5": 0.48512173128944996,
+          "predicted_positive_count": 509,
+          "predicted_negative_count": 600,
+          "probability_min": 0.121591109692882,
+          "probability_max": 0.8914303568757115
+        },
+        "chronological_raw_same_rows": {
+          "rows": 835,
+          "positive_rate": 0.5089820359281437,
+          "mean_probability": 0.4983607413437324,
+          "brier_score": 0.2681416215703976,
+          "log_loss": 0.7324924651602649,
+          "accuracy_at_0_5": 0.47784431137724553,
+          "predicted_positive_count": 401,
+          "predicted_negative_count": 434,
+          "probability_min": 0.2069154999705698,
+          "probability_max": 0.8735149466213243
+        },
+        "chronological_calibrated": {
+          "rows": 835,
+          "positive_rate": 0.5089820359281437,
+          "mean_probability": 0.49784019882941627,
+          "brier_score": 0.25024371767466747,
+          "log_loss": 0.6936346314095312,
+          "accuracy_at_0_5": 0.48982035928143713,
+          "predicted_positive_count": 317,
+          "predicted_negative_count": 518,
+          "probability_min": 0.4817658948199904,
+          "probability_max": 0.511893544571877
+        },
+        "chronological_calibration_bins": [
+          {
+            "min_probability": 0.4,
+            "max_probability": 0.5,
+            "rows": 518,
+            "mean_probability": 0.4939862808411503,
+            "actual_rate": 0.5154440154440154
+          },
+          {
+            "min_probability": 0.5,
+            "max_probability": 0.6000000000000001,
+            "rows": 317,
+            "mean_probability": 0.5041377682865826,
+            "actual_rate": 0.49842271293375395
+          }
+        ],
+        "folds": [
+          {
+            "evaluation_season": 2023,
+            "calibration_training_seasons": [
+              2022
+            ],
+            "training_rows": 274,
+            "evaluation_rows": 271,
+            "intercept": -0.02352589372809484,
+            "slope": 0.036798285904660444,
+            "raw_metrics": {
+              "rows": 271,
+              "positive_rate": 0.4981549815498155,
+              "mean_probability": 0.49699674498040475,
+              "brier_score": 0.2769917571457432,
+              "log_loss": 0.752392506684979,
+              "accuracy_at_0_5": 0.4612546125461255,
+              "predicted_positive_count": 135,
+              "predicted_negative_count": 136,
+              "probability_min": 0.2069154999705698,
+              "probability_max": 0.8735149466213243
+            },
+            "calibrated_metrics": {
+              "rows": 271,
+              "positive_rate": 0.4981549815498155,
+              "mean_probability": 0.49402190517588307,
+              "brier_score": 0.2502450182106964,
+              "log_loss": 0.6936372036689562,
+              "accuracy_at_0_5": 0.4870848708487085,
+              "predicted_positive_count": 42,
+              "predicted_negative_count": 229,
+              "probability_min": 0.4817658948199904,
+              "probability_max": 0.511893544571877
+            }
+          },
+          {
+            "evaluation_season": 2024,
+            "calibration_training_seasons": [
+              2022,
+              2023
+            ],
+            "training_rows": 545,
+            "evaluation_rows": 281,
+            "intercept": -0.019878710835447597,
+            "slope": -0.018448968172653037,
+            "raw_metrics": {
+              "rows": 281,
+              "positive_rate": 0.5195729537366548,
+              "mean_probability": 0.4923110354224194,
+              "brier_score": 0.2567413863049413,
+              "log_loss": 0.7082953969830279,
+              "accuracy_at_0_5": 0.5124555160142349,
+              "predicted_positive_count": 127,
+              "predicted_negative_count": 154,
+              "probability_min": 0.227411417287349,
+              "probability_max": 0.8501668456766744
+            },
+            "calibrated_metrics": {
+              "rows": 281,
+              "positive_rate": 0.5195729537366548,
+              "mean_probability": 0.49517549491001595,
+              "brier_score": 0.25031267817136615,
+              "log_loss": 0.6937725583584933,
+              "accuracy_at_0_5": 0.48398576512455516,
+              "predicted_positive_count": 3,
+              "predicted_negative_count": 278,
+              "probability_min": 0.48702679649147607,
+              "probability_max": 0.500671028802366
+            }
+          },
+          {
+            "evaluation_season": 2025,
+            "calibration_training_seasons": [
+              2022,
+              2023,
+              2024
+            ],
+            "training_rows": 826,
+            "evaluation_rows": 283,
+            "intercept": 0.015996701533004944,
+            "slope": 0.022456051880489575,
+            "raw_metrics": {
+              "rows": 283,
+              "positive_rate": 0.508833922261484,
+              "mean_probability": 0.5056738522212968,
+              "brier_score": 0.27098642499327597,
+              "log_loss": 0.7374623058125832,
+              "accuracy_at_0_5": 0.45936395759717313,
+              "predicted_positive_count": 139,
+              "predicted_negative_count": 144,
+              "probability_min": 0.2641239164773205,
+              "probability_max": 0.7946613244894152
+            },
+            "calibrated_metrics": {
+              "rows": 283,
+              "positive_rate": 0.508833922261484,
+              "mean_probability": 0.504142458127858,
+              "brier_score": 0.25017399914167743,
+              "log_loss": 0.6934952160209706,
+              "accuracy_at_0_5": 0.49823321554770317,
+              "predicted_positive_count": 272,
+              "predicted_negative_count": 11,
+              "probability_min": 0.4982468214207887,
+              "probability_max": 0.5115942895382579
+            }
+          }
+        ],
+        "excluded_rows": 29
+      }
+    },
+    "total": {
+      "input_probability": "raw_over_probability",
+      "positive_outcome": "OVER",
+      "excluded": "pushes",
+      "production_calibration": {
+        "method": "sigmoid(intercept + slope * logit(raw_probability))",
+        "intercept": 0.0061937589838439895,
+        "slope": 0.18087405404337203,
+        "rows": 1128,
+        "source_seasons": [
+          2022,
+          2023,
+          2024,
+          2025
+        ]
+      },
+      "diagnostics": {
+        "raw_all_oof": {
+          "rows": 1128,
+          "positive_rate": 0.4920212765957447,
+          "mean_probability": 0.45189415391677595,
+          "brier_score": 0.262978056744517,
+          "log_loss": 0.7234381104178647,
+          "accuracy_at_0_5": 0.5177304964539007,
+          "predicted_positive_count": 417,
+          "predicted_negative_count": 711,
+          "probability_min": 0.0787169354395399,
+          "probability_max": 0.84015915755368
+        },
+        "chronological_raw_same_rows": {
+          "rows": 847,
+          "positive_rate": 0.5076741440377804,
+          "mean_probability": 0.4523597213710359,
+          "brier_score": 0.2572164853191024,
+          "log_loss": 0.7100971903774427,
+          "accuracy_at_0_5": 0.5301062573789846,
+          "predicted_positive_count": 314,
+          "predicted_negative_count": 533,
+          "probability_min": 0.1121882016143479,
+          "probability_max": 0.8323784192678017
+        },
+        "chronological_calibrated": {
+          "rows": 847,
+          "positive_rate": 0.5076741440377804,
+          "mean_probability": 0.4632293517058786,
+          "brier_score": 0.25383187705833365,
+          "log_loss": 0.7009206478739618,
+          "accuracy_at_0_5": 0.4970484061393152,
+          "predicted_positive_count": 86,
+          "predicted_negative_count": 761,
+          "probability_min": 0.32964042957539497,
+          "probability_max": 0.5569644904697165
+        },
+        "chronological_calibration_bins": [
+          {
+            "min_probability": 0.30000000000000004,
+            "max_probability": 0.4,
+            "rows": 33,
+            "mean_probability": 0.3837134268684162,
+            "actual_rate": 0.6060606060606061
+          },
+          {
+            "min_probability": 0.4,
+            "max_probability": 0.5,
+            "rows": 728,
+            "mean_probability": 0.46110116940497453,
+            "actual_rate": 0.5013736263736264
+          },
+          {
+            "min_probability": 0.5,
+            "max_probability": 0.6000000000000001,
+            "rows": 86,
+            "mean_probability": 0.5117565869930232,
+            "actual_rate": 0.5232558139534884
+          }
+        ],
+        "folds": [
+          {
+            "evaluation_season": 2023,
+            "calibration_training_seasons": [
+              2022
+            ],
+            "training_rows": 281,
+            "evaluation_rows": 281,
+            "intercept": -0.2812974061660826,
+            "slope": -0.26739061765729877,
+            "raw_metrics": {
+              "rows": 281,
+              "positive_rate": 0.4626334519572954,
+              "mean_probability": 0.4357415267149367,
+              "brier_score": 0.24921593937149228,
+              "log_loss": 0.6931430196523508,
+              "accuracy_at_0_5": 0.5729537366548043,
+              "predicted_positive_count": 100,
+              "predicted_negative_count": 181,
+              "probability_min": 0.1292193126481696,
+              "probability_max": 0.8323784192678017
+            },
+            "calibrated_metrics": {
+              "rows": 281,
+              "positive_rate": 0.4626334519572954,
+              "mean_probability": 0.44924537953106314,
+              "brier_score": 0.25681498877517756,
+              "log_loss": 0.7070751399308319,
+              "accuracy_at_0_5": 0.498220640569395,
+              "predicted_positive_count": 33,
+              "predicted_negative_count": 248,
+              "probability_min": 0.32964042957539497,
+              "probability_max": 0.5569644904697165
+            }
+          },
+          {
+            "evaluation_season": 2024,
+            "calibration_training_seasons": [
+              2022,
+              2023
+            ],
+            "training_rows": 562,
+            "evaluation_rows": 282,
+            "intercept": -0.161717346889284,
+            "slope": 0.09577527457010267,
+            "raw_metrics": {
+              "rows": 282,
+              "positive_rate": 0.5390070921985816,
+              "mean_probability": 0.4454183421586926,
+              "brier_score": 0.2707542269386002,
+              "log_loss": 0.7382250399899254,
+              "accuracy_at_0_5": 0.4716312056737589,
+              "predicted_positive_count": 95,
+              "predicted_negative_count": 187,
+              "probability_min": 0.1121882016143479,
+              "probability_max": 0.7621369581142377
+            },
+            "calibrated_metrics": {
+              "rows": 282,
+              "positive_rate": 0.5390070921985816,
+              "mean_probability": 0.4539875337154825,
+              "brier_score": 0.255303821196831,
+              "log_loss": 0.7037869493184417,
+              "accuracy_at_0_5": 0.46099290780141844,
+              "predicted_positive_count": 0,
+              "predicted_negative_count": 282,
+              "probability_min": 0.41099918131660385,
+              "probability_max": 0.48745422712534825
+            }
+          },
+          {
+            "evaluation_season": 2025,
+            "calibration_training_seasons": [
+              2022,
+              2023,
+              2024
+            ],
+            "training_rows": 844,
+            "evaluation_rows": 284,
+            "intercept": -0.043394930351261865,
+            "slope": 0.11242456923468909,
+            "raw_metrics": {
+              "rows": 284,
+              "positive_rate": 0.5211267605633803,
+              "mean_probability": 0.47569486797753147,
+              "brier_score": 0.251690113046497,
+              "log_loss": 0.698942501585297,
+              "accuracy_at_0_5": 0.545774647887324,
+              "predicted_positive_count": 119,
+              "predicted_negative_count": 165,
+              "probability_min": 0.1615151769956836,
+              "probability_max": 0.786633781920727
+            },
+            "calibrated_metrics": {
+              "rows": 284,
+              "positive_rate": 0.5211267605633803,
+              "mean_probability": 0.4862423406298745,
+              "brier_score": 0.24941869875027248,
+              "log_loss": 0.6919850518340891,
+              "accuracy_at_0_5": 0.5316901408450704,
+              "predicted_positive_count": 53,
+              "predicted_negative_count": 231,
+              "probability_min": 0.4431079735170097,
+              "probability_max": 0.5257999004024616
+            }
+          }
+        ],
+        "excluded_rows": 10
+      }
+    }
+  },
+  "chronological_betting_diagnostics": {
+    "total_positive_quoted_ev_zero_threshold": {
+      "evaluated_rows": 847,
+      "bets": 569,
+      "over_bets": 14,
+      "under_bets": 555,
+      "no_bet_rows": 278,
+      "wins": 277,
+      "losses": 292,
+      "pushes": 0,
+      "win_rate_ex_pushes": 0.4868189806678383,
+      "flat_profit_units": -37.467220679388525,
+      "flat_roi": -0.06584748801298511,
+      "average_model_probability": 0.5521534128027171,
+      "average_quoted_ev": 0.05842719694213205
+    },
+    "note": "Choose the total side with the larger positive quoted-price EV."
+  },
+  "chronological_probability_output": "step14_chronological_probabilities_v2.csv"
+}
