@@ -30,20 +30,26 @@ jobs:
         run: |
           python -m py_compile \
             docs/win/football/nfl/scripts/00_intake/pull_odds.py \
-            docs/win/football/nfl/scripts/training/market_timing_probe.py
+            docs/win/football/nfl/scripts/training/market_timing_probe.py \
+            docs/win/football/nfl/scripts/training/market_timing_direct_probe.py
 
       - name: Probe historical market timing capability
         run: |
           python docs/win/football/nfl/scripts/training/market_timing_probe.py
 
-      - name: Commit sanitized probe result
+      - name: Probe finished-event movement endpoint directly
+        run: |
+          python docs/win/football/nfl/scripts/training/market_timing_direct_probe.py
+
+      - name: Commit sanitized probe results
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/win/football/nfl/training/market_timing_provider_probe.json
+          git add docs/win/football/nfl/training/market_timing_direct_movement_probe.json
           if git diff --cached --quiet; then
             echo "No market timing probe changes to commit."
           else
-            git commit -m "Record NFL market timing probe"
+            git commit -m "Record NFL market timing probes"
             git push
           fi
