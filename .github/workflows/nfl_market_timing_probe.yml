@@ -1,0 +1,55 @@
+name: NFL Market Timing Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/nfl-market-timing-v4
+    paths:
+      - docs/win/football/nfl/training/MARKET_TIMING_PROBE_TRIGGER.txt
+
+permissions:
+  contents: write
+
+jobs:
+  market-timing-probe:
+    runs-on: ubuntu-latest
+    env:
+      API_ODDS: ${{ secrets.API_ODDS }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Compile market timing scripts
+        run: |
+          python -m py_compile \
+            docs/win/football/nfl/scripts/00_intake/pull_odds.py \
+            docs/win/football/nfl/scripts/training/market_timing_probe.py \
+            docs/win/football/nfl/scripts/training/market_timing_direct_probe.py
+
+      - name: Probe historical market timing capability
+        run: |
+          python docs/win/football/nfl/scripts/training/market_timing_probe.py
+
+      - name: Probe finished-event movement endpoint directly
+        run: |
+          python docs/win/football/nfl/scripts/training/market_timing_direct_probe.py
+
+      - name: Commit sanitized probe results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/win/football/nfl/training/market_timing_provider_probe.json
+          git add docs/win/football/nfl/training/market_timing_direct_movement_probe.json
+          if git diff --cached --quiet; then
+            echo "No market timing probe changes to commit."
+          else
+            git commit -m "Record NFL market timing probes"
+            git push
+          fi
