@@ -1,8 +1,8 @@
 {
   "step": "14_probability_calibration",
-  "created_utc": "2026-08-13T12:46:20.638443+00:00",
+  "created_utc": "2026-08-15T14:56:35.177671+00:00",
   "source_backtest": "step13_chronological_backtest.csv",
-  "source_backtest_sha256": "16d5b472e39fd97002d1602f604158bf573a57553c36853510c54ed0a96d8a57",
+  "source_backtest_sha256": "3c55d9401c50cd64552a7464396f2edafd0261f9685f34208c01bcc253d084ee",
   "source_rows": 1138,
   "source_seasons": [
     2022,
@@ -17,8 +17,8 @@
       "x_definition": "predicted_margin",
       "positive_outcome": "home win (actual_margin > 0)",
       "excluded": "actual_margin == 0 (ties)",
-      "intercept": 0.004065546121858006,
-      "slope": 0.13625856192135555,
+      "intercept": 0.004065546121858014,
+      "slope": 0.13625856192135552,
       "home_win_probability": "sigmoid(intercept + slope * predicted_margin)",
       "away_win_probability": "1 - home_win_probability",
       "diagnostics": {
@@ -36,8 +36,8 @@
       "x_definition": "predicted_margin - spread_line",
       "positive_outcome": "home cover (actual_home_ats_result == WIN)",
       "excluded": "actual_home_ats_result == PUSH",
-      "intercept": 0.009989633677478488,
-      "slope": 0.03592216558021107,
+      "intercept": 0.009989633677478484,
+      "slope": 0.035922165580211086,
       "home_cover_probability": "sigmoid(intercept + slope * (predicted_margin - spread_line))",
       "away_cover_probability": "1 - home_cover_probability",
       "diagnostics": {
@@ -55,7 +55,7 @@
       "x_definition": "predicted_total - total_line",
       "positive_outcome": "OVER (actual_total_result == OVER)",
       "excluded": "actual_total_result == PUSH",
-      "intercept": -0.05353449668978319,
+      "intercept": -0.05353449668978318,
       "slope": 0.03797885568494725,
       "over_probability": "sigmoid(intercept + slope * (predicted_total - total_line))",
       "under_probability": "1 - over_probability",
