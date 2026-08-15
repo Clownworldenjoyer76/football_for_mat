@@ -1,24 +1,23 @@
 name: NFL Annual Training Models
 
-# MANUAL RUN ONLY.
+# MANUAL RUN OR V3 BRANCH TRIGGER ONLY.
 #
 # Rebuilds historical training data through Step 10, then builds the isolated
-# v2 candidate stack:
-#   Step 4  - removes static outcome-mined enrichment features
-#   Step 11 - trains clean market-residual regressors + direct classifiers
-#   Step 13 - expanding-season out-of-fold backtest
-#   Step 14 - chronological probability calibration + total betting audit
+# v3 market-relative candidate stack:
+#   Step 4  - leakage sanitization gate
+#   Step 11 - market-baseline residual regressors + logit-adjustment classifiers
+#   Step 13 - expanding-season out-of-fold market-relative backtest
+#   Step 14 - nested chronological shrinkage vs no-vig sportsbook baseline
 #
-# v2 artifacts are intentionally separate from the current live model files so
-# the replacement can be validated before production cutover.
+# v3 artifacts remain separate from the current live production files.
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - agent/nfl-leak-free-v2
+      - agent/nfl-market-relative-v3
     paths:
-      - docs/win/football/nfl/training/RUN_V2_TRIGGER.txt
+      - docs/win/football/nfl/training/RUN_V3_TRIGGER.txt
 
 permissions:
   contents: write
@@ -90,54 +89,49 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/training/step10.py
 
-      - name: Train Step 11 leak-free v2 models
+      - name: Train Step 11 market-relative v3 models
         run: |
           python docs/win/football/nfl/scripts/training/step11.py
 
-      - name: Run Step 13 chronological v2 backtest
+      - name: Run Step 13 market-relative v3 backtest
         run: |
           python docs/win/football/nfl/scripts/training/step13.py --reset
 
-      - name: Build Step 14 chronological v2 calibration
+      - name: Run Step 14 nested market-baseline validation
         run: |
           python docs/win/football/nfl/scripts/training/step14_calibration.py
 
-      - name: Print v2 total diagnostic summary
+      - name: Print v3 validation summary
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-
-          path = Path("docs/win/football/nfl/models/step14_probability_calibration_v2.json")
+          path = Path("docs/win/football/nfl/models/step14_market_relative_validation_v3.json")
           data = json.loads(path.read_text())
-          total = data["calibrations"]["total"]["diagnostics"]
-          audit = data["chronological_betting_diagnostics"]["total_positive_quoted_ev_zero_threshold"]
-
-          print("TOTAL raw OOF:", total["raw_all_oof"])
-          print("TOTAL chronological raw same rows:", total["chronological_raw_same_rows"])
-          print("TOTAL chronological calibrated:", total["chronological_calibrated"])
-          print("TOTAL positive-EV betting audit:", audit)
+          print("Overall cutover recommendation:", data["overall_recommended_for_cutover"])
+          for market, result in data["markets"].items():
+              print(market.upper(), "alpha=", result["production_alpha"], "brier_gain=", result["chronological_brier_gain_vs_market"], "logloss_gain=", result["chronological_logloss_gain_vs_market"], "fold_wins=", f"{result['chronological_fold_wins']}/{len(result['folds'])}", "cutover=", result["recommended_for_cutover"])
+              if market in {"spread", "total"}:
+                  print(market.upper(), "fair-edge audits:", result["betting_audits"])
           PY
 
-      - name: Commit v2 training outputs
+      - name: Commit v3 training outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add docs/win/football/nfl/training/historical_core_20??.csv
-          git add docs/win/football/nfl/training/backtests/step13_chronological_backtest_v2.csv
-          git add docs/win/football/nfl/training/backtests/step14_chronological_probabilities_v2.csv
-          git add docs/win/football/nfl/models/step11_clean_feature_schema.json
-          git add docs/win/football/nfl/models/step11_spread_residual_model_v2.cbm
-          git add docs/win/football/nfl/models/step11_total_residual_model_v2.cbm
-          git add docs/win/football/nfl/models/step11_moneyline_probability_model_v2.cbm
-          git add docs/win/football/nfl/models/step11_spread_probability_model_v2.cbm
-          git add docs/win/football/nfl/models/step11_total_probability_model_v2.cbm
-          git add docs/win/football/nfl/models/step14_probability_calibration_v2.json
-
+          git add docs/win/football/nfl/training/backtests/step13_market_relative_backtest_v3.csv
+          git add docs/win/football/nfl/training/backtests/step14_market_relative_probabilities_v3.csv
+          git add docs/win/football/nfl/models/step11_market_relative_feature_schema_v3.json
+          git add docs/win/football/nfl/models/step11_spread_residual_model_v3.cbm
+          git add docs/win/football/nfl/models/step11_total_residual_model_v3.cbm
+          git add docs/win/football/nfl/models/step11_moneyline_adjustment_model_v3.cbm
+          git add docs/win/football/nfl/models/step11_spread_adjustment_model_v3.cbm
+          git add docs/win/football/nfl/models/step11_total_adjustment_model_v3.cbm
+          git add docs/win/football/nfl/models/step14_market_relative_validation_v3.json
           if git diff --cached --quiet; then
-            echo "No v2 training output changes to commit."
+            echo "No v3 training output changes to commit."
           else
-            git commit -m "Build NFL leak-free v2 models"
+            git commit -m "Build NFL market-relative v3 models"
             git push
           fi
