@@ -54,7 +54,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
             docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow.csv \
-            docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow_metadata.json
+            docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow_metadata.json \
+            docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow_compact.csv \
+            docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow_summary.json
           if git diff --cached --quiet; then
             echo "No v4 shadow output changes to commit."
           else
