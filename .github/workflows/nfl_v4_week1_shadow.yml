@@ -33,6 +33,7 @@ jobs:
         run: |
           python -m py_compile \
             docs/win/football/nfl/scripts/forward_validation/projection_week1_v4_shadow.py \
+            docs/win/football/nfl/scripts/forward_validation/projection_week1_v4_shadow_entry.py \
             docs/win/football/nfl/scripts/01_merge/projection_week1.py
 
       - name: Verify v4 candidate artifacts
@@ -45,7 +46,7 @@ jobs:
           test -s docs/win/football/nfl/models/step11_moneyline_model_augmented_v4.cbm
 
       - name: Run Week 1 v4 shadow projection
-        run: python docs/win/football/nfl/scripts/forward_validation/projection_week1_v4_shadow.py
+        run: python docs/win/football/nfl/scripts/forward_validation/projection_week1_v4_shadow_entry.py
 
       - name: Commit Week 1 v4 shadow outputs
         run: |
