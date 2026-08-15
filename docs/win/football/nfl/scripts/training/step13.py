@@ -1,603 +1,170 @@
 #!/usr/bin/env python3
 """
-Step 13: chronological NFL backtest using the exact Step 11 training process.
+Step 13: leakage-free chronological backtest for the Step 11 v2 candidate stack.
 
-Repository location:
-    docs/win/football/nfl/scripts/training/step13.py
+Each held-out season is predicted using only earlier seasons. No game from the
+held-out season participates in model fitting.
 
 Inputs:
-    docs/win/football/nfl/training/historical_core_<season>.csv
-    docs/win/football/nfl/models/step11_feature_schema.json
-
-The season range comes from the Step 11 schema. The first season is initial
-training history; every later season is held out chronologically.
+  docs/win/football/nfl/training/historical_core_<season>.csv
+  docs/win/football/nfl/models/step11_clean_feature_schema.json
 
 Output:
-    docs/win/football/nfl/training/backtests/step13_chronological_backtest.csv
+  docs/win/football/nfl/training/backtests/step13_chronological_backtest_v2.csv
 """
-
 from __future__ import annotations
-
-import argparse
-import hashlib
-import json
-import sys
+import argparse, hashlib, json, os, sys
 from pathlib import Path
 from typing import Any
-
 import numpy as np
 import pandas as pd
-from catboost import CatBoostRegressor, Pool
-
+from catboost import CatBoostClassifier, CatBoostRegressor, Pool
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 NFL_ROOT = SCRIPT_DIR.parents[1]
 TRAINING_DIR = NFL_ROOT / "training"
 MODELS_DIR = NFL_ROOT / "models"
 BACKTEST_DIR = TRAINING_DIR / "backtests"
-
-SCHEMA_PATH = MODELS_DIR / "step11_feature_schema.json"
-OUTPUT_PATH = BACKTEST_DIR / "step13_chronological_backtest.csv"
-CHECKPOINT_PATH = BACKTEST_DIR / "step13_backtest_checkpoint.csv"
-
+SCHEMA_PATH = MODELS_DIR / "step11_clean_feature_schema.json"
+OUTPUT_PATH = BACKTEST_DIR / "step13_chronological_backtest_v2.csv"
 BLANK_TOKENS = {"", "nan", "none", "null", "<na>", "nat"}
 MISSING_CATEGORY = "__MISSING__"
-
 REQUIRED_RESULT_COLUMNS = [
-    "game_id", "season", "week", "gameday", "gametime",
-    "away_team", "home_team", "spread_line", "total_line",
-    "margin", "total_points", "home_win", "home_ats_result", "total_result",
+    "game_id", "season", "week", "gameday", "gametime", "away_team", "home_team",
+    "spread_line", "total_line", "away_moneyline", "home_moneyline",
+    "away_spread_odds", "home_spread_odds", "under_odds", "over_odds",
+    "margin", "total_points", "home_ats_result", "total_result",
 ]
-
 OUTPUT_COLUMNS = [
-    "season", "week", "gameday", "gametime", "game_id",
-    "away_team", "home_team", "training_rows", "spread_line", "total_line",
-    "predicted_margin", "actual_margin", "predicted_total", "actual_total_points",
-    "predicted_home_score", "predicted_away_score", "predicted_ml_winner",
-    "actual_home_win", "predicted_ats_side", "actual_home_ats_result",
-    "predicted_ou", "actual_total_result",
+    "season", "week", "gameday", "gametime", "game_id", "away_team", "home_team",
+    "training_seasons", "training_rows", "away_moneyline", "home_moneyline",
+    "spread_line", "away_spread_odds", "home_spread_odds", "total_line",
+    "under_odds", "over_odds", "predicted_spread_residual", "actual_spread_residual",
+    "predicted_margin", "actual_margin", "predicted_total_residual", "actual_total_residual",
+    "predicted_total", "actual_total_points", "predicted_home_score", "predicted_away_score",
+    "raw_home_win_probability", "raw_home_cover_probability", "raw_over_probability",
+    "actual_home_win", "actual_home_ats_result", "actual_total_result",
 ]
 
-
-def fail(message: str) -> None:
-    raise RuntimeError(message)
-
+def fail(message: str) -> None: raise RuntimeError(message)
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""): digest.update(chunk)
     return digest.hexdigest()
 
-
 def load_schema() -> dict[str, Any]:
-    if not SCHEMA_PATH.is_file():
-        fail(f"Missing Step 11 schema: {SCHEMA_PATH}")
-
+    if not SCHEMA_PATH.is_file(): fail(f"Missing Step 11 v2 schema: {SCHEMA_PATH}")
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-    required = {
-        "training_seasons", "targets", "model_params", "feature_count",
-        "feature_order", "numeric_features", "categorical_features",
-        "categorical_feature_indices",
-    }
+    required = {"candidate_version", "training_seasons", "regressor_params", "classifier_params", "feature_count", "feature_order", "numeric_features", "categorical_features", "categorical_feature_indices", "input_sha256"}
     missing = sorted(required - set(schema))
-    if missing:
-        fail(f"Step 11 schema missing required keys: {missing}")
-
-    try:
-        seasons = [int(value) for value in schema["training_seasons"]]
-    except Exception as exc:
-        fail(f"Invalid Step 11 training_seasons: {exc}")
-
-    if len(seasons) < 2:
-        fail("Step 13 requires at least two Step 11 training seasons")
-    if seasons != sorted(set(seasons)):
-        fail(f"Step 11 training_seasons must be unique and sorted: {seasons}")
-    if seasons != list(range(seasons[0], seasons[-1] + 1)):
-        fail(f"Step 11 training_seasons must be contiguous: {seasons}")
-    if list(schema["targets"]) != ["margin", "total_points"]:
-        fail(f"Unexpected Step 11 targets: {schema['targets']}")
-
-    feature_order = list(schema["feature_order"])
-    numeric = list(schema["numeric_features"])
-    categorical = list(schema["categorical_features"])
-    cat_indices = list(schema["categorical_feature_indices"])
-
-    if len(feature_order) != int(schema["feature_count"]):
-        fail("Step 11 feature_count does not match feature_order")
-    if len(feature_order) != len(set(feature_order)):
-        fail("Duplicate features in Step 11 feature_order")
-    if set(numeric) & set(categorical):
-        fail("Numeric/categorical overlap in Step 11 schema")
-    if set(numeric) | set(categorical) != set(feature_order):
-        fail("Numeric/categorical lists do not exactly cover feature_order")
-    expected_indices = [
-        i for i, column in enumerate(feature_order) if column in set(categorical)
-    ]
-    if cat_indices != expected_indices:
-        fail("categorical_feature_indices do not match Step 11 feature_order")
-
+    if missing: fail(f"Step 11 v2 schema missing keys: {missing}")
+    if schema.get("candidate_version") != "v2_leak_free_market_residual_probability": fail("Unexpected Step 11 candidate_version")
+    seasons = [int(v) for v in schema["training_seasons"]]
+    if len(seasons) < 2 or seasons != list(range(seasons[0], seasons[-1] + 1)): fail(f"Training seasons invalid: {seasons}")
+    features = list(schema["feature_order"]); numeric = list(schema["numeric_features"]); categorical = list(schema["categorical_features"]); cat_indices = list(schema["categorical_feature_indices"])
+    if len(features) != int(schema["feature_count"]) or len(features) != len(set(features)): fail("Invalid feature_order")
+    if set(numeric) & set(categorical) or set(numeric) | set(categorical) != set(features): fail("Invalid feature type coverage")
+    expected = [i for i, c in enumerate(features) if c in set(categorical)]
+    if cat_indices != expected: fail("categorical_feature_indices mismatch")
     return schema
 
-
 def read_inputs(schema: dict[str, Any], seasons: list[int]) -> pd.DataFrame:
-    frames: list[pd.DataFrame] = []
-    reference_columns: list[str] | None = None
-    expected_hashes = schema.get("input_sha256", {})
-
+    frames, reference = [], None
+    hashes = dict(schema.get("input_sha256", {}))
     for season in seasons:
         path = TRAINING_DIR / f"historical_core_{season}.csv"
-        if not path.is_file():
-            fail(f"Missing input file: {path}")
-
-        expected_hash = expected_hashes.get(path.name)
-        if expected_hash and sha256_file(path) != expected_hash:
-            fail(
-                f"{path.name}: SHA256 does not match the file used by Step 11"
-            )
-
-        df = pd.read_csv(
-            path,
-            dtype=str,
-            keep_default_na=False,
-            na_filter=False,
-            encoding="utf-8-sig",
-            low_memory=False,
-        )
-        if df.empty:
-            fail(f"{path}: no data rows")
-        if len(df.columns) != len(set(df.columns)):
-            fail(f"{path}: duplicate column names")
-
-        if reference_columns is None:
-            reference_columns = list(df.columns)
-        elif list(df.columns) != reference_columns:
-            fail(
-                f"{path}: schema/order differs from "
-                f"historical_core_{seasons[0]}.csv"
-            )
-
+        if not path.is_file(): fail(f"Missing input file: {path}")
+        expected_hash = hashes.get(path.name)
+        if expected_hash and sha256_file(path) != expected_hash: fail(f"{path.name}: SHA256 differs from Step 11 input")
+        df = pd.read_csv(path, dtype=str, keep_default_na=False, na_filter=False, encoding="utf-8-sig", low_memory=False)
+        if df.empty or len(df.columns) != len(set(df.columns)): fail(f"{path}: empty or duplicate columns")
+        if reference is None: reference = list(df.columns)
+        elif list(df.columns) != reference: fail(f"{path}: schema/order differs")
         missing = sorted(set(REQUIRED_RESULT_COLUMNS) - set(df.columns))
-        if missing:
-            fail(f"{path}: missing backtest columns: {missing}")
-        feature_missing = [
-            column for column in schema["feature_order"] if column not in df.columns
-        ]
-        if feature_missing:
-            fail(f"{path}: missing Step 11 features: {feature_missing}")
-
-        parsed_season = pd.to_numeric(df["season"], errors="coerce")
-        if parsed_season.isna().any() or not (
-            parsed_season.astype(int) == season
-        ).all():
-            fail(f"{path}: contains invalid/wrong-season rows")
+        if missing: fail(f"{path}: missing backtest columns: {missing}")
+        feature_missing = [c for c in schema["feature_order"] if c not in df.columns]
+        if feature_missing: fail(f"{path}: missing Step 11 v2 features: {feature_missing}")
+        parsed = pd.to_numeric(df["season"], errors="coerce")
+        if parsed.isna().any() or not (parsed.astype(int) == season).all(): fail(f"{path}: wrong-season rows")
         frames.append(df)
-
-    combined = pd.concat(frames, ignore_index=True)
-    game_id = combined["game_id"].astype(str).str.strip()
-    if game_id.eq("").any():
-        fail("Blank game_id values detected")
-    if game_id.duplicated().any():
-        fail(
-            "Duplicate game_id values detected: "
-            f"{game_id[game_id.duplicated()].head(10).tolist()}"
-        )
-    return combined
-
+    raw = pd.concat(frames, ignore_index=True); ids = raw["game_id"].astype(str).str.strip()
+    if ids.eq("").any() or ids.duplicated().any(): fail("game_id values must be populated and unique")
+    return raw
 
 def prepare_feature_matrix(raw: pd.DataFrame, schema: dict[str, Any]) -> pd.DataFrame:
-    feature_order = list(schema["feature_order"])
-    numeric_features = list(schema["numeric_features"])
-    categorical_features = list(schema["categorical_features"])
-    X = raw[feature_order].copy()
-
-    for column in numeric_features:
-        original = X[column].astype(str).str.strip()
-        cleaned = original.str.replace("%", "", regex=False)
-        blank = cleaned.str.casefold().isin(BLANK_TOKENS)
-        converted = pd.to_numeric(cleaned.mask(blank, np.nan), errors="coerce")
-        bad = (~blank) & converted.isna()
-        if bad.any():
-            fail(
-                f"Numeric conversion failed for {column}: "
-                f"{original[bad].head(5).tolist()}"
-            )
-        X[column] = converted
-
-    for column in categorical_features:
-        cleaned = X[column].astype(str).str.strip()
-        blank = cleaned.str.casefold().isin(BLANK_TOKENS)
-        X[column] = cleaned.mask(blank, MISSING_CATEGORY)
-
+    features = list(schema["feature_order"]); numeric = list(schema["numeric_features"]); categorical = list(schema["categorical_features"]); X = raw[features].copy()
+    for c in numeric:
+        original = X[c].astype(str).str.strip(); cleaned = original.str.replace("%", "", regex=False); blank = cleaned.str.casefold().isin(BLANK_TOKENS); converted = pd.to_numeric(cleaned.mask(blank, np.nan), errors="coerce")
+        if ((~blank) & converted.isna()).any(): fail(f"Numeric conversion failed for {c}")
+        X[c] = converted
+    for c in categorical:
+        cleaned = X[c].astype(str).str.strip(); X[c] = cleaned.mask(cleaned.str.casefold().isin(BLANK_TOKENS), MISSING_CATEGORY)
     return X
 
-
-def build_chronology(raw: pd.DataFrame) -> pd.DataFrame:
-    ordered = raw.copy()
-    ordered["_season_sort"] = pd.to_numeric(ordered["season"], errors="coerce")
-    ordered["_week_sort"] = pd.to_numeric(ordered["week"], errors="coerce")
-    ordered["_gameday_sort"] = pd.to_datetime(
-        ordered["gameday"].astype(str).str.strip(),
-        format="%Y-%m-%d",
-        errors="coerce",
-    )
-    ordered["_gametime_sort"] = pd.to_timedelta(
-        ordered["gametime"].astype(str).str.strip() + ":00",
-        errors="coerce",
-    )
-
-    for column in [
-        "_season_sort", "_week_sort", "_gameday_sort", "_gametime_sort"
-    ]:
-        if ordered[column].isna().any():
-            examples = ordered.loc[
-                ordered[column].isna(),
-                ["game_id", "season", "week", "gameday", "gametime"],
-            ].head(10)
-            fail(
-                f"Could not parse chronological field {column}. "
-                f"Examples:\n{examples.to_string(index=False)}"
-            )
-
-    return ordered.sort_values(
-        [
-            "_season_sort", "_week_sort", "_gameday_sort",
-            "_gametime_sort", "game_id",
-        ],
-        kind="mergesort",
-    ).reset_index(drop=True)
-
-
 def validate_results(raw: pd.DataFrame) -> None:
-    for column in ["margin", "total_points", "spread_line", "total_line", "home_win"]:
-        numeric = pd.to_numeric(raw[column], errors="coerce")
-        if numeric.isna().any():
-            fail(
-                f"{column}: contains {int(numeric.isna().sum())} "
-                "blank/non-numeric rows"
-            )
+    for c in ["margin", "total_points", "spread_line", "total_line"]:
+        if pd.to_numeric(raw[c], errors="coerce").isna().any(): fail(f"{c}: blank/non-numeric rows")
+    ats = raw["home_ats_result"].astype(str).str.strip().str.upper(); totals = raw["total_result"].astype(str).str.strip().str.upper()
+    if sorted(set(ats) - {"WIN", "LOSS", "PUSH"}): fail("Unexpected ATS results")
+    if sorted(set(totals) - {"OVER", "UNDER", "PUSH"}): fail("Unexpected total results")
 
-    ats = set(raw["home_ats_result"].astype(str).str.strip())
-    invalid_ats = sorted(ats - {"WIN", "LOSS", "PUSH"})
-    if invalid_ats:
-        fail(f"Unexpected home_ats_result values: {invalid_ats}")
+def train_regressor(X: pd.DataFrame, y: pd.Series, cat_indices: list[int], params: dict[str, Any]) -> CatBoostRegressor:
+    model = CatBoostRegressor(**params); model.fit(Pool(X, label=y, cat_features=cat_indices, feature_names=list(X.columns)), verbose=False); return model
 
-    totals = set(raw["total_result"].astype(str).str.strip())
-    invalid_totals = sorted(totals - {"OVER", "UNDER", "PUSH"})
-    if invalid_totals:
-        fail(f"Unexpected total_result values: {invalid_totals}")
+def train_classifier(X: pd.DataFrame, y: pd.Series, cat_indices: list[int], params: dict[str, Any]) -> CatBoostClassifier:
+    if set(y.astype(int).unique()) != {0, 1}: fail("Classifier training fold lacks both classes")
+    model = CatBoostClassifier(**params); model.fit(Pool(X, label=y.astype(int), cat_features=cat_indices, feature_names=list(X.columns)), verbose=False); return model
 
+def predict_positive_probability(model: CatBoostClassifier, X: pd.DataFrame) -> np.ndarray:
+    probability = np.asarray(model.predict_proba(X), dtype=float); classes = [int(v) for v in model.classes_]
+    if probability.ndim != 2 or 1 not in classes: fail("Invalid classifier probability output")
+    output = probability[:, classes.index(1)]
+    if not np.isfinite(output).all() or ((output < 0) | (output > 1)).any(): fail("Invalid probabilities")
+    return output
 
-def train_regressor(
-    X: pd.DataFrame,
-    y: pd.Series,
-    cat_indices: list[int],
-    model_params: dict[str, Any],
-) -> CatBoostRegressor:
-    pool = Pool(
-        X,
-        label=y,
-        cat_features=cat_indices,
-        feature_names=list(X.columns),
-    )
-    model = CatBoostRegressor(**model_params)
-    model.fit(pool, verbose=False)
-    return model
-
-
-def predict_regressor(
-    model: CatBoostRegressor,
-    X: pd.DataFrame,
-    cat_indices: list[int],
-) -> np.ndarray:
-    pool = Pool(
-        X,
-        cat_features=cat_indices,
-        feature_names=list(X.columns),
-    )
-    return np.asarray(model.predict(pool), dtype=float)
-
-
-def predicted_ml_winner(margin: float) -> str:
-    return "HOME" if margin > 0 else "AWAY" if margin < 0 else "TIE"
-
-
-def predicted_ats_side(margin: float, spread_line: float) -> str:
-    edge = margin - spread_line
-    return "HOME" if edge > 1e-12 else "AWAY" if edge < -1e-12 else "PUSH"
-
-
-def predicted_ou(total: float, total_line: float) -> str:
-    edge = total - total_line
-    return "OVER" if edge > 1e-12 else "UNDER" if edge < -1e-12 else "PUSH"
-
-
-def atomic_write_csv(df: pd.DataFrame, path: Path) -> None:
-    temp = path.with_suffix(path.suffix + ".tmp")
-    df.to_csv(temp, index=False)
-    temp.replace(path)
-
-
-def sort_output(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty:
-        return df[OUTPUT_COLUMNS].copy()
-
-    output = df[OUTPUT_COLUMNS].copy()
-    output["_season"] = pd.to_numeric(output["season"], errors="raise")
-    output["_week"] = pd.to_numeric(output["week"], errors="raise")
-    output["_date"] = pd.to_datetime(output["gameday"], errors="raise")
-    output["_time"] = pd.to_timedelta(
-        output["gametime"].astype(str) + ":00",
-        errors="raise",
-    )
-    return (
-        output.sort_values(
-            ["_season", "_week", "_date", "_time", "game_id"],
-            kind="mergesort",
-        )
-        .drop(columns=["_season", "_week", "_date", "_time"])
-        .reset_index(drop=True)
-    )
-
-
-def load_existing_checkpoint(
-    expected_game_ids: set[str],
-    backtest_seasons: list[int],
-) -> pd.DataFrame:
-    source = (
-        CHECKPOINT_PATH
-        if CHECKPOINT_PATH.exists()
-        else OUTPUT_PATH
-        if OUTPUT_PATH.exists()
-        else None
-    )
-    if source is None:
-        return pd.DataFrame(columns=OUTPUT_COLUMNS)
-
-    existing = pd.read_csv(source, dtype={"game_id": str})
-    missing = [column for column in OUTPUT_COLUMNS if column not in existing.columns]
-    if missing:
-        fail(f"{source.name}: missing expected columns: {missing}")
-
-    existing = existing[OUTPUT_COLUMNS].copy()
-    existing["game_id"] = existing["game_id"].astype(str).str.strip()
-    if existing["game_id"].duplicated().any():
-        fail(f"{source.name}: duplicate game_id values")
-
-    unknown = sorted(set(existing["game_id"]) - expected_game_ids)
-    if unknown:
-        fail(
-            f"{source.name}: contains games outside the expected "
-            f"{backtest_seasons[0]}-{backtest_seasons[-1]} backtest: {unknown[:10]}"
-        )
-    return existing
-
-
-def make_result_rows(
-    holdout: pd.DataFrame,
-    predicted_margin: np.ndarray,
-    predicted_total: np.ndarray,
-    training_rows: int,
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for position, (_, row) in enumerate(holdout.iterrows()):
-        margin = float(predicted_margin[position])
-        total = float(predicted_total[position])
-        spread_line = float(row["spread_line"])
-        total_line = float(row["total_line"])
-
-        rows.append(
-            {
-                "season": int(float(row["season"])),
-                "week": int(float(row["week"])),
-                "gameday": str(row["gameday"]).strip(),
-                "gametime": str(row["gametime"]).strip(),
-                "game_id": str(row["game_id"]).strip(),
-                "away_team": str(row["away_team"]).strip(),
-                "home_team": str(row["home_team"]).strip(),
-                "training_rows": int(training_rows),
-                "spread_line": spread_line,
-                "total_line": total_line,
-                "predicted_margin": margin,
-                "actual_margin": float(row["margin"]),
-                "predicted_total": total,
-                "actual_total_points": float(row["total_points"]),
-                "predicted_home_score": (total + margin) / 2.0,
-                "predicted_away_score": (total - margin) / 2.0,
-                "predicted_ml_winner": predicted_ml_winner(margin),
-                "actual_home_win": int(float(row["home_win"])),
-                "predicted_ats_side": predicted_ats_side(margin, spread_line),
-                "actual_home_ats_result": str(row["home_ats_result"]).strip(),
-                "predicted_ou": predicted_ou(total, total_line),
-                "actual_total_result": str(row["total_result"]).strip(),
-            }
-        )
+def make_rows(holdout: pd.DataFrame, training_seasons: list[int], training_rows: int, spread_residual: np.ndarray, total_residual: np.ndarray, ml_probability: np.ndarray, spread_probability: np.ndarray, total_probability: np.ndarray) -> list[dict[str, Any]]:
+    rows = []
+    for pos, (_, row) in enumerate(holdout.iterrows()):
+        spread_line = float(row["spread_line"]); total_line = float(row["total_line"]); margin = float(row["margin"]); total_points = float(row["total_points"])
+        predicted_margin = spread_line + float(spread_residual[pos]); predicted_total = total_line + float(total_residual[pos])
+        rows.append({
+            "season": int(float(row["season"])), "week": int(float(row["week"])), "gameday": str(row["gameday"]).strip(), "gametime": str(row["gametime"]).strip(), "game_id": str(row["game_id"]).strip(), "away_team": str(row["away_team"]).strip(), "home_team": str(row["home_team"]).strip(),
+            "training_seasons": f"{training_seasons[0]}-{training_seasons[-1]}", "training_rows": training_rows,
+            "away_moneyline": row["away_moneyline"], "home_moneyline": row["home_moneyline"], "spread_line": spread_line, "away_spread_odds": row["away_spread_odds"], "home_spread_odds": row["home_spread_odds"], "total_line": total_line, "under_odds": row["under_odds"], "over_odds": row["over_odds"],
+            "predicted_spread_residual": float(spread_residual[pos]), "actual_spread_residual": margin - spread_line, "predicted_margin": predicted_margin, "actual_margin": margin,
+            "predicted_total_residual": float(total_residual[pos]), "actual_total_residual": total_points - total_line, "predicted_total": predicted_total, "actual_total_points": total_points,
+            "predicted_home_score": (predicted_total + predicted_margin) / 2.0, "predicted_away_score": (predicted_total - predicted_margin) / 2.0,
+            "raw_home_win_probability": float(ml_probability[pos]), "raw_home_cover_probability": float(spread_probability[pos]), "raw_over_probability": float(total_probability[pos]),
+            "actual_home_win": 1 if margin > 0 else 0 if margin < 0 else "", "actual_home_ats_result": str(row["home_ats_result"]).strip().upper(), "actual_total_result": str(row["total_result"]).strip().upper(),
+        })
     return rows
 
+def atomic_write_csv(df: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True); temp = path.with_suffix(path.suffix + ".tmp"); df.to_csv(temp, index=False); os.replace(temp, path)
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--reset",
-        action="store_true",
-        help="Delete existing backtest/checkpoint and rebuild from scratch.",
-    )
-    parser.add_argument(
-        "--max-groups",
-        type=int,
-        default=None,
-        help="Optional smoke-test limit on new held-out kickoff groups.",
-    )
-    args = parser.parse_args()
-
-    if args.max_groups is not None and args.max_groups <= 0:
-        fail("--max-groups must be greater than zero")
-
-    BACKTEST_DIR.mkdir(parents=True, exist_ok=True)
-    if args.reset:
-        for path in [CHECKPOINT_PATH, OUTPUT_PATH]:
-            if path.exists():
-                path.unlink()
-
-    schema = load_schema()
-    seasons = [int(value) for value in schema["training_seasons"]]
-    initial_train_season = seasons[0]
-    backtest_seasons = seasons[1:]
-
-    raw = read_inputs(schema, seasons)
-    validate_results(raw)
-    ordered = build_chronology(raw)
-
-    X = prepare_feature_matrix(ordered, schema)
-    y_margin = pd.to_numeric(ordered["margin"], errors="raise").astype(float)
-    y_total = pd.to_numeric(ordered["total_points"], errors="raise").astype(float)
-    season_numeric = pd.to_numeric(ordered["season"], errors="raise").astype(int)
-
-    backtest_mask = season_numeric.isin(backtest_seasons)
-    expected_game_ids = set(
-        ordered.loc[backtest_mask, "game_id"].astype(str).str.strip()
-    )
-    initial_training_rows = int((season_numeric == initial_train_season).sum())
-    if initial_training_rows <= 0:
-        fail(f"No {initial_train_season} rows available for initial training")
-
-    existing = load_existing_checkpoint(expected_game_ids, backtest_seasons)
-    completed_ids = set(existing["game_id"].astype(str).str.strip())
-    if completed_ids == expected_game_ids and args.max_groups is None:
-        final = sort_output(existing)
-        atomic_write_csv(final, OUTPUT_PATH)
-        if CHECKPOINT_PATH.exists():
-            CHECKPOINT_PATH.unlink()
-        print(f"Step 13 already complete: rows={len(final)} -> {OUTPUT_PATH}")
-        return 0
-
-    heldout = ordered.loc[backtest_mask].copy()
-    groups = list(
-        heldout.groupby(
-            ["season", "week", "gameday", "gametime"],
-            sort=False,
-            dropna=False,
-        )
-    )
-
-    print(
-        f"Historical rows={len(ordered)}, "
-        f"initial_{initial_train_season}_training_rows={initial_training_rows}, "
-        f"heldout_games={len(heldout)}, kickoff_groups={len(groups)}, "
-        f"features={len(schema['feature_order'])}"
-    )
-
-    accumulated = existing.copy()
-    processed_new_groups = 0
-    cat_indices = list(schema["categorical_feature_indices"])
-    model_params = dict(schema["model_params"])
-
-    for group_number, (group_key, group_df) in enumerate(groups, start=1):
-        group_ids = set(group_df["game_id"].astype(str).str.strip())
-        if group_ids.issubset(completed_ids):
-            continue
-        if args.max_groups is not None and processed_new_groups >= args.max_groups:
-            break
-
-        group_positions = group_df.index.to_numpy(dtype=int)
-        first_position = int(group_positions.min())
-        train_positions = np.arange(first_position, dtype=int)
-
-        if len(train_positions) < initial_training_rows:
-            fail(
-                f"Held-out group {group_key} has only {len(train_positions)} "
-                f"prior rows; expected at least all {initial_train_season} rows"
-            )
-
-        margin_model = train_regressor(
-            X.iloc[train_positions],
-            y_margin.iloc[train_positions],
-            cat_indices,
-            model_params,
-        )
-        total_model = train_regressor(
-            X.iloc[train_positions],
-            y_total.iloc[train_positions],
-            cat_indices,
-            model_params,
-        )
-
-        predicted_margin = predict_regressor(
-            margin_model, X.loc[group_positions], cat_indices
-        )
-        predicted_total = predict_regressor(
-            total_model, X.loc[group_positions], cat_indices
-        )
-
-        new_frame = pd.DataFrame(
-            make_result_rows(
-                ordered.loc[group_positions],
-                predicted_margin,
-                predicted_total,
-                len(train_positions),
-            ),
-            columns=OUTPUT_COLUMNS,
-        )
-
-        if not accumulated.empty:
-            accumulated = accumulated.loc[
-                ~accumulated["game_id"].astype(str).isin(group_ids)
-            ].copy()
-        accumulated = pd.concat([accumulated, new_frame], ignore_index=True)
-        accumulated = sort_output(accumulated)
-        atomic_write_csv(accumulated, CHECKPOINT_PATH)
-
-        completed_ids.update(group_ids)
-        processed_new_groups += 1
-        if processed_new_groups == 1 or processed_new_groups % 10 == 0:
-            season, week, gameday, gametime = group_key
-            print(
-                f"Completed new_group={processed_new_groups} "
-                f"overall_group={group_number}/{len(groups)} "
-                f"{season} W{week} {gameday} {gametime} "
-                f"games={len(group_df)} train_rows={len(train_positions)} "
-                f"completed_games={len(completed_ids)}/{len(expected_game_ids)}"
-            )
-
-    if args.max_groups is not None:
-        print(
-            f"Partial run complete: new_groups={processed_new_groups}, "
-            f"completed_games={len(completed_ids)}/{len(expected_game_ids)}. "
-            f"Checkpoint: {CHECKPOINT_PATH}"
-        )
-        return 0
-
-    missing_ids = expected_game_ids - completed_ids
-    if missing_ids:
-        fail(
-            f"Backtest ended with {len(missing_ids)} games missing. "
-            f"Examples: {sorted(missing_ids)[:10]}"
-        )
-
-    final = sort_output(accumulated)
-    if len(final) != len(expected_game_ids):
-        fail(
-            f"Final row count mismatch: expected {len(expected_game_ids)}, "
-            f"got {len(final)}"
-        )
-    if final["game_id"].duplicated().any():
-        fail("Duplicate game_id detected in final Step 13 output")
-
-    atomic_write_csv(final, OUTPUT_PATH)
-    if CHECKPOINT_PATH.exists():
-        CHECKPOINT_PATH.unlink()
-
-    print(
-        f"Step 13 complete: seasons={backtest_seasons[0]}-{backtest_seasons[-1]} "
-        f"heldout_rows={len(final)} -> {OUTPUT_PATH}"
-    )
-    return 0
-
+    parser = argparse.ArgumentParser(); parser.add_argument("--reset", action="store_true", help="Accepted for workflow compatibility; v2 always rebuilds atomically."); parser.parse_args()
+    schema = load_schema(); seasons = [int(v) for v in schema["training_seasons"]]; raw = read_inputs(schema, seasons); validate_results(raw); X = prepare_feature_matrix(raw, schema)
+    season_num = pd.to_numeric(raw["season"], errors="raise").astype(int); margin = pd.to_numeric(raw["margin"], errors="raise").astype(float); total_points = pd.to_numeric(raw["total_points"], errors="raise").astype(float); spread_line = pd.to_numeric(raw["spread_line"], errors="raise").astype(float); total_line = pd.to_numeric(raw["total_line"], errors="raise").astype(float)
+    ats = raw["home_ats_result"].astype(str).str.strip().str.upper(); totals = raw["total_result"].astype(str).str.strip().str.upper(); spread_target = margin - spread_line; total_target = total_points - total_line
+    cat_indices = list(schema["categorical_feature_indices"]); reg_params = dict(schema["regressor_params"]); cls_params = dict(schema["classifier_params"]); results = []
+    for holdout_season in seasons[1:]:
+        train_mask = season_num < holdout_season; holdout_mask = season_num == holdout_season; train_seasons = sorted(season_num.loc[train_mask].unique().tolist())
+        spread_model = train_regressor(X.loc[train_mask], spread_target.loc[train_mask], cat_indices, reg_params); total_res_model = train_regressor(X.loc[train_mask], total_target.loc[train_mask], cat_indices, reg_params)
+        ml_train = train_mask & margin.ne(0.0); ats_train = train_mask & ats.isin(["WIN", "LOSS"]); total_train = train_mask & totals.isin(["OVER", "UNDER"])
+        ml_model = train_classifier(X.loc[ml_train], margin.loc[ml_train].gt(0.0).astype(int), cat_indices, cls_params); ats_model = train_classifier(X.loc[ats_train], ats.loc[ats_train].eq("WIN").astype(int), cat_indices, cls_params); total_model = train_classifier(X.loc[total_train], totals.loc[total_train].eq("OVER").astype(int), cat_indices, cls_params)
+        holdout_X = X.loc[holdout_mask]
+        results.extend(make_rows(raw.loc[holdout_mask], train_seasons, int(train_mask.sum()), np.asarray(spread_model.predict(holdout_X), dtype=float), np.asarray(total_res_model.predict(holdout_X), dtype=float), predict_positive_probability(ml_model, holdout_X), predict_positive_probability(ats_model, holdout_X), predict_positive_probability(total_model, holdout_X)))
+        print(f"Step 13 v2 fold holdout={holdout_season} train={train_seasons[0]}-{train_seasons[-1]} train_rows={int(train_mask.sum())} holdout_rows={int(holdout_mask.sum())}")
+    output = pd.DataFrame(results, columns=OUTPUT_COLUMNS)
+    if output.empty or output["game_id"].duplicated().any(): fail("Invalid Step 13 v2 output")
+    output["_date"] = pd.to_datetime(output["gameday"], errors="raise"); output["_time"] = pd.to_timedelta(output["gametime"].astype(str) + ":00", errors="raise")
+    output = output.sort_values(["season", "week", "_date", "_time", "game_id"], kind="mergesort").drop(columns=["_date", "_time"]).reset_index(drop=True)
+    atomic_write_csv(output, OUTPUT_PATH); print(f"Step 13 v2 complete: heldout_seasons={seasons[1]}-{seasons[-1]} rows={len(output)} -> {OUTPUT_PATH}"); return 0
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
+    try: raise SystemExit(main())
     except Exception as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        raise
+        print(f"ERROR: {exc}", file=sys.stderr); raise
