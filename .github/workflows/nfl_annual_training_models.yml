@@ -2,20 +2,15 @@ name: NFL Annual Training Models
 
 # MANUAL RUN ONLY.
 #
-# Rebuilds the historical training data through Step 10, then:
-#   Step 11 - trains final margin and total-points CatBoost models
-#   Step 13 - performs the chronological held-out backtest
-#   Step 14 - rebuilds ML/ATS/total probability calibration
+# Rebuilds historical training data through Step 10, then builds the isolated
+# v2 candidate stack:
+#   Step 4  - removes static outcome-mined enrichment features
+#   Step 11 - trains clean market-residual regressors + direct classifiers
+#   Step 13 - expanding-season out-of-fold backtest
+#   Step 14 - chronological probability calibration + total betting audit
 #
-# Steps 11/13 automatically use exact files named:
-#   docs/win/football/nfl/training/historical_core_<YYYY>.csv
-# starting at 2021 through the latest contiguous season file present.
-#
-# IMPORTANT FOR A NEW SEASON:
-# Steps 1-10 still define which historical seasons they rebuild. Before the
-# annual run for a newly completed season, update those upstream steps so they
-# produce that season's historical_core_<YYYY>.csv. Steps 11/13/14 then include
-# it automatically without additional season-list edits.
+# v2 artifacts are intentionally separate from the current live model files so
+# the replacement can be validated before production cutover.
 
 on:
   workflow_dispatch:
@@ -42,9 +37,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas pyarrow numpy catboost
 
-      - name: Compile training scripts
+      - name: Compile rebuilt training scripts
         run: |
           python -m py_compile \
+            docs/win/football/nfl/scripts/training/step4.py \
             docs/win/football/nfl/scripts/training/step11.py \
             docs/win/football/nfl/scripts/training/step13.py \
             docs/win/football/nfl/scripts/training/step14_calibration.py
@@ -61,7 +57,7 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/training/step3.py
 
-      - name: Apply historical enrichment rules
+      - name: Remove outcome-mined enrichment leakage
         run: |
           python docs/win/football/nfl/scripts/training/step4.py
 
@@ -89,33 +85,54 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/training/step10.py
 
-      - name: Train Step 11 margin and total models
+      - name: Train Step 11 leak-free v2 models
         run: |
           python docs/win/football/nfl/scripts/training/step11.py
 
-      - name: Run Step 13 chronological backtest
+      - name: Run Step 13 chronological v2 backtest
         run: |
           python docs/win/football/nfl/scripts/training/step13.py --reset
 
-      - name: Build Step 14 probability calibration
+      - name: Build Step 14 chronological v2 calibration
         run: |
           python docs/win/football/nfl/scripts/training/step14_calibration.py
 
-      - name: Commit annual training outputs
+      - name: Print v2 total diagnostic summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("docs/win/football/nfl/models/step14_probability_calibration_v2.json")
+          data = json.loads(path.read_text())
+          total = data["calibrations"]["total"]["diagnostics"]
+          audit = data["chronological_betting_diagnostics"]["total_positive_quoted_ev_zero_threshold"]
+
+          print("TOTAL raw OOF:", total["raw_all_oof"])
+          print("TOTAL chronological raw same rows:", total["chronological_raw_same_rows"])
+          print("TOTAL chronological calibrated:", total["chronological_calibrated"])
+          print("TOTAL positive-EV betting audit:", audit)
+          PY
+
+      - name: Commit v2 training outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add docs/win/football/nfl/training/historical_core_20??.csv
-          git add docs/win/football/nfl/training/backtests/step13_chronological_backtest.csv
-          git add docs/win/football/nfl/models/step11_margin_model.cbm
-          git add docs/win/football/nfl/models/step11_total_points_model.cbm
-          git add docs/win/football/nfl/models/step11_feature_schema.json
-          git add docs/win/football/nfl/models/step14_probability_calibration.json
+          git add docs/win/football/nfl/training/backtests/step13_chronological_backtest_v2.csv
+          git add docs/win/football/nfl/training/backtests/step14_chronological_probabilities_v2.csv
+          git add docs/win/football/nfl/models/step11_clean_feature_schema.json
+          git add docs/win/football/nfl/models/step11_spread_residual_model_v2.cbm
+          git add docs/win/football/nfl/models/step11_total_residual_model_v2.cbm
+          git add docs/win/football/nfl/models/step11_moneyline_probability_model_v2.cbm
+          git add docs/win/football/nfl/models/step11_spread_probability_model_v2.cbm
+          git add docs/win/football/nfl/models/step11_total_probability_model_v2.cbm
+          git add docs/win/football/nfl/models/step14_probability_calibration_v2.json
 
           if git diff --cached --quiet; then
-            echo "No annual training output changes to commit."
+            echo "No v2 training output changes to commit."
           else
-            git commit -m "Build NFL annual training models"
+            git commit -m "Build NFL leak-free v2 models"
             git push
           fi
