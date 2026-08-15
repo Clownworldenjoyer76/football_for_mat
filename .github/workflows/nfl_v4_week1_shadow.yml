@@ -1,0 +1,65 @@
+name: NFL V4 Week 1 Shadow
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/nfl-market-independent-v4
+    paths:
+      - docs/win/football/nfl/forward_validation/v4/RUN_WEEK1_SHADOW.txt
+
+permissions:
+  contents: write
+
+jobs:
+  v4-week1-shadow:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy catboost pyarrow
+
+      - name: Compile shadow runner and Week 1 helper
+        run: |
+          python -m py_compile \
+            docs/win/football/nfl/scripts/forward_validation/projection_week1_v4_shadow.py \
+            docs/win/football/nfl/scripts/forward_validation/projection_week1_v4_shadow_entry.py \
+            docs/win/football/nfl/scripts/01_merge/projection_week1.py
+
+      - name: Verify v4 candidate artifacts
+        run: |
+          test -s docs/win/football/nfl/models/step11_market_independent_feature_schema_v4.json
+          test -s docs/win/football/nfl/models/step14_market_independent_validation_v4.json
+          test -s docs/win/football/nfl/models/step14_error_distributions_v4.json
+          test -s docs/win/football/nfl/models/step11_margin_model_augmented_v4.cbm
+          test -s docs/win/football/nfl/models/step11_total_model_augmented_v4.cbm
+          test -s docs/win/football/nfl/models/step11_moneyline_model_augmented_v4.cbm
+
+      - name: Run Week 1 v4 shadow projection
+        run: python docs/win/football/nfl/scripts/forward_validation/projection_week1_v4_shadow_entry.py
+
+      - name: Commit Week 1 v4 shadow outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow.csv \
+            docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow_metadata.json \
+            docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow_compact.csv \
+            docs/win/football/nfl/forward_validation/v4/2026_week_1_v4_shadow_summary.json
+          if git diff --cached --quiet; then
+            echo "No v4 shadow output changes to commit."
+          else
+            git commit -m "Record NFL Week 1 v4 shadow predictions"
+            git push
+          fi

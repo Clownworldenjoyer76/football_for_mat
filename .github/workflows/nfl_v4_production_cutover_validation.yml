@@ -1,0 +1,134 @@
+name: NFL V4 Production Cutover Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/nfl-market-independent-v4
+    paths:
+      - "docs/win/football/nfl/scripts/01_merge/**"
+      - "docs/win/football/nfl/scripts/training/step11.py"
+      - "docs/win/football/nfl/scripts/training/step13.py"
+      - "docs/win/football/nfl/scripts/training/step14_calibration.py"
+      - "docs/win/football/nfl/models/archive/legacy_260_feature_model/**"
+      - ".github/workflows/nfl_annual_training_models.yml"
+      - ".github/workflows/nfl_v4_production_cutover_validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-v4-production-cutover:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy catboost pyarrow pyyaml
+
+      - name: Compile production and training entry points
+        run: |
+          python -m py_compile \
+            docs/win/football/nfl/scripts/01_merge/projection_week1.py \
+            docs/win/football/nfl/scripts/01_merge/projection.py \
+            docs/win/football/nfl/scripts/01_merge/v4_production.py \
+            docs/win/football/nfl/scripts/01_merge/projection_feature_builder_legacy_week1.py \
+            docs/win/football/nfl/scripts/01_merge/projection_feature_builder_legacy_inseason.py \
+            docs/win/football/nfl/scripts/training/step11.py \
+            docs/win/football/nfl/scripts/training/step13.py \
+            docs/win/football/nfl/scripts/training/step14_calibration.py
+
+      - name: Confirm legacy active artifacts are gone
+        run: |
+          for file in \
+            docs/win/football/nfl/models/step11_margin_model.cbm \
+            docs/win/football/nfl/models/step11_total_points_model.cbm \
+            docs/win/football/nfl/models/step11_feature_schema.json \
+            docs/win/football/nfl/models/step14_probability_calibration.json
+          do
+            if [ -e "$file" ]; then
+              echo "ERROR: legacy active artifact still exists: $file"
+              exit 1
+            fi
+          done
+
+      - name: Confirm archived compatibility artifacts exist
+        run: |
+          for file in \
+            docs/win/football/nfl/models/archive/legacy_260_feature_model/step11_margin_model.cbm \
+            docs/win/football/nfl/models/archive/legacy_260_feature_model/step11_total_points_model.cbm \
+            docs/win/football/nfl/models/archive/legacy_260_feature_model/step11_feature_schema.json \
+            docs/win/football/nfl/models/archive/legacy_260_feature_model/step14_probability_calibration.json
+          do
+            test -f "$file"
+          done
+
+      - name: Run production Week 1 projection
+        run: python docs/win/football/nfl/scripts/01_merge/projection_week1.py
+
+      - name: Compare production Week 1 values to validated v4 shadow
+        run: |
+          python - <<'PY'
+          import numpy as np
+          import pandas as pd
+          from pathlib import Path
+
+          root = Path("docs/win/football/nfl")
+          prod = pd.read_csv(root / "01_merge/week_1_NFL_enriched.csv", low_memory=False)
+          shadow = pd.read_csv(root / "forward_validation/v4/2026_week_1_v4_shadow.csv", low_memory=False)
+
+          mapping = {
+              "predicted_margin": "v4_predicted_margin",
+              "predicted_total": "v4_predicted_total",
+              "predicted_home_score": "v4_predicted_home_score",
+              "predicted_away_score": "v4_predicted_away_score",
+              "home_win_probability": "v4_home_win_probability",
+              "away_win_probability": "v4_away_win_probability",
+              "home_cover_probability": "v4_home_cover_probability",
+              "away_cover_probability": "v4_away_cover_probability",
+              "over_probability": "v4_over_probability",
+              "under_probability": "v4_under_probability",
+          }
+
+          merged = prod[["game_id", *mapping]].merge(
+              shadow[["game_id", *mapping.values()]],
+              on="game_id",
+              how="outer",
+              validate="one_to_one",
+              indicator=True,
+          )
+          if not merged["_merge"].eq("both").all():
+              raise SystemExit("Production/shadow game_id mismatch")
+
+          for prod_col, shadow_col in mapping.items():
+              a = pd.to_numeric(merged[prod_col], errors="raise").to_numpy(float)
+              b = pd.to_numeric(merged[shadow_col], errors="raise").to_numpy(float)
+              if not np.allclose(a, b, rtol=0.0, atol=1e-12):
+                  diff = float(np.max(np.abs(a - b)))
+                  raise SystemExit(f"{prod_col} differs from shadow {shadow_col}; max_abs_diff={diff}")
+
+          if len(prod) != 16:
+              raise SystemExit(f"Expected 16 Week 1 games, found {len(prod)}")
+          print("Production Week 1 predictions exactly match validated v4 shadow for all 16 games.")
+          PY
+
+      - name: Run normal selection engine on v4 production output
+        run: |
+          python docs/win/football/nfl/scripts/02_select/selections.py --season 2026 --week 1
+          python docs/win/football/nfl/scripts/02_select/selections_cleanup.py --season 2026 --week 1
+
+      - name: Verify selection outputs
+        run: |
+          test -s docs/win/football/nfl/02_select/week_1_NFL_selected.csv
+          test -s docs/win/football/nfl/02_select/clean/week_1_moneyline_selected.csv
+          test -s docs/win/football/nfl/02_select/clean/week_1_spread_selected.csv
+          test -s docs/win/football/nfl/02_select/clean/week_1_total_selected.csv
