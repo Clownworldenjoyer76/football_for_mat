@@ -2,20 +2,11 @@ name: NFL Annual Training Models
 
 # MANUAL RUN ONLY.
 #
-# Rebuilds the historical training data through Step 10, then:
-#   Step 11 - trains final margin and total-points CatBoost models
-#   Step 13 - performs the chronological held-out backtest
-#   Step 14 - rebuilds ML/ATS/total probability calibration
+# Rebuilds historical data through Step 10, then trains and validates the
+# market-independent v4 production model family.
 #
-# Steps 11/13 automatically use exact files named:
-#   docs/win/football/nfl/training/historical_core_<YYYY>.csv
-# starting at 2021 through the latest contiguous season file present.
-#
-# IMPORTANT FOR A NEW SEASON:
-# Steps 1-10 still define which historical seasons they rebuild. Before the
-# annual run for a newly completed season, update those upstream steps so they
-# produce that season's historical_core_<YYYY>.csv. Steps 11/13/14 then include
-# it automatically without additional season-list edits.
+# V4 predicts football outcomes without sportsbook lines/prices as model
+# inputs or targets. Historical market fields are used only as benchmarks.
 
 on:
   workflow_dispatch:
@@ -42,80 +33,72 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas pyarrow numpy catboost
 
-      - name: Compile training scripts
+      - name: Compile v4 training scripts
         run: |
           python -m py_compile \
+            docs/win/football/nfl/scripts/training/v4_common.py \
+            docs/win/football/nfl/scripts/training/step11_market_independent_v4.py \
+            docs/win/football/nfl/scripts/training/step13_market_independent_v4.py \
+            docs/win/football/nfl/scripts/training/step14_market_independent_v4.py \
             docs/win/football/nfl/scripts/training/step11.py \
             docs/win/football/nfl/scripts/training/step13.py \
             docs/win/football/nfl/scripts/training/step14_calibration.py
 
       - name: Run historical core build
-        run: |
-          python docs/win/football/nfl/scripts/training/step1.py
+        run: python docs/win/football/nfl/scripts/training/step1.py
 
       - name: Add historical odds and weather fields
-        run: |
-          python docs/win/football/nfl/scripts/training/step2.py
+        run: python docs/win/football/nfl/scripts/training/step2.py
 
       - name: Add final-game targets
-        run: |
-          python docs/win/football/nfl/scripts/training/step3.py
+        run: python docs/win/football/nfl/scripts/training/step3.py
 
       - name: Apply historical enrichment rules
-        run: |
-          python docs/win/football/nfl/scripts/training/step4.py
+        run: python docs/win/football/nfl/scripts/training/step4.py
 
       - name: Add lagged team statistics
-        run: |
-          python docs/win/football/nfl/scripts/training/step5.py
+        run: python docs/win/football/nfl/scripts/training/step5.py
 
       - name: Split historical training table by season
-        run: |
-          python docs/win/football/nfl/scripts/training/step5_split.py
+        run: python docs/win/football/nfl/scripts/training/step5_split.py
 
       - name: Add lagged QB statistics
-        run: |
-          python docs/win/football/nfl/scripts/training/step6.py
+        run: python docs/win/football/nfl/scripts/training/step6.py
 
       - name: Add Week 1 prior-season team and QB statistics
-        run: |
-          python docs/win/football/nfl/scripts/training/step7.py
+        run: python docs/win/football/nfl/scripts/training/step7.py
 
       - name: Add rest difference and historical travel values
-        run: |
-          python docs/win/football/nfl/scripts/training/step9.py
+        run: python docs/win/football/nfl/scripts/training/step9.py
 
       - name: Add historical depth and injury features
-        run: |
-          python docs/win/football/nfl/scripts/training/step10.py
+        run: python docs/win/football/nfl/scripts/training/step10.py
 
-      - name: Train Step 11 margin and total models
-        run: |
-          python docs/win/football/nfl/scripts/training/step11.py
+      - name: Train v4 football outcome models
+        run: python docs/win/football/nfl/scripts/training/step11.py
 
-      - name: Run Step 13 chronological backtest
-        run: |
-          python docs/win/football/nfl/scripts/training/step13.py --reset
+      - name: Run v4 chronological backtest
+        run: python docs/win/football/nfl/scripts/training/step13.py
 
-      - name: Build Step 14 probability calibration
-        run: |
-          python docs/win/football/nfl/scripts/training/step14_calibration.py
+      - name: Build v4 probability calibration and gates
+        run: python docs/win/football/nfl/scripts/training/step14_calibration.py
 
-      - name: Commit annual training outputs
+      - name: Commit annual v4 training outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add docs/win/football/nfl/training/historical_core_20??.csv
-          git add docs/win/football/nfl/training/backtests/step13_chronological_backtest.csv
-          git add docs/win/football/nfl/models/step11_margin_model.cbm
-          git add docs/win/football/nfl/models/step11_total_points_model.cbm
-          git add docs/win/football/nfl/models/step11_feature_schema.json
-          git add docs/win/football/nfl/models/step14_probability_calibration.json
+          git add docs/win/football/nfl/training/backtests/step13_market_independent_backtest_v4.csv
+          git add docs/win/football/nfl/training/backtests/step14_market_independent_probabilities_v4.csv
+          git add docs/win/football/nfl/models/step11_*_v4.cbm
+          git add docs/win/football/nfl/models/step11_market_independent_feature_schema_v4.json
+          git add docs/win/football/nfl/models/step14_error_distributions_v4.json
+          git add docs/win/football/nfl/models/step14_market_independent_validation_v4.json
 
           if git diff --cached --quiet; then
-            echo "No annual training output changes to commit."
+            echo "No annual v4 training output changes to commit."
           else
-            git commit -m "Build NFL annual training models"
+            git commit -m "Build NFL annual v4 training models"
             git push
           fi
