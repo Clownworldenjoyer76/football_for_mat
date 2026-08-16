@@ -1,0 +1,44 @@
+name: NFL Historical Selection Filter Test
+
+# MANUAL RUN ONLY.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  historical-selection-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyyaml
+
+      - name: Run historical selection filter test
+        run: |
+          python docs/win/football/nfl/training/select_tests/historical_selections.py
+
+      - name: Commit test results to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/football/nfl/training/select_tests/results/
+
+          if git diff --cached --quiet; then
+            echo "No result changes to commit."
+          else
+            git commit -m "Update NFL historical selection filter test results"
+            git push
+          fi
