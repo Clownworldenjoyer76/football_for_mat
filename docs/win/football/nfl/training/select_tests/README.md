@@ -2,15 +2,6 @@
 
 This folder is isolated from the live NFL selection configuration.
 
-## Put these files here
-
-- `docs/win/football/nfl/training/select_tests/historical_selections.py`
-- `docs/win/football/nfl/training/select_tests/markets.yaml`
-- `docs/win/football/nfl/training/select_tests/results/.gitkeep`
-- `.github/workflows/nfl_historical_select_test.yml`
-
-The ZIP already contains this exact repository folder structure, so it can be extracted at the repository root.
-
 ## Historical input
 
 The script reads:
@@ -27,10 +18,8 @@ Default seasons:
 ## How to use it
 
 1. Edit only `docs/win/football/nfl/training/select_tests/markets.yaml` with the filters you want to test.
-2. Commit that test config to your repository.
-3. Open GitHub Actions.
-4. Run `NFL Historical Selection Filter Test` manually.
-5. The workflow runs the test and commits the new files under `docs/win/football/nfl/training/select_tests/results/`.
+2. Run `NFL Historical Selection Filter Test` manually.
+3. The workflow runs the test and commits the new files under `docs/win/football/nfl/training/select_tests/results/`.
 
 ## Result files
 
