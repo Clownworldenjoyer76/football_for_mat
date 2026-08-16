@@ -1,0 +1,179 @@
+# docs/win/football/nfl/config/markets.yaml
+#
+# NFL market-specific selection rules.
+#
+# Base thresholds still inherit from:
+#   settings.yaml -> selection_defaults
+
+markets:
+
+  ###################################################
+  # ── Moneyline ────────────────────────────────────
+  ###################################################
+
+  moneyline:
+    enabled: true
+
+    # best_ev = one ML side max per game, highest EV
+    # best_prob = one ML side max per game, highest model probability
+    # all = can select both sides if both pass
+    pick_preference: best_prob
+
+    home:
+      enabled: true
+
+      odds_bands:
+        - [-10000, 10000]
+
+      edge_bands:
+        - [0.00, 1.00]
+
+      ev_bands:
+        - [0.00, 99.99]
+
+      kelly_bands:
+        - [0.00, 0.05]
+
+      prob_bands:
+        - [0.00, 1.00]
+
+    away:
+      enabled: true
+
+      odds_bands:
+        - [-10000, 10000]
+
+      edge_bands:
+        - [0.00, 1.00]
+
+      ev_bands:
+        - [0.00, 99.99]
+
+      kelly_bands:
+        - [0.00, 0.05]
+
+      prob_bands:
+        - [0.00, 1.00]
+
+
+  ###################################################
+  # ── Spread ───────────────────────────────────────
+  ###################################################
+
+  spread:
+    enabled: true
+
+    # best_ev = one spread side max per game, highest EV
+    # best_prob = one spread side max per game, highest model probability
+    # all = can select both sides if both pass
+    pick_preference: best_prob
+
+    home:
+      enabled: true
+
+      line_bands:
+        - [-100.0, 100.0]
+
+      odds_bands:
+        - [-10000, 10000]
+
+      edge_bands:
+        - [0.00, 1.00]
+
+      ev_bands:
+        - [0.00, 99.99]
+
+      kelly_bands:
+        - [0.00, 0.05]
+
+      prob_bands:
+        - [0.00, 1.00]
+
+    away:
+      enabled: true
+
+      line_bands:
+        - [-100.0, 100.0]
+
+      odds_bands:
+        - [-10000, 10000]
+
+      edge_bands:
+        - [0.00, 1.00]
+
+      ev_bands:
+        - [0.00, 99.99]
+
+      kelly_bands:
+        - [0.00, 0.05]
+
+      prob_bands:
+        - [0.00, 1.00]
+
+
+  ###################################################
+  # ── Totals ───────────────────────────────────────
+  ###################################################
+
+  total:
+    enabled: true
+
+    # best_ev = one total side max per game, highest EV
+    # best_prob = one total side max per game, highest model probability
+    # all = can select both over and under if both pass
+    pick_preference: best_prob
+
+    over:
+      enabled: true
+
+      line_bands:
+        - [0.0, 100.0]
+
+      odds_bands:
+        - [-10000, 10000]
+
+      edge_bands:
+        - [0.00, 1.00]
+
+      ev_bands:
+        - [0.00, 99.99]
+
+      kelly_bands:
+        - [0.00, 0.05]
+
+      prob_bands:
+        - [0.00, 1.00]
+
+    under:
+      enabled: true
+
+      line_bands:
+        - [0.0, 100.0]
+
+      odds_bands:
+        - [-10000, 10000]
+
+      edge_bands:
+        - [0.00, 1.00]
+
+      ev_bands:
+        - [0.00, 99.99]
+
+      kelly_bands:
+        - [0.00, 0.05]
+
+      prob_bands:
+        - [0.00, 1.00]
+
+
+  ###################################################
+  # ── Existing NFL Total/Game Restrictions ─────────
+  ###################################################
+
+  total_game_filters:
+    max_wind_speed: 999
+    max_gust_speed: 999
+    allow_precipitation: true
+
+    dome_only: false
+    open_air_only: false
