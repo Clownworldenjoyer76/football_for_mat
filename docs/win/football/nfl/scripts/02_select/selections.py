@@ -15,21 +15,48 @@ WRITES:
   docs/win/football/nfl/02_select/week_{week}_NFL_selected.csv
 
 The combined file must already contain the 10 projection/probability fields.
-For each market, this script evaluates both possible sides using current
-American odds, the model probability, no-vig fair market probability, edge,
-expected value, and Kelly fraction. It then keeps the best candidate that
-passes the configured filters.
+
+Selection filtering supports:
+
+settings.yaml -> selection_defaults
+  min_ev
+  min_edge
+  min_kelly
+  max_kelly
+  min_odds_american
+  max_odds_american
+  min_model_prob
+  max_model_prob
+
+markets.yaml -> per-market/per-side bands
+  line_bands
+  odds_bands
+  edge_bands
+  ev_bands
+  kelly_bands
+  prob_bands
+
+Moneyline sides:
+  home
+  away
+
+Spread sides:
+  home
+  away
+
+Total sides:
+  over
+  under
+
+pick_preference:
+  best_ev
+  best_prob
+  all
 
 The existing *_implied_probability output columns contain the no-vig fair
-market probability. This preserves the existing output schema while removing
-sportsbook vig from the edge calculation.
+market probability.
 
 EV and Kelly continue to use the actual offered sportsbook odds.
-
-Global thresholds are defined in settings.yaml -> selection_defaults.
-A market may override any threshold key in markets.yaml.
-
-This script does not grade results.
 """
 
 from __future__ import annotations
@@ -112,6 +139,15 @@ THRESHOLD_KEYS = [
     "max_model_prob",
 ]
 
+BAND_FIELDS = {
+    "odds_bands": "odds_american",
+    "edge_bands": "edge",
+    "ev_bands": "ev",
+    "kelly_bands": "full_kelly",
+    "prob_bands": "model_probability",
+    "line_bands": "line",
+}
+
 SEASON_TYPE_ALIASES = {
     "reg": "reg",
     "regular": "reg",
@@ -132,63 +168,132 @@ def fail(message: str) -> None:
 def clean(value: Any) -> str:
     if value is None:
         return ""
+
     text = str(value).strip()
-    if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
+
+    if text.casefold() in {
+        "",
+        "nan",
+        "none",
+        "null",
+        "<na>",
+        "nat",
+    }:
         return ""
+
     return text
 
 
 def parse_float(value: Any) -> float | None:
     text = clean(value)
+
     if not text:
         return None
+
     try:
         number = float(text)
     except (TypeError, ValueError):
         return None
+
     return number if math.isfinite(number) else None
 
 
 def parse_int(value: Any) -> int | None:
     number = parse_float(value)
+
     if number is None or not float(number).is_integer():
         return None
+
     return int(number)
 
 
 def parse_bool(value: Any, *, key: str) -> bool:
     if isinstance(value, bool):
         return value
-    if isinstance(value, (int, np.integer)) and value in {0, 1}:
+
+    if (
+        isinstance(value, (int, np.integer))
+        and value in {0, 1}
+    ):
         return bool(value)
+
     text = clean(value).casefold()
-    if text in {"true", "yes", "y", "1", "on"}:
+
+    if text in {
+        "true",
+        "yes",
+        "y",
+        "1",
+        "on",
+    }:
         return True
-    if text in {"false", "no", "n", "0", "off"}:
+
+    if text in {
+        "false",
+        "no",
+        "n",
+        "0",
+        "off",
+    }:
         return False
-    fail(f"{key} must be true/false; found {value!r}")
+
+    fail(
+        f"{key} must be true/false; "
+        f"found {value!r}"
+    )
 
 
 def normalize_game_id(value: Any) -> str:
-    return re.sub(r"\.0$", "", clean(value))
+    return re.sub(
+        r"\.0$",
+        "",
+        clean(value),
+    )
 
 
 def normalize_season_type(value: Any) -> str:
-    text = re.sub(r"[\s_-]+", "", clean(value).casefold())
-    return SEASON_TYPE_ALIASES.get(text, text)
+    text = re.sub(
+        r"[\s_-]+",
+        "",
+        clean(value).casefold(),
+    )
+
+    return SEASON_TYPE_ALIASES.get(
+        text,
+        text,
+    )
 
 
 def normalize_bookmaker(value: Any) -> str:
-    return re.sub(r"[^a-z0-9]+", "", clean(value).casefold())
+    return re.sub(
+        r"[^a-z0-9]+",
+        "",
+        clean(value).casefold(),
+    )
 
 
-def read_yaml(path: Path, label: str) -> dict[str, Any]:
+def read_yaml(
+    path: Path,
+    label: str,
+) -> dict[str, Any]:
     if not path.is_file():
-        fail(f"Missing {label}: {path}")
-    with path.open("r", encoding="utf-8") as handle:
+        fail(
+            f"Missing {label}: "
+            f"{path}"
+        )
+
+    with path.open(
+        "r",
+        encoding="utf-8",
+    ) as handle:
         data = yaml.safe_load(handle)
+
     if not isinstance(data, dict):
-        fail(f"{label} must contain a YAML mapping: {path}")
+        fail(
+            f"{label} must contain "
+            f"a YAML mapping: {path}"
+        )
+
     return data
 
 
@@ -201,7 +306,11 @@ def read_csv(
     if not path.is_file():
         if optional:
             return None
-        fail(f"Missing {label}: {path}")
+
+        fail(
+            f"Missing {label}: "
+            f"{path}"
+        )
 
     df = pd.read_csv(
         path,
@@ -211,8 +320,13 @@ def read_csv(
         encoding="utf-8-sig",
         low_memory=False,
     )
+
     if df.empty and not optional:
-        fail(f"{label} contains no data rows: {path}")
+        fail(
+            f"{label} contains no "
+            f"data rows: {path}"
+        )
+
     return df
 
 
@@ -221,76 +335,126 @@ def require_columns(
     columns: list[str],
     label: str,
 ) -> None:
-    missing = [column for column in columns if column not in df.columns]
+    missing = [
+        column
+        for column in columns
+        if column not in df.columns
+    ]
+
     if missing:
-        fail(f"{label} missing required columns: {missing}")
+        fail(
+            f"{label} missing required "
+            f"columns: {missing}"
+        )
 
 
-def validate_unique_game_ids(df: pd.DataFrame, label: str) -> None:
-    ids = df["game_id"].map(normalize_game_id)
+def validate_unique_game_ids(
+    df: pd.DataFrame,
+    label: str,
+) -> None:
+    ids = df[
+        "game_id"
+    ].map(normalize_game_id)
+
     if ids.eq("").any():
-        fail(f"{label} contains blank game_id values")
+        fail(
+            f"{label} contains "
+            "blank game_id values"
+        )
+
     if ids.duplicated().any():
-        examples = ids[ids.duplicated(False)].head(10).tolist()
-        fail(f"{label} contains duplicate game_id values: {examples}")
+        examples = ids[
+            ids.duplicated(False)
+        ].head(10).tolist()
+
+        fail(
+            f"{label} contains duplicate "
+            f"game_id values: {examples}"
+        )
+
     df["game_id"] = ids
 
 
-def american_to_decimal(odds: float) -> float:
+def american_to_decimal(
+    odds: float,
+) -> float:
     if odds == 0:
-        fail("American odds cannot be 0")
+        fail(
+            "American odds cannot be 0"
+        )
+
     if odds > 0:
         return 1.0 + odds / 100.0
+
     return 1.0 + 100.0 / abs(odds)
 
 
-def american_implied_probability(odds: float) -> float:
-    """
-    Convert an American price to its raw sportsbook implied probability.
-
-    This probability still contains bookmaker vig. It is used as an
-    intermediate value when calculating the two-sided no-vig market.
-    """
-    return 1.0 / american_to_decimal(odds)
+def american_implied_probability(
+    odds: float,
+) -> float:
+    return (
+        1.0
+        / american_to_decimal(odds)
+    )
 
 
 def no_vig_probabilities(
     first_odds: float,
     second_odds: float,
 ) -> tuple[float, float]:
-    """
-    Remove vig from a two-sided sportsbook market.
+    first_raw = (
+        american_implied_probability(
+            first_odds
+        )
+    )
 
-    Example:
-      Side A -110 -> raw implied ~52.38%
-      Side B -110 -> raw implied ~52.38%
+    second_raw = (
+        american_implied_probability(
+            second_odds
+        )
+    )
 
-      Raw probabilities sum to ~104.76%.
+    total_raw = (
+        first_raw
+        + second_raw
+    )
 
-      After normalization:
-        Side A = 50%
-        Side B = 50%
-    """
-    first_raw = american_implied_probability(first_odds)
-    second_raw = american_implied_probability(second_odds)
-
-    total_raw = first_raw + second_raw
-
-    if not math.isfinite(total_raw) or total_raw <= 0:
+    if (
+        not math.isfinite(total_raw)
+        or total_raw <= 0
+    ):
         fail(
-            "Unable to calculate no-vig probabilities from "
-            f"odds {first_odds!r}, {second_odds!r}"
+            "Unable to calculate no-vig "
+            "probabilities from odds "
+            f"{first_odds!r}, {second_odds!r}"
         )
 
-    first_fair = first_raw / total_raw
-    second_fair = second_raw / total_raw
+    first_fair = (
+        first_raw
+        / total_raw
+    )
+
+    second_fair = (
+        second_raw
+        / total_raw
+    )
 
     if not 0.0 <= first_fair <= 1.0:
-        fail(f"Invalid first no-vig probability: {first_fair}")
-    if not 0.0 <= second_fair <= 1.0:
-        fail(f"Invalid second no-vig probability: {second_fair}")
+        fail(
+            "Invalid first no-vig "
+            f"probability: {first_fair}"
+        )
 
-    return first_fair, second_fair
+    if not 0.0 <= second_fair <= 1.0:
+        fail(
+            "Invalid second no-vig "
+            f"probability: {second_fair}"
+        )
+
+    return (
+        first_fair,
+        second_fair,
+    )
 
 
 def calculate_metrics(
@@ -298,36 +462,71 @@ def calculate_metrics(
     odds_american: float,
     fair_market_probability: float,
 ) -> dict[str, float]:
-    if not 0.0 <= model_probability <= 1.0:
-        fail(f"Model probability outside [0,1]: {model_probability}")
-
-    if not 0.0 <= fair_market_probability <= 1.0:
+    if not (
+        0.0
+        <= model_probability
+        <= 1.0
+    ):
         fail(
-            "Fair market probability outside [0,1]: "
+            "Model probability outside "
+            f"[0,1]: {model_probability}"
+        )
+
+    if not (
+        0.0
+        <= fair_market_probability
+        <= 1.0
+    ):
+        fail(
+            "Fair market probability "
+            "outside [0,1]: "
             f"{fair_market_probability}"
         )
 
-    decimal_odds = american_to_decimal(odds_american)
+    decimal_odds = (
+        american_to_decimal(
+            odds_american
+        )
+    )
 
-    # IMPORTANT:
-    # Edge is measured against the NO-VIG market probability.
-    #
-    # The existing output field is still named "implied_probability"
-    # for downstream compatibility, but it now represents the fair,
-    # vig-removed market probability.
-    implied_probability = fair_market_probability
-    edge = model_probability - fair_market_probability
+    implied_probability = (
+        fair_market_probability
+    )
 
-    # EV must use the price actually being offered by the sportsbook.
-    net_win = decimal_odds - 1.0
-    loss_probability = 1.0 - model_probability
-    ev = model_probability * net_win - loss_probability
+    edge = (
+        model_probability
+        - fair_market_probability
+    )
 
-    # Kelly also uses the actual offered sportsbook price.
+    net_win = (
+        decimal_odds
+        - 1.0
+    )
+
+    loss_probability = (
+        1.0
+        - model_probability
+    )
+
+    ev = (
+        model_probability
+        * net_win
+        - loss_probability
+    )
+
     raw_kelly = (
-        net_win * model_probability - loss_probability
-    ) / net_win
-    full_kelly = max(0.0, raw_kelly)
+        (
+            net_win
+            * model_probability
+            - loss_probability
+        )
+        / net_win
+    )
+
+    full_kelly = max(
+        0.0,
+        raw_kelly,
+    )
 
     return {
         "implied_probability": implied_probability,
@@ -342,49 +541,281 @@ def resolve_thresholds(
     market_name: str,
     market_config: dict[str, Any],
 ) -> dict[str, float]:
-    defaults = settings.get("selection_defaults")
-    if not isinstance(defaults, dict):
-        fail("settings.yaml must contain selection_defaults")
+    defaults = settings.get(
+        "selection_defaults"
+    )
 
-    resolved: dict[str, float] = {}
+    if not isinstance(
+        defaults,
+        dict,
+    ):
+        fail(
+            "settings.yaml must contain "
+            "selection_defaults"
+        )
+
+    resolved: dict[
+        str,
+        float,
+    ] = {}
+
     for key in THRESHOLD_KEYS:
-        value = market_config.get(key, defaults.get(key))
+        value = market_config.get(
+            key,
+            defaults.get(key),
+        )
+
         parsed = parse_float(value)
+
         if parsed is None:
             fail(
-                f"Missing/non-numeric {key!r} for {market_name}; "
-                "define it in settings.yaml selection_defaults or markets.yaml"
+                f"Missing/non-numeric {key!r} "
+                f"for {market_name}; define "
+                "it in settings.yaml "
+                "selection_defaults or "
+                "markets.yaml"
             )
+
         resolved[key] = parsed
 
-    if not -1.0 <= resolved["min_edge"] <= 1.0:
-        fail(f"{market_name}.min_edge must be in [-1,1]")
-    if resolved["min_kelly"] < 0 or resolved["max_kelly"] < 0:
-        fail(f"{market_name} Kelly values cannot be negative")
-    if resolved["min_kelly"] > resolved["max_kelly"]:
-        fail(f"{market_name}.min_kelly cannot exceed max_kelly")
-    if not 0 <= resolved["min_model_prob"] <= resolved["max_model_prob"] <= 1:
-        fail(f"{market_name} model-probability limits are invalid")
-    if resolved["min_odds_american"] > resolved["max_odds_american"]:
-        fail(f"{market_name} American-odds limits are invalid")
+    if not (
+        -1.0
+        <= resolved["min_edge"]
+        <= 1.0
+    ):
+        fail(
+            f"{market_name}.min_edge "
+            "must be in [-1,1]"
+        )
+
+    if (
+        resolved["min_kelly"] < 0
+        or resolved["max_kelly"] < 0
+    ):
+        fail(
+            f"{market_name} Kelly values "
+            "cannot be negative"
+        )
+
+    if (
+        resolved["min_kelly"]
+        > resolved["max_kelly"]
+    ):
+        fail(
+            f"{market_name}.min_kelly "
+            "cannot exceed max_kelly"
+        )
+
+    if not (
+        0
+        <= resolved["min_model_prob"]
+        <= resolved["max_model_prob"]
+        <= 1
+    ):
+        fail(
+            f"{market_name} "
+            "model-probability limits "
+            "are invalid"
+        )
+
+    if (
+        resolved["min_odds_american"]
+        > resolved["max_odds_american"]
+    ):
+        fail(
+            f"{market_name} "
+            "American-odds limits "
+            "are invalid"
+        )
 
     return resolved
 
 
-def numeric_probability(row: pd.Series, column: str) -> float:
-    value = parse_float(row[column])
-    if value is None or not 0.0 <= value <= 1.0:
+def parse_bands(
+    value: Any,
+    *,
+    key: str,
+) -> list[
+    tuple[
+        float,
+        float,
+    ]
+] | None:
+    if value is None:
+        return None
+
+    if not isinstance(
+        value,
+        list,
+    ):
         fail(
-            f"game_id={row['game_id']}: {column} must be a finite probability "
-            f"in [0,1]; found {row[column]!r}"
+            f"{key} must be a list "
+            "of [minimum, maximum] bands"
         )
+
+    bands: list[
+        tuple[
+            float,
+            float,
+        ]
+    ] = []
+
+    for index, band in enumerate(
+        value,
+        start=1,
+    ):
+        if (
+            not isinstance(
+                band,
+                (list, tuple),
+            )
+            or len(band) != 2
+        ):
+            fail(
+                f"{key}[{index}] must "
+                "contain exactly two values"
+            )
+
+        minimum = parse_float(
+            band[0]
+        )
+
+        maximum = parse_float(
+            band[1]
+        )
+
+        if (
+            minimum is None
+            or maximum is None
+        ):
+            fail(
+                f"{key}[{index}] contains "
+                "a non-numeric value"
+            )
+
+        if minimum > maximum:
+            fail(
+                f"{key}[{index}] minimum "
+                "cannot exceed maximum"
+            )
+
+        bands.append(
+            (
+                minimum,
+                maximum,
+            )
+        )
+
+    if not bands:
+        fail(
+            f"{key} cannot be empty"
+        )
+
+    return bands
+
+
+def value_in_bands(
+    value: float,
+    bands: list[
+        tuple[
+            float,
+            float,
+        ]
+    ],
+) -> bool:
+    return any(
+        minimum
+        <= value
+        <= maximum
+        for minimum, maximum
+        in bands
+    )
+
+
+def candidate_band_passes(
+    candidate: dict[str, Any],
+    side_config: dict[str, Any],
+    *,
+    key_prefix: str,
+) -> bool:
+    for band_key, candidate_key in (
+        BAND_FIELDS.items()
+    ):
+        if band_key not in side_config:
+            continue
+
+        bands = parse_bands(
+            side_config.get(
+                band_key
+            ),
+            key=(
+                f"{key_prefix}."
+                f"{band_key}"
+            ),
+        )
+
+        if bands is None:
+            continue
+
+        raw_value = candidate.get(
+            candidate_key
+        )
+
+        numeric_value = parse_float(
+            raw_value
+        )
+
+        if numeric_value is None:
+            return False
+
+        if not value_in_bands(
+            numeric_value,
+            bands,
+        ):
+            return False
+
+    return True
+
+
+def numeric_probability(
+    row: pd.Series,
+    column: str,
+) -> float:
+    value = parse_float(
+        row[column]
+    )
+
+    if (
+        value is None
+        or not 0.0 <= value <= 1.0
+    ):
+        fail(
+            f"game_id={row['game_id']}: "
+            f"{column} must be a finite "
+            "probability in [0,1]; "
+            f"found {row[column]!r}"
+        )
+
     return value
 
 
-def odds_value(row: pd.Series, column: str) -> float | None:
-    value = parse_float(row.get(column, ""))
-    if value is None or value == 0:
+def odds_value(
+    row: pd.Series,
+    column: str,
+) -> float | None:
+    value = parse_float(
+        row.get(
+            column,
+            "",
+        )
+    )
+
+    if (
+        value is None
+        or value == 0
+    ):
         return None
+
     return value
 
 
@@ -401,10 +832,18 @@ def make_candidate(
     return {
         "selection": selection,
         "line": line,
-        "odds_american": odds_american,
-        "model_probability": model_probability,
-        "is_favorite": is_favorite,
-        "is_underdog": is_underdog,
+        "odds_american": (
+            odds_american
+        ),
+        "model_probability": (
+            model_probability
+        ),
+        "is_favorite": (
+            is_favorite
+        ),
+        "is_underdog": (
+            is_underdog
+        ),
         **calculate_metrics(
             model_probability,
             odds_american,
@@ -418,15 +857,48 @@ def thresholds_pass(
     thresholds: dict[str, float],
 ) -> bool:
     return (
-        thresholds["min_model_prob"]
-        <= float(candidate["model_probability"])
-        <= thresholds["max_model_prob"]
-        and thresholds["min_odds_american"]
-        <= float(candidate["odds_american"])
-        <= thresholds["max_odds_american"]
-        and float(candidate["edge"]) >= thresholds["min_edge"]
-        and float(candidate["ev"]) >= thresholds["min_ev"]
-        and float(candidate["full_kelly"]) >= thresholds["min_kelly"]
+        thresholds[
+            "min_model_prob"
+        ]
+        <= float(
+            candidate[
+                "model_probability"
+            ]
+        )
+        <= thresholds[
+            "max_model_prob"
+        ]
+        and thresholds[
+            "min_odds_american"
+        ]
+        <= float(
+            candidate[
+                "odds_american"
+            ]
+        )
+        <= thresholds[
+            "max_odds_american"
+        ]
+        and float(
+            candidate["edge"]
+        )
+        >= thresholds[
+            "min_edge"
+        ]
+        and float(
+            candidate["ev"]
+        )
+        >= thresholds[
+            "min_ev"
+        ]
+        and float(
+            candidate[
+                "full_kelly"
+            ]
+        )
+        >= thresholds[
+            "min_kelly"
+        ]
     )
 
 
@@ -436,90 +908,409 @@ def restrictions_pass(
     config: dict[str, Any],
 ) -> bool:
     home_only = parse_bool(
-        config.get("home_only", False),
-        key=f"{market_name}.home_only",
-    )
-    away_only = parse_bool(
-        config.get("away_only", False),
-        key=f"{market_name}.away_only",
-    )
-    favorite_only = parse_bool(
-        config.get("favorite_only", False),
-        key=f"{market_name}.favorite_only",
-    )
-    underdog_only = parse_bool(
-        config.get("underdog_only", False),
-        key=f"{market_name}.underdog_only",
+        config.get(
+            "home_only",
+            False,
+        ),
+        key=(
+            f"{market_name}."
+            "home_only"
+        ),
     )
 
-    if home_only and away_only:
-        fail(f"{market_name}: home_only and away_only cannot both be true")
-    if favorite_only and underdog_only:
+    away_only = parse_bool(
+        config.get(
+            "away_only",
+            False,
+        ),
+        key=(
+            f"{market_name}."
+            "away_only"
+        ),
+    )
+
+    favorite_only = parse_bool(
+        config.get(
+            "favorite_only",
+            False,
+        ),
+        key=(
+            f"{market_name}."
+            "favorite_only"
+        ),
+    )
+
+    underdog_only = parse_bool(
+        config.get(
+            "underdog_only",
+            False,
+        ),
+        key=(
+            f"{market_name}."
+            "underdog_only"
+        ),
+    )
+
+    if (
+        home_only
+        and away_only
+    ):
         fail(
-            f"{market_name}: favorite_only and underdog_only "
+            f"{market_name}: "
+            "home_only and away_only "
             "cannot both be true"
         )
 
-    side = str(candidate["selection"])
-    if home_only and side != "HOME":
+    if (
+        favorite_only
+        and underdog_only
+    ):
+        fail(
+            f"{market_name}: "
+            "favorite_only and "
+            "underdog_only cannot "
+            "both be true"
+        )
+
+    side = str(
+        candidate[
+            "selection"
+        ]
+    )
+
+    if (
+        home_only
+        and side != "HOME"
+    ):
         return False
-    if away_only and side != "AWAY":
+
+    if (
+        away_only
+        and side != "AWAY"
+    ):
         return False
-    if favorite_only and not bool(candidate["is_favorite"]):
+
+    if (
+        favorite_only
+        and not bool(
+            candidate[
+                "is_favorite"
+            ]
+        )
+    ):
         return False
-    if underdog_only and not bool(candidate["is_underdog"]):
+
+    if (
+        underdog_only
+        and not bool(
+            candidate[
+                "is_underdog"
+            ]
+        )
+    ):
         return False
+
     return True
 
 
+def candidate_side_name(
+    market_name: str,
+    candidate: dict[str, Any],
+) -> str:
+    selection = clean(
+        candidate.get(
+            "selection"
+        )
+    ).upper()
+
+    if market_name in {
+        "moneyline",
+        "spread",
+    }:
+        if selection == "HOME":
+            return "home"
+
+        if selection == "AWAY":
+            return "away"
+
+    if market_name == "total":
+        if selection == "OVER":
+            return "over"
+
+        if selection == "UNDER":
+            return "under"
+
+    fail(
+        f"{market_name}: unsupported "
+        f"selection {selection!r}"
+    )
+
+
+def get_side_config(
+    market_name: str,
+    market_config: dict[str, Any],
+    candidate: dict[str, Any],
+) -> tuple[
+    str,
+    dict[str, Any],
+]:
+    side_name = (
+        candidate_side_name(
+            market_name,
+            candidate,
+        )
+    )
+
+    side_config = (
+        market_config.get(
+            side_name,
+            {},
+        )
+    )
+
+    if side_config is None:
+        side_config = {}
+
+    if not isinstance(
+        side_config,
+        dict,
+    ):
+        fail(
+            f"{market_name}."
+            f"{side_name} must be "
+            "a YAML mapping"
+        )
+
+    return (
+        side_name,
+        side_config,
+    )
+
+
+def side_enabled(
+    market_name: str,
+    side_name: str,
+    side_config: dict[str, Any],
+) -> bool:
+    return parse_bool(
+        side_config.get(
+            "enabled",
+            True,
+        ),
+        key=(
+            f"{market_name}."
+            f"{side_name}.enabled"
+        ),
+    )
+
+
+def resolve_pick_preference(
+    market_name: str,
+    config: dict[str, Any],
+) -> str:
+    preference = clean(
+        config.get(
+            "pick_preference",
+            "best_ev",
+        )
+    ).casefold()
+
+    if preference not in {
+        "best_ev",
+        "best_prob",
+        "all",
+    }:
+        fail(
+            f"{market_name}."
+            "pick_preference must be "
+            "best_ev, best_prob, or all"
+        )
+
+    return preference
+
+
 def choose_best(
-    candidates: list[dict[str, Any]],
+    candidates: list[
+        dict[str, Any]
+    ],
     market_name: str,
     config: dict[str, Any],
     thresholds: dict[str, float],
 ) -> dict[str, Any] | None:
-    qualifying = [
-        candidate
-        for candidate in candidates
-        if thresholds_pass(candidate, thresholds)
-        and restrictions_pass(market_name, candidate, config)
-    ]
+    qualifying: list[
+        dict[str, Any]
+    ] = []
+
+    for candidate in candidates:
+        (
+            side_name,
+            side_config,
+        ) = get_side_config(
+            market_name,
+            config,
+            candidate,
+        )
+
+        if not side_enabled(
+            market_name,
+            side_name,
+            side_config,
+        ):
+            continue
+
+        if not thresholds_pass(
+            candidate,
+            thresholds,
+        ):
+            continue
+
+        if not restrictions_pass(
+            market_name,
+            candidate,
+            config,
+        ):
+            continue
+
+        if not candidate_band_passes(
+            candidate,
+            side_config,
+            key_prefix=(
+                f"{market_name}."
+                f"{side_name}"
+            ),
+        ):
+            continue
+
+        qualifying.append(
+            candidate
+        )
+
     if not qualifying:
         return None
 
-    qualifying.sort(
-        key=lambda candidate: (
-            float(candidate["ev"]),
-            float(candidate["edge"]),
-            float(candidate["model_probability"]),
-            str(candidate["selection"]),
-        ),
-        reverse=True,
+    preference = (
+        resolve_pick_preference(
+            market_name,
+            config,
+        )
     )
 
-    selected = qualifying[0].copy()
-    selected["kelly"] = min(
-        float(selected["full_kelly"]),
-        thresholds["max_kelly"],
+    if preference == "best_prob":
+        qualifying.sort(
+            key=lambda candidate: (
+                float(
+                    candidate[
+                        "model_probability"
+                    ]
+                ),
+                float(
+                    candidate["ev"]
+                ),
+                float(
+                    candidate["edge"]
+                ),
+                str(
+                    candidate[
+                        "selection"
+                    ]
+                ),
+            ),
+            reverse=True,
+        )
+
+    elif preference == "best_ev":
+        qualifying.sort(
+            key=lambda candidate: (
+                float(
+                    candidate["ev"]
+                ),
+                float(
+                    candidate["edge"]
+                ),
+                float(
+                    candidate[
+                        "model_probability"
+                    ]
+                ),
+                str(
+                    candidate[
+                        "selection"
+                    ]
+                ),
+            ),
+            reverse=True,
+        )
+
+    else:
+        # The current NFL selected-file schema has one
+        # selection field per market per game. Therefore
+        # two simultaneous selections cannot be stored
+        # without changing that output schema.
+        if len(qualifying) > 1:
+            fail(
+                f"{market_name}: "
+                "pick_preference=all produced "
+                "more than one qualifying side, "
+                "but the current NFL output schema "
+                "supports one selection per market "
+                "per game"
+            )
+
+    selected = (
+        qualifying[0].copy()
     )
+
+    selected["kelly"] = min(
+        float(
+            selected[
+                "full_kelly"
+            ]
+        ),
+        thresholds[
+            "max_kelly"
+        ],
+    )
+
     return selected
 
 
-def market_enabled(config: dict[str, Any], name: str) -> bool:
-    return parse_bool(config.get("enabled", True), key=f"{name}.enabled")
+def market_enabled(
+    config: dict[str, Any],
+    name: str,
+) -> bool:
+    return parse_bool(
+        config.get(
+            "enabled",
+            True,
+        ),
+        key=f"{name}.enabled",
+    )
 
 
-def empty_market(prefix: str, reason: str) -> dict[str, Any]:
+def empty_market(
+    prefix: str,
+    reason: str,
+) -> dict[str, Any]:
     return {
         f"{prefix}_selected": 0,
         f"{prefix}_selection": "",
-        f"{prefix}_selection_reason": reason,
-        f"{prefix}_odds_american": np.nan,
-        f"{prefix}_model_probability": np.nan,
-        f"{prefix}_implied_probability": np.nan,
+        (
+            f"{prefix}_selection_reason"
+        ): reason,
+        (
+            f"{prefix}_odds_american"
+        ): np.nan,
+        (
+            f"{prefix}_model_probability"
+        ): np.nan,
+        (
+            f"{prefix}_implied_probability"
+        ): np.nan,
         f"{prefix}_edge": np.nan,
         f"{prefix}_ev": np.nan,
-        f"{prefix}_full_kelly": np.nan,
+        (
+            f"{prefix}_full_kelly"
+        ): np.nan,
         f"{prefix}_kelly": np.nan,
     }
 
@@ -532,18 +1323,58 @@ def selected_market(
 ) -> dict[str, Any]:
     output = {
         f"{prefix}_selected": 1,
-        f"{prefix}_selection": candidate["selection"],
-        f"{prefix}_selection_reason": "SELECTED",
-        f"{prefix}_odds_american": candidate["odds_american"],
-        f"{prefix}_model_probability": candidate["model_probability"],
-        f"{prefix}_implied_probability": candidate["implied_probability"],
-        f"{prefix}_edge": candidate["edge"],
-        f"{prefix}_ev": candidate["ev"],
-        f"{prefix}_full_kelly": candidate["full_kelly"],
-        f"{prefix}_kelly": candidate["kelly"],
+        (
+            f"{prefix}_selection"
+        ): candidate[
+            "selection"
+        ],
+        (
+            f"{prefix}_selection_reason"
+        ): "SELECTED",
+        (
+            f"{prefix}_odds_american"
+        ): candidate[
+            "odds_american"
+        ],
+        (
+            f"{prefix}_model_probability"
+        ): candidate[
+            "model_probability"
+        ],
+        (
+            f"{prefix}_implied_probability"
+        ): candidate[
+            "implied_probability"
+        ],
+        (
+            f"{prefix}_edge"
+        ): candidate[
+            "edge"
+        ],
+        (
+            f"{prefix}_ev"
+        ): candidate[
+            "ev"
+        ],
+        (
+            f"{prefix}_full_kelly"
+        ): candidate[
+            "full_kelly"
+        ],
+        (
+            f"{prefix}_kelly"
+        ): candidate[
+            "kelly"
+        ],
     }
+
     if include_line:
-        output[f"{prefix}_line"] = candidate["line"]
+        output[
+            f"{prefix}_line"
+        ] = candidate[
+            "line"
+        ]
+
     return output
 
 
@@ -552,72 +1383,127 @@ def evaluate_moneyline(
     config: dict[str, Any],
     thresholds: dict[str, float],
 ) -> dict[str, Any]:
-    if not market_enabled(config, "moneyline"):
-        return empty_market("ml", "MARKET_DISABLED")
+    if not market_enabled(
+        config,
+        "moneyline",
+    ):
+        return empty_market(
+            "ml",
+            "MARKET_DISABLED",
+        )
 
-    home_odds = odds_value(row, "sched_home_moneyline_american")
-    away_odds = odds_value(row, "sched_away_moneyline_american")
-
-    if home_odds is None or away_odds is None:
-        return empty_market("ml", "CURRENT_LINE_MISSING")
-
-    home_probability = numeric_probability(
+    home_odds = odds_value(
         row,
-        "home_win_probability",
-    )
-    away_probability = numeric_probability(
-        row,
-        "away_win_probability",
+        (
+            "sched_home_"
+            "moneyline_american"
+        ),
     )
 
-    # Remove the vig using both sides of the moneyline market.
-    home_fair, away_fair = no_vig_probabilities(
+    away_odds = odds_value(
+        row,
+        (
+            "sched_away_"
+            "moneyline_american"
+        ),
+    )
+
+    if (
+        home_odds is None
+        or away_odds is None
+    ):
+        return empty_market(
+            "ml",
+            "CURRENT_LINE_MISSING",
+        )
+
+    home_probability = (
+        numeric_probability(
+            row,
+            "home_win_probability",
+        )
+    )
+
+    away_probability = (
+        numeric_probability(
+            row,
+            "away_win_probability",
+        )
+    )
+
+    (
+        home_fair,
+        away_fair,
+    ) = no_vig_probabilities(
         home_odds,
         away_odds,
     )
 
-    home_metrics = calculate_metrics(
-        home_probability,
-        home_odds,
-        home_fair,
-    )
-    away_metrics = calculate_metrics(
-        away_probability,
-        away_odds,
-        away_fair,
+    home_metrics = (
+        calculate_metrics(
+            home_probability,
+            home_odds,
+            home_fair,
+        )
     )
 
-    favorite_tie = math.isclose(
-        home_fair,
-        away_fair,
-        rel_tol=0,
-        abs_tol=1e-12,
+    away_metrics = (
+        calculate_metrics(
+            away_probability,
+            away_odds,
+            away_fair,
+        )
+    )
+
+    favorite_tie = (
+        math.isclose(
+            home_fair,
+            away_fair,
+            rel_tol=0,
+            abs_tol=1e-12,
+        )
     )
 
     candidates = [
         {
             "selection": "HOME",
             "line": None,
-            "odds_american": home_odds,
-            "model_probability": home_probability,
+            "odds_american": (
+                home_odds
+            ),
+            "model_probability": (
+                home_probability
+            ),
             "is_favorite": (
-                not favorite_tie and home_fair > away_fair
+                not favorite_tie
+                and home_fair
+                > away_fair
             ),
             "is_underdog": (
-                not favorite_tie and home_fair < away_fair
+                not favorite_tie
+                and home_fair
+                < away_fair
             ),
             **home_metrics,
         },
         {
             "selection": "AWAY",
             "line": None,
-            "odds_american": away_odds,
-            "model_probability": away_probability,
+            "odds_american": (
+                away_odds
+            ),
+            "model_probability": (
+                away_probability
+            ),
             "is_favorite": (
-                not favorite_tie and away_fair > home_fair
+                not favorite_tie
+                and away_fair
+                > home_fair
             ),
             "is_underdog": (
-                not favorite_tie and away_fair < home_fair
+                not favorite_tie
+                and away_fair
+                < home_fair
             ),
             **away_metrics,
         },
@@ -631,7 +1517,10 @@ def evaluate_moneyline(
     )
 
     if chosen is None:
-        return empty_market("ml", "NO_CANDIDATE_PASSED")
+        return empty_market(
+            "ml",
+            "NO_CANDIDATE_PASSED",
+        )
 
     return selected_market(
         "ml",
@@ -645,15 +1534,50 @@ def evaluate_spread(
     config: dict[str, Any],
     thresholds: dict[str, float],
 ) -> dict[str, Any]:
-    if not market_enabled(config, "spread"):
-        result = empty_market("spread", "MARKET_DISABLED")
-        result["spread_line"] = np.nan
+    if not market_enabled(
+        config,
+        "spread",
+    ):
+        result = empty_market(
+            "spread",
+            "MARKET_DISABLED",
+        )
+
+        result[
+            "spread_line"
+        ] = np.nan
+
         return result
 
-    home_line = parse_float(row.get("sched_home_spread", ""))
-    away_line = parse_float(row.get("sched_away_spread", ""))
-    home_odds = odds_value(row, "sched_home_spread_american")
-    away_odds = odds_value(row, "sched_away_spread_american")
+    home_line = parse_float(
+        row.get(
+            "sched_home_spread",
+            "",
+        )
+    )
+
+    away_line = parse_float(
+        row.get(
+            "sched_away_spread",
+            "",
+        )
+    )
+
+    home_odds = odds_value(
+        row,
+        (
+            "sched_home_"
+            "spread_american"
+        ),
+    )
+
+    away_odds = odds_value(
+        row,
+        (
+            "sched_away_"
+            "spread_american"
+        ),
+    )
 
     if any(
         value is None
@@ -664,18 +1588,38 @@ def evaluate_spread(
             away_odds,
         ]
     ):
-        result = empty_market("spread", "CURRENT_LINE_MISSING")
-        result["spread_line"] = np.nan
+        result = empty_market(
+            "spread",
+            "CURRENT_LINE_MISSING",
+        )
+
+        result[
+            "spread_line"
+        ] = np.nan
+
         return result
 
     max_spread_abs = parse_float(
-        config.get("max_spread_abs", 100.0)
+        config.get(
+            "max_spread_abs",
+            100.0,
+        )
     )
-    if max_spread_abs is None or max_spread_abs < 0:
-        fail("spread.max_spread_abs must be a non-negative number")
 
-    # Remove vig using both quoted spread prices.
-    home_fair, away_fair = no_vig_probabilities(
+    if (
+        max_spread_abs is None
+        or max_spread_abs < 0
+    ):
+        fail(
+            "spread.max_spread_abs "
+            "must be a non-negative "
+            "number"
+        )
+
+    (
+        home_fair,
+        away_fair,
+    ) = no_vig_probabilities(
         home_odds,
         away_odds,
     )
@@ -683,28 +1627,56 @@ def evaluate_spread(
     candidates = [
         make_candidate(
             "HOME",
-            numeric_probability(row, "home_cover_probability"),
+            numeric_probability(
+                row,
+                (
+                    "home_cover_"
+                    "probability"
+                ),
+            ),
             home_odds,
             home_fair,
             line=home_line,
-            is_favorite=home_line < 0,
-            is_underdog=home_line > 0,
+            is_favorite=(
+                home_line < 0
+            ),
+            is_underdog=(
+                home_line > 0
+            ),
         ),
         make_candidate(
             "AWAY",
-            numeric_probability(row, "away_cover_probability"),
+            numeric_probability(
+                row,
+                (
+                    "away_cover_"
+                    "probability"
+                ),
+            ),
             away_odds,
             away_fair,
             line=away_line,
-            is_favorite=away_line < 0,
-            is_underdog=away_line > 0,
+            is_favorite=(
+                away_line < 0
+            ),
+            is_underdog=(
+                away_line > 0
+            ),
         ),
     ]
 
     candidates = [
         candidate
-        for candidate in candidates
-        if abs(float(candidate["line"])) <= max_spread_abs
+        for candidate
+        in candidates
+        if abs(
+            float(
+                candidate[
+                    "line"
+                ]
+            )
+        )
+        <= max_spread_abs
     ]
 
     chosen = choose_best(
@@ -719,7 +1691,11 @@ def evaluate_spread(
             "spread",
             "NO_CANDIDATE_PASSED",
         )
-        result["spread_line"] = np.nan
+
+        result[
+            "spread_line"
+        ] = np.nan
+
         return result
 
     return selected_market(
@@ -729,12 +1705,26 @@ def evaluate_spread(
     )
 
 
-def roof_is_dome(row: pd.Series) -> bool:
-    dome_flag = parse_int(row.get("wx_dome_flag", ""))
+def roof_is_dome(
+    row: pd.Series,
+) -> bool:
+    dome_flag = parse_int(
+        row.get(
+            "wx_dome_flag",
+            "",
+        )
+    )
+
     if dome_flag is not None:
         return dome_flag == 1
 
-    roof = clean(row.get("sched_roof", "")).casefold()
+    roof = clean(
+        row.get(
+            "sched_roof",
+            "",
+        )
+    ).casefold()
+
     return roof in {
         "dome",
         "indoor",
@@ -745,12 +1735,26 @@ def roof_is_dome(row: pd.Series) -> bool:
     }
 
 
-def roof_is_open_air(row: pd.Series) -> bool:
-    open_flag = parse_int(row.get("wx_open_air_flag", ""))
+def roof_is_open_air(
+    row: pd.Series,
+) -> bool:
+    open_flag = parse_int(
+        row.get(
+            "wx_open_air_flag",
+            "",
+        )
+    )
+
     if open_flag is not None:
         return open_flag == 1
 
-    roof = clean(row.get("sched_roof", "")).casefold()
+    roof = clean(
+        row.get(
+            "sched_roof",
+            "",
+        )
+    ).casefold()
+
     return roof in {
         "open_air",
         "open-air",
@@ -760,9 +1764,16 @@ def roof_is_open_air(row: pd.Series) -> bool:
     }
 
 
-def weather_available(row: pd.Series) -> bool:
+def weather_available(
+    row: pd.Series,
+) -> bool:
     return any(
-        clean(row.get(column, ""))
+        clean(
+            row.get(
+                column,
+                "",
+            )
+        )
         for column in [
             "wx_temperature",
             "wx_wind_speed",
@@ -780,81 +1791,176 @@ def total_environment_passes(
     game_filters: dict[str, Any],
 ) -> bool:
     dome_only = parse_bool(
-        config.get("dome_only", False),
-        key="total.dome_only",
-    )
-    open_air_only = parse_bool(
-        config.get("open_air_only", False),
-        key="total.open_air_only",
+        config.get(
+            "dome_only",
+            False,
+        ),
+        key=(
+            "total_game_filters."
+            "dome_only"
+        ),
     )
 
-    if dome_only and open_air_only:
+    open_air_only = parse_bool(
+        config.get(
+            "open_air_only",
+            False,
+        ),
+        key=(
+            "total_game_filters."
+            "open_air_only"
+        ),
+    )
+
+    if (
+        dome_only
+        and open_air_only
+    ):
         fail(
-            "total: dome_only and open_air_only "
+            "total_game_filters: "
+            "dome_only and open_air_only "
             "cannot both be true"
         )
 
-    is_dome = roof_is_dome(row)
-    is_open_air = roof_is_open_air(row)
+    is_dome = (
+        roof_is_dome(row)
+    )
 
-    if dome_only and not is_dome:
+    is_open_air = (
+        roof_is_open_air(row)
+    )
+
+    if (
+        dome_only
+        and not is_dome
+    ):
         return False
 
-    if open_air_only and not is_open_air:
+    if (
+        open_air_only
+        and not is_open_air
+    ):
         return False
 
-    # Weather restrictions are ignored for a confirmed dome.
     if is_dome:
         return True
 
     allow_missing = parse_bool(
         config.get(
             "allow_missing_weather",
-            game_filters.get("allow_weather_missing", True),
+            game_filters.get(
+                "allow_weather_missing",
+                True,
+            ),
         ),
-        key="total.allow_missing_weather",
+        key=(
+            "total_game_filters."
+            "allow_missing_weather"
+        ),
     )
 
     if not weather_available(row):
         return allow_missing
 
     max_wind = parse_float(
-        config.get("max_wind_speed", 999)
-    )
-    max_gust = parse_float(
-        config.get("max_gust_speed", 999)
+        config.get(
+            "max_wind_speed",
+            999,
+        )
     )
 
-    if max_wind is None or max_gust is None:
+    max_gust = parse_float(
+        config.get(
+            "max_gust_speed",
+            999,
+        )
+    )
+
+    if (
+        max_wind is None
+        or max_gust is None
+    ):
         fail(
-            "total max_wind_speed/max_gust_speed must be numeric"
+            "total_game_filters "
+            "max_wind_speed/"
+            "max_gust_speed "
+            "must be numeric"
         )
 
-    wind = parse_float(row.get("wx_wind_speed", ""))
-    gust = parse_float(row.get("wx_wind_gust", ""))
+    wind = parse_float(
+        row.get(
+            "wx_wind_speed",
+            "",
+        )
+    )
 
-    if wind is None and not allow_missing:
+    gust = parse_float(
+        row.get(
+            "wx_wind_gust",
+            "",
+        )
+    )
+
+    if (
+        wind is None
+        and not allow_missing
+    ):
         return False
 
-    if gust is None and not allow_missing:
+    if (
+        gust is None
+        and not allow_missing
+    ):
         return False
 
-    if wind is not None and wind > max_wind:
+    if (
+        wind is not None
+        and wind > max_wind
+    ):
         return False
 
-    if gust is not None and gust > max_gust:
+    if (
+        gust is not None
+        and gust > max_gust
+    ):
         return False
 
     allow_precipitation = parse_bool(
-        config.get("allow_precipitation", True),
-        key="total.allow_precipitation",
+        config.get(
+            "allow_precipitation",
+            True,
+        ),
+        key=(
+            "total_game_filters."
+            "allow_precipitation"
+        ),
     )
 
     if not allow_precipitation:
-        rain = parse_int(row.get("wx_rain_flag", "")) or 0
-        snow = parse_int(row.get("wx_snow_flag", "")) or 0
+        rain = (
+            parse_int(
+                row.get(
+                    "wx_rain_flag",
+                    "",
+                )
+            )
+            or 0
+        )
 
-        if rain == 1 or snow == 1:
+        snow = (
+            parse_int(
+                row.get(
+                    "wx_snow_flag",
+                    "",
+                )
+            )
+            or 0
+        )
+
+        if (
+            rain == 1
+            or snow == 1
+        ):
             return False
 
     return True
@@ -865,15 +1971,39 @@ def evaluate_total(
     config: dict[str, Any],
     thresholds: dict[str, float],
     game_filters: dict[str, Any],
+    total_game_filters: dict[str, Any],
 ) -> dict[str, Any]:
-    if not market_enabled(config, "total"):
-        result = empty_market("total", "MARKET_DISABLED")
-        result["total_line"] = np.nan
+    if not market_enabled(
+        config,
+        "total",
+    ):
+        result = empty_market(
+            "total",
+            "MARKET_DISABLED",
+        )
+
+        result[
+            "total_line"
+        ] = np.nan
+
         return result
 
-    total_line = parse_float(row.get("sched_total", ""))
-    over_odds = odds_value(row, "sched_over_american")
-    under_odds = odds_value(row, "sched_under_american")
+    total_line = parse_float(
+        row.get(
+            "sched_total",
+            "",
+        )
+    )
+
+    over_odds = odds_value(
+        row,
+        "sched_over_american",
+    )
+
+    under_odds = odds_value(
+        row,
+        "sched_under_american",
+    )
 
     if (
         total_line is None
@@ -884,41 +2014,86 @@ def evaluate_total(
             "total",
             "CURRENT_LINE_MISSING",
         )
-        result["total_line"] = np.nan
+
+        result[
+            "total_line"
+        ] = np.nan
+
         return result
 
-    min_total = parse_float(config.get("min_total", 0.0))
-    max_total = parse_float(config.get("max_total", 100.0))
+    # Preserve support for the old market-level
+    # total range if it still exists.
+    min_total = parse_float(
+        config.get(
+            "min_total",
+            0.0,
+        )
+    )
+
+    max_total = parse_float(
+        config.get(
+            "max_total",
+            100.0,
+        )
+    )
 
     if (
         min_total is None
         or max_total is None
         or min_total > max_total
     ):
-        fail("total min_total/max_total configuration is invalid")
+        fail(
+            "total min_total/max_total "
+            "configuration is invalid"
+        )
 
-    if not min_total <= total_line <= max_total:
+    if not (
+        min_total
+        <= total_line
+        <= max_total
+    ):
         result = empty_market(
             "total",
             "TOTAL_LINE_OUTSIDE_RANGE",
         )
-        result["total_line"] = total_line
+
+        result[
+            "total_line"
+        ] = total_line
+
         return result
+
+    # Support the new total_game_filters section while
+    # remaining compatible with weather keys previously
+    # stored directly under total.
+    environment_config = dict(
+        config
+    )
+
+    environment_config.update(
+        total_game_filters
+    )
 
     if not total_environment_passes(
         row,
-        config,
+        environment_config,
         game_filters,
     ):
         result = empty_market(
             "total",
             "TOTAL_ENVIRONMENT_FILTER",
         )
-        result["total_line"] = total_line
+
+        result[
+            "total_line"
+        ] = total_line
+
         return result
 
-    # Remove vig using the OVER and UNDER prices together.
-    over_fair, under_fair = no_vig_probabilities(
+    (
+        over_fair,
+        under_fair,
+    ) = no_vig_probabilities(
         over_odds,
         under_odds,
     )
@@ -926,14 +2101,20 @@ def evaluate_total(
     candidates = [
         make_candidate(
             "OVER",
-            numeric_probability(row, "over_probability"),
+            numeric_probability(
+                row,
+                "over_probability",
+            ),
             over_odds,
             over_fair,
             line=total_line,
         ),
         make_candidate(
             "UNDER",
-            numeric_probability(row, "under_probability"),
+            numeric_probability(
+                row,
+                "under_probability",
+            ),
             under_odds,
             under_fair,
             line=total_line,
@@ -952,7 +2133,11 @@ def evaluate_total(
             "total",
             "NO_CANDIDATE_PASSED",
         )
-        result["total_line"] = total_line
+
+        result[
+            "total_line"
+        ] = total_line
+
         return result
 
     return selected_market(
@@ -962,7 +2147,9 @@ def evaluate_total(
     )
 
 
-def validate_probability_pairs(df: pd.DataFrame) -> None:
+def validate_probability_pairs(
+    df: pd.DataFrame,
+) -> None:
     pairs = [
         (
             "home_win_probability",
@@ -981,40 +2168,59 @@ def validate_probability_pairs(df: pd.DataFrame) -> None:
         ),
     ]
 
-    for first, second, label in pairs:
+    for (
+        first,
+        second,
+        label,
+    ) in pairs:
         a = pd.to_numeric(
             df[first],
             errors="coerce",
         )
+
         b = pd.to_numeric(
             df[second],
             errors="coerce",
         )
 
-        if a.isna().any() or b.isna().any():
+        if (
+            a.isna().any()
+            or b.isna().any()
+        ):
             fail(
-                f"{label} probability columns contain "
+                f"{label} probability "
+                "columns contain "
                 "blank/non-numeric values"
             )
 
         if (
-            (a < 0)
-            | (a > 1)
-            | (b < 0)
-            | (b > 1)
-        ).any():
-            fail(f"{label} probability outside [0,1]")
+            (
+                (a < 0)
+                | (a > 1)
+                | (b < 0)
+                | (b > 1)
+            ).any()
+        ):
+            fail(
+                f"{label} probability "
+                "outside [0,1]"
+            )
 
         if not np.allclose(
-            a.to_numpy(dtype=float)
-            + b.to_numpy(dtype=float),
+            a.to_numpy(
+                dtype=float
+            )
+            + b.to_numpy(
+                dtype=float
+            ),
             1.0,
             rtol=0,
             atol=1e-9,
         ):
             fail(
-                f"{label} complementary probabilities "
-                "do not sum to 1"
+                f"{label} complementary "
+                "probabilities do not "
+                "sum to 1"
             )
 
 
@@ -1022,55 +2228,102 @@ def validate_settings(
     settings: dict[str, Any],
     season_override: int | None,
     week_override: int | None,
-) -> tuple[int, int, str, str]:
+) -> tuple[
+    int,
+    int,
+    str,
+    str,
+]:
     season = (
         season_override
-        if season_override is not None
-        else parse_int(settings.get("season"))
+        if season_override
+        is not None
+        else parse_int(
+            settings.get(
+                "season"
+            )
+        )
     )
 
     week = (
         week_override
-        if week_override is not None
-        else parse_int(settings.get("week"))
+        if week_override
+        is not None
+        else parse_int(
+            settings.get(
+                "week"
+            )
+        )
     )
 
-    if season is None or season < 1900:
+    if (
+        season is None
+        or season < 1900
+    ):
         fail(
             f"Invalid season: "
             f"{settings.get('season')!r}"
         )
 
-    if week is None or week <= 0:
+    if (
+        week is None
+        or week <= 0
+    ):
         fail(
             f"Invalid week: "
             f"{settings.get('week')!r}"
         )
 
-    season_type = normalize_season_type(
-        settings.get("season_type", "reg")
+    season_type = (
+        normalize_season_type(
+            settings.get(
+                "season_type",
+                "reg",
+            )
+        )
     )
 
-    if season_type not in {"reg", "pre", "post"}:
+    if season_type not in {
+        "reg",
+        "pre",
+        "post",
+    }:
         fail(
-            f"Unsupported season_type: "
+            "Unsupported season_type: "
             f"{settings.get('season_type')!r}"
         )
 
-    sportsbook = clean(settings.get("sportsbook"))
+    sportsbook = clean(
+        settings.get(
+            "sportsbook"
+        )
+    )
+
     if not sportsbook:
-        fail("settings.yaml sportsbook is required")
+        fail(
+            "settings.yaml sportsbook "
+            "is required"
+        )
 
     odds_format = clean(
-        settings.get("odds_format", "american")
+        settings.get(
+            "odds_format",
+            "american",
+        )
     ).casefold()
 
     if odds_format != "american":
         fail(
-            "selections.py requires odds_format: american"
+            "selections.py requires "
+            "odds_format: american"
         )
 
-    return season, week, season_type, sportsbook
+    return (
+        season,
+        week,
+        season_type,
+        sportsbook,
+    )
 
 
 def validate_combined(
@@ -1094,42 +2347,59 @@ def validate_combined(
         label,
     )
 
-    validate_unique_game_ids(df, label)
+    validate_unique_game_ids(
+        df,
+        label,
+    )
 
     seasons = {
         parse_int(value)
-        for value in df["season"]
+        for value in df[
+            "season"
+        ]
     }
 
     weeks = {
         parse_int(value)
-        for value in df["week"]
+        for value in df[
+            "week"
+        ]
     }
 
     types = {
-        normalize_season_type(value)
-        for value in df["season_type"]
+        normalize_season_type(
+            value
+        )
+        for value in df[
+            "season_type"
+        ]
     }
 
     if seasons != {season}:
         fail(
-            f"{label}: expected only season={season}; "
+            f"{label}: expected only "
+            f"season={season}; "
             f"found {seasons}"
         )
 
     if weeks != {week}:
         fail(
-            f"{label}: expected only week={week}; "
+            f"{label}: expected only "
+            f"week={week}; "
             f"found {weeks}"
         )
 
     if types != {season_type}:
         fail(
-            f"{label}: expected season_type="
-            f"{season_type!r}; found {types}"
+            f"{label}: expected "
+            "season_type="
+            f"{season_type!r}; "
+            f"found {types}"
         )
 
-    validate_probability_pairs(df)
+    validate_probability_pairs(
+        df
+    )
 
 
 def merge_schedule(
@@ -1179,61 +2449,115 @@ def merge_schedule(
         errors="coerce",
     )
 
-    type_values = schedule["season_type"].map(
+    type_values = schedule[
+        "season_type"
+    ].map(
         normalize_season_type
     )
 
     schedule = schedule.loc[
-        (season_values == season)
-        & (week_values == week)
-        & (type_values == season_type)
+        (
+            season_values
+            == season
+        )
+        & (
+            week_values
+            == week
+        )
+        & (
+            type_values
+            == season_type
+        )
     ].copy()
 
     if schedule.empty:
         fail(
-            "Weekly schedule has no rows for "
-            f"season={season}, week={week}, "
-            f"season_type={season_type}"
+            "Weekly schedule has "
+            "no rows for "
+            f"season={season}, "
+            f"week={week}, "
+            "season_type="
+            f"{season_type}"
         )
 
-    configured_book = normalize_bookmaker(sportsbook)
+    configured_book = (
+        normalize_bookmaker(
+            sportsbook
+        )
+    )
 
-    odds_available = pd.to_numeric(
-        schedule["odds_available"],
-        errors="coerce",
-    ).fillna(0)
+    odds_available = (
+        pd.to_numeric(
+            schedule[
+                "odds_available"
+            ],
+            errors="coerce",
+        )
+        .fillna(0)
+    )
 
-    available_rows = odds_available.eq(1)
+    available_rows = (
+        odds_available.eq(1)
+    )
 
     bad_book = (
-        schedule["bookmaker"]
-        .map(normalize_bookmaker)
-        .ne(configured_book)
+        schedule[
+            "bookmaker"
+        ]
+        .map(
+            normalize_bookmaker
+        )
+        .ne(
+            configured_book
+        )
         & available_rows
     )
 
     if bad_book.any():
-        examples = schedule.loc[
-            bad_book,
-            ["game_id", "bookmaker"],
-        ].head(10).to_dict("records")
+        examples = (
+            schedule.loc[
+                bad_book,
+                [
+                    "game_id",
+                    "bookmaker",
+                ],
+            ]
+            .head(10)
+            .to_dict(
+                "records"
+            )
+        )
 
         fail(
-            "Weekly schedule bookmaker does not match "
-            f"settings sportsbook {sportsbook!r}: "
+            "Weekly schedule bookmaker "
+            "does not match settings "
+            f"sportsbook {sportsbook!r}: "
             f"{examples}"
         )
 
-    base_ids = set(combined["game_id"])
-    schedule_ids = set(schedule["game_id"])
+    base_ids = set(
+        combined[
+            "game_id"
+        ]
+    )
 
-    missing = sorted(base_ids - schedule_ids)
+    schedule_ids = set(
+        schedule[
+            "game_id"
+        ]
+    )
+
+    missing = sorted(
+        base_ids
+        - schedule_ids
+    )
 
     if missing:
         fail(
-            f"Weekly schedule missing "
-            f"{len(missing)} projected games; "
-            f"examples={missing[:10]}"
+            "Weekly schedule missing "
+            f"{len(missing)} projected "
+            "games; examples="
+            f"{missing[:10]}"
         )
 
     columns = [
@@ -1253,13 +2577,19 @@ def merge_schedule(
         "odds_available",
     ]
 
-    source = schedule[columns].copy()
+    source = schedule[
+        columns
+    ].copy()
 
     source = source.rename(
         columns={
-            column: f"sched_{column}"
-            for column in columns
-            if column != "game_id"
+            column: (
+                f"sched_{column}"
+            )
+            for column
+            in columns
+            if column
+            != "game_id"
         }
     )
 
@@ -1275,7 +2605,10 @@ def merge_weather(
     working: pd.DataFrame,
     weather: pd.DataFrame | None,
 ) -> pd.DataFrame:
-    if weather is None or weather.empty:
+    if (
+        weather is None
+        or weather.empty
+    ):
         return working
 
     require_columns(
@@ -1291,9 +2624,13 @@ def merge_weather(
 
     source = weather.rename(
         columns={
-            column: f"wx_{column}"
-            for column in weather.columns
-            if column != "game_id"
+            column: (
+                f"wx_{column}"
+            )
+            for column
+            in weather.columns
+            if column
+            != "game_id"
         }
     )
 
@@ -1308,57 +2645,102 @@ def merge_weather(
 def global_eligibility(
     row: pd.Series,
     settings: dict[str, Any],
-) -> tuple[bool, str]:
+) -> tuple[
+    bool,
+    str,
+]:
     game_filters = settings.get(
         "game_filters",
         {},
     )
 
-    if not isinstance(game_filters, dict):
+    if not isinstance(
+        game_filters,
+        dict,
+    ):
         fail(
-            "settings.yaml game_filters must be a mapping"
+            "settings.yaml game_filters "
+            "must be a mapping"
         )
 
     allow_playoffs = parse_bool(
-        game_filters.get("allow_playoffs", False),
-        key="game_filters.allow_playoffs",
+        game_filters.get(
+            "allow_playoffs",
+            False,
+        ),
+        key=(
+            "game_filters."
+            "allow_playoffs"
+        ),
     )
 
-    if normalize_season_type(
-        row["season_type"]
-    ) == "post":
+    if (
+        normalize_season_type(
+            row[
+                "season_type"
+            ]
+        )
+        == "post"
+    ):
         if not allow_playoffs:
-            return False, "PLAYOFFS_DISABLED"
+            return (
+                False,
+                "PLAYOFFS_DISABLED",
+            )
 
     allow_neutral = parse_bool(
         game_filters.get(
             "allow_neutral_site",
             True,
         ),
-        key="game_filters.allow_neutral_site",
+        key=(
+            "game_filters."
+            "allow_neutral_site"
+        ),
     )
 
     if (
-        parse_int(
-            row.get("sched_neutral_site", "")
+        (
+            parse_int(
+                row.get(
+                    "sched_neutral_site",
+                    "",
+                )
+            )
+            or 0
         )
-        or 0
-    ) == 1:
+        == 1
+    ):
         if not allow_neutral:
-            return False, "NEUTRAL_SITE_DISABLED"
+            return (
+                False,
+                "NEUTRAL_SITE_DISABLED",
+            )
 
     allow_dome = parse_bool(
         game_filters.get(
             "allow_dome_games",
             True,
         ),
-        key="game_filters.allow_dome_games",
+        key=(
+            "game_filters."
+            "allow_dome_games"
+        ),
     )
 
-    if roof_is_dome(row) and not allow_dome:
-        return False, "DOME_GAMES_DISABLED"
+    if (
+        roof_is_dome(row)
+        and not allow_dome
+    ):
+        return (
+            False,
+            "DOME_GAMES_DISABLED",
+        )
 
-    return True, ""
+    return (
+        True,
+        "",
+    )
 
 
 def build_output(
@@ -1367,11 +2749,19 @@ def build_output(
     settings: dict[str, Any],
     market_document: dict[str, Any],
 ) -> pd.DataFrame:
-    markets = market_document.get("markets")
+    markets = (
+        market_document.get(
+            "markets"
+        )
+    )
 
-    if not isinstance(markets, dict):
+    if not isinstance(
+        markets,
+        dict,
+    ):
         fail(
-            "markets.yaml must contain a markets mapping"
+            "markets.yaml must "
+            "contain a markets mapping"
         )
 
     missing = [
@@ -1381,35 +2771,84 @@ def build_output(
             "spread",
             "total",
         ]
-        if not isinstance(markets.get(name), dict)
+        if not isinstance(
+            markets.get(name),
+            dict,
+        )
     ]
 
     if missing:
         fail(
-            f"markets.yaml missing market sections: "
+            "markets.yaml missing "
+            "market sections: "
             f"{missing}"
         )
 
-    ml_config = markets["moneyline"]
-    spread_config = markets["spread"]
-    total_config = markets["total"]
-
-    ml_thresholds = resolve_thresholds(
-        settings,
-        "moneyline",
-        ml_config,
+    ml_config = (
+        markets[
+            "moneyline"
+        ]
     )
 
-    spread_thresholds = resolve_thresholds(
-        settings,
-        "spread",
-        spread_config,
+    spread_config = (
+        markets[
+            "spread"
+        ]
     )
 
-    total_thresholds = resolve_thresholds(
-        settings,
-        "total",
-        total_config,
+    total_config = (
+        markets[
+            "total"
+        ]
+    )
+
+    total_game_filters = (
+        markets.get(
+            "total_game_filters",
+            market_document.get(
+                "total_game_filters",
+                {},
+            ),
+        )
+    )
+
+    if (
+        total_game_filters
+        is None
+    ):
+        total_game_filters = {}
+
+    if not isinstance(
+        total_game_filters,
+        dict,
+    ):
+        fail(
+            "total_game_filters "
+            "must be a YAML mapping"
+        )
+
+    ml_thresholds = (
+        resolve_thresholds(
+            settings,
+            "moneyline",
+            ml_config,
+        )
+    )
+
+    spread_thresholds = (
+        resolve_thresholds(
+            settings,
+            "spread",
+            spread_config,
+        )
+    )
+
+    total_thresholds = (
+        resolve_thresholds(
+            settings,
+            "total",
+            total_config,
+        )
     )
 
     game_filters = settings.get(
@@ -1417,12 +2856,26 @@ def build_output(
         {},
     )
 
+    if not isinstance(
+        game_filters,
+        dict,
+    ):
+        fail(
+            "settings.yaml game_filters "
+            "must be a mapping"
+        )
+
     selection_rows: list[
         dict[str, Any]
     ] = []
 
-    for _, row in working.iterrows():
-        eligible, reason = global_eligibility(
+    for _, row in (
+        working.iterrows()
+    ):
+        (
+            eligible,
+            reason,
+        ) = global_eligibility(
             row,
             settings,
         )
@@ -1437,39 +2890,66 @@ def build_output(
                 "spread",
                 reason,
             )
-            spread["spread_line"] = np.nan
+
+            spread[
+                "spread_line"
+            ] = np.nan
 
             total = empty_market(
                 "total",
                 reason,
             )
-            total["total_line"] = np.nan
+
+            total[
+                "total_line"
+            ] = np.nan
 
         elif (
-            parse_int(
-                row.get(
-                    "sched_odds_available",
-                    "",
+            (
+                parse_int(
+                    row.get(
+                        (
+                            "sched_"
+                            "odds_available"
+                        ),
+                        "",
+                    )
                 )
+                or 0
             )
-            or 0
-        ) != 1:
+            != 1
+        ):
             ml = empty_market(
                 "ml",
-                "CURRENT_ODDS_UNAVAILABLE",
+                (
+                    "CURRENT_ODDS_"
+                    "UNAVAILABLE"
+                ),
             )
 
             spread = empty_market(
                 "spread",
-                "CURRENT_ODDS_UNAVAILABLE",
+                (
+                    "CURRENT_ODDS_"
+                    "UNAVAILABLE"
+                ),
             )
-            spread["spread_line"] = np.nan
+
+            spread[
+                "spread_line"
+            ] = np.nan
 
             total = empty_market(
                 "total",
-                "CURRENT_ODDS_UNAVAILABLE",
+                (
+                    "CURRENT_ODDS_"
+                    "UNAVAILABLE"
+                ),
             )
-            total["total_line"] = np.nan
+
+            total[
+                "total_line"
+            ] = np.nan
 
         else:
             ml = evaluate_moneyline(
@@ -1489,28 +2969,39 @@ def build_output(
                 total_config,
                 total_thresholds,
                 game_filters,
+                total_game_filters,
             )
 
         selection_rows.append(
             {
-                "game_id": row["game_id"],
+                "game_id": (
+                    row[
+                        "game_id"
+                    ]
+                ),
                 **ml,
                 **spread,
                 **total,
             }
         )
 
-    selection_frame = pd.DataFrame(
-        selection_rows,
-        columns=[
-            "game_id",
-            *SELECTION_COLUMNS,
-        ],
+    selection_frame = (
+        pd.DataFrame(
+            selection_rows,
+            columns=[
+                "game_id",
+                *SELECTION_COLUMNS,
+            ],
+        )
     )
 
-    if len(selection_frame) != len(original):
+    if (
+        len(selection_frame)
+        != len(original)
+    ):
         fail(
-            "Internal selection row-count mismatch"
+            "Internal selection "
+            "row-count mismatch"
         )
 
     validate_unique_game_ids(
@@ -1519,19 +3010,29 @@ def build_output(
     )
 
     original_ids = set(
-        original["game_id"]
+        original[
+            "game_id"
+        ]
     )
 
     selection_ids = set(
-        selection_frame["game_id"]
+        selection_frame[
+            "game_id"
+        ]
     )
 
-    if selection_ids != original_ids:
+    if (
+        selection_ids
+        != original_ids
+    ):
         missing_ids = sorted(
-            original_ids - selection_ids
+            original_ids
+            - selection_ids
         )
+
         extra_ids = sorted(
-            selection_ids - original_ids
+            selection_ids
+            - original_ids
         )
 
         fail(
@@ -1540,22 +3041,23 @@ def build_output(
             f"extra={extra_ids[:10]}"
         )
 
-    # Reorder selection results by game_id to exactly match the projected
-    # input. Never attach selections by row position because pandas merges
-    # are not a safe ordering contract.
-    selection_frame = original[
-        ["game_id"]
-    ].merge(
-        selection_frame,
-        on="game_id",
-        how="left",
-        validate="one_to_one",
-        sort=False,
+    selection_frame = (
+        original[
+            ["game_id"]
+        ].merge(
+            selection_frame,
+            on="game_id",
+            how="left",
+            validate="one_to_one",
+            sort=False,
+        )
     )
 
     output = original.copy()
 
-    for column in SELECTION_COLUMNS:
+    for column in (
+        SELECTION_COLUMNS
+    ):
         output[column] = (
             selection_frame[
                 column
@@ -1574,8 +3076,11 @@ def write_atomic_csv(
         exist_ok=True,
     )
 
-    temporary = path.with_suffix(
-        path.suffix + ".tmp"
+    temporary = (
+        path.with_suffix(
+            path.suffix
+            + ".tmp"
+        )
     )
 
     df.to_csv(
@@ -1590,7 +3095,9 @@ def write_atomic_csv(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
+    parser = (
+        argparse.ArgumentParser()
+    )
 
     parser.add_argument(
         "--season",
@@ -1607,13 +3114,17 @@ def main() -> int:
     parser.add_argument(
         "--settings",
         type=Path,
-        default=DEFAULT_SETTINGS_PATH,
+        default=(
+            DEFAULT_SETTINGS_PATH
+        ),
     )
 
     parser.add_argument(
         "--markets",
         type=Path,
-        default=DEFAULT_MARKETS_PATH,
+        default=(
+            DEFAULT_MARKETS_PATH
+        ),
     )
 
     parser.add_argument(
@@ -1654,44 +3165,66 @@ def main() -> int:
     input_path = (
         args.input.resolve()
         if args.input is not None
-        else NFL_ROOT
-        / "01_merge"
-        / f"week_{week}_NFL_enriched.csv"
+        else (
+            NFL_ROOT
+            / "01_merge"
+            / (
+                f"week_{week}_"
+                "NFL_enriched.csv"
+            )
+        )
     )
 
     output_path = (
         args.output.resolve()
         if args.output is not None
-        else NFL_ROOT
-        / "02_select"
-        / f"week_{week}_NFL_selected.csv"
+        else (
+            NFL_ROOT
+            / "02_select"
+            / (
+                f"week_{week}_"
+                "NFL_selected.csv"
+            )
+        )
     )
 
-    if output_path == input_path:
+    if (
+        output_path
+        == input_path
+    ):
         fail(
-            "Selection output path must differ from "
-            "the input path; selections.py will not "
-            "overwrite a file it reads."
+            "Selection output path "
+            "must differ from the "
+            "input path; selections.py "
+            "will not overwrite a "
+            "file it reads."
         )
 
     combined = read_csv(
         input_path,
-        "projected combined enriched file",
+        (
+            "projected combined "
+            "enriched file"
+        ),
     )
 
     assert combined is not None
 
-    # The selection step is intentionally re-runnable as odds/config change.
-    # Remove only prior columns owned by this script, then rebuild them.
     prior_selection_columns = [
         column
-        for column in SELECTION_COLUMNS
-        if column in combined.columns
+        for column
+        in SELECTION_COLUMNS
+        if column
+        in combined.columns
     ]
 
     if prior_selection_columns:
-        combined = combined.drop(
-            columns=prior_selection_columns
+        combined = (
+            combined.drop(
+                columns=(
+                    prior_selection_columns
+                )
+            )
         )
 
     validate_combined(
@@ -1704,8 +3237,14 @@ def main() -> int:
 
     schedule_path = (
         NFL_ROOT
-        / "00_intake/schedule/weekly"
-        / f"week_{week}_NFL_weekly_schedule.csv"
+        / (
+            "00_intake/"
+            "schedule/weekly"
+        )
+        / (
+            f"week_{week}_"
+            "NFL_weekly_schedule.csv"
+        )
     )
 
     schedule = read_csv(
@@ -1727,7 +3266,10 @@ def main() -> int:
     weather_path = (
         NFL_ROOT
         / "data/weather"
-        / f"week_{week}_NFL_weekly_weather.csv"
+        / (
+            f"week_{week}_"
+            "NFL_weekly_weather.csv"
+        )
     )
 
     weather = read_csv(
@@ -1750,39 +3292,59 @@ def main() -> int:
 
     if (
         list(output.columns)
-        != list(combined.columns)
-        + SELECTION_COLUMNS
+        != (
+            list(
+                combined.columns
+            )
+            + SELECTION_COLUMNS
+        )
     ):
         fail(
             "Final selection column "
-            "order/integrity check failed"
+            "order/integrity check "
+            "failed"
         )
 
     if (
-        output["game_id"].tolist()
-        != combined["game_id"].tolist()
+        output[
+            "game_id"
+        ].tolist()
+        != combined[
+            "game_id"
+        ].tolist()
     ):
         fail(
-            "game_id order changed during "
-            "selection processing"
+            "game_id order changed "
+            "during selection "
+            "processing"
         )
 
     if (
-        output["away_team"].tolist()
-        != combined["away_team"].tolist()
+        output[
+            "away_team"
+        ].tolist()
+        != combined[
+            "away_team"
+        ].tolist()
     ):
         fail(
-            "away_team changed during "
-            "selection processing"
+            "away_team changed "
+            "during selection "
+            "processing"
         )
 
     if (
-        output["home_team"].tolist()
-        != combined["home_team"].tolist()
+        output[
+            "home_team"
+        ].tolist()
+        != combined[
+            "home_team"
+        ].tolist()
     ):
         fail(
-            "home_team changed during "
-            "selection processing"
+            "home_team changed "
+            "during selection "
+            "processing"
         )
 
     write_atomic_csv(
@@ -1791,16 +3353,28 @@ def main() -> int:
     )
 
     print(
-        f"Step 15 selections complete: "
+        "Step 15 selections complete: "
         f"season={season} "
         f"week={week} "
         f"games={len(output)}"
     )
 
-    for column, label in [
-        ("ml_selected", "moneyline"),
-        ("spread_selected", "spread"),
-        ("total_selected", "total"),
+    for (
+        column,
+        label,
+    ) in [
+        (
+            "ml_selected",
+            "moneyline",
+        ),
+        (
+            "spread_selected",
+            "spread",
+        ),
+        (
+            "total_selected",
+            "total",
+        ),
     ]:
         count = int(
             pd.to_numeric(
@@ -1812,7 +3386,8 @@ def main() -> int:
         )
 
         print(
-            f"{label}_selections={count}"
+            f"{label}_selections="
+            f"{count}"
         )
 
     print(
@@ -1824,7 +3399,10 @@ def main() -> int:
 
 if __name__ == "__main__":
     try:
-        raise SystemExit(main())
+        raise SystemExit(
+            main()
+        )
+
     except Exception as exc:
         print(
             f"ERROR: {exc}",
