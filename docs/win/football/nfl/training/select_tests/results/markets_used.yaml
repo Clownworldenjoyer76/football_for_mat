@@ -15,7 +15,7 @@ selection_defaults:
   min_ev: 0.00
   min_edge: 0.00
   min_kelly: 0.00
-  max_kelly: 0.05
+  max_kelly: 0.99
   min_odds_american: -10000
   max_odds_american: 10000
   min_model_prob: 0.00
@@ -36,37 +36,37 @@ markets:
       enabled: true
 
       odds_bands:
-        - [-10000, 10000]
+        - [-10000, 300]
 
       edge_bands:
-        - [0.00, 1.00]
+        - [0.02, 0.10]
 
       ev_bands:
-        - [0.00, 99.99]
+        - [0.00, 0.2999]
 
       kelly_bands:
         - [0.00, 1.00]
 
       prob_bands:
-        - [0.00, 1.00]
+        - [0.60, 1.00]
 
     away:
       enabled: true
 
       odds_bands:
-        - [-10000, 10000]
+        - [-10000, 200]
 
       edge_bands:
         - [0.00, 1.00]
 
       ev_bands:
-        - [0.00, 99.99]
+        - [0.00, 0.2999]
 
       kelly_bands:
-        - [0.00, 1.00]
+        - [0.03, 1.00]
 
       prob_bands:
-        - [0.00, 1.00]
+        - [0.65, 1.00]
 
 
   ###################################################
