@@ -889,6 +889,12 @@ def write_results(
         "by_edge_band.csv",
         "by_odds_band.csv",
         "by_line_band.csv",
+        "grand_total_by_ev_band.csv",
+        "grand_total_by_kelly_band.csv",
+        "grand_total_by_probability_band.csv",
+        "grand_total_by_edge_band.csv",
+        "grand_total_by_odds_band.csv",
+        "grand_total_by_line_band.csv",
         "markets_used.yaml",
         "run_manifest.json",
     }
@@ -910,6 +916,10 @@ def write_results(
             value_column=column,
         )
         write_csv_atomic(report, results_dir / filename)
+
+        grand_total = report.loc[report["season"].astype(str) == "ALL"].copy()
+        grand_total_filename = f"grand_total_{filename}"
+        write_csv_atomic(grand_total, results_dir / grand_total_filename)
 
     shutil.copyfile(config_path, results_dir / "markets_used.yaml")
 
