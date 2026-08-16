@@ -31,6 +31,7 @@ The *_implied_probability candidate columns contain the no-vig fair market
 probability.
 
 EV and full Kelly use the actual offered sportsbook odds.
+Kelly is full Kelly capped at settings.yaml selection_defaults.max_kelly.
 """
 
 from __future__ import annotations
@@ -109,6 +110,7 @@ CANDIDATE_COLUMNS = [
     "ml_home_edge",
     "ml_home_ev",
     "ml_home_full_kelly",
+    "ml_home_kelly",
     "ml_away_available",
     "ml_away_odds_american",
     "ml_away_model_probability",
@@ -116,6 +118,7 @@ CANDIDATE_COLUMNS = [
     "ml_away_edge",
     "ml_away_ev",
     "ml_away_full_kelly",
+    "ml_away_kelly",
     "spread_home_available",
     "spread_home_line",
     "spread_home_odds_american",
@@ -124,6 +127,7 @@ CANDIDATE_COLUMNS = [
     "spread_home_edge",
     "spread_home_ev",
     "spread_home_full_kelly",
+    "spread_home_kelly",
     "spread_away_available",
     "spread_away_line",
     "spread_away_odds_american",
@@ -132,6 +136,7 @@ CANDIDATE_COLUMNS = [
     "spread_away_edge",
     "spread_away_ev",
     "spread_away_full_kelly",
+    "spread_away_kelly",
     "total_over_available",
     "total_over_line",
     "total_over_odds_american",
@@ -140,6 +145,7 @@ CANDIDATE_COLUMNS = [
     "total_over_edge",
     "total_over_ev",
     "total_over_full_kelly",
+    "total_over_kelly",
     "total_under_available",
     "total_under_line",
     "total_under_odds_american",
@@ -148,6 +154,7 @@ CANDIDATE_COLUMNS = [
     "total_under_edge",
     "total_under_ev",
     "total_under_full_kelly",
+    "total_under_kelly",
 ]
 
 SEASON_TYPE_ALIASES = {
@@ -653,6 +660,7 @@ def blank_candidate(
         f"{prefix}_edge": np.nan,
         f"{prefix}_ev": np.nan,
         f"{prefix}_full_kelly": np.nan,
+        f"{prefix}_kelly": np.nan,
     }
 
     if prefix.startswith("spread_") or prefix.startswith("total_"):
@@ -677,6 +685,7 @@ def candidate_columns(
         f"{prefix}_edge": candidate["edge"],
         f"{prefix}_ev": candidate["ev"],
         f"{prefix}_full_kelly": candidate["full_kelly"],
+        f"{prefix}_kelly": candidate["full_kelly"],
     }
 
     if include_line:
@@ -1517,6 +1526,7 @@ def merge_weather(
 def build_output(
     original: pd.DataFrame,
     working: pd.DataFrame,
+    max_kelly: float,
 ) -> pd.DataFrame:
     candidate_rows: list[dict[str, Any]] = []
 
@@ -1561,6 +1571,29 @@ def build_output(
             *appended_columns,
         ],
     )
+
+    for prefix in [
+        "ml_home",
+        "ml_away",
+        "spread_home",
+        "spread_away",
+        "total_over",
+        "total_under",
+    ]:
+        candidate_frame[
+            f"{prefix}_kelly"
+        ] = (
+            pd.to_numeric(
+                candidate_frame[
+                    f"{prefix}_full_kelly"
+                ],
+                errors="coerce",
+            )
+            .clip(
+                lower=0.0,
+                upper=max_kelly,
+            )
+        )
 
     if len(candidate_frame) != len(original):
         fail(
@@ -1672,6 +1705,35 @@ def main() -> int:
         "settings config",
     )
 
+    selection_defaults = settings.get(
+        "selection_defaults"
+    )
+
+    if not isinstance(
+        selection_defaults,
+        dict,
+    ):
+        fail(
+            "settings.yaml must contain "
+            "selection_defaults"
+        )
+
+    max_kelly = parse_float(
+        selection_defaults.get(
+            "max_kelly"
+        )
+    )
+
+    if (
+        max_kelly is None
+        or max_kelly < 0
+    ):
+        fail(
+            "settings.yaml "
+            "selection_defaults.max_kelly "
+            "must be a non-negative number"
+        )
+
     (
         season,
         week,
@@ -1779,6 +1841,7 @@ def main() -> int:
     output = build_output(
         combined,
         working,
+        max_kelly,
     )
 
     expected_columns = (
@@ -1856,7 +1919,6 @@ def main() -> int:
 
     return 0
 
+
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
