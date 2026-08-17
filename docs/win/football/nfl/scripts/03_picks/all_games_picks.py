@@ -24,10 +24,10 @@ The projected score columns are written with exactly 2 decimal places.
 
 Spread definitions:
   predicted_home_spread =
-      predicted_home_score - predicted_away_score
+      predicted_away_score - predicted_home_score
 
   predicted_away_spread =
-      predicted_away_score - predicted_home_score
+      predicted_home_score - predicted_away_score
 """
 
 from __future__ import annotations
@@ -216,13 +216,13 @@ def build_output(
         )
 
         predicted_home_spread = (
-            home_score_rounded
-            - away_score_rounded
+            away_score_rounded
+            - home_score_rounded
         )
 
         predicted_away_spread = (
-            away_score_rounded
-            - home_score_rounded
+            home_score_rounded
+            - away_score_rounded
         )
 
         rows.append(
