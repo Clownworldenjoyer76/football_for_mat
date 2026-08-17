@@ -13,10 +13,10 @@ Source:
     (status + per-competitor score resolved automatically)
 
 Output:
-    docs/win/football/nfl/06_final_scores/results/{season}_{season_type}_{week}.csv
+    docs/win/football/nfl/04_final_results/results/{season}_{season_type}_{week}.csv
 
 Error/run log:
-    docs/win/football/nfl/errors/00_intake/pull_final_scores.txt
+    docs/win/football/nfl/errors/04_final_results/pull_final_scores.txt
 """
 
 import csv
@@ -31,8 +31,8 @@ SEASON = 2026
 SCHEDULE_PATH = f"docs/win/football/nfl/00_intake/schedule/{SEASON}_schedule.csv"
 COMPETITION_URL_TEMPLATE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/{game_id}/competitions/{game_id}"
 
-RESULTS_DIR = "docs/win/football/nfl/06_final_scores/results"
-ERROR_LOG_PATH = "docs/win/football/nfl/errors/00_intake/pull_final_scores.txt"
+RESULTS_DIR = "docs/win/football/nfl/04_final_results/results"
+ERROR_LOG_PATH = "docs/win/football/nfl/errors/04_final_results/pull_final_scores.txt"
 
 OUTPUT_HEADER = [
     "season",
@@ -173,7 +173,10 @@ def main():
     files_written = 0
     for (season, season_type, week), rows in rows_by_week.items():
         if not season or not season_type or not week:
-            log_lines.append(f"SKIPPED group missing season/season_type/week: {season}/{season_type}/{week}")
+            log_lines.append(
+                f"SKIPPED group missing season/season_type/week: "
+                f"{season}/{season_type}/{week}"
+            )
             continue
 
         filename = f"{season}_{season_type}_{week}.csv"
