@@ -5,14 +5,23 @@ name: NFL 05 Select
 # Runs the NFL candidate enrichment engine after projection.py /
 # projection_week1.py has added the model prediction fields.
 #
-# The selection engine:
+# Step 1:
 # - reads settings.yaml
 # - reads the projected weekly 01_merge CSV
 # - reads the current weekly sportsbook schedule
 # - calculates implied probability, edge, EV, and Kelly
 # - preserves raw HOME/AWAY/OVER/UNDER candidate metrics
 # - appends candidate fields without applying betting filters
-# - writes the weekly candidate/selection CSV under 02_select
+# - writes the weekly candidate CSV under 02_select
+#
+# Step 2:
+# - reads the weekly 02_select candidate CSV
+# - reads config/markets.yaml
+# - applies market, side, line, odds, edge, EV, Kelly, and probability filters
+# - applies pick_preference
+# - writes the final weekly picks CSV under 03_picks
+#
+# Both outputs are committed back to the repository.
 
 on:
   workflow_dispatch:
@@ -56,24 +65,37 @@ jobs:
             --season "${{ inputs.season }}" \
             --week "${{ inputs.week }}"
 
-      - name: Commit selection output
+      - name: Run NFL picks filter
+        run: |
+          python docs/win/football/nfl/scripts/03_picks/picks.py \
+            --pattern "week_${{ inputs.week }}_NFL_selected.csv"
+
+      - name: Commit selection and picks outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          OUTPUT="docs/win/football/nfl/02_select/week_${{ inputs.week }}_NFL_selected.csv"
+          SELECT_OUTPUT="docs/win/football/nfl/02_select/week_${{ inputs.week }}_NFL_selected.csv"
+          PICKS_OUTPUT="docs/win/football/nfl/03_picks/week_${{ inputs.week }}_NFL_picks.csv"
 
-          if [ ! -f "$OUTPUT" ]; then
+          if [ ! -f "$SELECT_OUTPUT" ]; then
             echo "ERROR: Expected selection output not found:"
-            echo "$OUTPUT"
+            echo "$SELECT_OUTPUT"
             exit 1
           fi
 
-          git add "$OUTPUT"
+          if [ ! -f "$PICKS_OUTPUT" ]; then
+            echo "ERROR: Expected picks output not found:"
+            echo "$PICKS_OUTPUT"
+            exit 1
+          fi
+
+          git add "$SELECT_OUTPUT"
+          git add "$PICKS_OUTPUT"
 
           if git diff --cached --quiet; then
-            echo "No selection output changes to commit."
+            echo "No selection or picks output changes to commit."
           else
-            git commit -m "Run NFL selections for ${{ inputs.season }} Week ${{ inputs.week }}"
+            git commit -m "Run NFL selections and picks for ${{ inputs.season }} Week ${{ inputs.week }}"
             git push
           fi
