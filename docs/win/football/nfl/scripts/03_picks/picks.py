@@ -1332,7 +1332,7 @@ def process_file(
 
     output = df.copy()
     for column in selection_columns():
-    output[column] = output[column].astype(object)
+        output[column] = output[column].astype(object)
 
     original_columns = list(
         df.columns
