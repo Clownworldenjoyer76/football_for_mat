@@ -2,41 +2,27 @@ name: NFL 05 Select
 
 # MANUAL RUN ONLY.
 #
-# Runs the NFL candidate enrichment engine after projection.py /
-# projection_week1.py has added the model prediction fields.
+# Runs the NFL selection pipeline for every available weekly projection file.
 #
 # Step 1:
-# - reads settings.yaml
-# - reads the projected weekly 01_merge CSV
-# - reads the current weekly sportsbook schedule
-# - calculates implied probability, edge, EV, and Kelly
-# - preserves raw HOME/AWAY/OVER/UNDER candidate metrics
-# - appends candidate fields without applying betting filters
-# - writes the weekly candidate CSV under 02_select
+# - finds every docs/win/football/nfl/01_merge/week_*_NFL_enriched.csv
+# - runs selections.py for each available week
+# - writes docs/win/football/nfl/02_select/week_*_NFL_selected.csv
 #
 # Step 2:
-# - reads the weekly 02_select candidate CSV
-# - reads config/markets.yaml
-# - applies market, side, line, odds, edge, EV, Kelly, and probability filters
-# - applies pick_preference
-# - writes the final weekly picks CSV under 03_picks
+# - runs picks.py for every generated selected file
+# - applies config/markets.yaml
+# - writes docs/win/football/nfl/03_picks/week_*_NFL_picks.csv
 #
-# Both outputs are committed back to the repository.
+# Step 3:
+# - runs all_games_picks.py for every generated selected file
+# - writes compact projected-score files under:
+#   docs/win/football/nfl/03_picks/all_games/
+#
+# All generated outputs are committed back to the repository.
 
 on:
   workflow_dispatch:
-    inputs:
-      season:
-        description: "NFL season"
-        required: true
-        default: "2026"
-        type: string
-
-      week:
-        description: "NFL week"
-        required: true
-        default: "1"
-        type: string
 
 permissions:
   contents: write
@@ -59,43 +45,75 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas numpy pyyaml
 
-      - name: Run NFL selection engine
+      - name: Run NFL selection engine for all weeks
+        shell: bash
         run: |
-          python docs/win/football/nfl/scripts/02_select/selections.py \
-            --season "${{ inputs.season }}" \
-            --week "${{ inputs.week }}"
+          set -euo pipefail
 
-      - name: Run NFL picks filter
+          shopt -s nullglob
+
+          FILES=(
+            docs/win/football/nfl/01_merge/week_*_NFL_enriched.csv
+          )
+
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "ERROR: No weekly enriched files found."
+            exit 1
+          fi
+
+          for FILE in "${FILES[@]}"; do
+            BASENAME="$(basename "$FILE")"
+            WEEK="${BASENAME#week_}"
+            WEEK="${WEEK%_NFL_enriched.csv}"
+
+            echo "Running selections.py for Week $WEEK"
+
+            python docs/win/football/nfl/scripts/02_select/selections.py \
+              --week "$WEEK"
+          done
+
+      - name: Run NFL picks filter for all weeks
         run: |
-          python docs/win/football/nfl/scripts/03_picks/picks.py \
-            --pattern "week_${{ inputs.week }}_NFL_selected.csv"
+          python docs/win/football/nfl/scripts/03_picks/picks.py
+
+      - name: Run all-games picks for all weeks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+
+          FILES=(
+            docs/win/football/nfl/02_select/week_*_NFL_selected.csv
+          )
+
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "ERROR: No weekly selected files found."
+            exit 1
+          fi
+
+          for FILE in "${FILES[@]}"; do
+            BASENAME="$(basename "$FILE")"
+            WEEK="${BASENAME#week_}"
+            WEEK="${WEEK%_NFL_selected.csv}"
+
+            echo "Running all_games_picks.py for Week $WEEK"
+
+            python docs/win/football/nfl/scripts/03_picks/all_games_picks.py \
+              --week "$WEEK"
+          done
 
       - name: Commit selection and picks outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          SELECT_OUTPUT="docs/win/football/nfl/02_select/week_${{ inputs.week }}_NFL_selected.csv"
-          PICKS_OUTPUT="docs/win/football/nfl/03_picks/week_${{ inputs.week }}_NFL_picks.csv"
-
-          if [ ! -f "$SELECT_OUTPUT" ]; then
-            echo "ERROR: Expected selection output not found:"
-            echo "$SELECT_OUTPUT"
-            exit 1
-          fi
-
-          if [ ! -f "$PICKS_OUTPUT" ]; then
-            echo "ERROR: Expected picks output not found:"
-            echo "$PICKS_OUTPUT"
-            exit 1
-          fi
-
-          git add "$SELECT_OUTPUT"
-          git add "$PICKS_OUTPUT"
+          git add docs/win/football/nfl/02_select/
+          git add docs/win/football/nfl/03_picks/
 
           if git diff --cached --quiet; then
-            echo "No selection or picks output changes to commit."
+            echo "No NFL selection or picks output changes to commit."
           else
-            git commit -m "Run NFL selections and picks for ${{ inputs.season }} Week ${{ inputs.week }}"
+            git commit -m "Run NFL selections and picks for all available weeks"
             git push
           fi
