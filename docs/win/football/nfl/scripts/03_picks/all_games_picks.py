@@ -20,7 +20,10 @@ OUTPUT COLUMNS:
   predicted_home_spread
   predicted_away_spread
 
-The projected score columns are written with exactly 2 decimal places.
+The projected score columns are rounded to the nearest 0.5 point.
+
+The projected total is recalculated from the rounded projected scores so the
+displayed score, total, and spreads remain mathematically consistent.
 
 Spread definitions:
   predicted_home_spread =
@@ -68,7 +71,6 @@ REQUIRED_INPUT_COLUMNS = [
     "home_team",
     "predicted_away_score",
     "predicted_home_score",
-    "predicted_total",
 ]
 
 
@@ -174,10 +176,16 @@ def validate_game_ids(
         )
 
 
-def format_two_decimals(
+def round_to_half(
+    value: float,
+) -> float:
+    return round(value * 2.0) / 2.0
+
+
+def format_half_point(
     value: float,
 ) -> str:
-    return f"{value:.2f}"
+    return f"{value:.1f}"
 
 
 def build_output(
@@ -200,19 +208,17 @@ def build_output(
             row_number=row_number,
         )
 
-        predicted_total = parse_float(
-            row["predicted_total"],
-            column="predicted_total",
-            row_number=row_number,
+        away_score_rounded = round_to_half(
+            away_score
         )
 
-        away_score_rounded = round(
-            away_score,
-            2,
+        home_score_rounded = round_to_half(
+            home_score
         )
-        home_score_rounded = round(
-            home_score,
-            2,
+
+        predicted_total = (
+            away_score_rounded
+            + home_score_rounded
         )
 
         predicted_home_spread = (
@@ -243,25 +249,27 @@ def build_output(
                     row["home_team"]
                 ),
                 "predicted_away_score": (
-                    format_two_decimals(
+                    format_half_point(
                         away_score_rounded
                     )
                 ),
                 "predicted_home_score": (
-                    format_two_decimals(
+                    format_half_point(
                         home_score_rounded
                     )
                 ),
                 "predicted_total": (
-                    predicted_total
+                    format_half_point(
+                        predicted_total
+                    )
                 ),
                 "predicted_home_spread": (
-                    format_two_decimals(
+                    format_half_point(
                         predicted_home_spread
                     )
                 ),
                 "predicted_away_spread": (
-                    format_two_decimals(
+                    format_half_point(
                         predicted_away_spread
                     )
                 ),
