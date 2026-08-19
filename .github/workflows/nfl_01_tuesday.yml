@@ -32,8 +32,12 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_schedule.py
 
-##### NEED TO ADD THE FINAL SCORES/GRADING STEPS HERE-ISH 
-     # - name: Pull final scores
+      # Final-score pull will be enabled when the final-score pipeline is ready.
+      #
+      # During preseason/testing, validate_tuesday.py allows the final-score
+      # directory to be absent/empty and emits a WARNING instead of failing.
+      #
+      # - name: Pull final scores
       #   run: |
       #     python docs/win/football/nfl/scripts/00_intake/pull_final_scores.py
 
@@ -83,9 +87,10 @@ jobs:
 
       - name: Validate Tuesday outputs
         run: |
+          set -o pipefail
           python docs/win/football/nfl/scripts/validation/validate_tuesday.py \
             --season "$NFL_SEASON"
-            
+
       - name: Commit and push all Tuesday outputs
         run: |
           git config user.name "github-actions[bot]"
