@@ -20,6 +20,10 @@ def passed(message):
     print(f"PASS: {message}")
 
 
+def warning(message):
+    print(f"WARNING: {message}", file=sys.stderr)
+
+
 def read_csv(path, required_columns, *, allow_empty=False, unique_by=None):
     if not path.is_file():
         fail(f"Missing file: {path}")
@@ -104,6 +108,7 @@ def read_pbp(path, required_columns, *, require_rows):
     if not frame.empty:
         keys = frame[["game_id", "play_id"]].copy()
         keys = keys.dropna(subset=["game_id", "play_id"])
+
         if keys.duplicated().any():
             examples = keys[keys.duplicated(keep=False)].head(5).to_dict("records")
             fail(f"{path} has duplicate game_id/play_id rows: {examples}")
@@ -143,14 +148,19 @@ def main():
     )
 
     schedule_game_ids = {
-        str(row["game_id"]).strip() for row in schedule_rows
+        str(row["game_id"]).strip()
+        for row in schedule_rows
     }
 
     result_files = sorted(
         (NFL_ROOT / "06_final_scores/results").glob(f"{season}_*.csv")
     )
+
     if not result_files:
-        fail(f"No final-score files found for season {season}")
+        warning(
+            f"No final-score files found for season {season}. "
+            "Continuing because final-score data may not yet be available."
+        )
 
     result_rows = []
     result_game_ids = set()
@@ -177,6 +187,7 @@ def main():
 
         for row in rows:
             game_id = str(row["game_id"]).strip()
+
             if game_id in result_game_ids:
                 fail(f"Duplicate game_id across final-score files: {game_id}")
 
@@ -184,17 +195,22 @@ def main():
             result_rows.append(row)
 
             status = str(row.get("status", "")).strip().lower()
+
             if "final" in status or "completed" in status:
                 completed_game_ids.add(game_id)
 
                 if str(row.get("away_score", "")).strip() == "":
                     fail(f"Completed game {game_id} has a blank away_score")
+
                 if str(row.get("home_score", "")).strip() == "":
                     fail(f"Completed game {game_id} has a blank home_score")
 
-    if result_game_ids != schedule_game_ids:
+    # Only require final-score coverage when final-score files actually exist.
+    # Missing final-score files are allowed during preseason/testing.
+    if result_files and result_game_ids != schedule_game_ids:
         missing = schedule_game_ids - result_game_ids
         extra = result_game_ids - schedule_game_ids
+
         fail(
             "Final-score game IDs do not exactly match the season schedule. "
             f"Missing={sorted(missing)[:5]} Extra={sorted(extra)[:5]}"
@@ -247,6 +263,7 @@ def main():
         }
 
         unknown_pbp_games = pbp_game_ids - schedule_game_ids
+
         if unknown_pbp_games:
             fail(
                 f"{pbp_path} contains game IDs absent from the schedule: "
@@ -254,6 +271,7 @@ def main():
             )
 
         missing_completed_pbp = completed_game_ids - pbp_game_ids
+
         if missing_completed_pbp:
             fail(
                 f"{pbp_path} is missing completed games: "
@@ -263,7 +281,8 @@ def main():
     team_stats_path = (
         NFL_ROOT / f"00_intake/team_stats/{season}_team_stats.csv"
     )
-    team_stats_rows = read_csv(
+
+    read_csv(
         team_stats_path,
         [
             "season",
@@ -287,6 +306,7 @@ def main():
     )
 
     qb_stats_path = NFL_ROOT / f"00_intake/qb/{season}_qb_stats.csv"
+
     if completed_games_exist:
         read_csv(
             qb_stats_path,
@@ -306,6 +326,7 @@ def main():
             ],
             unique_by=["season", "week", "team", "player_id"],
         )
+
     elif qb_stats_path.exists():
         read_csv(
             qb_stats_path,
@@ -320,6 +341,7 @@ def main():
             allow_empty=True,
             unique_by=["season", "week", "team", "player_id"],
         )
+
     else:
         passed(f"{qb_stats_path} not required before completed games exist")
 
@@ -336,6 +358,7 @@ def main():
         ],
         unique_by=["team_id"],
     )
+
     if len(league_master_rows) != 32:
         fail(
             "league_master.csv must contain exactly 32 NFL teams; "
@@ -368,6 +391,7 @@ def main():
         ],
         unique_by=["team_id"],
     )
+
     if len(coaches_rows) != 32:
         fail(
             "coaches_master.csv must contain exactly 32 head coaches; "
@@ -377,6 +401,7 @@ def main():
     qbr_files = sorted(
         (NFL_ROOT / f"data/qb_data/qbr_data/{season}").glob("*.csv")
     )
+
     if completed_games_exist and not qbr_files:
         fail(f"No QBR files found for season {season}")
 
@@ -392,6 +417,7 @@ def main():
         ["season", "team_id", "lastUpdated"],
         unique_by=["team_id"],
     )
+
     if len(fpi_rows) != 32:
         fail(
             f"team_power_index_{season}.csv must contain exactly 32 teams; "
@@ -401,6 +427,7 @@ def main():
     leaders_path = (
         NFL_ROOT / f"data/league_leaders/league_leaders_{season}.csv"
     )
+
     if completed_games_exist:
         read_csv(
             leaders_path,
@@ -415,6 +442,7 @@ def main():
             ],
             unique_by=["season", "category", "rank"],
         )
+
     elif leaders_path.exists():
         read_csv(
             leaders_path,
@@ -430,6 +458,7 @@ def main():
             allow_empty=True,
             unique_by=["season", "category", "rank"],
         )
+
     else:
         passed(f"{leaders_path} not required before completed games exist")
 
@@ -452,6 +481,7 @@ def main():
             "week_*_NFL_weekly_schedule.csv"
         )
     )
+
     current_weekly_files = 0
 
     for schedule_week_path in weekly_files:
@@ -459,6 +489,7 @@ def main():
             r"week_(\d+)_NFL_weekly_schedule\.csv",
             schedule_week_path.name,
         )
+
         if not match:
             continue
 
@@ -475,19 +506,27 @@ def main():
             unique_by=["game_id"],
         )
 
-        file_seasons = {str(row["season"]).strip() for row in week_rows}
+        file_seasons = {
+            str(row["season"]).strip()
+            for row in week_rows
+        }
+
         if file_seasons != {str(season)}:
             continue
 
         current_weekly_files += 1
+
         week = int(match.group(1))
+
         schedule_week_ids = {
-            str(row["game_id"]).strip() for row in week_rows
+            str(row["game_id"]).strip()
+            for row in week_rows
         }
 
         travel_path = (
             NFL_ROOT / f"data/travel/{season}_week_{week}_travel.csv"
         )
+
         travel_rows = read_csv(
             travel_path,
             [
@@ -507,8 +546,10 @@ def main():
             ],
             unique_by=["game_id"],
         )
+
         travel_ids = {
-            str(row["game_id"]).strip() for row in travel_rows
+            str(row["game_id"]).strip()
+            for row in travel_rows
         }
 
         if travel_ids != schedule_week_ids:
