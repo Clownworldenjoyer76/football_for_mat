@@ -33,6 +33,10 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/04_final_results/pull_final_scores.py
 
+      - name: Grade NFL selected picks
+        run: |
+          python docs/win/football/nfl/scripts/04_final_results/grade_selected_picks.py
+
       - name: Commit final results
         run: |
           git config user.name "github-actions[bot]"
