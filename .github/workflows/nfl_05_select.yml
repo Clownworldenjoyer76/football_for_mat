@@ -19,6 +19,13 @@ name: NFL 05 Select
 # - writes compact projected-score files under:
 #   docs/win/football/nfl/03_picks/all_games/
 #
+# Step 4:
+# - runs final_picks.py for every generated picks file
+# - writes final selected picks under:
+#   docs/win/football/nfl/03_picks/selected/
+# - writes final weekly projections under:
+#   docs/win/football/nfl/03_picks/projection/
+#
 # All generated outputs are committed back to the repository.
 
 on:
@@ -100,6 +107,33 @@ jobs:
             echo "Running all_games_picks.py for Week $WEEK"
 
             python docs/win/football/nfl/scripts/03_picks/all_games_picks.py \
+              --week "$WEEK"
+          done
+
+      - name: Run final picks for all weeks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+
+          FILES=(
+            docs/win/football/nfl/03_picks/week_*_NFL_picks.csv
+          )
+
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "ERROR: No weekly picks files found."
+            exit 1
+          fi
+
+          for FILE in "${FILES[@]}"; do
+            BASENAME="$(basename "$FILE")"
+            WEEK="${BASENAME#week_}"
+            WEEK="${WEEK%_NFL_picks.csv}"
+
+            echo "Running final_picks.py for Week $WEEK"
+
+            python docs/win/football/nfl/scripts/03_picks/final_picks.py \
               --week "$WEEK"
           done
 
