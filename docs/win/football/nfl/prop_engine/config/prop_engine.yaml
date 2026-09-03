@@ -1,0 +1,119 @@
+system:
+  name: nfl_prop_engine
+  canonical_player_id: gsis_id
+  canonical_game_grain: season_week_game_id_player_id
+  market_data_allowed: false
+
+paths:
+  historical_player_stats_pattern: docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_{season}.parquet
+  historical_games: docs/win/football/nfl/data/historic_data/games/games_2010_2025.csv
+  historical_players: docs/win/football/nfl/data/historic_data/players/players.parquet
+  historical_rosters_pattern: docs/win/football/nfl/data/historic_data/weekly_rosters/roster_weekly_{season}.parquet
+  historical_depth_pattern: docs/win/football/nfl/data/historic_data/depth_charts/depth_charts_{season}.parquet
+  historical_injuries_pattern: docs/win/football/nfl/data/historic_data/injuries/injuries_{season}.parquet
+  historical_snaps_pattern: docs/win/football/nfl/data/historic_data/snap_counts/snap_counts_{season}.parquet
+  historical_participation_pattern: docs/win/football/nfl/data/historic_data/participation/pbp_participation_{season}.parquet
+  pbp_pattern: docs/win/football/nfl/00_intake/pbp/{season}_pbp.csv.gz
+  team_stats_pattern: docs/win/football/nfl/00_intake/team_stats/{season}_team_stats.csv
+  qb_stats_pattern: docs/win/football/nfl/00_intake/qb/{season}_qb_stats.csv
+  current_schedule: docs/win/football/nfl/00_intake/schedule/{season}_schedule.csv
+  current_roster: docs/win/football/nfl/data/master/roster_master.csv
+  current_depth_root: docs/win/football/nfl/data/master/depth_charts
+  current_injuries: docs/win/football/nfl/00_intake/injuries/{season}_injuries.csv
+  current_weather: docs/win/football/nfl/data/weather/week_{week}_NFL_weekly_weather.csv
+  current_travel: docs/win/football/nfl/data/travel/{season}_week_{week}_travel.csv
+  team_master: docs/win/football/nfl/data/master/team_master.csv
+  identity_crosswalk: docs/win/football/nfl/prop_engine/data/identity/player_crosswalk.parquet
+  historical_universe: docs/win/football/nfl/prop_engine/data/historical/universe/player_game_universe.parquet
+  historical_targets: docs/win/football/nfl/prop_engine/data/historical/targets/player_game_targets.parquet
+  player_opportunity: docs/win/football/nfl/prop_engine/data/historical/opportunity/player_week_opportunity.parquet
+  team_opportunity: docs/win/football/nfl/prop_engine/data/historical/opportunity/team_week_opportunity.parquet
+  opponent_opportunity: docs/win/football/nfl/prop_engine/data/historical/opportunity/opponent_week_opportunity.parquet
+  historical_features: docs/win/football/nfl/prop_engine/data/historical/features/player_game_features.parquet
+  current_source_root: docs/win/football/nfl/prop_engine/data/current/source
+  current_feature_root: docs/win/football/nfl/prop_engine/data/current/features
+  model_root: docs/win/football/nfl/prop_engine/models
+  evaluation_root: docs/win/football/nfl/prop_engine/evaluation
+  output_root: docs/win/football/nfl/prop_engine/output
+  log_root: docs/win/football/nfl/prop_engine/logs
+
+seasons:
+  historical_start: 2012
+  rich_feature_start: 2021
+  historical_end: 2025
+  current: 2026
+
+# Contract:
+# - Participation-dependent features must begin no earlier than 2016.
+# - PBP-derived rich features may only be enabled for seasons where the
+#   configured pbp_pattern file exists and validates successfully.
+
+targets:
+  passing_yards:
+    source_column: passing_yards
+    type: continuous_nonnegative
+  passing_tds:
+    source_column: passing_tds
+    type: count_nonnegative
+  rushing_yards:
+    source_column: rushing_yards
+    type: continuous_nonnegative
+  rushing_tds:
+    source_column: rushing_tds
+    type: count_nonnegative
+  receiving_yards:
+    source_column: receiving_yards
+    type: continuous_nonnegative
+  receiving_tds:
+    source_column: receiving_tds
+    type: count_nonnegative
+  kicking_points:
+    type: derived_count
+    formula: "3 * field_goals_made + extra_points_made"
+  tackles:
+    type: count_nonnegative
+    definition: solo_tackles + assisted_tackles
+  sacks:
+    source_column: sacks
+    type: count_nonnegative
+
+positions: {}
+
+rolling_windows:
+  games: [1, 3, 5, 8]
+
+ewm:
+  spans: [3, 5, 8]
+  adjust: false
+
+eligibility: {}
+
+injuries: {}
+
+weather: {}
+
+training: {}
+
+validation: {}
+
+uncertainty: {}
+
+models: {}
+
+forbidden_features:
+  - odds
+  - moneyline
+  - spread
+  - total_line
+  - over_odds
+  - under_odds
+  - market
+  - sportsbook
+  - prop_line
+  - drat
+  - epred
+  - projected_pts
+  - win_probability
+  - cover_probability
+
+output: {}
