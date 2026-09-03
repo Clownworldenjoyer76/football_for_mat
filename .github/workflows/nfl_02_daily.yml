@@ -10,9 +10,6 @@ jobs:
   nfl-daily-am:
     runs-on: ubuntu-latest
 
-    env:
-      API_ODDS: ${{ secrets.API_ODDS }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -35,7 +32,7 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/00_intake/build_weekly_schedule.py
 
-      - name: Pull opening odds and movement
+      - name: Build ESPN opening odds and movement
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_opening_odds.py
 
