@@ -1,0 +1,173 @@
+{
+  "completed_at": "2026-09-04T11:31:32.190089Z",
+  "counts": {
+    "families": 5,
+    "successful_families": 1,
+    "unavailable_families": 4
+  },
+  "families": {
+    "participation": {
+      "attempts": [
+        {
+          "error": "Season must be between 2016 and 2025",
+          "error_type": "ValueError",
+          "source": "nflreadpy",
+          "status": "failed"
+        },
+        {
+          "error": "No module named 'nfl_data_py'",
+          "error_type": "ModuleNotFoundError",
+          "source": "nfl_data_py",
+          "status": "failed"
+        }
+      ],
+      "column_count": 0,
+      "existing_output_preserved": false,
+      "family": "participation",
+      "max_week": null,
+      "min_week": null,
+      "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\source\\pbp_participation_2026.parquet",
+      "output_written": false,
+      "refresh_timestamp": "2026-09-04T11:31:30.842385Z",
+      "row_count": 0,
+      "season": 2026,
+      "source": null,
+      "source_version": null,
+      "status": "unavailable"
+    },
+    "player_stats": {
+      "attempts": [
+        {
+          "error": "Failed to download https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.parquet: 404 Client Error: Not Found for url: https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.parquet",
+          "error_type": "ConnectionError",
+          "source": "nflreadpy",
+          "status": "failed"
+        },
+        {
+          "error": "No module named 'nfl_data_py'",
+          "error_type": "ModuleNotFoundError",
+          "source": "nfl_data_py",
+          "status": "failed"
+        }
+      ],
+      "column_count": 0,
+      "existing_output_preserved": false,
+      "family": "player_stats",
+      "max_week": null,
+      "min_week": null,
+      "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\source\\stats_player_week_2026.parquet",
+      "output_written": false,
+      "refresh_timestamp": "2026-09-04T11:31:30.839121Z",
+      "row_count": 0,
+      "season": 2026,
+      "source": null,
+      "source_version": null,
+      "status": "unavailable"
+    },
+    "players": {
+      "attempts": [
+        {
+          "column_count": 39,
+          "max_week": null,
+          "min_week": null,
+          "native_id_columns": [
+            "gsis_id",
+            "pfr_id",
+            "espn_id"
+          ],
+          "row_count": 25065,
+          "source": "nflreadpy",
+          "source_version": "0.1.5",
+          "status": "success"
+        }
+      ],
+      "column_count": 39,
+      "family": "players",
+      "max_week": null,
+      "min_week": null,
+      "native_id_columns": [
+        "gsis_id",
+        "pfr_id",
+        "espn_id"
+      ],
+      "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\source\\players.parquet",
+      "output_written": true,
+      "refresh_timestamp": "2026-09-04T11:31:32.189947Z",
+      "row_count": 25065,
+      "season": 2026,
+      "source": "nflreadpy",
+      "source_version": "0.1.5",
+      "status": "success"
+    },
+    "snap_counts": {
+      "attempts": [
+        {
+          "error": "Season must be between 2012 and 2025",
+          "error_type": "ValueError",
+          "source": "nflreadpy",
+          "status": "failed"
+        },
+        {
+          "error": "No module named 'nfl_data_py'",
+          "error_type": "ModuleNotFoundError",
+          "source": "nfl_data_py",
+          "status": "failed"
+        }
+      ],
+      "column_count": 0,
+      "existing_output_preserved": false,
+      "family": "snap_counts",
+      "max_week": null,
+      "min_week": null,
+      "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\source\\snap_counts_2026.parquet",
+      "output_written": false,
+      "refresh_timestamp": "2026-09-04T11:31:30.841466Z",
+      "row_count": 0,
+      "season": 2026,
+      "source": null,
+      "source_version": null,
+      "status": "unavailable"
+    },
+    "weekly_rosters": {
+      "attempts": [
+        {
+          "error": "Season must be between 2002 and 2025",
+          "error_type": "ValueError",
+          "source": "nflreadpy",
+          "status": "failed"
+        },
+        {
+          "error": "No module named 'nfl_data_py'",
+          "error_type": "ModuleNotFoundError",
+          "source": "nfl_data_py",
+          "status": "failed"
+        }
+      ],
+      "column_count": 0,
+      "existing_output_preserved": false,
+      "family": "weekly_rosters",
+      "max_week": null,
+      "min_week": null,
+      "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\source\\roster_weekly_2026.parquet",
+      "output_written": false,
+      "refresh_timestamp": "2026-09-04T11:31:30.840483Z",
+      "row_count": 0,
+      "season": 2026,
+      "source": null,
+      "source_version": null,
+      "status": "unavailable"
+    }
+  },
+  "policy": {
+    "fabricate_missing_rows": false,
+    "fallback_source": "nfl_data_py",
+    "historical_data_writes": false,
+    "market_data_allowed": false,
+    "native_gsis_ids_preserved": true,
+    "nflreadpy_first": true
+  },
+  "script": "refresh_nflverse_player_data.py",
+  "season": 2026,
+  "started_at": "2026-09-04T11:31:29.883362Z",
+  "status": "partial"
+}
