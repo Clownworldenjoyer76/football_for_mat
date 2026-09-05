@@ -1,0 +1,39 @@
+name: NFL 07 NM Bets
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nfl-nmbets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate NM NFL picks
+        run: |
+          python docs/win/football/nfl/scripts/03_picks/nmbets.py
+
+      - name: Commit NM NFL picks
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/football/nfl/03_picks/nmbets/
+
+          if git diff --cached --quiet; then
+            echo "No NM NFL picks changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Update NFL NM bets"
+          git push
