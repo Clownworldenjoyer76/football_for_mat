@@ -1,0 +1,351 @@
+{
+  "critical_unresolved_starters": [],
+  "current_roster_rows_used": 1990,
+  "current_roster_source": {
+    "mode": "existing_current_source",
+    "output": "docs/win/football/nfl/prop_engine/data/current/source/roster_weekly_2026.parquet"
+  },
+  "eligible_rows": 1243,
+  "games": 16,
+  "ineligible_rows": 742,
+  "market_exclusion_passed": true,
+  "market_features_used": false,
+  "native_current_gsis_ids_used": [],
+  "output": "docs/win/football/nfl/prop_engine/data/current/2026_week_1_universe.parquet",
+  "recent_defensive_participant_keys": 0,
+  "required_reads": {
+    "current_roster_weekly": "docs/win/football/nfl/prop_engine/data/current/source/roster_weekly_2026.parquet",
+    "depth_files": [
+      "docs/win/football/nfl/data/master/depth_charts/ARI/ARI_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/ATL/ATL_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/BAL/BAL_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/BUF/BUF_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/CAR/CAR_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/CHI/CHI_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/CIN/CIN_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/CLE/CLE_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/DAL/DAL_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/DEN/DEN_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/DET/DET_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/GB/GB_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/HOU/HOU_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/IND/IND_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/JAX/JAX_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/KC/KC_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/LAC/LAC_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/LAR/LAR_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/LV/LV_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/MIA/MIA_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/MIN/MIN_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/NE/NE_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/NO/NO_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/NYG/NYG_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/NYJ/NYJ_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/PHI/PHI_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/PIT/PIT_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/SEA/SEA_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/SF/SF_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/TB/TB_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/TEN/TEN_depth.csv",
+      "docs/win/football/nfl/data/master/depth_charts/WSH/WSH_depth.csv"
+    ],
+    "injuries": "docs/win/football/nfl/00_intake/injuries/2026_injuries.csv",
+    "player_crosswalk": "docs/win/football/nfl/prop_engine/data/identity/player_crosswalk.parquet",
+    "roster_master": "docs/win/football/nfl/data/master/roster_master.csv",
+    "schedule": "docs/win/football/nfl/00_intake/schedule/2026_schedule.csv"
+  },
+  "rows": 1985,
+  "rules": {
+    "canonical_player_id": "gsis_id",
+    "defensive_requires_depth_or_recent_participation": true,
+    "kicker_requires_k_or_pk_role": true,
+    "native_gsis_ids_fabricated": false,
+    "noncritical_unresolved_backup_skipped_and_logged": true,
+    "nonscheduled_teams_removed": true,
+    "out_ineligible": true,
+    "questionable_remains_eligible_with_flag": true,
+    "unresolved_starter_identity_fails": true,
+    "verified_nonplaying_ineligible": true
+  },
+  "scheduled_team_count": 32,
+  "scheduled_teams": [
+    "ARI",
+    "ATL",
+    "BAL",
+    "BUF",
+    "CAR",
+    "CHI",
+    "CIN",
+    "CLE",
+    "DAL",
+    "DEN",
+    "DET",
+    "GB",
+    "HOU",
+    "IND",
+    "JAX",
+    "KC",
+    "LAC",
+    "LAR",
+    "LV",
+    "MIA",
+    "MIN",
+    "NE",
+    "NO",
+    "NYG",
+    "NYJ",
+    "PHI",
+    "PIT",
+    "SEA",
+    "SF",
+    "TB",
+    "TEN",
+    "WSH"
+  ],
+  "script": "build_current_universe.py",
+  "season": 2026,
+  "skipped_unresolved_count": 13,
+  "skipped_unresolved_nonstarters": [
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4686338"
+      ],
+      "player_names": [
+        "Josh Minkins"
+      ],
+      "position": "S",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "ARI"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4900789"
+      ],
+      "player_names": [
+        "Cameron Robertson"
+      ],
+      "position": "LB",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "ARI"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "17218"
+      ],
+      "player_names": [
+        "Dexter Moody"
+      ],
+      "position": "S",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "BAL"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "5151144"
+      ],
+      "player_names": [
+        "Lardarius Webb Jr."
+      ],
+      "position": "CB",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "BAL"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4691889"
+      ],
+      "player_names": [
+        "Greg Desrosiers Jr."
+      ],
+      "position": "RB",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "LAC"
+    },
+    {
+      "depth_backup_flag": 1,
+      "depth_rank": 4.0,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4695022"
+      ],
+      "player_names": [
+        "Daniel Rickert"
+      ],
+      "position": "DE",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "depth",
+        "master_roster"
+      ],
+      "team": "LAR"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "5393270"
+      ],
+      "player_names": [
+        "Grant Finley"
+      ],
+      "position": "FB",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "NYG"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4599158"
+      ],
+      "player_names": [
+        "Al-Jay Henderson"
+      ],
+      "position": "RB",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "NYJ"
+    },
+    {
+      "depth_backup_flag": 1,
+      "depth_rank": 2.0,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4431533"
+      ],
+      "player_names": [
+        "Gabriel Rubio"
+      ],
+      "position": "DE",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "depth",
+        "master_roster"
+      ],
+      "team": "PIT"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4749258"
+      ],
+      "player_names": [
+        "Aaron Smith"
+      ],
+      "position": "LB",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "SEA"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4699678"
+      ],
+      "player_names": [
+        "Khalil Dinkins"
+      ],
+      "position": "TE",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "SF"
+    },
+    {
+      "depth_backup_flag": 0,
+      "depth_rank": null,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "12803"
+      ],
+      "player_names": [
+        "D.J. Johnson"
+      ],
+      "position": "CB",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "current_roster_weekly",
+        "master_roster"
+      ],
+      "team": "WSH"
+    },
+    {
+      "depth_backup_flag": 1,
+      "depth_rank": 4.0,
+      "depth_starter_flag": 0,
+      "espn_ids": [
+        "4565537"
+      ],
+      "player_names": [
+        "Keveion'ta Spears"
+      ],
+      "position": "RDT",
+      "reason": "no_resolved_or_native_gsis_identity",
+      "sources": [
+        "depth"
+      ],
+      "team": "ARI"
+    }
+  ],
+  "status": "passed",
+  "supporting_reads": {
+    "recent_snap_counts": null,
+    "team_master": "docs/win/football/nfl/data/master/team_master.csv"
+  },
+  "week": 1
+}

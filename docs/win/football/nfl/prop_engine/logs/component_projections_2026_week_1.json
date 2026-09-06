@@ -1,0 +1,153 @@
+{
+  "columns": 21,
+  "efficiency_models": {
+    "field_goal_conversion": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 19,
+      "rows": 32,
+      "strict_prior_history_through": 2025
+    },
+    "passing_yards_per_attempt": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 16,
+      "rows": 87,
+      "strict_prior_history_through": 2025
+    },
+    "receiving_yards_per_target": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 16,
+      "rows": 422,
+      "strict_prior_history_through": 2025
+    },
+    "rushing_yards_per_carry": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 16,
+      "rows": 509,
+      "strict_prior_history_through": 2025
+    }
+  },
+  "efficiency_models_scored": 4,
+  "games": 16,
+  "inputs": {
+    "eligibility": "docs\\win\\football\\nfl\\prop_engine\\config\\target_eligibility.yaml",
+    "features": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\features\\2026_week_1_features.parquet",
+    "historical_features": "docs\\win\\football\\nfl\\prop_engine\\data\\historical\\features\\player_game_features.parquet",
+    "roles": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_roles.parquet",
+    "week1_priors": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_priors.parquet"
+  },
+  "log": "docs\\win\\football\\nfl\\prop_engine\\logs\\component_projections_2026_week_1.json",
+  "market_exclusion_passed": true,
+  "market_features_used": false,
+  "opportunity_models": {
+    "extra_point_attempts": {
+      "feature_count": 38,
+      "rows": 32,
+      "scope": "team",
+      "transform": "floor_zero"
+    },
+    "field_goal_attempts": {
+      "feature_count": 38,
+      "rows": 32,
+      "scope": "team",
+      "transform": "floor_zero"
+    },
+    "player_carry_share": {
+      "feature_count": 77,
+      "rows": 509,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "player_goal_line_carry_share": {
+      "feature_count": 77,
+      "rows": 509,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "player_red_zone_target_share": {
+      "feature_count": 81,
+      "rows": 422,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "player_target_share": {
+      "feature_count": 81,
+      "rows": 422,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "qb_pass_attempts": {
+      "feature_count": 77,
+      "rows": 87,
+      "scope": "player",
+      "transform": "floor_zero"
+    },
+    "team_pass_attempts": {
+      "feature_count": 144,
+      "rows": 32,
+      "scope": "team",
+      "transform": "floor_zero"
+    },
+    "team_rush_attempts": {
+      "feature_count": 144,
+      "rows": 32,
+      "scope": "team",
+      "transform": "floor_zero"
+    }
+  },
+  "opportunity_models_scored": 9,
+  "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_component_projections.parquet",
+  "policy": {
+    "efficiency_derived_features_model_local": true,
+    "market_exclusion_preflight": true,
+    "missing_required_model_feature_fails": true,
+    "no_share_reconciliation_before_allocation": true,
+    "persisted_model_feature_order_checked": true,
+    "primary_kicker_assignment": true,
+    "primary_qb_assignment": true,
+    "raw_share_components_only": true,
+    "strict_prior_efficiency_history": true
+  },
+  "primary_kickers": 32,
+  "primary_qbs": 32,
+  "rows": 1243,
+  "script": "project_components.py",
+  "season": 2026,
+  "share_reconciliation_stage": "current_week_allocation",
+  "shares_reconciled": false,
+  "status": "passed",
+  "strict_prior_efficiency_history_end_season": 2025,
+  "teams": 32,
+  "week": 1
+}

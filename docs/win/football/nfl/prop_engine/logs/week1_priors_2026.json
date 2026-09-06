@@ -1,0 +1,87 @@
+{
+  "audit": {
+    "ambiguous_kickers": 0,
+    "career_counter_provenance": "Issue12 strict-prior realized/source history; not historical-universe played_game_flag",
+    "committee_players": 360,
+    "low_history_players": 34,
+    "modeled_played_games_gt_source_history_players": 940,
+    "new_roles": 206,
+    "new_team_veterans": 248,
+    "position_prior_groups": {
+      "DB": 0.12638496454937487,
+      "DL": 0.07828523939461955,
+      "LB": 0.1341441697320037,
+      "QB": 7.0109641562719975,
+      "RB": 4.073569591150202,
+      "SPEC": 0.8619472326502795,
+      "TE": 7.1015856653568585,
+      "WR": 8.259626993384147
+    },
+    "prior_efficiency_mapping": {
+      "DB": "tackle_rate_per_defensive_play",
+      "DL": "tackle_rate_per_defensive_play",
+      "LB": "tackle_rate_per_defensive_play",
+      "QB": "yards_per_attempt",
+      "RB": "yards_per_carry",
+      "SPEC": "field_goal_conversion",
+      "TE": "yards_per_target",
+      "WR": "yards_per_target"
+    },
+    "prior_feature_team_differs_from_latest_played_team_players": 10,
+    "rookies": 222,
+    "same_team_veterans": 773,
+    "source_history_gt_modeled_played_games_players": 13,
+    "stale_history_players": 21
+  },
+  "constants": {
+    "career_weight": 0.35,
+    "committee_uncertainty": 1.08,
+    "kicker_ambiguity_uncertainty": 1.25,
+    "low_history_uncertainty": 1.1,
+    "max_uncertainty": 2.25,
+    "new_role_uncertainty": 1.15,
+    "new_team_uncertainty": 1.25,
+    "no_prior_season_uncertainty": 1.15,
+    "recent_weight": 0.65,
+    "role_depth_weight": 0.35,
+    "role_history_weight": 0.65,
+    "rookie_uncertainty": 1.4
+  },
+  "inputs": {
+    "features": "docs/win/football/nfl/prop_engine/data/current/features/2026_week_1_features.parquet",
+    "historical_features": "docs/win/football/nfl/prop_engine/data/historical/features/player_game_features.parquet",
+    "historical_universe": "docs/win/football/nfl/prop_engine/data/historical/universe/player_game_universe.parquet",
+    "roles": "docs/win/football/nfl/prop_engine/data/current/2026_week_1_roles.parquet"
+  },
+  "log": "docs/win/football/nfl/prop_engine/logs/week1_priors_2026.json",
+  "market_exclusion_passed": true,
+  "market_features_used": false,
+  "market_preflight": {
+    "pass_marker": "MARKET EXCLUSION AUDIT: PASS",
+    "passed": true,
+    "validator": "docs/win/football/nfl/prop_engine/scripts/validate/audit_market_exclusion.py"
+  },
+  "new_roles": 206,
+  "new_team_veterans": 248,
+  "output": "docs/win/football/nfl/prop_engine/data/current/2026_week_1_priors.parquet",
+  "policy": {
+    "market_exclusion_preflight": true,
+    "new_role_uncertainty_widened": true,
+    "new_team_career_efficiency_only": true,
+    "new_team_old_team_role_share_imported": false,
+    "position_prior_source": "current_week1_veteran_career_efficiency_by_position_group",
+    "prior_team_source": "latest_prior_season_historical_feature_row_team",
+    "returning_player_recent_plus_career": true,
+    "rookie_player_nfl_production_invented": false,
+    "rookie_position_depth_prior": true,
+    "rookie_uncertainty_widened": true
+  },
+  "rookies": 222,
+  "rows": 1243,
+  "script": "build_week1_priors.py",
+  "season": 2026,
+  "status": "passed",
+  "teams": 32,
+  "uncertainty_widened_rows": 1222,
+  "week": 1
+}

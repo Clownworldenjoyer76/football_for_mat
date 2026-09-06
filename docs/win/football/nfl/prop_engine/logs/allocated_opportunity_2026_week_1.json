@@ -1,0 +1,73 @@
+{
+  "allocation": {
+    "carry": {
+      "fallback_teams_no_raw_mass": 0,
+      "normalized_teams": 32,
+      "teams_with_out_context": 30
+    },
+    "target": {
+      "fallback_teams_no_raw_mass": 0,
+      "normalized_teams": 32,
+      "teams_with_out_context": 28
+    }
+  },
+  "carry_rows_adjusted": 509,
+  "carry_team_volume_max_error": 1.4210854715202004e-14,
+  "columns": 12,
+  "def_participation_rows_adjusted": 0,
+  "equal_split_default_used": false,
+  "games": 16,
+  "inputs": {
+    "component_projections": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_component_projections.parquet",
+    "eligibility": "docs\\win\\football\\nfl\\prop_engine\\config\\target_eligibility.yaml",
+    "features": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\features\\2026_week_1_features.parquet",
+    "issue33_log": "docs\\win\\football\\nfl\\prop_engine\\logs\\component_projections_2026_week_1.json",
+    "roles": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_roles.parquet",
+    "universe": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_universe.parquet"
+  },
+  "log": "docs\\win\\football\\nfl\\prop_engine\\logs\\allocated_opportunity_2026_week_1.json",
+  "market_exclusion_passed": true,
+  "market_features_used": false,
+  "out_players_in_allocation_pool": 0,
+  "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_allocated_opportunity.parquet",
+  "policy": {
+    "carry_team_share_reconciled": true,
+    "defensive_participation_manifest_reconciliation_required": false,
+    "defensive_participation_preserved_from_model": true,
+    "eligible_receivers_only": true,
+    "eligible_rushers_only": true,
+    "equal_split_default": false,
+    "market_exclusion_preflight": true,
+    "out_players_excluded": true,
+    "out_redistribution_uses_depth_promotion_recent_backup_participation": true,
+    "raw_and_allocated_preserved": true,
+    "target_team_share_reconciled": true
+  },
+  "raw_component_models": {
+    "player_carry_share": {
+      "component": "player_carry_share",
+      "feature_count": 77,
+      "prediction_transform": "clip_0_1",
+      "reconcile_during_current_week_allocation": true,
+      "rows": 509
+    },
+    "player_defensive_participation": {
+      "component": "player_defensive_participation",
+      "feature_count": 65,
+      "prediction_transform": "clip_0_1",
+      "reconcile_during_current_week_allocation": false,
+      "rows": 700
+    },
+    "player_target_share": {
+      "reconcile_during_current_week_allocation": true
+    }
+  },
+  "rows": 1243,
+  "script": "allocate_team_opportunity.py",
+  "season": 2026,
+  "status": "passed",
+  "target_rows_adjusted": 422,
+  "target_team_volume_max_error": 1.4210854715202004e-14,
+  "teams": 32,
+  "week": 1
+}
