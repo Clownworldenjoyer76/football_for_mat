@@ -1,0 +1,133 @@
+rookie:
+  efficiency_priority: &efficiency_priority
+    - Same-season player prior
+    - Recent prior-season player prior
+    - Career player prior
+    - Position-group league prior
+  role_share_priority: &role_share_priority
+    - Current-team recent role
+    - Current depth rank + career role
+    - Position/depth prior
+  trigger: no_nfl_history
+  rules:
+    efficiency: position_group_league_prior_when_player_priors_unavailable
+    workload: position_depth_prior
+    nfl_production_imputation: forbidden
+  uncertainty:
+    widen: true
+    reason: rookie_or_no_history
+
+new_team:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: team_or_franchise_change
+  rules:
+    efficiency: retain_player_efficiency
+    team_share: reset
+    workload: rebuild_from_current_depth_and_current_team_context
+  uncertainty:
+    widen: true
+    reason: new_team_role
+
+backup_promotion:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: promoted_from_backup_role
+  rules:
+    efficiency: retain_player_efficiency
+    workload: replace_with_promoted_role_expectation
+    prior_backup_workload: do_not_carry_forward_as_promoted_workload
+  uncertainty:
+    widen: true
+    reason: promoted_role
+
+missing_snap_history:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: snap_history_unavailable
+  rules:
+    workload: use_depth_plus_statistical_usage
+    set_missing_flag: true
+  uncertainty:
+    widen: true
+    reason: missing_snap_history
+
+missing_participation:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: participation_history_unavailable
+  rules:
+    workload: use_depth_plus_statistical_usage
+    set_missing_flag: true
+  uncertainty:
+    widen: true
+    reason: missing_participation
+
+missing_weather:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: weather_unavailable
+  rules:
+    environment: use_roof_surface_and_missing_flags
+    set_missing_flag: true
+  uncertainty:
+    widen: false
+    reason: missing_weather_handled_by_environment_flags
+
+missing_depth:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: depth_rank_unavailable
+  rules:
+    workload: use_current_team_recent_role_then_career_role_then_position_prior
+    set_missing_flag: true
+  uncertainty:
+    widen: true
+    reason: missing_depth
+
+missing_injury:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: injury_status_unavailable
+  rules:
+    injury_status: do_not_assume_healthy
+    set_missing_flag: true
+  uncertainty:
+    widen: true
+    reason: missing_injury_status
+
+missing_player_stats:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: player_stat_history_unavailable
+  rules:
+    efficiency: follow_efficiency_priority
+    workload: follow_role_share_priority
+    set_missing_flag: true
+  uncertainty:
+    widen: true
+    reason: missing_player_stats
+
+defensive_low_volume:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: low_defensive_sample
+  rules:
+    efficiency: follow_efficiency_priority
+    workload: follow_role_share_priority
+    low_volume_flag: true
+  uncertainty:
+    widen: true
+    reason: defensive_low_volume
+
+kicker_change:
+  efficiency_priority: *efficiency_priority
+  role_share_priority: *role_share_priority
+  trigger: primary_kicker_change
+  rules:
+    efficiency: retain_player_efficiency_when_available
+    workload: replace_with_primary_kicker_role_expectation
+    prior_team_kicker_share: do_not_transfer_between_players
+  uncertainty:
+    widen: true
+    reason: kicker_change

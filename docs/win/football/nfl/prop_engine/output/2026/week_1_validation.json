@@ -1,0 +1,128 @@
+{
+  "checks": [
+    {
+      "details": {
+        "active_rows": 3358,
+        "long_rows": 17865,
+        "required_artifacts": 10,
+        "wide_rows": 1985
+      },
+      "name": "required current-week artifacts load",
+      "passed": true
+    },
+    {
+      "details": {
+        "scheduled_games": 16,
+        "scheduled_teams": 32
+      },
+      "name": "every projected team is scheduled and every game ID exists in schedule",
+      "passed": true
+    },
+    {
+      "details": {
+        "projected_players": 1985
+      },
+      "name": "every projected player has canonical GSIS identity",
+      "passed": true
+    },
+    {
+      "details": {
+        "active_rows": 3358,
+        "audit_rows": 17865,
+        "duplicate_rows": 0
+      },
+      "name": "no duplicate player_id + game_id + target",
+      "passed": true
+    },
+    {
+      "details": {
+        "interval_violations": 0,
+        "negative_projections": 0,
+        "probability_violations": 0,
+        "rows_checked": 21223
+      },
+      "name": "nonnegative projections, ordered intervals, and probabilities in [0,1]",
+      "passed": true
+    },
+    {
+      "details": {
+        "ineligible_rows_in_active": 0,
+        "out_rows_in_active": 0
+      },
+      "name": "Out and ineligible players excluded from active-only output",
+      "passed": true
+    },
+    {
+      "details": {
+        "multiple_full_qb1_teams": 0,
+        "teams_checked": 32
+      },
+      "name": "no two QBs receive full QB1 volume for one team",
+      "passed": true
+    },
+    {
+      "details": {
+        "max_carry_sum_error": 2.220446049250313e-16,
+        "max_target_sum_error": 2.220446049250313e-16,
+        "teams_checked": 32
+      },
+      "name": "target and carry shares are logically bounded and reconciled",
+      "passed": true
+    },
+    {
+      "details": {
+        "minimum_primary_kicker_opportunity_share": 1.0,
+        "teams_checked": 32
+      },
+      "name": "one primary kicker receives majority kicking opportunity",
+      "passed": true
+    },
+    {
+      "details": {
+        "defensive_rows_checked": 1400,
+        "implausible_rows": 0
+      },
+      "name": "defensive projections limited to plausible participants",
+      "passed": true
+    },
+    {
+      "details": {
+        "architectures": {
+          "kicking_points": "component",
+          "passing_tds": "direct_component_blend",
+          "passing_yards": "direct_component_blend",
+          "receiving_tds": "component",
+          "receiving_yards": "direct_component_blend",
+          "rushing_tds": "component",
+          "rushing_yards": "direct_component_blend",
+          "sacks": "component",
+          "tackles": "direct"
+        },
+        "component_dependencies_checked": 28,
+        "deterministic_feature_dependencies_checked": 8,
+        "models_checked": 25
+      },
+      "name": "current feature schema matches every selected production model",
+      "passed": true
+    },
+    {
+      "details": {
+        "audit": "docs\\win\\football\\nfl\\prop_engine\\evaluation\\market_exclusion_audit.json",
+        "files_scanned": 168,
+        "weekly_logs_checked": 2
+      },
+      "name": "market audit passes and weekly outputs report no market features",
+      "passed": true
+    }
+  ],
+  "checks_failed": 0,
+  "checks_passed": 12,
+  "checks_total": 12,
+  "failure_returns_nonzero_exit_code": true,
+  "generated_at": "2026-09-06T20:32:42+00:00",
+  "market_features_used": false,
+  "output": "docs/win/football/nfl/prop_engine/output/2026/week_1_validation.json",
+  "season": 2026,
+  "status": "passed",
+  "week": 1
+}
