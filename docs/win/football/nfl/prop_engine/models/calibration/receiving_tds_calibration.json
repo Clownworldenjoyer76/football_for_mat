@@ -1,0 +1,170 @@
+{
+  "calibration_mode": "count",
+  "calibration_source": {
+    "fold_id": "dev_2024",
+    "model_selection_train_end_season": 2023,
+    "oof_residuals_used": true,
+    "prediction_file": "docs/win/football/nfl/prop_engine/evaluation/model_selection_predictions.parquet",
+    "rows": 6210,
+    "season": 2024,
+    "split": "validation"
+  },
+  "count_calibration": {
+    "expected_count": {
+      "input": "selected_point_prediction_clipped_at_zero",
+      "mapping": {
+        "bins_requested": 12,
+        "knots_x": [
+          0.010526983734271923,
+          0.01724165997450525,
+          0.023318632876460813,
+          0.02914773787943812,
+          0.03554339842861679,
+          0.043146853329533226,
+          0.05188776701398832,
+          0.06278046075139386,
+          0.07720820706275246,
+          0.09648015437874054,
+          0.12545861872324185,
+          0.19870798269341017
+        ],
+        "knots_y": [
+          0.023166023166023165,
+          0.023166023166023165,
+          0.0444015444015444,
+          0.045366795366795366,
+          0.045366795366795366,
+          0.07142857142857142,
+          0.09671179883945841,
+          0.11411992263056092,
+          0.1702127659574468,
+          0.21083172147001933,
+          0.2765957446808511,
+          0.41392649903288203
+        ],
+        "left_value": 0.023166023166023165,
+        "method": "equal_frequency_binning_then_pava_isotonic",
+        "output_bounds": [
+          0.0,
+          null
+        ],
+        "right_value": 0.41392649903288203
+      }
+    },
+    "probability_1_plus": {
+      "input": "poisson_probability_1_plus_from_calibrated_expected_count",
+      "mapping": {
+        "bins_requested": 12,
+        "knots_x": [
+          0.022899750970579058,
+          0.0254355670908307,
+          0.0411120723726226,
+          0.04423750079653643,
+          0.04720048821656987,
+          0.06841003747256698,
+          0.09070071834901722,
+          0.11096422663548465,
+          0.1532238244477329,
+          0.19037540849421947,
+          0.24021406178482255,
+          0.3134535430203407
+        ],
+        "knots_y": [
+          0.023166023166023165,
+          0.023166023166023165,
+          0.04247104247104247,
+          0.04247104247104247,
+          0.04247104247104247,
+          0.07142857142857142,
+          0.09090909090909091,
+          0.09477756286266925,
+          0.15087040618955513,
+          0.1895551257253385,
+          0.24758220502901354,
+          0.34235976789168276
+        ],
+        "left_value": 0.023166023166023165,
+        "method": "equal_frequency_binning_then_pava_isotonic",
+        "output_bounds": [
+          0.0,
+          1.0
+        ],
+        "right_value": 0.34235976789168276
+      }
+    },
+    "probability_2_plus": {
+      "input": "poisson_probability_2_plus_from_calibrated_expected_count",
+      "mapping": {
+        "bins_requested": 12,
+        "knots_x": [
+          0.0002642239660365364,
+          0.00033188604147947777,
+          0.0008629388006838641,
+          0.0009932465516356039,
+          0.0011392799308698322,
+          0.0024201944628311433,
+          0.004262493024235637,
+          0.006444237095298666,
+          0.012482536227242323,
+          0.019479855962611505,
+          0.0316455943593462,
+          0.05570362152737609
+        ],
+        "knots_y": [
+          0.0,
+          0.0,
+          0.0019305019305019305,
+          0.0019305019305019305,
+          0.0019305019305019305,
+          0.0019305019305019305,
+          0.005802707930367505,
+          0.0183752417794971,
+          0.0183752417794971,
+          0.02127659574468085,
+          0.029013539651837523,
+          0.06576402321083172
+        ],
+        "left_value": 0.0,
+        "method": "equal_frequency_binning_then_pava_isotonic",
+        "output_bounds": [
+          0.0,
+          1.0
+        ],
+        "right_value": 0.06576402321083172
+      }
+    }
+  },
+  "count_outputs": [
+    "expected_count",
+    "probability_1_plus",
+    "probability_2_plus"
+  ],
+  "forbidden_features_used": false,
+  "market_features_used": false,
+  "reporting_test_policy": {
+    "test_reporting_only_preserved": true,
+    "test_rows_used_for_calibration": false,
+    "test_season": 2025
+  },
+  "selected_architecture": "component",
+  "target": "receiving_tds",
+  "usage_bucket": {
+    "fitted_on_oof_validation_only": true,
+    "labels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "source": {
+      "columns": [
+        "player_red_zone_targets_roll3_mean"
+      ],
+      "label": "player_red_zone_targets_roll3_mean",
+      "method": "single"
+    },
+    "thresholds": {
+      "low_max": 0.0,
+      "medium_max": 0.3333333432674408
+    }
+  }
+}

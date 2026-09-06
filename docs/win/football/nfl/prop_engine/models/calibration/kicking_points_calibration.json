@@ -1,0 +1,155 @@
+{
+  "calibration_mode": "quantiles",
+  "calibration_source": {
+    "fold_id": "dev_2024",
+    "model_selection_train_end_season": 2023,
+    "oof_residuals_used": true,
+    "prediction_file": "docs/win/football/nfl/prop_engine/evaluation/model_selection_predictions.parquet",
+    "rows": 536,
+    "season": 2024,
+    "split": "validation"
+  },
+  "forbidden_features_used": false,
+  "market_features_used": false,
+  "quantile_calibration": {
+    "coverage_widening": {
+      "global": {
+        "q10_q90": 1.0027018981890579,
+        "q25_q75": 1.0
+      },
+      "segment_extra": {
+        "q10_q90": {
+          "SPEC|high": {
+            "multiplier": 1.0,
+            "rows": 56
+          },
+          "SPEC|low": {
+            "multiplier": 1.038779306596385,
+            "rows": 57
+          },
+          "SPEC|medium": {
+            "multiplier": 1.1155857209716318,
+            "rows": 50
+          },
+          "ST|high": {
+            "multiplier": 1.0,
+            "rows": 118
+          },
+          "ST|low": {
+            "multiplier": 1.1090897208050705,
+            "rows": 127
+          },
+          "ST|medium": {
+            "multiplier": 1.0,
+            "rows": 128
+          }
+        },
+        "q25_q75": {
+          "SPEC|high": {
+            "multiplier": 1.0,
+            "rows": 56
+          },
+          "SPEC|low": {
+            "multiplier": 1.0,
+            "rows": 57
+          },
+          "SPEC|medium": {
+            "multiplier": 1.1982907507039862,
+            "rows": 50
+          },
+          "ST|high": {
+            "multiplier": 1.0,
+            "rows": 118
+          },
+          "ST|low": {
+            "multiplier": 1.0898094331231123,
+            "rows": 127
+          },
+          "ST|medium": {
+            "multiplier": 1.0,
+            "rows": 128
+          }
+        }
+      },
+      "segment_key": "position_group|usage_bucket",
+      "segment_min_rows": 30
+    },
+    "floor_at_zero": true,
+    "intervals": {
+      "q10_q90": {
+        "expected_coverage": 0.8,
+        "lower": "q10",
+        "upper": "q90"
+      },
+      "q25_q75": {
+        "expected_coverage": 0.5,
+        "lower": "q25",
+        "upper": "q75"
+      }
+    },
+    "method": "selected_point_plus_oof_residual_quantiles_with_interval_widening",
+    "outputs": [
+      "q10",
+      "q25",
+      "q50",
+      "q75",
+      "q90"
+    ],
+    "residual_quantiles": {
+      "q10": -4.403680983350824,
+      "q25": -2.431234407233066,
+      "q50": 0.12003911550229418,
+      "q75": 2.922280325947055,
+      "q90": 5.362732556665339
+    },
+    "risk_widening": {
+      "combination": "multiply_active_factors_then_cap",
+      "combined_cap": 3.0,
+      "factors": {
+        "backup_promotion": {
+          "minimum_required_multiplier": 1.15,
+          "multiplier": 1.15,
+          "rows": 1
+        },
+        "low_history": {
+          "minimum_required_multiplier": 1.1,
+          "multiplier": 1.1,
+          "rows": 22
+        },
+        "rookie": {
+          "minimum_required_multiplier": 1.25,
+          "multiplier": 1.25,
+          "rows": 4
+        }
+      },
+      "low_history_games_threshold": 4
+    }
+  },
+  "reporting_test_policy": {
+    "test_reporting_only_preserved": true,
+    "test_rows_used_for_calibration": false,
+    "test_season": 2025
+  },
+  "selected_architecture": "component",
+  "target": "kicking_points",
+  "usage_bucket": {
+    "fitted_on_oof_validation_only": true,
+    "labels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "source": {
+      "columns": [
+        "player_field_goal_attempts_roll3_mean",
+        "player_extra_point_attempts_roll3_mean"
+      ],
+      "label": "player_field_goal_attempts_roll3_mean+player_extra_point_attempts_roll3_mean",
+      "method": "sum"
+    },
+    "thresholds": {
+      "low_max": 3.666666626930237,
+      "medium_max": 4.666666746139526
+    }
+  }
+}

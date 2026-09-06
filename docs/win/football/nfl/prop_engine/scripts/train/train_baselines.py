@@ -1196,6 +1196,15 @@ def validate_output(
 
 
 def main() -> int:
+    # ISSUE28_MARKET_EXCLUSION_PREFLIGHT
+    _issue28_audit = common.prop_root() / "scripts" / "validate" / "audit_market_exclusion.py"
+    _issue28_result = __import__("subprocess").run(
+        [__import__("sys").executable, str(_issue28_audit), "--preflight"],
+        check=False,
+    )
+    if _issue28_result.returncode != 0:
+        raise RuntimeError("Issue 28 market-exclusion preflight failed.")
+
     config = common.load_config()
     prop_root = common.prop_root()
 

@@ -1,0 +1,83 @@
+{
+  "blend_weights": {
+    "component": 1.0,
+    "direct": 0.0,
+    "selected_from_validation_only": true
+  },
+  "comparison_row_policy": "common_evaluable_rows; missing baseline projections excluded; no missing projection is imputed to zero",
+  "component_dependencies": [
+    "field_goal_attempts",
+    "field_goal_conversion",
+    "extra_point_attempts",
+    "extra_point_conversion"
+  ],
+  "component_share_reconciliation": {
+    "method": "normalize_positive_predicted_shares_within_team_game",
+    "player_carry_share": true,
+    "player_goal_line_carry_share": true,
+    "player_red_zone_target_share": true,
+    "player_target_share": true
+  },
+  "direct_variant": {
+    "model_file": "docs/win/football/nfl/prop_engine/models/kicking_points/direct_model.txt",
+    "objective": "regression",
+    "selected_on_validation_only": true,
+    "validation_variant_metrics": {
+      "primary": {
+        "brier_1plus": null,
+        "logloss_1plus": null,
+        "mae": 3.048728052037037,
+        "median_ae": 2.7747799204494914,
+        "poisson_deviance": null,
+        "rmse": 3.804524710222278
+      }
+    },
+    "variant": "primary"
+  },
+  "final_train_end_season": 2024,
+  "goal_line_volume_proxy_order": [
+    "team_goal_line_rush_attempts_roll3_mean",
+    "team_goal_line_rush_attempts_roll5_mean",
+    "team_goal_line_rush_attempts_ewm5",
+    "team_goal_line_rush_attempts_season_to_date"
+  ],
+  "market_features_used": false,
+  "model_selection_train_end_season": 2023,
+  "red_zone_volume_proxy_order": [
+    "team_red_zone_pass_attempts_roll3_mean",
+    "team_red_zone_pass_attempts_roll5_mean",
+    "team_red_zone_pass_attempts_ewm5",
+    "team_red_zone_pass_attempts_season_to_date"
+  ],
+  "selected_architecture": "component",
+  "selected_candidate": "component",
+  "selected_test_metrics_reporting_only": {
+    "brier_1plus": null,
+    "logloss_1plus": null,
+    "mae": 3.0142419424876543,
+    "median_ae": 2.6317355715048647,
+    "poisson_deviance": null,
+    "rmse": 3.775900089111285
+  },
+  "selected_validation_metrics": {
+    "brier_1plus": null,
+    "logloss_1plus": null,
+    "mae": 3.0366562261155376,
+    "median_ae": 2.6632003537031603,
+    "poisson_deviance": null,
+    "rmse": 3.786581469538094
+  },
+  "selection_frozen_before_test_reporting": true,
+  "selection_metric": "validation_mae",
+  "selection_reason": "selected on chronological validation only: component had the lowest validation MAE=3.03665622612; RMSE, median AE, then fixed candidate order are tie-breakers; 2025 metrics are reporting-only",
+  "selection_tiebreakers": [
+    "validation_rmse",
+    "validation_median_ae",
+    "candidate_order"
+  ],
+  "target": "kicking_points",
+  "test_reporting_only": true,
+  "test_season": 2025,
+  "test_used_for_selection": false,
+  "validation_season": 2024
+}

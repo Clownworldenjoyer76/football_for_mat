@@ -1,0 +1,90 @@
+{
+  "blend_weights": {
+    "component": 0.0,
+    "direct": 1.0,
+    "selected_from_validation_only": true
+  },
+  "comparison_row_policy": "common_evaluable_rows; missing baseline projections excluded; no missing projection is imputed to zero",
+  "component_dependencies": [
+    "opponent_offensive_plays",
+    "player_defensive_participation",
+    "tackle_rate_per_defensive_play"
+  ],
+  "component_share_reconciliation": {
+    "method": "normalize_positive_predicted_shares_within_team_game",
+    "player_carry_share": true,
+    "player_goal_line_carry_share": true,
+    "player_red_zone_target_share": true,
+    "player_target_share": true
+  },
+  "direct_variant": {
+    "model_file": "docs/win/football/nfl/prop_engine/models/tackles/direct_model.txt",
+    "objective": "poisson",
+    "selected_on_validation_only": true,
+    "validation_variant_metrics": {
+      "primary": {
+        "brier_1plus": 0.15002704237945416,
+        "logloss_1plus": 0.45905622547254965,
+        "mae": 1.4292151048465627,
+        "median_ae": 1.0501986859069141,
+        "poisson_deviance": 1.572326805229383,
+        "rmse": 1.9569800829523218
+      },
+      "regression_challenger": {
+        "brier_1plus": 0.15043510464383783,
+        "logloss_1plus": 0.46050887875402563,
+        "mae": 1.4327236281891418,
+        "median_ae": 1.0472643328322988,
+        "poisson_deviance": 1.579356533634446,
+        "rmse": 1.9613499415443965
+      }
+    },
+    "variant": "primary"
+  },
+  "final_train_end_season": 2024,
+  "goal_line_volume_proxy_order": [
+    "team_goal_line_rush_attempts_roll3_mean",
+    "team_goal_line_rush_attempts_roll5_mean",
+    "team_goal_line_rush_attempts_ewm5",
+    "team_goal_line_rush_attempts_season_to_date"
+  ],
+  "market_features_used": false,
+  "model_selection_train_end_season": 2023,
+  "red_zone_volume_proxy_order": [
+    "team_red_zone_pass_attempts_roll3_mean",
+    "team_red_zone_pass_attempts_roll5_mean",
+    "team_red_zone_pass_attempts_ewm5",
+    "team_red_zone_pass_attempts_season_to_date"
+  ],
+  "selected_architecture": "direct",
+  "selected_candidate": "direct",
+  "selected_test_metrics_reporting_only": {
+    "brier_1plus": 0.1353137042543596,
+    "logloss_1plus": 0.4201465049434053,
+    "mae": 1.4914729809198735,
+    "median_ae": 1.1156902023812565,
+    "poisson_deviance": 1.5648062316943185,
+    "rmse": 2.0233220875734896
+  },
+  "selected_validation_metrics": {
+    "brier_1plus": 0.1485636039143799,
+    "logloss_1plus": 0.45558687351811333,
+    "mae": 1.4349150881584551,
+    "median_ae": 1.0556286992171446,
+    "poisson_deviance": 1.57009872805468,
+    "rmse": 1.9628402461459138
+  },
+  "selection_frozen_before_test_reporting": true,
+  "selection_metric": "validation_mae",
+  "selection_reason": "selected on chronological validation only: direct had the lowest validation MAE=1.43491508816; RMSE, median AE, then fixed candidate order are tie-breakers; 2025 metrics are reporting-only",
+  "selection_tiebreakers": [
+    "validation_rmse",
+    "validation_median_ae",
+    "candidate_order"
+  ],
+  "target": "tackles",
+  "test_reporting_only": true,
+  "test_season": 2025,
+  "test_used_for_selection": false,
+  "validation_season": 2024
+}

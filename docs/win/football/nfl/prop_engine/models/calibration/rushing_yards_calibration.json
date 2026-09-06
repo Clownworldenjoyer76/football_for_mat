@@ -1,0 +1,202 @@
+{
+  "calibration_mode": "quantiles",
+  "calibration_source": {
+    "fold_id": "dev_2024",
+    "model_selection_train_end_season": 2023,
+    "oof_residuals_used": true,
+    "prediction_file": "docs/win/football/nfl/prop_engine/evaluation/model_selection_predictions.parquet",
+    "rows": 5345,
+    "season": 2024,
+    "split": "validation"
+  },
+  "forbidden_features_used": false,
+  "market_features_used": false,
+  "quantile_calibration": {
+    "coverage_widening": {
+      "global": {
+        "q10_q90": 1.0,
+        "q25_q75": 1.0
+      },
+      "segment_extra": {
+        "q10_q90": {
+          "OFF|high": {
+            "multiplier": 2.458672883876221,
+            "rows": 1364
+          },
+          "OFF|low": {
+            "multiplier": 1.0,
+            "rows": 1177
+          },
+          "OFF|medium": {
+            "multiplier": 1.0,
+            "rows": 1002
+          },
+          "QB|high": {
+            "multiplier": 1.1244877930708255,
+            "rows": 34
+          },
+          "QB|medium": {
+            "multiplier": 1.0,
+            "rows": 39
+          },
+          "RB|high": {
+            "multiplier": 2.0535085254308676,
+            "rows": 292
+          },
+          "RB|low": {
+            "multiplier": 1.0,
+            "rows": 171
+          },
+          "RB|medium": {
+            "multiplier": 1.0,
+            "rows": 158
+          },
+          "TE|low": {
+            "multiplier": 1.0,
+            "rows": 285
+          },
+          "TE|medium": {
+            "multiplier": 1.0,
+            "rows": 35
+          },
+          "WR|low": {
+            "multiplier": 1.0,
+            "rows": 628
+          },
+          "WR|medium": {
+            "multiplier": 1.0,
+            "rows": 139
+          }
+        },
+        "q25_q75": {
+          "OFF|high": {
+            "multiplier": 5.0,
+            "rows": 1364
+          },
+          "OFF|low": {
+            "multiplier": 1.0,
+            "rows": 1177
+          },
+          "OFF|medium": {
+            "multiplier": 1.4569250446908377,
+            "rows": 1002
+          },
+          "QB|high": {
+            "multiplier": 4.3646203979718186,
+            "rows": 34
+          },
+          "QB|medium": {
+            "multiplier": 2.003826797278676,
+            "rows": 39
+          },
+          "RB|high": {
+            "multiplier": 5.0,
+            "rows": 292
+          },
+          "RB|low": {
+            "multiplier": 1.0,
+            "rows": 171
+          },
+          "RB|medium": {
+            "multiplier": 1.750181949805262,
+            "rows": 158
+          },
+          "TE|low": {
+            "multiplier": 1.0,
+            "rows": 285
+          },
+          "TE|medium": {
+            "multiplier": 1.0,
+            "rows": 35
+          },
+          "WR|low": {
+            "multiplier": 1.0,
+            "rows": 628
+          },
+          "WR|medium": {
+            "multiplier": 1.0,
+            "rows": 139
+          }
+        }
+      },
+      "segment_key": "position_group|usage_bucket",
+      "segment_min_rows": 30
+    },
+    "floor_at_zero": false,
+    "intervals": {
+      "q10_q90": {
+        "expected_coverage": 0.8,
+        "lower": "q10",
+        "upper": "q90"
+      },
+      "q25_q75": {
+        "expected_coverage": 0.5,
+        "lower": "q25",
+        "upper": "q75"
+      }
+    },
+    "method": "selected_point_plus_oof_residual_quantiles_with_interval_widening",
+    "outputs": [
+      "q10",
+      "q25",
+      "q50",
+      "q75",
+      "q90"
+    ],
+    "residual_quantiles": {
+      "q10": -10.554458515803242,
+      "q25": -2.630069872134226,
+      "q50": -0.3952040048901463,
+      "q75": -0.09528681342079132,
+      "q90": 15.578831181340611
+    },
+    "risk_widening": {
+      "combination": "multiply_active_factors_then_cap",
+      "combined_cap": 3.0,
+      "factors": {
+        "backup_promotion": {
+          "minimum_required_multiplier": 1.15,
+          "multiplier": 1.3772254708317477,
+          "rows": 93
+        },
+        "low_history": {
+          "minimum_required_multiplier": 1.1,
+          "multiplier": 1.1,
+          "rows": 288
+        },
+        "rookie": {
+          "minimum_required_multiplier": 1.25,
+          "multiplier": 1.25,
+          "rows": 73
+        }
+      },
+      "low_history_games_threshold": 4
+    }
+  },
+  "reporting_test_policy": {
+    "test_reporting_only_preserved": true,
+    "test_rows_used_for_calibration": false,
+    "test_season": 2025
+  },
+  "selected_architecture": "direct_component_blend",
+  "target": "rushing_yards",
+  "usage_bucket": {
+    "fitted_on_oof_validation_only": true,
+    "labels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "source": {
+      "columns": [
+        "player_carries_roll3_mean"
+      ],
+      "label": "player_carries_roll3_mean",
+      "method": "single"
+    },
+    "thresholds": {
+      "low_max": 0.0,
+      "medium_max": 2.0
+    }
+  }
+}

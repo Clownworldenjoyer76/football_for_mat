@@ -1,0 +1,332 @@
+{
+  "calibration_mode": "quantiles_and_count",
+  "calibration_source": {
+    "fold_id": "dev_2024",
+    "model_selection_train_end_season": 2023,
+    "oof_residuals_used": true,
+    "prediction_file": "docs/win/football/nfl/prop_engine/evaluation/model_selection_predictions.parquet",
+    "rows": 12371,
+    "season": 2024,
+    "split": "validation"
+  },
+  "count_calibration": {
+    "expected_count": {
+      "input": "selected_point_prediction_clipped_at_zero",
+      "mapping": {
+        "bins_requested": 12,
+        "knots_x": [
+          0.6378488795725613,
+          0.811369001074302,
+          1.0223093958595246,
+          1.2723938684517149,
+          1.5883442550152294,
+          1.9500180057661562,
+          2.339224344189069,
+          2.7826520374898975,
+          3.293624570256048,
+          3.856006592098984,
+          4.8316547505372665,
+          6.635278218586425
+        ],
+        "knots_y": [
+          0.6149369544131911,
+          0.8031037827352085,
+          1.0678952473326868,
+          1.13094083414161,
+          1.6731328806983512,
+          1.8651794374393793,
+          2.2744907856450047,
+          2.7710960232783703,
+          3.3928225024248304,
+          3.9718719689621724,
+          5.0455868089233755,
+          6.73495145631068
+        ],
+        "left_value": 0.6149369544131911,
+        "method": "equal_frequency_binning_then_pava_isotonic",
+        "output_bounds": [
+          0.0,
+          null
+        ],
+        "right_value": 6.73495145631068
+      }
+    },
+    "probability_1_plus": {
+      "input": "poisson_probability_1_plus_from_calibrated_expected_count",
+      "mapping": {
+        "bins_requested": 12,
+        "knots_x": [
+          0.47241326586797255,
+          0.5529409263498736,
+          0.6455285942061421,
+          0.6910953824569585,
+          0.8001705957829954,
+          0.8482265352670761,
+          0.8966186175380242,
+          0.9369210114162518,
+          0.9655074205192133,
+          0.9808707946882954,
+          0.9929693796354544,
+          0.9982055763401597
+        ],
+        "knots_y": [
+          0.3947623666343356,
+          0.43452958292919497,
+          0.5548011639185257,
+          0.5780795344325897,
+          0.7381183317167799,
+          0.7924345295829291,
+          0.8457807953443259,
+          0.8797284190106692,
+          0.9243452958292919,
+          0.9515033947623667,
+          0.9776915615906887,
+          0.9844660194174757
+        ],
+        "left_value": 0.3947623666343356,
+        "method": "equal_frequency_binning_then_pava_isotonic",
+        "output_bounds": [
+          0.0,
+          1.0
+        ],
+        "right_value": 0.9844660194174757
+      }
+    },
+    "probability_2_plus": {
+      "input": "poisson_probability_2_plus_from_calibrated_expected_count",
+      "mapping": {
+        "bins_requested": 12,
+        "knots_x": [
+          0.13528663758843204,
+          0.19385300609811396,
+          0.2784116524089292,
+          0.32914887466801596,
+          0.4799566228572983,
+          0.5625949094850233,
+          0.662917750255582,
+          0.763462212774328,
+          0.8498525519459085,
+          0.9055812765907357,
+          0.9585487345869135,
+          0.9870100552158322
+        ],
+        "knots_y": [
+          0.11542192046556742,
+          0.17652764306498545,
+          0.2618816682832202,
+          0.2909796314258002,
+          0.4626576139670223,
+          0.5179437439379243,
+          0.6139670223084384,
+          0.7061105722599418,
+          0.7992240543161979,
+          0.8496605237633366,
+          0.9214354995150339,
+          0.9640776699029127
+        ],
+        "left_value": 0.11542192046556742,
+        "method": "equal_frequency_binning_then_pava_isotonic",
+        "output_bounds": [
+          0.0,
+          1.0
+        ],
+        "right_value": 0.9640776699029127
+      }
+    }
+  },
+  "count_outputs": [
+    "expected_count",
+    "probability_1_plus",
+    "probability_2_plus"
+  ],
+  "forbidden_features_used": false,
+  "market_features_used": false,
+  "quantile_calibration": {
+    "coverage_widening": {
+      "global": {
+        "q10_q90": 1.0,
+        "q25_q75": 1.0
+      },
+      "segment_extra": {
+        "q10_q90": {
+          "DB|high": {
+            "multiplier": 1.3932477681064024,
+            "rows": 2401
+          },
+          "DB|low": {
+            "multiplier": 1.0,
+            "rows": 1354
+          },
+          "DB|medium": {
+            "multiplier": 1.097820977702218,
+            "rows": 1226
+          },
+          "DEF|high": {
+            "multiplier": 1.3382336019476133,
+            "rows": 1463
+          },
+          "DEF|low": {
+            "multiplier": 1.0,
+            "rows": 1609
+          },
+          "DEF|medium": {
+            "multiplier": 1.0,
+            "rows": 2178
+          },
+          "DL|high": {
+            "multiplier": 1.1021341475355628,
+            "rows": 38
+          },
+          "DL|low": {
+            "multiplier": 1.0,
+            "rows": 609
+          },
+          "DL|medium": {
+            "multiplier": 1.0,
+            "rows": 431
+          },
+          "LB|high": {
+            "multiplier": 1.621510005333664,
+            "rows": 222
+          },
+          "LB|low": {
+            "multiplier": 1.0,
+            "rows": 541
+          },
+          "LB|medium": {
+            "multiplier": 1.0,
+            "rows": 288
+          }
+        },
+        "q25_q75": {
+          "DB|high": {
+            "multiplier": 1.4711655617361648,
+            "rows": 2401
+          },
+          "DB|low": {
+            "multiplier": 1.0,
+            "rows": 1354
+          },
+          "DB|medium": {
+            "multiplier": 1.0154087315992932,
+            "rows": 1226
+          },
+          "DEF|high": {
+            "multiplier": 1.448838285149819,
+            "rows": 1463
+          },
+          "DEF|low": {
+            "multiplier": 1.0,
+            "rows": 1609
+          },
+          "DEF|medium": {
+            "multiplier": 1.02671793868027,
+            "rows": 2178
+          },
+          "DL|high": {
+            "multiplier": 1.383554843846949,
+            "rows": 38
+          },
+          "DL|low": {
+            "multiplier": 1.0,
+            "rows": 609
+          },
+          "DL|medium": {
+            "multiplier": 1.0,
+            "rows": 431
+          },
+          "LB|high": {
+            "multiplier": 1.6899026934735373,
+            "rows": 222
+          },
+          "LB|low": {
+            "multiplier": 1.0,
+            "rows": 541
+          },
+          "LB|medium": {
+            "multiplier": 1.0,
+            "rows": 288
+          }
+        }
+      },
+      "segment_key": "position_group|usage_bucket",
+      "segment_min_rows": 30
+    },
+    "floor_at_zero": true,
+    "intervals": {
+      "q10_q90": {
+        "expected_coverage": 0.8,
+        "lower": "q10",
+        "upper": "q90"
+      },
+      "q25_q75": {
+        "expected_coverage": 0.5,
+        "lower": "q25",
+        "upper": "q75"
+      }
+    },
+    "method": "selected_point_plus_oof_residual_quantiles_with_interval_widening",
+    "outputs": [
+      "q10",
+      "q25",
+      "q50",
+      "q75",
+      "q90"
+    ],
+    "residual_quantiles": {
+      "q10": -1.966837453326621,
+      "q25": -1.1090146285737807,
+      "q50": -0.31891061436912094,
+      "q75": 0.9477139033775821,
+      "q90": 2.458047130411561
+    },
+    "risk_widening": {
+      "combination": "multiply_active_factors_then_cap",
+      "combined_cap": 3.0,
+      "factors": {
+        "backup_promotion": {
+          "minimum_required_multiplier": 1.15,
+          "multiplier": 1.2150436784730523,
+          "rows": 191
+        },
+        "low_history": {
+          "minimum_required_multiplier": 1.1,
+          "multiplier": 1.1,
+          "rows": 1077
+        },
+        "rookie": {
+          "minimum_required_multiplier": 1.25,
+          "multiplier": 1.25,
+          "rows": 234
+        }
+      },
+      "low_history_games_threshold": 4
+    }
+  },
+  "reporting_test_policy": {
+    "test_reporting_only_preserved": true,
+    "test_rows_used_for_calibration": false,
+    "test_season": 2025
+  },
+  "selected_architecture": "direct",
+  "target": "tackles",
+  "usage_bucket": {
+    "fitted_on_oof_validation_only": true,
+    "labels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "source": {
+      "columns": [
+        "player_defense_participation_roll3_mean"
+      ],
+      "label": "player_defense_participation_roll3_mean",
+      "method": "single"
+    },
+    "thresholds": {
+      "low_max": 0.3629361391067505,
+      "medium_max": 0.6145439545313517
+    }
+  }
+}

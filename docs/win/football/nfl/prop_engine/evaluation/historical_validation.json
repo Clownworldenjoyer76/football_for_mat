@@ -1,0 +1,271 @@
+{
+  "checks": [
+    {
+      "details": {
+        "canonical_grain": [
+          "season",
+          "week",
+          "game_id",
+          "player_id"
+        ],
+        "duplicate_rows": 0,
+        "rows": 554660
+      },
+      "name": "unique_feature_table_grain",
+      "passed": true
+    },
+    {
+      "details": {
+        "blank_rows": 0
+      },
+      "name": "nonblank_player_ids",
+      "passed": true
+    },
+    {
+      "details": {
+        "invalid_team_rows": 0,
+        "missing_game_rows": 0
+      },
+      "name": "team_belongs_to_game",
+      "passed": true
+    },
+    {
+      "details": {
+        "invalid_opponent_rows": 0
+      },
+      "name": "opponent_is_other_game_team",
+      "passed": true
+    },
+    {
+      "details": {
+        "continuous_signed_targets_allow_negative_yardage": true,
+        "targets": {
+          "kicking_points": {
+            "negative_rows": 0,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "derived_count"
+          },
+          "passing_tds": {
+            "negative_rows": 0,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "count_nonnegative"
+          },
+          "passing_yards": {
+            "negative_rows": 19,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "continuous_signed"
+          },
+          "receiving_tds": {
+            "negative_rows": 0,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "count_nonnegative"
+          },
+          "receiving_yards": {
+            "negative_rows": 785,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "continuous_signed"
+          },
+          "rushing_tds": {
+            "negative_rows": 0,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "count_nonnegative"
+          },
+          "rushing_yards": {
+            "negative_rows": 2218,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "continuous_signed"
+          },
+          "sacks": {
+            "negative_rows": 0,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "count_nonnegative"
+          },
+          "tackles": {
+            "negative_rows": 0,
+            "negative_rows_invalid": 0,
+            "nonfinite_rows": 0,
+            "nonnull_rows": 324863,
+            "nonnumeric_rows": 0,
+            "type": "count_nonnegative"
+          }
+        }
+      },
+      "name": "targets_valid_and_nonnegative",
+      "passed": true
+    },
+    {
+      "details": {
+        "error": "",
+        "feature_count": 774
+      },
+      "name": "no_forbidden_feature",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_paths": [],
+        "paths_checked": [
+          "docs/win/football/nfl/prop_engine/data/historical/universe/player_game_universe.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/targets/player_game_targets.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/features/player_role_history.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/features/player_form.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/features/team_form.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/features/opponent_form.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/features/environment.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/features/defensive_features.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/features/kicking_features.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/opportunity/position_allowed_week.parquet",
+          "docs/win/football/nfl/prop_engine/data/historical/features/player_game_features.parquet"
+        ]
+      },
+      "name": "no_sportsbook_market_path_in_manifest",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_features": []
+      },
+      "name": "no_same_game_snap_feature",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_features": []
+      },
+      "name": "no_same_game_participation_feature",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_features": []
+      },
+      "name": "no_same_game_target_share",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_matchup_features": [],
+        "bad_team_features": []
+      },
+      "name": "no_same_game_team_performance",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_matchup_features": [],
+        "bad_opponent_features": []
+      },
+      "name": "no_same_game_opponent_performance",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_features": []
+      },
+      "name": "no_final_score_feature",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_features": []
+      },
+      "name": "no_target_column_in_feature_list",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_rows": 0,
+        "fallback_upstream_contract_used": true,
+        "manifest_policy": "null because upstream role-history output does not retain the source snapshot timestamp; upstream builder validated pregame depth",
+        "timestamp_rows": 0
+      },
+      "name": "depth_snapshot_precedes_kickoff",
+      "passed": true
+    },
+    {
+      "details": {
+        "bad_rows": 0,
+        "not_applicable_when_no_timestamps": true,
+        "timestamp_rows": 0
+      },
+      "name": "injury_snapshot_precedes_kickoff_when_timestamps_exist",
+      "passed": true
+    },
+    {
+      "details": {
+        "feature_rows": 554660,
+        "manifest_row_count": 554660,
+        "universe_duplicate_rows": 0,
+        "universe_rows": 554660,
+        "unmatched_grain_rows": 0
+      },
+      "name": "no_join_multiplication",
+      "passed": true
+    },
+    {
+      "details": {
+        "minimum_rows_per_target": 100,
+        "rows_by_target": {
+          "kicking_points": 6788,
+          "passing_tds": 8351,
+          "passing_yards": 8351,
+          "receiving_tds": 77214,
+          "receiving_yards": 77214,
+          "rushing_tds": 85565,
+          "rushing_yards": 85565,
+          "sacks": 149009,
+          "tackles": 149009
+        },
+        "training_end_season": 2024
+      },
+      "name": "minimum_training_sample_per_target",
+      "passed": true
+    },
+    {
+      "details": {
+        "failure_exit_code": 1,
+        "independent_validator_executes_self_test": true,
+        "self_test_argument": "--self-test-failure-exit"
+      },
+      "name": "failure_returns_nonzero_exit_code",
+      "passed": true
+    }
+  ],
+  "checks_failed": 0,
+  "checks_passed": 19,
+  "checks_required": 19,
+  "failed_checks": [],
+  "failure_exit_code": 1,
+  "feature_count": 774,
+  "feature_manifest": "docs/win/football/nfl/prop_engine/data/historical/features/feature_manifest.json",
+  "feature_table": "docs/win/football/nfl/prop_engine/data/historical/features/player_game_features.parquet",
+  "market_features_used": false,
+  "row_count": 554660,
+  "script": "validate_historical_data.py",
+  "status": "passed",
+  "target_count": 9
+}
