@@ -1,0 +1,82 @@
+{
+  "environment_join_contract": {
+    "secondary_join_performed": false,
+    "source": "canonical_issue17_feature_table",
+    "travel_join_key": "game_id",
+    "weather_join_key": "game_id"
+  },
+  "feature_count": 169,
+  "feature_hash": "d5fa6389190bb21930b452b19eb4b9a9aaeb9524bbff4b8ef31db8ca7b7af704",
+  "feature_manifest": {
+    "feature_hash": "d5fa6389190bb21930b452b19eb4b9a9aaeb9524bbff4b8ef31db8ca7b7af704",
+    "path": "docs/win/football/nfl/prop_engine/models/receiving_tds/feature_manifest.json",
+    "sha256": "d44177c5546529277a3e604a9032cf020e8a267c08d9cb38d66afeb64974d7d2"
+  },
+  "forbidden_columns_used": false,
+  "lightgbm_version": "4.6.0",
+  "market_features_used": false,
+  "missing_required_feature_policy": "fail",
+  "model_family": "lightgbm_poisson",
+  "objective": "poisson",
+  "primary": {
+    "best_iteration_selected_on_2024": 373,
+    "model_family": "lightgbm_poisson",
+    "model_sha256": "c094d3a9c47df206996f41f9cf896c35fe8f605a81e6e27fe12fbe9fd11ada2e",
+    "objective": "poisson",
+    "params": {
+      "bagging_fraction": 1.0,
+      "bagging_freq": 0,
+      "bagging_seed": 24024,
+      "boosting_type": "gbdt",
+      "data_random_seed": 24024,
+      "deterministic": true,
+      "feature_fraction": 1.0,
+      "feature_fraction_seed": 24024,
+      "force_col_wise": true,
+      "lambda_l1": 0.0,
+      "lambda_l2": 0.0,
+      "learning_rate": 0.03,
+      "max_bin": 255,
+      "metric": "rmse",
+      "min_data_in_leaf": 40,
+      "num_leaves": 31,
+      "num_threads": 1,
+      "objective": "poisson",
+      "poisson_max_delta_step": 0.7,
+      "seed": 24024,
+      "verbosity": -1
+    },
+    "validation_2024_metrics": {
+      "mae": 0.19501980290464616,
+      "r2": 0.12879173572340452,
+      "rmse": 0.34918280762783965
+    }
+  },
+  "random_seed": 24024,
+  "rows": {
+    "final_train_through_2024": 77214,
+    "model_selection_train": 70870,
+    "validation_2024": 6344
+  },
+  "status": "trained",
+  "tackles_regression_challenger": {
+    "present": false
+  },
+  "target": "receiving_tds",
+  "target_columns_used_as_features": false,
+  "training_end": "2025-01-05T20:20:00+00:00",
+  "training_policy": {
+    "development_validation_season": 2024,
+    "final_train_end_season": 2024,
+    "model_selection_train_end_season": 2023,
+    "random_split_used": false,
+    "untouched_test_season": 2025,
+    "untouched_test_used_for_categories": false,
+    "untouched_test_used_for_feature_schema": false,
+    "untouched_test_used_for_fit": false,
+    "untouched_test_used_for_metrics": false,
+    "untouched_test_used_for_selection": false
+  },
+  "training_rows": 77214,
+  "training_start": "2012-09-05T20:30:00+00:00"
+}

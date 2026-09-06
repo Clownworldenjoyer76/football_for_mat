@@ -1,0 +1,83 @@
+{
+  "automatic_all_numeric_selection": false,
+  "canonical_features": [
+    "player_sack_rate_per_def_play_lag1",
+    "player_sack_rate_per_def_play_roll3_mean",
+    "player_sack_rate_per_def_play_roll5_mean",
+    "player_sack_rate_per_def_play_ewm5",
+    "player_sack_rate_per_def_play_season_to_date",
+    "player_sack_rate_per_def_play_career_prior",
+    "player_defense_participation_lag1",
+    "player_defense_participation_roll3_mean",
+    "player_defense_participation_career_prior",
+    "history_no_nfl_history_flag",
+    "history_history_games"
+  ],
+  "categorical_features": [],
+  "derived_features": [
+    "eff_player_prior_rate",
+    "eff_position_prior_rate",
+    "eff_league_prior_rate",
+    "eff_shrunk_rate",
+    "eff_player_prior_exposure",
+    "eff_prior_weight",
+    "eff_rookie_position_prior_flag"
+  ],
+  "feature_count": 18,
+  "forbidden_features": [
+    "odds",
+    "moneyline",
+    "spread",
+    "total_line",
+    "over_odds",
+    "under_odds",
+    "market",
+    "sportsbook",
+    "prop_line",
+    "drat",
+    "epred",
+    "projected_pts",
+    "win_probability",
+    "cover_probability"
+  ],
+  "model": "sack_rate_per_defensive_play",
+  "model_type": "lightgbm_regression",
+  "numeric_features": [
+    "player_sack_rate_per_def_play_lag1",
+    "player_sack_rate_per_def_play_roll3_mean",
+    "player_sack_rate_per_def_play_roll5_mean",
+    "player_sack_rate_per_def_play_ewm5",
+    "player_sack_rate_per_def_play_season_to_date",
+    "player_sack_rate_per_def_play_career_prior",
+    "player_defense_participation_lag1",
+    "player_defense_participation_roll3_mean",
+    "player_defense_participation_career_prior",
+    "history_no_nfl_history_flag",
+    "history_history_games",
+    "eff_player_prior_rate",
+    "eff_position_prior_rate",
+    "eff_league_prior_rate",
+    "eff_shrunk_rate",
+    "eff_player_prior_exposure",
+    "eff_prior_weight",
+    "eff_rookie_position_prior_flag"
+  ],
+  "objective": "regression",
+  "prediction_transform": "clip_0_1",
+  "shrinkage": {
+    "hierarchy": [
+      "player",
+      "position",
+      "league"
+    ],
+    "player_history_key": "player_id",
+    "prior_exposure": 500.0,
+    "rookie_fallback": "position_prior_then_league_prior",
+    "strictly_prior_kickoff": true,
+    "team_resets_player_efficiency": false
+  },
+  "trade_policy": {
+    "old_team_opportunity_share_features_allowed": false,
+    "preserve_player_efficiency_history": true
+  }
+}
