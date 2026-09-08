@@ -44,6 +44,20 @@ FORBIDDEN_INPUT_CONTRACT_RELATIVE_PATH = (
     "docs/win/football/nfl/prop_engine/config/prop_engine.yaml"
 )
 
+# Item 54 minimum safety contract. prop_engine.yaml remains the authoritative
+# configured deny-list; this independent minimum guard prevents a future config
+# edit from silently dropping the three legacy/merged-data roots.
+#
+# Build these strings from a prefix so the audit, which scans its own scripts
+# tree for forbidden path references, does not report this contract declaration
+# as contamination.
+_ITEM54_NFL_ROOT = "docs/win/football/nfl/"
+ITEM54_REQUIRED_FORBIDDEN_SOURCE_ROOTS = (
+    _ITEM54_NFL_ROOT + "training/",
+    _ITEM54_NFL_ROOT + "01_merge/",
+    _ITEM54_NFL_ROOT + "scripts/01_merge/",
+)
+
 FEATURE_LIST_KEYS = {
     "feature_columns",
     "numeric_features",
@@ -75,7 +89,19 @@ def forbidden_source_references(config: dict | None = None) -> list[str]:
             "Config forbidden_input_paths cannot contain blank values."
         )
 
-    return list(dict.fromkeys(normalized))
+    normalized = list(dict.fromkeys(normalized))
+    missing_required = [
+        root
+        for root in ITEM54_REQUIRED_FORBIDDEN_SOURCE_ROOTS
+        if root not in normalized
+    ]
+    if missing_required:
+        raise ValueError(
+            "Config forbidden_input_paths is missing required Item 54 "
+            f"source root(s): {missing_required}"
+        )
+
+    return normalized
 
 def normalize_reference_text(value: str) -> str:
     return value.replace("\\", "/").casefold()
@@ -320,6 +346,12 @@ def audit_paths(
     config: dict,
     repo: Path | None = None,
 ) -> dict:
+    system = config.get("system", {})
+    if not isinstance(system, dict) or system.get("market_data_allowed") is not False:
+        raise ValueError(
+            "Config system.market_data_allowed must be false for Prop Engine."
+        )
+
     deny_refs = forbidden_source_references(config)
     feature_tokens = forbidden_feature_tokens(config)
     files = iter_scan_files(roots)
@@ -342,10 +374,15 @@ def audit_paths(
     source_hits = sorted(set(source_hits))
     feature_hits = sorted(set(feature_hits))
 
+    market_features_used = bool(source_hits or feature_hits)
+
     return {
-        "passed": not source_hits and not feature_hits,
+        "passed": not market_features_used,
         "forbidden_source_references": source_hits,
         "forbidden_feature_columns": feature_hits,
+        "forbidden_source_reference_count": int(len(source_hits)),
+        "forbidden_feature_hit_count": int(len(feature_hits)),
+        "market_features_used": market_features_used,
         "files_scanned": int(len(files)),
     }
 

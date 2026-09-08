@@ -39,6 +39,37 @@ class MarketExclusionTests(unittest.TestCase):
                 [f"feature_{token}"], common.load_config()
             )
 
+    def assert_forbidden_source_root(self, forbidden_root: str) -> None:
+        config = common.load_config()
+        deny = audit.forbidden_source_references(config)
+        self.assertIn(forbidden_root, deny)
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bad = root / "bad_source_reference.txt"
+            bad.write_text(
+                f"source={forbidden_root}artifact.parquet\n",
+                encoding="utf-8",
+            )
+            payload = audit.audit_paths(
+                [root],
+                config=config,
+                repo=None,
+            )
+            self.assertFalse(payload["passed"])
+            self.assertTrue(payload["market_features_used"])
+            self.assertEqual(payload["forbidden_feature_hit_count"], 0)
+            self.assertGreaterEqual(
+                payload["forbidden_source_reference_count"],
+                1,
+            )
+            self.assertTrue(
+                any(
+                    forbidden_root in hit
+                    for hit in payload["forbidden_source_references"]
+                )
+            )
+
     def test_reject_odds(self) -> None:
         self.assert_forbidden_feature("odds")
 
@@ -55,18 +86,42 @@ class MarketExclusionTests(unittest.TestCase):
         self.assert_forbidden_feature("epred")
 
     def test_reject_forbidden_source_paths(self) -> None:
-        deny = audit.forbidden_source_references()
-        forbidden_path = "docs/win/football/nfl/data/historic_data/odds/"
-        self.assertIn(forbidden_path, deny)
+        self.assert_forbidden_source_root(
+            "docs/win/football/nfl/data/historic_data/odds/"
+        )
+
+    def test_reject_training_source_root(self) -> None:
+        self.assert_forbidden_source_root(
+            "docs/win/football/nfl/training/"
+        )
+
+    def test_reject_legacy_01_merge_source_root(self) -> None:
+        self.assert_forbidden_source_root(
+            "docs/win/football/nfl/01_merge/"
+        )
+
+    def test_reject_scripts_01_merge_source_root(self) -> None:
+        self.assert_forbidden_source_root(
+            "docs/win/football/nfl/scripts/01_merge/"
+        )
+
+    def test_clean_audit_declares_market_features_unused(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            bad = root / "bad.txt"
-            bad.write_text(f"source={forbidden_path}market.csv\n", encoding="utf-8")
-            payload = audit.audit_paths(
-                [root], config=common.load_config(), repo=None
+            clean = root / "clean.txt"
+            clean.write_text(
+                "source=docs/win/football/nfl/00_intake/pbp/2026.csv.gz\n",
+                encoding="utf-8",
             )
-            self.assertFalse(payload["passed"])
-            self.assertGreater(len(payload["forbidden_source_references"]), 0)
+            payload = audit.audit_paths(
+                [root],
+                config=common.load_config(),
+                repo=None,
+            )
+            self.assertTrue(payload["passed"])
+            self.assertFalse(payload["market_features_used"])
+            self.assertEqual(payload["forbidden_source_reference_count"], 0)
+            self.assertEqual(payload["forbidden_feature_hit_count"], 0)
 
 
 if __name__ == "__main__":
