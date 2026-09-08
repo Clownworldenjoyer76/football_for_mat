@@ -9,57 +9,57 @@
   "feature_importance": [
     {
       "feature": "eff_position_prior_rate",
-      "gain": 50.23809173703194,
-      "split": 36
-    },
-    {
-      "feature": "eff_player_prior_rate",
-      "gain": 37.39946886897087,
-      "split": 39
+      "gain": 50.46870008111,
+      "split": 34
     },
     {
       "feature": "eff_league_prior_rate",
-      "gain": 37.12641504406929,
-      "split": 30
-    },
-    {
-      "feature": "player_goal_line_carries_career_prior",
-      "gain": 37.04204618930817,
-      "split": 36
-    },
-    {
-      "feature": "history_history_games",
-      "gain": 29.36098402738571,
+      "gain": 38.302155166864395,
       "split": 32
     },
     {
+      "feature": "eff_player_prior_rate",
+      "gain": 38.13422194123268,
+      "split": 40
+    },
+    {
+      "feature": "player_goal_line_carries_career_prior",
+      "gain": 34.14358192682266,
+      "split": 32
+    },
+    {
+      "feature": "history_history_games",
+      "gain": 28.217381179332733,
+      "split": 31
+    },
+    {
       "feature": "player_goal_line_carries_ewm5",
-      "gain": 26.344767838716507,
+      "gain": 25.9846950173378,
       "split": 31
     },
     {
       "feature": "player_goal_line_carries_season_to_date",
-      "gain": 18.726027965545654,
-      "split": 16
+      "gain": 20.44521215558052,
+      "split": 19
     },
     {
       "feature": "eff_shrunk_rate",
-      "gain": 8.767137080430984,
-      "split": 11
+      "gain": 7.465779960155487,
+      "split": 9
     },
     {
       "feature": "player_goal_line_carries_roll5_mean",
-      "gain": 5.062850117683411,
-      "split": 3
-    },
-    {
-      "feature": "eff_player_prior_exposure",
-      "gain": 3.34095299243927,
+      "gain": 5.482398957014084,
       "split": 4
     },
     {
+      "feature": "eff_player_prior_exposure",
+      "gain": 4.805153906345367,
+      "split": 6
+    },
+    {
       "feature": "player_goal_line_carries_roll3_mean",
-      "gain": 1.0195570290088654,
+      "gain": 0.986890971660614,
       "split": 2
     },
     {
@@ -93,17 +93,17 @@
   },
   "lightgbm_version": "4.6.0",
   "model": "rushing_td_per_goal_line_carry",
-  "model_sha256": "7e981fe7c4f581a36b175b20b1a3c46240b422057000bcf149ecbd83d44bfef6",
+  "model_sha256": "0009f582e3f22bf667c65df837dd725aa66cd27b0683679a373c61355becb19c",
   "model_type": "lightgbm_regression",
   "params": {
     "bagging_fraction": 1.0,
     "bagging_freq": 0,
-    "bagging_seed": 23023,
+    "bagging_seed": 24024,
     "boosting_type": "gbdt",
-    "data_random_seed": 23023,
+    "data_random_seed": 24024,
     "deterministic": true,
     "feature_fraction": 1.0,
-    "feature_fraction_seed": 23023,
+    "feature_fraction_seed": 24024,
     "force_col_wise": true,
     "lambda_l1": 0.0,
     "lambda_l2": 0.0,
@@ -114,7 +114,7 @@
     "num_leaves": 31,
     "num_threads": 1,
     "objective": "regression",
-    "seed": 23023,
+    "seed": 24024,
     "verbosity": -1
   },
   "rows": {
@@ -122,7 +122,7 @@
     "model_selection_train": 1552,
     "validation_2024": 524
   },
-  "seed": 23023,
+  "seed": 24024,
   "shrinkage": {
     "final_priors_through_2024": {
       "league": {
@@ -132,14 +132,14 @@
       },
       "positions": {
         "OFF": {
-          "exposure": 1947.0,
-          "numerator": 765.0,
-          "rate": 0.3929121725731895
+          "exposure": 1949.0,
+          "numerator": 766.0,
+          "rate": 0.3930220625962032
         },
         "QB": {
-          "exposure": 88.0,
-          "numerator": 43.0,
-          "rate": 0.48863636363636365
+          "exposure": 86.0,
+          "numerator": 42.0,
+          "rate": 0.4883720930232558
         },
         "RB": {
           "exposure": 1051.0,
@@ -185,8 +185,8 @@
     "untouched_test_used_for_selection": false
   },
   "validation_2024_metrics": {
-    "mae": 0.3983232242003754,
-    "r2": 0.0009302509191893016,
-    "rmse": 0.43567678033141305
+    "mae": 0.3982932240222382,
+    "r2": 0.0009616394140308238,
+    "rmse": 0.43566993629184647
   }
 }

@@ -158,6 +158,12 @@ canonical_features = set(canonical["feature_columns"])
 canonical_numeric = set(canonical["numeric_features"])
 canonical_categorical = set(canonical["categorical_features"])
 forbidden = list(config["forbidden_features"])
+training = config["training"]
+EXPECTED_SEED = int(training["random_seed"])
+EXPECTED_SELECTION_END = int(training["model_selection_train_end_season"])
+EXPECTED_VALIDATION_SEASON = int(training["development_validation_season"])
+EXPECTED_FINAL_TRAIN_END = int(training["final_train_end_season"])
+EXPECTED_UNTOUCHED_TEST_SEASON = int(training["untouched_test_season"])
 
 summary = {}
 
@@ -194,7 +200,7 @@ for target in TARGETS:
     assert metadata["model_family"] == EXPECTED_FAMILY[target]
     assert metadata["objective"] == EXPECTED_OBJECTIVE[target]
     assert metadata["market_features_used"] is False
-    assert metadata["random_seed"] == 24024
+    assert metadata["random_seed"] == EXPECTED_SEED
     assert metadata["training_rows"] > 0
     assert metadata["feature_count"] > 0
 
@@ -334,14 +340,14 @@ for target in TARGETS:
     assert params["boosting_type"] == "gbdt"
     assert params["deterministic"] is True
     assert params["num_threads"] == 1
-    assert params["seed"] == 24024
+    assert params["seed"] == EXPECTED_SEED
 
     policy = metadata["training_policy"]
     assert policy["random_split_used"] is False
-    assert policy["model_selection_train_end_season"] == 2023
-    assert policy["development_validation_season"] == 2024
-    assert policy["final_train_end_season"] == 2024
-    assert policy["untouched_test_season"] == 2025
+    assert policy["model_selection_train_end_season"] == EXPECTED_SELECTION_END
+    assert policy["development_validation_season"] == EXPECTED_VALIDATION_SEASON
+    assert policy["final_train_end_season"] == EXPECTED_FINAL_TRAIN_END
+    assert policy["untouched_test_season"] == EXPECTED_UNTOUCHED_TEST_SEASON
     assert policy["untouched_test_used_for_selection"] is False
     assert policy["untouched_test_used_for_metrics"] is False
     assert policy["untouched_test_used_for_fit"] is False
@@ -425,10 +431,12 @@ print("CHECK 05: static source policy markers")
 source = TRAINER.read_text(encoding="utf-8")
 
 required_markers = [
-    "MODEL_SELECTION_TRAIN_END = 2023",
-    "DEVELOPMENT_VALIDATION_SEASON = 2024",
-    "FINAL_TRAIN_END = 2024",
-    "UNTOUCHED_TEST_SEASON = 2025",
+    '_CONFIG_CONTRACT = common.load_config()',
+    '_TRAINING_CONTRACT = _CONFIG_CONTRACT["training"]',
+    'MODEL_SELECTION_TRAIN_END = int(_TRAINING_CONTRACT["model_selection_train_end_season"])',
+    'DEVELOPMENT_VALIDATION_SEASON = int(_TRAINING_CONTRACT["development_validation_season"])',
+    'FINAL_TRAIN_END = int(_TRAINING_CONTRACT["final_train_end_season"])',
+    'UNTOUCHED_TEST_SEASON = int(_TRAINING_CONTRACT["untouched_test_season"])',
     '"passing_yards": "regression"',
     '"passing_tds": "poisson"',
     '"rushing_yards": "regression"',

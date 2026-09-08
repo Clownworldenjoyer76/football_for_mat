@@ -120,6 +120,12 @@ with CONFIG.open("r", encoding="utf-8-sig") as f:
 canonical_features = set(canonical["feature_columns"])
 canonical_numeric = set(canonical["numeric_features"])
 forbidden = list(config["forbidden_features"])
+training = config["training"]
+EXPECTED_SEED = int(training["random_seed"])
+EXPECTED_SELECTION_END = int(training["model_selection_train_end_season"])
+EXPECTED_VALIDATION_SEASON = int(training["development_validation_season"])
+EXPECTED_FINAL_TRAIN_END = int(training["final_train_end_season"])
+EXPECTED_UNTOUCHED_TEST_SEASON = int(training["untouched_test_season"])
 
 summary = {}
 shrinkage = {}
@@ -215,10 +221,10 @@ for model_name in MODELS:
 
     policy = metadata["training_policy"]
     assert policy["random_split_used"] is False
-    assert policy["model_selection_train_end_season"] == 2023
-    assert policy["development_validation_season"] == 2024
-    assert policy["final_train_end_season"] == 2024
-    assert policy["untouched_test_season"] == 2025
+    assert policy["model_selection_train_end_season"] == EXPECTED_SELECTION_END
+    assert policy["development_validation_season"] == EXPECTED_VALIDATION_SEASON
+    assert policy["final_train_end_season"] == EXPECTED_FINAL_TRAIN_END
+    assert policy["untouched_test_season"] == EXPECTED_UNTOUCHED_TEST_SEASON
     assert policy["untouched_test_used_for_selection"] is False
     assert policy["untouched_test_used_for_metrics"] is False
     assert policy["untouched_test_used_for_fit"] is False
@@ -234,7 +240,7 @@ for model_name in MODELS:
     )
 
     label = metadata["label"]
-    assert label["last_training_season"] == 2024
+    assert label["last_training_season"] == EXPECTED_FINAL_TRAIN_END
 
     if model_name in RATE_MODELS:
         assert label["minimum"] >= -1e-12
@@ -310,7 +316,7 @@ for model_name in MODELS:
     assert params["boosting_type"] == "gbdt"
     assert params["deterministic"] is True
     assert params["num_threads"] == 1
-    assert params["seed"] == 23023
+    assert params["seed"] == EXPECTED_SEED
 
     summary[model_name] = {
         "features": len(features),
@@ -368,10 +374,12 @@ print("CHECK 05: static trainer policy / trade semantics")
 source = TRAINER.read_text(encoding="utf-8")
 
 markers = [
-    "MODEL_SELECTION_TRAIN_END = 2023",
-    "DEVELOPMENT_VALIDATION_SEASON = 2024",
-    "FINAL_TRAIN_END = 2024",
-    "UNTOUCHED_TEST_SEASON = 2025",
+    '_CONFIG_CONTRACT = common.load_config()',
+    '_TRAINING_CONTRACT = _CONFIG_CONTRACT["training"]',
+    'MODEL_SELECTION_TRAIN_END = int(_TRAINING_CONTRACT["model_selection_train_end_season"])',
+    'DEVELOPMENT_VALIDATION_SEASON = int(_TRAINING_CONTRACT["development_validation_season"])',
+    'FINAL_TRAIN_END = int(_TRAINING_CONTRACT["final_train_end_season"])',
+    'UNTOUCHED_TEST_SEASON = int(_TRAINING_CONTRACT["untouched_test_season"])',
     '"rushing_td_per_goal_line_carry": 100.0',
     '"receiving_td_per_red_zone_target": 100.0',
     '"passing_td_rate": 200.0',

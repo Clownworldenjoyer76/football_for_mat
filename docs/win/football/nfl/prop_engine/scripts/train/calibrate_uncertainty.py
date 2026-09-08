@@ -1188,9 +1188,52 @@ def fit_point_prediction_blend(
             passing.append((candidate_mae, abs_bias, float(alpha)))
 
     if passing:
-        passing.sort(key=lambda item: (item[0], item[1], item[2]))
-        chosen_alpha = float(passing[0][2])
-        status = "validation_candidate_passed_all_gates"
+        if target == "rushing_yards":
+            passing_candidates = [
+                item
+                for item in candidates
+                if item["passed_all_configured_gates"]
+            ]
+            max_bias = float(acceptance["maximum_allowed_bias"])
+            max_mae = float(acceptance["maximum_validation_mae"])
+            min_improvement = float(
+                acceptance["minimum_improvement_vs_baseline_pct"]
+            )
+
+            def rushing_yards_robust_margin(
+                item: dict[str, Any],
+            ) -> tuple[float, float, float, float]:
+                abs_bias = float(item["validation_absolute_bias"])
+                candidate_mae = float(item["validation_mae"])
+                improvement = float(
+                    item["validation_improvement_vs_baseline_pct"]
+                )
+                robust_margin = min(
+                    (max_bias - abs_bias) / max_bias,
+                    (max_mae - candidate_mae) / max_mae,
+                    (improvement - min_improvement)
+                    / max(abs(min_improvement), 1.0),
+                )
+                return (
+                    -robust_margin,
+                    candidate_mae,
+                    abs_bias,
+                    float(item["calibrated_weight"]),
+                )
+
+            chosen_item = min(
+                passing_candidates,
+                key=rushing_yards_robust_margin,
+            )
+            chosen_alpha = float(chosen_item["calibrated_weight"])
+            status = (
+                "validation_candidate_passed_all_gates_"
+                "rushing_yards_robust_margin"
+            )
+        else:
+            passing.sort(key=lambda item: (item[0], item[1], item[2]))
+            chosen_alpha = float(passing[0][2])
+            status = "validation_candidate_passed_all_gates"
     else:
         chosen_alpha = 1.0
         status = "no_validation_candidate_passed_all_gates"

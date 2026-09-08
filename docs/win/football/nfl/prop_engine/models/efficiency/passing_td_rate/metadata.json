@@ -9,68 +9,68 @@
   "feature_importance": [
     {
       "feature": "player_passing_td_rate_season_to_date",
-      "gain": 4.7955881748348475,
-      "split": 107
+      "gain": 4.970408149063587,
+      "split": 101
     },
     {
       "feature": "player_pass_attempts_career_prior",
-      "gain": 4.019522969610989,
-      "split": 126
+      "gain": 3.9131867112591863,
+      "split": 121
     },
     {
       "feature": "eff_player_prior_exposure",
-      "gain": 3.950463439337909,
-      "split": 109
+      "gain": 3.8927480019629,
+      "split": 103
     },
     {
       "feature": "eff_shrunk_rate",
-      "gain": 3.7068823697045445,
-      "split": 85
+      "gain": 3.7470599841326475,
+      "split": 95
     },
     {
       "feature": "eff_player_prior_rate",
-      "gain": 1.9822713872417808,
-      "split": 63
-    },
-    {
-      "feature": "eff_position_prior_rate",
-      "gain": 1.7082527512684464,
-      "split": 96
+      "gain": 1.9631572803482413,
+      "split": 67
     },
     {
       "feature": "eff_league_prior_rate",
-      "gain": 1.6824980778619647,
-      "split": 88
+      "gain": 1.8297199131920934,
+      "split": 103
+    },
+    {
+      "feature": "eff_position_prior_rate",
+      "gain": 1.6136090029031038,
+      "split": 91
     },
     {
       "feature": "player_passing_td_rate_career_prior",
-      "gain": 1.5597047349438071,
-      "split": 81
-    },
-    {
-      "feature": "player_passing_td_rate_roll5_mean",
-      "gain": 1.319695034995675,
-      "split": 60
+      "gain": 1.5336342342197895,
+      "split": 73
     },
     {
       "feature": "history_history_games",
-      "gain": 1.314692591316998,
-      "split": 45
+      "gain": 1.406244290061295,
+      "split": 47
+    },
+    {
+      "feature": "player_passing_td_rate_roll5_mean",
+      "gain": 1.2699289480224252,
+      "split": 58
     },
     {
       "feature": "player_passing_td_rate_roll3_mean",
-      "gain": 1.0030597997829318,
-      "split": 37
+      "gain": 0.8622741978615522,
+      "split": 35
     },
     {
       "feature": "player_passing_td_rate_ewm5",
-      "gain": 0.6088305711746216,
-      "split": 31
+      "gain": 0.6831995425745845,
+      "split": 35
     },
     {
       "feature": "player_passing_td_rate_lag1",
-      "gain": 0.5861249035224319,
-      "split": 32
+      "gain": 0.5577555978670716,
+      "split": 31
     },
     {
       "feature": "eff_prior_weight",
@@ -98,17 +98,17 @@
   },
   "lightgbm_version": "4.6.0",
   "model": "passing_td_rate",
-  "model_sha256": "ae321c13cfb8a1a9d6f2e13a1efcde343a20e15e8ab790e4bba5f9d4cc2d9806",
+  "model_sha256": "8b4f200cbcd20655241bb73fe065f11ce186a40af5a0883c1baa51224fc43425",
   "model_type": "lightgbm_regression",
   "params": {
     "bagging_fraction": 1.0,
     "bagging_freq": 0,
-    "bagging_seed": 23023,
+    "bagging_seed": 24024,
     "boosting_type": "gbdt",
-    "data_random_seed": 23023,
+    "data_random_seed": 24024,
     "deterministic": true,
     "feature_fraction": 1.0,
-    "feature_fraction_seed": 23023,
+    "feature_fraction_seed": 24024,
     "force_col_wise": true,
     "lambda_l1": 0.0,
     "lambda_l2": 0.0,
@@ -119,7 +119,7 @@
     "num_leaves": 31,
     "num_threads": 1,
     "objective": "regression",
-    "seed": 23023,
+    "seed": 24024,
     "verbosity": -1
   },
   "rows": {
@@ -127,7 +127,7 @@
     "model_selection_train": 7069,
     "validation_2024": 631
   },
-  "seed": 23023,
+  "seed": 24024,
   "shrinkage": {
     "final_priors_through_2024": {
       "league": {
@@ -137,14 +137,14 @@
       },
       "positions": {
         "OFF": {
-          "exposure": 113051.0,
-          "numerator": 5129.0,
-          "rate": 0.04536890429982928
+          "exposure": 113080.0,
+          "numerator": 5130.0,
+          "rate": 0.045366112486735055
         },
         "QB": {
-          "exposure": 120187.0,
-          "numerator": 5184.0,
-          "rate": 0.043132784743774286
+          "exposure": 120158.0,
+          "numerator": 5183.0,
+          "rate": 0.043134872417982986
         },
         "TE": {
           "exposure": 280.0,
@@ -185,8 +185,8 @@
     "untouched_test_used_for_selection": false
   },
   "validation_2024_metrics": {
-    "mae": 0.03424108228162328,
-    "r2": 0.02050059422005701,
-    "rmse": 0.05849369982764051
+    "mae": 0.034255522038045,
+    "r2": 0.02044047812407912,
+    "rmse": 0.05849549480520736
   }
 }

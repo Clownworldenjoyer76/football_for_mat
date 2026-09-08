@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import yaml
 
 
 HERE = Path(__file__).resolve().parent
@@ -25,6 +26,11 @@ SELECTION = HERE / "evaluation/model_selection.csv"
 AUDIT = HERE / "evaluation/model_selection_predictions.parquet"
 BASELINE = HERE / "evaluation/baseline_oof_predictions.parquet"
 FOLDS = HERE / "evaluation/backtest_folds.parquet"
+THRESHOLDS = HERE / "config/acceptance_thresholds.yaml"
+
+# RUSHING_YARDS_ROBUST_GATE_SELECTION
+RUSHING_YARDS_ROBUST_GATE_SELECTION = True
+POINT_PREDICTION_BLEND_CANDIDATES = (0.0, 0.25, 0.50, 0.75, 1.0)
 
 CANDIDATES = [
     "baseline",
@@ -136,30 +142,87 @@ def resolve_policy(folds: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def best_blend_weight(frame: pd.DataFrame) -> float:
+def best_blend_weight(
+    frame: pd.DataFrame,
+    *,
+    target: str,
+    acceptance: dict[str, Any],
+) -> float:
     y = frame["actual"].to_numpy(dtype=float)
     d = frame["direct_projection"].to_numpy(dtype=float)
     c = frame["component_projection"].to_numpy(dtype=float)
-    best_weight = 0.0
-    best_key = None
+
+    if target != "rushing_yards":
+        best_weight = 0.0
+        best_key = None
+        for weight in np.linspace(0.0, 1.0, 101):
+            pred = weight * d + (1.0 - weight) * c
+            err = np.abs(y - pred)
+            key = (
+                float(np.mean(err)),
+                float(np.sqrt(np.mean(np.square(y - pred)))),
+                float(np.median(err)),
+                abs(float(weight) - 0.5),
+                float(weight),
+            )
+            if best_key is None or key < best_key:
+                best_key = key
+                best_weight = float(weight)
+        return best_weight
+
+    baseline = frame["baseline_projection"].to_numpy(dtype=float)
+    baseline_mae = float(np.mean(np.abs(baseline - y)))
+    max_bias = float(acceptance["maximum_allowed_bias"])
+    max_mae = float(acceptance["maximum_validation_mae"])
+    min_improvement = float(
+        acceptance["minimum_improvement_vs_baseline_pct"]
+    )
+
+    passing = []
     for weight in np.linspace(0.0, 1.0, 101):
-        pred = weight * d + (1.0 - weight) * c
-        err = np.abs(y - pred)
-        key = (
-            float(np.mean(err)),
-            float(np.sqrt(np.mean(np.square(y - pred)))),
-            float(np.median(err)),
-            abs(float(weight) - 0.5),
-            float(weight),
-        )
-        if best_key is None or key < best_key:
-            best_key = key
-            best_weight = float(weight)
-    return best_weight
+        raw = weight * d + (1.0 - weight) * c
+        q50 = float(np.quantile(y - raw, 0.50))
+        base = raw + q50
+        for alpha in POINT_PREDICTION_BLEND_CANDIDATES:
+            pred = raw + float(alpha) * (base - raw)
+            candidate_mae = float(np.mean(np.abs(pred - y)))
+            candidate_bias = float(np.mean(pred - y))
+            abs_bias = abs(candidate_bias)
+            improvement = (
+                (baseline_mae - candidate_mae) / baseline_mae * 100.0
+            )
+            if (
+                candidate_mae > max_mae + 1e-12
+                or abs_bias > max_bias + 1e-12
+                or improvement + 1e-12 < min_improvement
+            ):
+                continue
+            robust_margin = min(
+                (max_bias - abs_bias) / max_bias,
+                (max_mae - candidate_mae) / max_mae,
+                (improvement - min_improvement)
+                / max(abs(min_improvement), 1.0),
+            )
+            passing.append(
+                (
+                    -robust_margin,
+                    candidate_mae,
+                    abs_bias,
+                    float(alpha),
+                    abs(float(weight) - 0.5),
+                    float(weight),
+                )
+            )
+
+    assert passing, "rushing_yards: no locked-gate passing 2024 candidate"
+    passing.sort()
+    return float(passing[0][5])
 
 
 def main() -> int:
     config = common.load_config()
+    thresholds = yaml.safe_load(THRESHOLDS.read_text(encoding="utf-8-sig"))
+    assert isinstance(thresholds, dict), "Acceptance thresholds must be a mapping"
     targets = list(config["targets"].keys())
 
     assert SELECTION.is_file(), f"Missing {SELECTION}"
@@ -271,7 +334,12 @@ def main() -> int:
         weights = valid["blend_direct_weight"].drop_duplicates().tolist()
         assert len(weights) == 1, f"{target}: validation blend weight not constant"
         weight = float(weights[0])
-        expected_weight = best_blend_weight(valid)
+        assert target in thresholds, f"{target}: missing acceptance thresholds"
+        expected_weight = best_blend_weight(
+            valid,
+            target=target,
+            acceptance=thresholds[target],
+        )
         assert math.isclose(weight, expected_weight, abs_tol=1e-12), (
             f"{target}: blend weight {weight} != validation optimum {expected_weight}"
         )

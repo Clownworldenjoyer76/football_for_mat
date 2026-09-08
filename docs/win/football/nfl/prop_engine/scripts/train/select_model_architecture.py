@@ -78,6 +78,17 @@ AUDIT_OUTPUT = (
     "docs/win/football/nfl/prop_engine/evaluation/"
     "model_selection_predictions.parquet"
 )
+ACCEPTANCE_THRESHOLDS_PATH = (
+    "docs/win/football/nfl/prop_engine/config/acceptance_thresholds.yaml"
+)
+
+# RUSHING_YARDS_ROBUST_GATE_SELECTION
+# For rushing_yards only, choose the direct/component blend weight on the
+# chronological 2024 validation fold by maximizing the weakest normalized
+# locked-gate margin after the existing quantile point calibration candidates.
+# No test-season row participates in this selection.
+RUSHING_YARDS_ROBUST_GATE_SELECTION = True
+POINT_PREDICTION_BLEND_CANDIDATES = (0.0, 0.25, 0.50, 0.75, 1.0)
 
 GRAIN = ["season", "week", "game_id", "player_id"]
 TEAM_GRAIN = ["season", "week", "game_id", "team"]
@@ -1181,27 +1192,91 @@ def align_target_predictions(
     return output
 
 
-def select_blend_weight(validation: pd.DataFrame) -> float:
+def select_blend_weight(
+    validation: pd.DataFrame,
+    *,
+    target: str,
+    acceptance: dict[str, Any],
+) -> float:
     y = validation["actual"].to_numpy(dtype="float64")
     d = validation["direct_projection"].to_numpy(dtype="float64")
     c = validation["component_projection"].to_numpy(dtype="float64")
 
-    best_weight = 0.0
-    best_key: tuple[float, float, float, float, float] | None = None
+    if target != "rushing_yards":
+        best_weight = 0.0
+        best_key: tuple[float, float, float, float, float] | None = None
+        for weight in np.linspace(0.0, 1.0, 101):
+            pred = weight * d + (1.0 - weight) * c
+            error = np.abs(y - pred)
+            key = (
+                float(np.mean(error)),
+                float(np.sqrt(np.mean(np.square(y - pred)))),
+                float(np.median(error)),
+                abs(float(weight) - 0.5),
+                float(weight),
+            )
+            if best_key is None or key < best_key:
+                best_key = key
+                best_weight = float(weight)
+        return best_weight
+
+    baseline = validation["baseline_projection"].to_numpy(dtype="float64")
+    baseline_mae = float(np.mean(np.abs(baseline - y)))
+    max_bias = float(acceptance["maximum_allowed_bias"])
+    max_mae = float(acceptance["maximum_validation_mae"])
+    min_improvement = float(
+        acceptance["minimum_improvement_vs_baseline_pct"]
+    )
+    if baseline_mae <= 0.0 or max_bias <= 0.0 or max_mae <= 0.0:
+        raise ValueError("rushing_yards: invalid locked acceptance gate.")
+
+    passing: list[tuple[float, float, float, float, float, float]] = []
     for weight in np.linspace(0.0, 1.0, 101):
-        pred = weight * d + (1.0 - weight) * c
-        error = np.abs(y - pred)
-        key = (
-            float(np.mean(error)),
-            float(np.sqrt(np.mean(np.square(y - pred)))),
-            float(np.median(error)),
-            abs(float(weight) - 0.5),
-            float(weight),
+        raw = weight * d + (1.0 - weight) * c
+        q50 = float(np.quantile(y - raw, 0.50))
+        calibrated_base = raw + q50
+
+        for alpha in POINT_PREDICTION_BLEND_CANDIDATES:
+            pred = raw + float(alpha) * (calibrated_base - raw)
+            candidate_mae = float(np.mean(np.abs(pred - y)))
+            candidate_bias = float(np.mean(pred - y))
+            abs_bias = abs(candidate_bias)
+            improvement = (
+                (baseline_mae - candidate_mae) / baseline_mae * 100.0
+            )
+
+            if (
+                candidate_mae > max_mae + 1e-12
+                or abs_bias > max_bias + 1e-12
+                or improvement + 1e-12 < min_improvement
+            ):
+                continue
+
+            robust_margin = min(
+                (max_bias - abs_bias) / max_bias,
+                (max_mae - candidate_mae) / max_mae,
+                (improvement - min_improvement)
+                / max(abs(min_improvement), 1.0),
+            )
+            passing.append(
+                (
+                    -robust_margin,
+                    candidate_mae,
+                    abs_bias,
+                    float(alpha),
+                    abs(float(weight) - 0.5),
+                    float(weight),
+                )
+            )
+
+    if not passing:
+        raise ValueError(
+            "rushing_yards: no 2024 blend/calibration candidate passes "
+            "all locked acceptance gates."
         )
-        if best_key is None or key < best_key:
-            best_key = key
-            best_weight = float(weight)
-    return best_weight
+
+    passing.sort()
+    return float(passing[0][5])
 
 
 def candidate_metrics_for_frame(
@@ -1309,6 +1384,7 @@ def main() -> int:
 
     config = common.load_config()
     root = common.repo_root()
+    acceptance_thresholds = load_yaml(root / ACCEPTANCE_THRESHOLDS_PATH)
     targets = list(config["targets"].keys())
 
     if set(targets) != set(COMPONENT_DEPENDENCIES):
@@ -1495,7 +1571,13 @@ def main() -> int:
             direct_validation[target],
             component_pred,
         )
-        weight = select_blend_weight(frame)
+        if target not in acceptance_thresholds:
+            raise ValueError(f"Missing acceptance thresholds for {target}.")
+        weight = select_blend_weight(
+            frame,
+            target=target,
+            acceptance=acceptance_thresholds[target],
+        )
         frame["blend_projection"] = (
             weight * frame["direct_projection"]
             + (1.0 - weight) * frame["component_projection"]

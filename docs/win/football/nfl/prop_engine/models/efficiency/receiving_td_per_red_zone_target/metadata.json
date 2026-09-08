@@ -9,43 +9,58 @@
   "feature_importance": [
     {
       "feature": "eff_shrunk_rate",
-      "gain": 7.753358900547028,
+      "gain": 7.535313904285431,
       "split": 5
-    },
-    {
-      "feature": "eff_league_prior_rate",
-      "gain": 7.643057942390442,
-      "split": 5
-    },
-    {
-      "feature": "history_history_games",
-      "gain": 4.93633496761322,
-      "split": 5
-    },
-    {
-      "feature": "player_red_zone_targets_career_prior",
-      "gain": 4.708177030086517,
-      "split": 4
     },
     {
       "feature": "player_red_zone_targets_ewm5",
-      "gain": 4.571788966655731,
+      "gain": 6.737151026725769,
+      "split": 4
+    },
+    {
+      "feature": "eff_league_prior_rate",
+      "gain": 4.640863001346588,
+      "split": 4
+    },
+    {
+      "feature": "eff_player_prior_rate",
+      "gain": 3.9342820048332214,
       "split": 3
     },
     {
       "feature": "eff_position_prior_rate",
-      "gain": 3.6839998960494995,
-      "split": 3
-    },
-    {
-      "feature": "eff_player_prior_rate",
-      "gain": 3.450494945049286,
+      "gain": 3.4532909393310547,
       "split": 3
     },
     {
       "feature": "player_red_zone_targets_season_to_date",
-      "gain": 1.5488490462303162,
+      "gain": 3.2542459964752197,
+      "split": 4
+    },
+    {
+      "feature": "player_red_zone_targets_roll5_mean",
+      "gain": 2.0753660202026367,
       "split": 2
+    },
+    {
+      "feature": "player_red_zone_targets_career_prior",
+      "gain": 1.5766509771347046,
+      "split": 2
+    },
+    {
+      "feature": "player_red_zone_targets_lag1",
+      "gain": 0.9367150068283081,
+      "split": 1
+    },
+    {
+      "feature": "player_red_zone_targets_roll3_mean",
+      "gain": 0.7575309872627258,
+      "split": 1
+    },
+    {
+      "feature": "history_history_games",
+      "gain": 0.6212499737739563,
+      "split": 1
     },
     {
       "feature": "eff_player_prior_exposure",
@@ -66,21 +81,6 @@
       "feature": "history_no_nfl_history_flag",
       "gain": 0.0,
       "split": 0
-    },
-    {
-      "feature": "player_red_zone_targets_lag1",
-      "gain": 0.0,
-      "split": 0
-    },
-    {
-      "feature": "player_red_zone_targets_roll3_mean",
-      "gain": 0.0,
-      "split": 0
-    },
-    {
-      "feature": "player_red_zone_targets_roll5_mean",
-      "gain": 0.0,
-      "split": 0
     }
   ],
   "feature_manifest_sha256": "3c3e4d5f55ad33b920082ee95221101707c2f020d965b92cad48546ba40d42e4",
@@ -93,17 +93,17 @@
   },
   "lightgbm_version": "4.6.0",
   "model": "receiving_td_per_red_zone_target",
-  "model_sha256": "d0b2af2879adff8fec97e2c20585bd0ac384eaf5a8afc40d32318fd0e38fa468",
+  "model_sha256": "332d0ea5b870f5e2aa8984f3c4e1084b4394a4815f6480b92fc5e0262dc798fa",
   "model_type": "lightgbm_regression",
   "params": {
     "bagging_fraction": 1.0,
     "bagging_freq": 0,
-    "bagging_seed": 23023,
+    "bagging_seed": 24024,
     "boosting_type": "gbdt",
-    "data_random_seed": 23023,
+    "data_random_seed": 24024,
     "deterministic": true,
     "feature_fraction": 1.0,
-    "feature_fraction_seed": 23023,
+    "feature_fraction_seed": 24024,
     "force_col_wise": true,
     "lambda_l1": 0.0,
     "lambda_l2": 0.0,
@@ -114,7 +114,7 @@
     "num_leaves": 31,
     "num_threads": 1,
     "objective": "regression",
-    "seed": 23023,
+    "seed": 24024,
     "verbosity": -1
   },
   "rows": {
@@ -122,7 +122,7 @@
     "model_selection_train": 4943,
     "validation_2024": 1638
   },
-  "seed": 23023,
+  "seed": 24024,
   "shrinkage": {
     "final_priors_through_2024": {
       "league": {
@@ -132,9 +132,9 @@
       },
       "positions": {
         "OFF": {
-          "exposure": 6123.0,
+          "exposure": 6105.0,
           "numerator": 1479.0,
-          "rate": 0.24154826065654092
+          "rate": 0.24226044226044227
         },
         "RB": {
           "exposure": 773.0,
@@ -142,14 +142,14 @@
           "rate": 0.19404915912031048
         },
         "TE": {
-          "exposure": 576.0,
-          "numerator": 151.0,
-          "rate": 0.2621527777777778
+          "exposure": 581.0,
+          "numerator": 152.0,
+          "rate": 0.26161790017211706
         },
         "WR": {
-          "exposure": 2031.0,
-          "numerator": 442.0,
-          "rate": 0.21762678483505662
+          "exposure": 2044.0,
+          "numerator": 441.0,
+          "rate": 0.21575342465753425
         }
       },
       "through_season": 2024
@@ -180,8 +180,8 @@
     "untouched_test_used_for_selection": false
   },
   "validation_2024_metrics": {
-    "mae": 0.3353235654109809,
-    "r2": -0.0030213433508547993,
-    "rmse": 0.3979298593852874
+    "mae": 0.335197942559865,
+    "r2": -0.001992510173020934,
+    "rmse": 0.39772572191446254
   }
 }

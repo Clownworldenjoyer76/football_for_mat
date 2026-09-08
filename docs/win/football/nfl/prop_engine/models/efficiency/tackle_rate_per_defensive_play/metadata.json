@@ -1,5 +1,5 @@
 {
-  "best_iteration_selected_on_2024": 174,
+  "best_iteration_selected_on_2024": 137,
   "conditional_td_label_policy": {
     "exact_pbp_touchdown_flags": false,
     "goal_line_definition": null,
@@ -9,88 +9,88 @@
   "feature_importance": [
     {
       "feature": "player_tackle_rate_per_def_play_ewm5",
-      "gain": 2089.1333928108215,
-      "split": 219
+      "gain": 2103.6547713577747,
+      "split": 196
     },
     {
       "feature": "player_defense_participation_lag1",
-      "gain": 584.5129740461707,
-      "split": 556
+      "gain": 558.4858510643244,
+      "split": 463
     },
     {
       "feature": "eff_player_prior_rate",
-      "gain": 558.9770183265209,
-      "split": 338
+      "gain": 519.7090841531754,
+      "split": 252
     },
     {
       "feature": "player_tackle_rate_per_def_play_career_prior",
-      "gain": 480.0234542787075,
-      "split": 233
+      "gain": 441.80831129848957,
+      "split": 188
     },
     {
       "feature": "eff_shrunk_rate",
-      "gain": 342.2555968463421,
-      "split": 444
+      "gain": 320.7957090437412,
+      "split": 350
     },
     {
       "feature": "eff_position_prior_rate",
-      "gain": 317.6671616062522,
-      "split": 584
+      "gain": 278.13160617649555,
+      "split": 466
     },
     {
       "feature": "eff_player_prior_exposure",
-      "gain": 294.77598794549704,
-      "split": 417
+      "gain": 276.7383345067501,
+      "split": 351
     },
     {
       "feature": "player_tackle_rate_per_def_play_season_to_date",
-      "gain": 285.9817421808839,
-      "split": 424
-    },
-    {
-      "feature": "history_history_games",
-      "gain": 270.94035048782825,
-      "split": 458
+      "gain": 274.6189946681261,
+      "split": 365
     },
     {
       "feature": "player_tackle_rate_per_def_play_roll5_mean",
-      "gain": 268.07378869503736,
-      "split": 147
+      "gain": 261.84681548178196,
+      "split": 106
+    },
+    {
+      "feature": "history_history_games",
+      "gain": 239.4384153932333,
+      "split": 362
     },
     {
       "feature": "player_defense_participation_roll3_mean",
-      "gain": 184.92541740834713,
-      "split": 339
+      "gain": 164.8947518467903,
+      "split": 267
     },
     {
       "feature": "eff_league_prior_rate",
-      "gain": 156.76537556946278,
-      "split": 380
+      "gain": 128.81879571080208,
+      "split": 259
     },
     {
       "feature": "player_tackle_rate_per_def_play_lag1",
-      "gain": 155.0340113416314,
-      "split": 276
+      "gain": 126.83995231986046,
+      "split": 200
     },
     {
       "feature": "player_tackle_rate_per_def_play_roll3_mean",
-      "gain": 123.83776834607124,
-      "split": 160
+      "gain": 112.64894658327103,
+      "split": 124
     },
     {
       "feature": "player_defense_participation_career_prior",
-      "gain": 110.5041158720851,
-      "split": 236
+      "gain": 89.17301771044731,
+      "split": 148
     },
     {
       "feature": "history_no_nfl_history_flag",
-      "gain": 3.7114440500736237,
-      "split": 8
+      "gain": 6.249603971838951,
+      "split": 11
     },
     {
       "feature": "eff_rookie_position_prior_flag",
-      "gain": 0.7417359948158264,
-      "split": 1
+      "gain": 1.2549669742584229,
+      "split": 2
     },
     {
       "feature": "eff_prior_weight",
@@ -103,22 +103,22 @@
     "first_training_season": 2013,
     "last_training_season": 2024,
     "maximum": 1.0,
-    "mean": 0.09900897778510667,
+    "mean": 0.09901353667635071,
     "minimum": 0.0
   },
   "lightgbm_version": "4.6.0",
   "model": "tackle_rate_per_defensive_play",
-  "model_sha256": "2d12a83a02c8a74855df26fe9761c8e44952fec08bca5a59da645d56f8fb36ed",
+  "model_sha256": "1b93c8f4154c3513ceaddb9f52b69956c490d29d57a044d251bf8d8633c7d758",
   "model_type": "lightgbm_regression",
   "params": {
     "bagging_fraction": 1.0,
     "bagging_freq": 0,
-    "bagging_seed": 23023,
+    "bagging_seed": 24024,
     "boosting_type": "gbdt",
-    "data_random_seed": 23023,
+    "data_random_seed": 24024,
     "deterministic": true,
     "feature_fraction": 1.0,
-    "feature_fraction_seed": 23023,
+    "feature_fraction_seed": 24024,
     "force_col_wise": true,
     "lambda_l1": 0.0,
     "lambda_l2": 0.0,
@@ -129,7 +129,7 @@
     "num_leaves": 31,
     "num_threads": 1,
     "objective": "regression",
-    "seed": 23023,
+    "seed": 24024,
     "verbosity": -1
   },
   "rows": {
@@ -137,34 +137,34 @@
     "model_selection_train": 95885,
     "validation_2024": 9298
   },
-  "seed": 23023,
+  "seed": 24024,
   "shrinkage": {
     "final_priors_through_2024": {
       "league": {
-        "exposure": 6601042.099139497,
-        "numerator": 529552.7833358736,
-        "rate": 0.08022260354996152
+        "exposure": 6601078.832971241,
+        "numerator": 529571.0088098974,
+        "rate": 0.08022491810956449
       },
       "positions": {
         "DB": {
-          "exposure": 2939665.491970231,
-          "numerator": 226655.24260731175,
-          "rate": 0.0771023925090886
+          "exposure": 2938058.491970231,
+          "numerator": 226509.81483240105,
+          "rate": 0.0770950665044473
         },
         "DEF": {
-          "exposure": 1168577.9456521738,
-          "numerator": 95356.09862409369,
-          "rate": 0.081600118313782
+          "exposure": 1168128.9456521738,
+          "numerator": 95222.49085561067,
+          "rate": 0.08151710580414334
         },
         "DL": {
-          "exposure": 1215662.661517092,
-          "numerator": 76204.15875473057,
-          "rate": 0.06268528364573707
+          "exposure": 1218534.3953488371,
+          "numerator": 76453.81145381706,
+          "rate": 0.06274243201147406
         },
         "LB": {
-          "exposure": 1275268.0,
-          "numerator": 131153.07774944155,
-          "rate": 0.10284354171001041
+          "exposure": 1274489.0,
+          "numerator": 131200.68606777262,
+          "rate": 0.10294375711973397
         },
         "OL": {
           "exposure": 149.0,
@@ -215,8 +215,8 @@
     "untouched_test_used_for_selection": false
   },
   "validation_2024_metrics": {
-    "mae": 0.051752030131635755,
-    "r2": 0.1873177528759712,
-    "rmse": 0.09716686194107968
+    "mae": 0.05176425879046394,
+    "r2": 0.1872259140887793,
+    "rmse": 0.09717156258793157
   }
 }

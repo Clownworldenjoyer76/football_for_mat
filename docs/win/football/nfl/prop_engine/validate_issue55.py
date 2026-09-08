@@ -129,7 +129,6 @@ REQUIRED_REQUIREMENTS = {
     "pyarrow",
     "lightgbm",
     "nflreadpy",
-    "pytest",
 }
 
 

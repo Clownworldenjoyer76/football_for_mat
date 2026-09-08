@@ -117,6 +117,12 @@ canonical_features = set(canonical["feature_columns"])
 canonical_numeric = set(canonical["numeric_features"])
 target_columns = set(canonical.get("target_columns", []))
 forbidden = list(config["forbidden_features"])
+training = config["training"]
+EXPECTED_SEED = int(training["random_seed"])
+EXPECTED_SELECTION_END = int(training["model_selection_train_end_season"])
+EXPECTED_VALIDATION_SEASON = int(training["development_validation_season"])
+EXPECTED_FINAL_TRAIN_END = int(training["final_train_end_season"])
+EXPECTED_UNTOUCHED_TEST_SEASON = int(training["untouched_test_season"])
 
 print("CHECK 03: validate all required artifacts and LightGBM models")
 
@@ -221,10 +227,10 @@ for component in COMPONENTS:
     policy = metadata["training_policy"]
 
     assert policy["random_split_used"] is False
-    assert policy["model_selection_train_end_season"] == 2023
-    assert policy["development_validation_season"] == 2024
-    assert policy["final_train_end_season"] == 2024
-    assert policy["untouched_test_season"] == 2025
+    assert policy["model_selection_train_end_season"] == EXPECTED_SELECTION_END
+    assert policy["development_validation_season"] == EXPECTED_VALIDATION_SEASON
+    assert policy["final_train_end_season"] == EXPECTED_FINAL_TRAIN_END
+    assert policy["untouched_test_season"] == EXPECTED_UNTOUCHED_TEST_SEASON
     assert policy["untouched_test_used_for_selection"] is False
     assert policy["untouched_test_used_for_metrics"] is False
     assert policy["untouched_test_used_for_fit"] is False
@@ -240,10 +246,10 @@ for component in COMPONENTS:
 
     label = metadata["label"]
 
-    assert label["last_training_season"] == 2024, (
+    assert label["last_training_season"] == EXPECTED_FINAL_TRAIN_END, (
         f"{component}: final model did not end in 2024"
     )
-    assert label["first_training_season"] <= 2024
+    assert label["first_training_season"] <= EXPECTED_FINAL_TRAIN_END
 
     if component in BOUNDED_COMPONENTS:
         assert label["minimum"] >= -1e-12, (
@@ -310,7 +316,7 @@ for component in COMPONENTS:
     assert params["boosting_type"] == "gbdt"
     assert params["deterministic"] is True
     assert params["num_threads"] == 1
-    assert params["seed"] == 22022
+    assert params["seed"] == EXPECTED_SEED
 
     summary[component] = {
         "features": len(features),
@@ -324,10 +330,12 @@ print("CHECK 04: static 2025 exclusion and fixed training cutoff")
 source = TRAINER_PATH.read_text(encoding="utf-8")
 
 required_source_markers = [
-    "MODEL_SELECTION_TRAIN_END = 2023",
-    "DEVELOPMENT_VALIDATION_SEASON = 2024",
-    "FINAL_TRAIN_END = 2024",
-    "UNTOUCHED_TEST_SEASON = 2025",
+    '_CONFIG_CONTRACT = common.load_config()',
+    '_TRAINING_CONTRACT = _CONFIG_CONTRACT["training"]',
+    'MODEL_SELECTION_TRAIN_END = int(_TRAINING_CONTRACT["model_selection_train_end_season"])',
+    'DEVELOPMENT_VALIDATION_SEASON = int(_TRAINING_CONTRACT["development_validation_season"])',
+    'FINAL_TRAIN_END = int(_TRAINING_CONTRACT["final_train_end_season"])',
+    'UNTOUCHED_TEST_SEASON = int(_TRAINING_CONTRACT["untouched_test_season"])',
     '.le(FINAL_TRAIN_END)',
     "untouched_test_used_for_selection",
     "untouched_test_used_for_metrics",

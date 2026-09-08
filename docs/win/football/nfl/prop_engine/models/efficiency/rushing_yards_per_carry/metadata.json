@@ -1,5 +1,5 @@
 {
-  "best_iteration_selected_on_2024": 23,
+  "best_iteration_selected_on_2024": 26,
   "conditional_td_label_policy": {
     "exact_pbp_touchdown_flags": false,
     "goal_line_definition": null,
@@ -9,68 +9,68 @@
   "feature_importance": [
     {
       "feature": "eff_shrunk_rate",
-      "gain": 203043.74076843262,
-      "split": 107
+      "gain": 202839.1943206787,
+      "split": 97
     },
     {
       "feature": "player_carries_career_prior",
-      "gain": 75442.0757446289,
-      "split": 75
-    },
-    {
-      "feature": "eff_player_prior_rate",
-      "gain": 40867.209899902344,
-      "split": 44
+      "gain": 81119.1058807373,
+      "split": 85
     },
     {
       "feature": "eff_league_prior_rate",
-      "gain": 33971.59616088867,
-      "split": 77
+      "gain": 45001.95225524902,
+      "split": 94
     },
     {
-      "feature": "player_yards_per_carry_career_prior",
-      "gain": 27827.37811279297,
-      "split": 54
-    },
-    {
-      "feature": "player_yards_per_carry_season_to_date",
-      "gain": 25685.84194946289,
-      "split": 60
-    },
-    {
-      "feature": "history_history_games",
-      "gain": 24495.389068603516,
-      "split": 56
+      "feature": "eff_player_prior_rate",
+      "gain": 43017.52786254883,
+      "split": 46
     },
     {
       "feature": "player_yards_per_carry_ewm5",
-      "gain": 24370.059020996094,
-      "split": 42
+      "gain": 37792.89179992676,
+      "split": 62
+    },
+    {
+      "feature": "player_yards_per_carry_season_to_date",
+      "gain": 32653.417907714844,
+      "split": 80
+    },
+    {
+      "feature": "history_history_games",
+      "gain": 28211.37400817871,
+      "split": 66
+    },
+    {
+      "feature": "player_yards_per_carry_career_prior",
+      "gain": 27198.653900146484,
+      "split": 52
     },
     {
       "feature": "player_yards_per_carry_roll5_mean",
-      "gain": 24306.189895629883,
-      "split": 58
-    },
-    {
-      "feature": "player_yards_per_carry_roll3_mean",
-      "gain": 17377.0870513916,
-      "split": 40
-    },
-    {
-      "feature": "eff_player_prior_exposure",
-      "gain": 11905.695999145508,
-      "split": 30
-    },
-    {
-      "feature": "player_yards_per_carry_lag1",
-      "gain": 8222.082092285156,
-      "split": 23
+      "gain": 26833.63198852539,
+      "split": 65
     },
     {
       "feature": "eff_position_prior_rate",
-      "gain": 8147.503967285156,
-      "split": 24
+      "gain": 15443.56607055664,
+      "split": 38
+    },
+    {
+      "feature": "player_yards_per_carry_roll3_mean",
+      "gain": 15433.64892578125,
+      "split": 39
+    },
+    {
+      "feature": "player_yards_per_carry_lag1",
+      "gain": 11679.042022705078,
+      "split": 34
+    },
+    {
+      "feature": "eff_player_prior_exposure",
+      "gain": 9483.451934814453,
+      "split": 22
     },
     {
       "feature": "eff_prior_weight",
@@ -98,17 +98,17 @@
   },
   "lightgbm_version": "4.6.0",
   "model": "rushing_yards_per_carry",
-  "model_sha256": "ea54776bcd0f320f592cc7149c1e9841048237126be020ac1b372946fbf2af88",
+  "model_sha256": "d3ee06a0240c590372e2f178f9832ba6af71af41072153d2e84179d5d303ca96",
   "model_type": "lightgbm_regression",
   "params": {
     "bagging_fraction": 1.0,
     "bagging_freq": 0,
-    "bagging_seed": 23023,
+    "bagging_seed": 24024,
     "boosting_type": "gbdt",
-    "data_random_seed": 23023,
+    "data_random_seed": 24024,
     "deterministic": true,
     "feature_fraction": 1.0,
-    "feature_fraction_seed": 23023,
+    "feature_fraction_seed": 24024,
     "force_col_wise": true,
     "lambda_l1": 0.0,
     "lambda_l2": 0.0,
@@ -119,7 +119,7 @@
     "num_leaves": 31,
     "num_threads": 1,
     "objective": "regression",
-    "seed": 23023,
+    "seed": 24024,
     "verbosity": -1
   },
   "rows": {
@@ -127,7 +127,7 @@
     "model_selection_train": 25154,
     "validation_2024": 2243
   },
-  "seed": 23023,
+  "seed": 24024,
   "shrinkage": {
     "final_priors_through_2024": {
       "league": {
@@ -142,14 +142,14 @@
           "rate": 2.5
         },
         "OFF": {
-          "exposure": 50668.0,
-          "numerator": 229933.0,
-          "rate": 4.538031893897529
+          "exposure": 50652.0,
+          "numerator": 229673.0,
+          "rate": 4.5343323067203665
         },
         "QB": {
-          "exposure": 10769.0,
-          "numerator": 41751.0,
-          "rate": 3.8769616491781966
+          "exposure": 10760.0,
+          "numerator": 41740.0,
+          "rate": 3.879182156133829
         },
         "RB": {
           "exposure": 115342.0,
@@ -162,9 +162,9 @@
           "rate": 5.070671378091872
         },
         "WR": {
-          "exposure": 3463.0,
-          "numerator": 20123.0,
-          "rate": 5.810857637886226
+          "exposure": 3488.0,
+          "numerator": 20394.0,
+          "rate": 5.846903669724771
         }
       },
       "through_season": 2024
@@ -195,8 +195,8 @@
     "untouched_test_used_for_selection": false
   },
   "validation_2024_metrics": {
-    "mae": 2.5155314550148336,
-    "r2": 0.022380531607987475,
-    "rmse": 3.742086006726715
+    "mae": 2.5115042505482323,
+    "r2": 0.024243852049382952,
+    "rmse": 3.738518140496666
   }
 }

@@ -27,6 +27,7 @@ REQUIRED = [
     "docs/win/football/nfl/data/historic_data/predictions/epred/",
     "docs/win/football/nfl/training/",
     "docs/win/football/nfl/01_merge/",
+    "docs/win/football/nfl/scripts/01_merge/",
 ]
 
 
@@ -42,7 +43,7 @@ def main() -> int:
     if config.get("system", {}).get("market_data_allowed") is not False:
         fail("system.market_data_allowed must be false")
 
-    print("CHECK 02: runtime guard rejects all 11 forbidden inputs")
+    print(f"CHECK 02: runtime guard rejects all {len(REQUIRED)} forbidden inputs")
     repo = common.repo_root()
     rejected = 0
     for reference in REQUIRED:
@@ -84,7 +85,7 @@ def main() -> int:
     print("CHECK 05: audit is config-driven")
     audit_source = AUDIT.read_text(encoding="utf-8-sig")
     for marker in (
-        "def forbidden_source_references(config: dict)",
+        "def forbidden_source_references(config: dict | None = None)",
         "forbidden_source_references(config)",
         "def configured_path_forbidden_hits(",
         "FORBIDDEN_INPUT_CONTRACT_RELATIVE_PATH",
