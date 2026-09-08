@@ -1,6 +1,20 @@
 {
-  "columns": 21,
+  "columns": 36,
   "efficiency_models": {
+    "extra_point_conversion": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 19,
+      "rows": 32,
+      "strict_prior_history_through": 2025
+    },
     "field_goal_conversion": {
       "derived_features": [
         "eff_player_prior_rate",
@@ -13,6 +27,20 @@
       ],
       "feature_count": 19,
       "rows": 32,
+      "strict_prior_history_through": 2025
+    },
+    "passing_td_rate": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 16,
+      "rows": 87,
       "strict_prior_history_through": 2025
     },
     "passing_yards_per_attempt": {
@@ -29,6 +57,20 @@
       "rows": 87,
       "strict_prior_history_through": 2025
     },
+    "receiving_td_per_red_zone_target": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 15,
+      "rows": 422,
+      "strict_prior_history_through": 2025
+    },
     "receiving_yards_per_target": {
       "derived_features": [
         "eff_player_prior_rate",
@@ -41,6 +83,20 @@
       ],
       "feature_count": 16,
       "rows": 422,
+      "strict_prior_history_through": 2025
+    },
+    "rushing_td_per_goal_line_carry": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 15,
+      "rows": 509,
       "strict_prior_history_through": 2025
     },
     "rushing_yards_per_carry": {
@@ -56,9 +112,37 @@
       "feature_count": 16,
       "rows": 509,
       "strict_prior_history_through": 2025
+    },
+    "sack_rate_per_defensive_play": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 18,
+      "rows": 700,
+      "strict_prior_history_through": 2025
+    },
+    "tackle_rate_per_defensive_play": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 18,
+      "rows": 700,
+      "strict_prior_history_through": 2025
     }
   },
-  "efficiency_models_scored": 4,
+  "efficiency_models_scored": 10,
   "games": 16,
   "inputs": {
     "eligibility": "docs\\win\\football\\nfl\\prop_engine\\config\\target_eligibility.yaml",
@@ -83,9 +167,27 @@
       "scope": "team",
       "transform": "floor_zero"
     },
+    "opponent_dropbacks": {
+      "feature_count": 21,
+      "rows": 32,
+      "scope": "team_opponent",
+      "transform": "floor_zero"
+    },
+    "opponent_offensive_plays": {
+      "feature_count": 21,
+      "rows": 32,
+      "scope": "team_opponent",
+      "transform": "floor_zero"
+    },
     "player_carry_share": {
       "feature_count": 77,
       "rows": 509,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "player_defensive_participation": {
+      "feature_count": 65,
+      "rows": 700,
       "scope": "player",
       "transform": "clip_0_1"
     },
@@ -126,18 +228,16 @@
       "transform": "floor_zero"
     }
   },
-  "opportunity_models_scored": 9,
+  "opportunity_models_scored": 12,
   "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_component_projections.parquet",
   "policy": {
-    "efficiency_derived_features_model_local": true,
+    "canonical_target_component_formula_owner": "project_components.py",
     "market_exclusion_preflight": true,
-    "missing_required_model_feature_fails": true,
     "no_share_reconciliation_before_allocation": true,
-    "persisted_model_feature_order_checked": true,
     "primary_kicker_assignment": true,
     "primary_qb_assignment": true,
     "raw_share_components_only": true,
-    "strict_prior_efficiency_history": true
+    "sacks_denominator": "projected_opponent_plays"
   },
   "primary_kickers": 32,
   "primary_qbs": 32,
@@ -148,6 +248,18 @@
   "shares_reconciled": false,
   "status": "passed",
   "strict_prior_efficiency_history_end_season": 2025,
+  "target_component_columns": [
+    "component_passing_yards",
+    "component_passing_tds",
+    "component_rushing_yards",
+    "component_rushing_tds",
+    "component_receiving_yards",
+    "component_receiving_tds",
+    "component_kicking_points",
+    "component_tackles",
+    "component_sacks"
+  ],
+  "target_components_projected": 9,
   "teams": 32,
   "week": 1
 }

@@ -32,8 +32,9 @@
   "output": "docs\\win\\football\\nfl\\prop_engine\\data\\current\\2026_week_1_allocated_opportunity.parquet",
   "policy": {
     "carry_team_share_reconciled": true,
+    "component_models_rescored": false,
     "defensive_participation_manifest_reconciliation_required": false,
-    "defensive_participation_preserved_from_model": true,
+    "defensive_participation_preserved_from_issue33": true,
     "eligible_receivers_only": true,
     "eligible_rushers_only": true,
     "equal_split_default": false,
@@ -46,17 +47,15 @@
   "raw_component_models": {
     "player_carry_share": {
       "component": "player_carry_share",
-      "feature_count": 77,
-      "prediction_transform": "clip_0_1",
       "reconcile_during_current_week_allocation": true,
-      "rows": 509
+      "rescored_in_issue34": false,
+      "source": "issue33_component_projection"
     },
     "player_defensive_participation": {
       "component": "player_defensive_participation",
-      "feature_count": 65,
-      "prediction_transform": "clip_0_1",
       "reconcile_during_current_week_allocation": false,
-      "rows": 700
+      "rescored_in_issue34": false,
+      "source": "issue33_component_projection"
     },
     "player_target_share": {
       "reconcile_during_current_week_allocation": true

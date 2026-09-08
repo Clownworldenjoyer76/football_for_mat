@@ -506,7 +506,8 @@ def main() -> int:
         "carry_team_share_reconciled": True,
         "raw_and_allocated_preserved": True,
         "defensive_participation_manifest_reconciliation_required": False,
-        "defensive_participation_preserved_from_model": True,
+        "defensive_participation_preserved_from_issue33": True,
+        "component_models_rescored": False,
         "market_exclusion_preflight": True,
     }
     for k, v in required_policy.items():

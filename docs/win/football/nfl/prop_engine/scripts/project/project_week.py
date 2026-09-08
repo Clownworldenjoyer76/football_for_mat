@@ -25,9 +25,9 @@ WRITES
 POLICY
   - Selected architecture and blend weights come only from Issue 25 selected_model.json.
   - Target/carry component formulas consume Issue 34 allocated shares.
-  - Missing TD/PAT/defensive component rates are scored from persisted Issue 22/23
-    models using the accepted current feature table and strict-prior efficiency history.
-  - Red-zone and goal-line share dependencies are normalized exactly as declared
+  - Item 33 is the canonical owner of persisted component/efficiency scoring and
+    all nine target component formulas; final assembly consumes those outputs.
+  - Red-zone and goal-line Item 33 exposures are normalized exactly as declared
     by Issue 25 (positive predicted shares within team-game), limited to current
     target-eligible player rows.
   - Issue 26 calibration is applied to the selected point prediction. Quantile
@@ -122,26 +122,7 @@ UNIVERSE_REQUIRED = [
     "injury_game_status",
     "depth_rank",
 ]
-COMPONENT_REQUIRED = [
-    *GRAIN,
-    "team",
-    "opponent",
-    "position",
-    "projected_team_pass_attempts",
-    "projected_qb_pass_attempts",
-    "projected_team_rush_attempts",
-    "projected_player_carries",
-    "projected_target_share",
-    "projected_targets",
-    "projected_yards_per_attempt",
-    "projected_yards_per_carry",
-    "projected_yards_per_target",
-    "projected_red_zone_targets",
-    "projected_goal_line_carries",
-    "projected_fg_attempts",
-    "projected_fg_make_probability",
-    "projected_pat_attempts",
-]
+COMPONENT_REQUIRED = list(pc.OUTPUT_COLUMNS)
 DIRECT_COLUMNS = {target: f"direct_{target}" for target in TARGETS}
 DIRECT_REQUIRED = [*GRAIN, *DIRECT_COLUMNS.values()]
 ALLOCATION_REQUIRED = [
@@ -623,116 +604,41 @@ def build_component_points(
     eligibility: dict[str, Any],
     season: int,
 ) -> tuple[dict[str, pd.Series], dict[str, Any]]:
-    base = component.merge(
-        allocation[[*GRAIN, "allocated_target_share", "allocated_carry_share", "allocated_def_participation"]],
-        on=GRAIN,
-        how="left",
-        validate="one_to_one",
-    ).merge(
-        features[[*CAL_CONTEXT_REQUIRED]],
-        on=GRAIN,
-        how="left",
-        validate="one_to_one",
-        suffixes=("", "_feature"),
-    )
-    if base[["allocated_target_share", "allocated_carry_share", "allocated_def_participation"]].isna().any().any():
-        raise ValueError("Issue 36 allocation merge is incomplete")
-
-    team_def_rate = strict_prior_team_def_sack_rate(config, repo, season)
-    opp_predictions = {
-        name: score_opportunity_component(
-            prop, features, eligibility, name, team_def_rate
-        )
-        for name in EXTRA_OPPORTUNITY
-    }
-
-    historical_path = repo / str(config["paths"]["historical_features"])
-    hist_cols = efficiency_history_columns(EXTRA_EFFICIENCY)
-    history = pd.read_parquet(historical_path, columns=hist_cols)
-    history["season"] = pd.to_numeric(history["season"], errors="raise").astype(int)
-    history["week"] = pd.to_numeric(history["week"], errors="raise").astype(int)
-    history["kickoff_timestamp"] = pd.to_datetime(history["kickoff_timestamp"], errors="raise", utc=True)
-    history = history.loc[history["season"].lt(season)].copy()
-    if history.empty:
-        raise ValueError("Issue 36 has no strict-prior efficiency history")
-    common.ensure_unique(history, GRAIN, "Issue 36 strict-prior efficiency history")
-    raw_histories = prepare_efficiency_raw_histories(config, history, eligibility, EXTRA_EFFICIENCY)
-    eff_predictions = {
-        name: score_efficiency_model(prop, features, raw_histories[name], eligibility, name)
-        for name in EXTRA_EFFICIENCY
-    }
-
-    for name, pred in eff_predictions.items():
-        base = base.merge(pred, on=GRAIN, how="left", validate="one_to_one")
-    for name in ("opponent_offensive_plays", "opponent_dropbacks"):
-        base = base.merge(opp_predictions[name], on=TEAM_GRAIN, how="left", validate="many_to_one")
-    base = base.merge(
-        opp_predictions["player_defensive_participation"].rename(columns={"player_defensive_participation": "_rescored_def_participation"}),
-        on=GRAIN,
-        how="left",
-        validate="one_to_one",
-    )
+    _ = (config, prop, repo, eligibility, season)
 
     direct_index = direct.set_index(GRAIN)
-    def eligible_mask(target: str) -> pd.Series:
-        key = pd.MultiIndex.from_frame(base[GRAIN])
-        values = direct_index[DIRECT_COLUMNS[target]].reindex(key).to_numpy()
-        return pd.Series(pd.notna(values), index=base.index)
+    key = pd.MultiIndex.from_frame(component[GRAIN])
 
-    rz_share = normalize_share_for_target(
-        base,
-        opp_predictions["player_red_zone_target_share"],
-        "player_red_zone_target_share",
-        eligible_mask("receiving_tds"),
+    receiving_td_eligible = pd.Series(
+        direct_index[DIRECT_COLUMNS["receiving_tds"]]
+        .reindex(key)
+        .notna()
+        .to_numpy(),
+        index=component.index,
     )
-    gl_share = normalize_share_for_target(
-        base,
-        opp_predictions["player_goal_line_carry_share"],
-        "player_goal_line_carry_share",
-        eligible_mask("rushing_tds"),
-    )
-
-    rz_volume = coalesce_numeric(base, pc.RED_ZONE_PASS_VOLUME_FEATURES).clip(lower=0.0)
-    gl_volume = coalesce_numeric(base, pc.GOAL_LINE_RUSH_VOLUME_FEATURES).clip(lower=0.0)
-
-    points: dict[str, pd.Series] = {}
-    points["passing_yards"] = numeric(base["projected_qb_pass_attempts"]) * numeric(base["projected_yards_per_attempt"])
-    points["passing_tds"] = numeric(base["projected_qb_pass_attempts"]) * numeric(base["passing_td_rate"])
-    points["rushing_yards"] = (
-        numeric(base["projected_team_rush_attempts"]) * numeric(base["allocated_carry_share"]) * numeric(base["projected_yards_per_carry"])
-    )
-    points["rushing_tds"] = gl_volume * gl_share * numeric(base["rushing_td_per_goal_line_carry"])
-    points["receiving_yards"] = (
-        numeric(base["projected_team_pass_attempts"]) * numeric(base["allocated_target_share"]) * numeric(base["projected_yards_per_target"])
-    )
-    points["receiving_tds"] = rz_volume * rz_share * numeric(base["receiving_td_per_red_zone_target"])
-    points["kicking_points"] = (
-        3.0 * numeric(base["projected_fg_attempts"]) * numeric(base["projected_fg_make_probability"])
-        + numeric(base["projected_pat_attempts"]) * numeric(base["extra_point_conversion"])
-    )
-    points["tackles"] = (
-        numeric(base["opponent_offensive_plays"]) * numeric(base["allocated_def_participation"]) * numeric(base["tackle_rate_per_defensive_play"])
-    )
-    points["sacks"] = (
-        numeric(base["opponent_offensive_plays"]) * numeric(base["allocated_def_participation"]) * numeric(base["sack_rate_per_defensive_play"])
+    rushing_td_eligible = pd.Series(
+        direct_index[DIRECT_COLUMNS["rushing_tds"]]
+        .reindex(key)
+        .notna()
+        .to_numpy(),
+        index=component.index,
     )
 
-    for target, values in points.items():
-        if target not in {"passing_yards", "rushing_yards", "receiving_yards"}:
-            values = values.clip(lower=0.0)
-        points[target] = values
-
+    points, canonical_audit = pc.final_component_points(
+        component,
+        allocation,
+        features,
+        receiving_td_eligible=receiving_td_eligible,
+        rushing_td_eligible=rushing_td_eligible,
+    )
     audit = {
-        "extra_opportunity_models_scored": list(EXTRA_OPPORTUNITY),
-        "extra_efficiency_models_scored": list(EXTRA_EFFICIENCY),
-        "strict_prior_efficiency_history_end_season": int(history["season"].max()),
-        "allocated_target_share_used": True,
-        "allocated_carry_share_used": True,
-        "allocated_def_participation_used": True,
-        "red_zone_share_reconciled_for_current_eligible_receivers": True,
-        "goal_line_share_reconciled_for_current_eligible_rushers": True,
+        **canonical_audit,
+        "extra_opportunity_models_scored": [],
+        "extra_efficiency_models_scored": [],
+        "component_formula_owner": "project_components.py",
     }
     return points, audit
+
 
 
 def select_point_prediction(

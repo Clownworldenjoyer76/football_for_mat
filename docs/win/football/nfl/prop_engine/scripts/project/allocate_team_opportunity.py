@@ -92,6 +92,7 @@ COMPONENT_REQUIRED = [
     "projected_player_carries",
     "projected_target_share",
     "projected_targets",
+    "projected_defensive_participation",
 ]
 ROLE_REQUIRED = [
     *GRAIN,
@@ -530,15 +531,31 @@ def main() -> int:
     target_manifest = load_json(
         prop / "models" / "components" / "player_target_share" / "feature_manifest.json"
     )
+    carry_manifest = load_json(
+        prop / "models" / "components" / "player_carry_share" / "feature_manifest.json"
+    )
+    def_manifest = load_json(
+        prop / "models" / "components" / "player_defensive_participation" / "feature_manifest.json"
+    )
     if not bool(target_manifest.get("reconcile_during_current_week_allocation", False)):
         raise ValueError("player_target_share manifest no longer requires current-week reconciliation")
-
-    carry_pred, carry_audit = score_component(prop, features, eligibility, "player_carry_share")
-    def_pred, def_audit = score_component(prop, features, eligibility, "player_defensive_participation")
-    if not carry_audit["reconcile_during_current_week_allocation"]:
+    if not bool(carry_manifest.get("reconcile_during_current_week_allocation", False)):
         raise ValueError("player_carry_share manifest no longer requires current-week reconciliation")
-    if def_audit["reconcile_during_current_week_allocation"]:
+    if bool(def_manifest.get("reconcile_during_current_week_allocation", False)):
         raise ValueError("player_defensive_participation manifest unexpectedly requires normalization")
+
+    carry_audit = {
+        "component": "player_carry_share",
+        "source": "issue33_component_projection",
+        "reconcile_during_current_week_allocation": True,
+        "rescored_in_issue34": False,
+    }
+    def_audit = {
+        "component": "player_defensive_participation",
+        "source": "issue33_component_projection",
+        "reconcile_during_current_week_allocation": False,
+        "rescored_in_issue34": False,
+    }
 
     work = component[
         [
@@ -550,21 +567,26 @@ def main() -> int:
             "projected_player_carries",
             "projected_target_share",
             "projected_targets",
+            "projected_defensive_participation",
         ]
     ].copy()
-    work = work.rename(columns={"projected_target_share": "raw_projected_target_share"})
-    work = work.merge(
-        carry_pred.rename(columns={"player_carry_share": "raw_projected_carry_share"}),
-        on=GRAIN,
-        how="left",
-        validate="one_to_one",
+    work = work.rename(
+        columns={
+            "projected_target_share": "raw_projected_target_share",
+            "projected_defensive_participation": "raw_projected_def_participation",
+        }
     )
-    work = work.merge(
-        def_pred.rename(columns={"player_defensive_participation": "raw_projected_def_participation"}),
-        on=GRAIN,
-        how="left",
-        validate="one_to_one",
-    )
+
+    rush_volume = numeric(work["projected_team_rush_attempts"]).clip(lower=0.0)
+    carry_volume = numeric(work["projected_player_carries"]).clip(lower=0.0)
+    work["raw_projected_carry_share"] = 0.0
+    positive_rush = rush_volume.gt(EPS)
+    work.loc[positive_rush, "raw_projected_carry_share"] = (
+        carry_volume.loc[positive_rush] / rush_volume.loc[positive_rush]
+    ).to_numpy(dtype="float64")
+    work["raw_projected_carry_share"] = clip01(
+        work["raw_projected_carry_share"]
+    ).fillna(0.0)
 
     role_cols = roles[
         [
@@ -605,7 +627,7 @@ def main() -> int:
     work["raw_projected_carry_share"] = clip01(work["raw_projected_carry_share"]).fillna(0.0)
     work["raw_projected_def_participation"] = clip01(work["raw_projected_def_participation"]).fillna(0.0)
 
-    # Exact preservation check against Issue 33 derived player carry volume.
+    # Exact preservation check against the canonical Issue 33 carry volume.
     expected_carries = (
         numeric(work["projected_team_rush_attempts"]).clip(lower=0.0)
         * work["raw_projected_carry_share"]
@@ -616,7 +638,7 @@ def main() -> int:
         atol=1e-8,
         rtol=1e-8,
     ):
-        raise ValueError("Issue 34 rescored raw carry share disagrees with Issue 33 projected_player_carries")
+        raise ValueError("Issue 34 derived raw carry share disagrees with Issue 33 projected_player_carries")
     expected_targets = (
         numeric(work["projected_team_pass_attempts"]).clip(lower=0.0)
         * work["raw_projected_target_share"]
@@ -769,7 +791,8 @@ def main() -> int:
             "carry_team_share_reconciled": True,
             "raw_and_allocated_preserved": True,
             "defensive_participation_manifest_reconciliation_required": False,
-            "defensive_participation_preserved_from_model": True,
+            "defensive_participation_preserved_from_issue33": True,
+            "component_models_rescored": False,
             "market_exclusion_preflight": True,
         },
     }

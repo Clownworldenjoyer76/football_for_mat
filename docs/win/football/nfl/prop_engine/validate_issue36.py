@@ -291,51 +291,48 @@ def component_points(
     component: pd.DataFrame, direct: pd.DataFrame, allocation: pd.DataFrame,
     features: pd.DataFrame, elig: dict[str, Any],
 ) -> dict[str, pd.Series]:
-    base = component.merge(
-        allocation[[*GRAIN, "allocated_target_share", "allocated_carry_share", "allocated_def_participation"]],
-        on=GRAIN, how="left", validate="one_to_one",
-    ).merge(
-        features[[*GRAIN, "team", *pc.RED_ZONE_PASS_VOLUME_FEATURES, *pc.GOAL_LINE_RUSH_VOLUME_FEATURES]],
-        on=GRAIN, how="left", validate="one_to_one", suffixes=("", "_f"),
+    # Issue 33 independently validates all persisted component-model scoring
+    # and all nine target component formulas. Issue 36 must consume that
+    # canonical implementation rather than duplicate it.
+    _ = (config, prop, repo, season, elig)
+
+    direct_index = direct.set_index(GRAIN)
+    key = pd.MultiIndex.from_frame(component[GRAIN])
+
+    receiving_td_eligible = pd.Series(
+        direct_index[DIRECT["receiving_tds"]]
+        .reindex(key)
+        .notna()
+        .to_numpy(),
+        index=component.index,
     )
-    team_def_rate = strict_team_def_rate(config, repo, season)
-    opp = {n: score_opp(prop, features, elig, n, team_def_rate) for n in EXTRA_OPP}
-    hp = repo / str(config["paths"]["historical_features"])
-    hist = pd.read_parquet(hp, columns=eff_cols(EXTRA_EFF))
-    hist["season"] = pd.to_numeric(hist["season"], errors="raise").astype(int)
-    hist["week"] = pd.to_numeric(hist["week"], errors="raise").astype(int)
-    hist["kickoff_timestamp"] = pd.to_datetime(hist["kickoff_timestamp"], errors="raise", utc=True)
-    hist = hist.loc[hist["season"].lt(season)].copy()
-    rh = raw_histories(config, hist, elig)
-    effp = {n: score_eff(prop, features, rh[n], elig, n) for n in EXTRA_EFF}
-    for n, p in effp.items():
-        base = base.merge(p, on=GRAIN, how="left", validate="one_to_one")
-    for n in ("opponent_offensive_plays", "opponent_dropbacks"):
-        base = base.merge(opp[n], on=TEAM_GRAIN, how="left", validate="many_to_one")
+    rushing_td_eligible = pd.Series(
+        direct_index[DIRECT["rushing_tds"]]
+        .reindex(key)
+        .notna()
+        .to_numpy(),
+        index=component.index,
+    )
 
-    di = direct.set_index(GRAIN)
-    key = pd.MultiIndex.from_frame(base[GRAIN])
-    recv_mask = pd.Series(di[DIRECT["receiving_tds"]].reindex(key).notna().to_numpy(), index=base.index)
-    rush_mask = pd.Series(di[DIRECT["rushing_tds"]].reindex(key).notna().to_numpy(), index=base.index)
-    rz = normalized_share(base, opp["player_red_zone_target_share"], "player_red_zone_target_share", recv_mask)
-    gl = normalized_share(base, opp["player_goal_line_carry_share"], "player_goal_line_carry_share", rush_mask)
-    rzv = coalesce(base, pc.RED_ZONE_PASS_VOLUME_FEATURES).clip(lower=0)
-    glv = coalesce(base, pc.GOAL_LINE_RUSH_VOLUME_FEATURES).clip(lower=0)
+    points, audit = pc.final_component_points(
+        component,
+        allocation,
+        features,
+        receiving_td_eligible=receiving_td_eligible,
+        rushing_td_eligible=rushing_td_eligible,
+    )
 
-    p: dict[str, pd.Series] = {}
-    p["passing_yards"] = num(base["projected_qb_pass_attempts"]) * num(base["projected_yards_per_attempt"])
-    p["passing_tds"] = num(base["projected_qb_pass_attempts"]) * num(base["passing_td_rate"])
-    p["rushing_yards"] = num(base["projected_team_rush_attempts"]) * num(base["allocated_carry_share"]) * num(base["projected_yards_per_carry"])
-    p["rushing_tds"] = glv * gl * num(base["rushing_td_per_goal_line_carry"])
-    p["receiving_yards"] = num(base["projected_team_pass_attempts"]) * num(base["allocated_target_share"]) * num(base["projected_yards_per_target"])
-    p["receiving_tds"] = rzv * rz * num(base["receiving_td_per_red_zone_target"])
-    p["kicking_points"] = 3*num(base["projected_fg_attempts"])*num(base["projected_fg_make_probability"]) + num(base["projected_pat_attempts"])*num(base["extra_point_conversion"])
-    p["tackles"] = num(base["opponent_offensive_plays"]) * num(base["allocated_def_participation"]) * num(base["tackle_rate_per_defensive_play"])
-    p["sacks"] = num(base["opponent_offensive_plays"]) * num(base["allocated_def_participation"]) * num(base["sack_rate_per_defensive_play"])
-    for t in TARGETS:
-        if t not in {"passing_yards", "rushing_yards", "receiving_yards"}:
-            p[t] = p[t].clip(lower=0)
-    return p
+    if audit.get("canonical_issue33_target_components_used") is not True:
+        raise AssertionError(
+            "Issue36 validator did not consume canonical Item33 components"
+        )
+    if audit.get("duplicate_component_model_scoring") is not False:
+        raise AssertionError(
+            "Issue36 validator reports duplicate component model scoring"
+        )
+
+    return points
+
 
 
 def bucket(vals: np.ndarray, thr: dict[str, Any]) -> np.ndarray:
