@@ -1,0 +1,364 @@
+name: NFL Prop Engine
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nfl-prop-engine-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run-prop-engine:
+    name: Run NFL Prop Engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    env:
+      PROP_ENGINE_ROOT: docs/win/football/nfl/prop_engine
+      SETTINGS_FILE: docs/win/football/nfl/config/settings.yaml
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      TZ: America/New_York
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+
+      - name: Require branch execution
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_type }}" != "branch" ]]; then
+            echo "::error::NFL Prop Engine must be run from a branch, not a tag."
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: docs/win/football/nfl/prop_engine/requirements.txt
+
+      - name: Install Prop Engine dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r "$PROP_ENGINE_ROOT/requirements.txt"
+
+      - name: Restore canonical historical feature table
+        id: historical_features_cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PROP_ENGINE_ROOT }}/data/historical/features/player_game_features.parquet
+          key: nfl-prop-player-game-features-v1-${{ runner.os }}-${{ hashFiles('docs/win/football/nfl/prop_engine/config/prop_engine.yaml', 'docs/win/football/nfl/prop_engine/scripts/build/build_player_form.py', 'docs/win/football/nfl/prop_engine/scripts/build/build_historical_features.py', 'docs/win/football/nfl/prop_engine/data/historical/**/*.parquet', 'docs/win/football/nfl/prop_engine/data/historical/features/feature_manifest.json', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2010.parquet', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2011.parquet') }}
+
+      - name: Rebuild ignored historical runtime feature table on cache miss
+        if: steps.historical_features_cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          echo "Historical feature cache miss."
+          echo "Rebuilding ignored runtime artifacts from tracked historical inputs."
+
+          python "$PROP_ENGINE_ROOT/scripts/build/build_player_form.py"
+          python "$PROP_ENGINE_ROOT/scripts/build/build_historical_features.py"
+
+          historical_features="$PROP_ENGINE_ROOT/data/historical/features/player_game_features.parquet"
+          historical_manifest="$PROP_ENGINE_ROOT/data/historical/features/feature_manifest.json"
+
+          if [[ ! -s "$historical_features" ]]; then
+            echo "::error::Historical feature rebuild did not create $historical_features"
+            exit 1
+          fi
+
+          # The ignored parquet may be rebuilt, but its tracked schema/contract
+          # manifest must remain identical to the committed production contract.
+          if ! git diff --quiet -- "$historical_manifest"; then
+            echo "::error::Historical feature rebuild changed the tracked feature manifest."
+            git diff -- "$historical_manifest"
+            exit 1
+          fi
+
+      - name: Validate canonical historical feature table
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import pyarrow.parquet as pq
+
+          prop = Path(os.environ["PROP_ENGINE_ROOT"])
+          parquet_path = prop / "data/historical/features/player_game_features.parquet"
+          manifest_path = prop / "data/historical/features/feature_manifest.json"
+
+          if not parquet_path.is_file() or parquet_path.stat().st_size == 0:
+              raise SystemExit(f"Missing/empty canonical historical feature table: {parquet_path}")
+          if not manifest_path.is_file():
+              raise SystemExit(f"Missing historical feature manifest: {manifest_path}")
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          parquet = pq.ParquetFile(parquet_path)
+
+          expected_rows = int(manifest["row_count"])
+          expected_columns = int(manifest["column_count"])
+          actual_rows = int(parquet.metadata.num_rows)
+          actual_columns = len(parquet.schema_arrow.names)
+
+          if actual_rows != expected_rows:
+              raise SystemExit(
+                  f"Historical feature row mismatch: expected={expected_rows} actual={actual_rows}"
+              )
+          if actual_columns != expected_columns:
+              raise SystemExit(
+                  f"Historical feature column mismatch: expected={expected_columns} actual={actual_columns}"
+              )
+
+          print(f"historical_feature_rows={actual_rows}")
+          print(f"historical_feature_columns={actual_columns}")
+          print("historical_feature_runtime_artifact=PASS")
+          PY
+
+      - name: Read season and week from NFL settings
+        id: nfl_settings
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import yaml
+
+          settings_path = Path(os.environ["SETTINGS_FILE"])
+          prop_config_path = Path(os.environ["PROP_ENGINE_ROOT"]) / "config" / "prop_engine.yaml"
+
+          if not settings_path.is_file():
+              raise SystemExit(f"Missing NFL settings file: {settings_path}")
+          if not prop_config_path.is_file():
+              raise SystemExit(f"Missing Prop Engine config: {prop_config_path}")
+
+          settings = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
+          prop_config = yaml.safe_load(prop_config_path.read_text(encoding="utf-8"))
+
+          if not isinstance(settings, dict):
+              raise SystemExit("NFL settings.yaml must contain a YAML mapping.")
+          if not isinstance(prop_config, dict):
+              raise SystemExit("prop_engine.yaml must contain a YAML mapping.")
+
+          try:
+              season = int(settings["season"])
+              week = int(settings["week"])
+          except (KeyError, TypeError, ValueError) as exc:
+              raise SystemExit("settings.yaml must contain integer season and week values.") from exc
+
+          if not 1900 <= season <= 2200:
+              raise SystemExit(f"Invalid NFL season in settings.yaml: {season}")
+          if not 1 <= week <= 22:
+              raise SystemExit(f"Invalid NFL week in settings.yaml: {week}")
+
+          current_prop_season = int(prop_config["seasons"]["current"])
+          if current_prop_season != season:
+              raise SystemExit(
+                  "Season mismatch: "
+                  f"settings.yaml season={season}, "
+                  f"prop_engine.yaml seasons.current={current_prop_season}. "
+                  "Update the Prop Engine season configuration before running."
+              )
+
+          if prop_config.get("system", {}).get("market_data_allowed") is not False:
+              raise SystemExit("Prop Engine config must explicitly set market_data_allowed: false.")
+
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as fh:
+              fh.write(f"NFL_SEASON={season}\n")
+              fh.write(f"NFL_WEEK={week}\n")
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as fh:
+              fh.write(f"season={season}\n")
+              fh.write(f"week={week}\n")
+
+          print(f"NFL season={season}")
+          print(f"NFL week={week}")
+          print(f"season_type={settings.get('season_type')}")
+          PY
+
+      - name: Validate production registry state
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import yaml
+
+          prop = Path(os.environ["PROP_ENGINE_ROOT"])
+          config = yaml.safe_load((prop / "config" / "prop_engine.yaml").read_text(encoding="utf-8"))
+          registry = json.loads((prop / "models" / "production_registry.json").read_text(encoding="utf-8"))
+
+          targets = list(config["targets"].keys())
+          if list(registry.keys()) != targets:
+              raise SystemExit("Production registry must contain exactly the configured Prop Engine targets.")
+
+          approved = []
+          deferred = []
+
+          for target in targets:
+              entry = registry.get(target)
+              if not isinstance(entry, dict):
+                  raise SystemExit(f"Invalid production registry entry for {target}.")
+
+              approved_flag = entry.get("production_approved")
+              version = entry.get("version")
+
+              if approved_flag is True and isinstance(version, str) and version.strip():
+                  approved.append(target)
+              elif approved_flag is False and version is None:
+                  deferred.append(target)
+              else:
+                  raise SystemExit(
+                      f"Invalid production registry state for {target}: "
+                      f"production_approved={approved_flag!r}, version={version!r}"
+                  )
+
+          if not approved:
+              raise SystemExit("No approved/versioned Prop Engine targets are available.")
+
+          print("approved_targets=" + ",".join(approved))
+          print("deferred_targets=" + ",".join(deferred))
+          print(f"approved_count={len(approved)}")
+          print(f"deferred_count={len(deferred)}")
+          PY
+
+      - name: Market exclusion preflight
+        shell: bash
+        run: |
+          python "$PROP_ENGINE_ROOT/scripts/validate/audit_market_exclusion.py" --preflight
+
+      - name: Run weekly Prop Engine
+        shell: bash
+        run: |
+          echo "Running NFL Prop Engine for season=$NFL_SEASON week=$NFL_WEEK"
+          echo "allow_unapproved_models=false"
+          python "$PROP_ENGINE_ROOT/scripts/run_weekly.py"             --season "$NFL_SEASON"             --week "$NFL_WEEK"
+
+      - name: Validate final production artifacts
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          prop = Path(os.environ["PROP_ENGINE_ROOT"])
+          season = int(os.environ["NFL_SEASON"])
+          week = int(os.environ["NFL_WEEK"])
+          output = prop / "output" / str(season)
+
+          required_files = [
+              output / f"week_{week}_player_projections.csv",
+              output / f"week_{week}_active_player_projections.csv",
+              output / f"week_{week}_player_projections_wide.csv",
+              output / f"week_{week}_validation.json",
+              output / f"week_{week}_run_manifest.json",
+          ]
+
+          missing = [str(path) for path in required_files if not path.is_file() or path.stat().st_size == 0]
+          if missing:
+              raise SystemExit("Missing/empty production artifact(s): " + ", ".join(missing))
+
+          validation = json.loads(
+              (output / f"week_{week}_validation.json").read_text(encoding="utf-8")
+          )
+          manifest = json.loads(
+              (output / f"week_{week}_run_manifest.json").read_text(encoding="utf-8")
+          )
+
+          if validation.get("status") != "passed":
+              raise SystemExit("Week validation did not pass.")
+          if int(validation.get("checks_failed", -1)) != 0:
+              raise SystemExit("Week validation contains failed checks.")
+          if validation.get("market_features_used") is not False:
+              raise SystemExit("Week validation reported market feature usage.")
+
+          if manifest.get("status") != "success":
+              raise SystemExit("Run manifest status is not success.")
+          if manifest.get("validation_passed") is not True:
+              raise SystemExit("Run manifest validation_passed is not true.")
+          if manifest.get("market_data_used") is not False:
+              raise SystemExit("Run manifest market_data_used is not false.")
+          if manifest.get("allow_unapproved_models") is not False:
+              raise SystemExit("Run manifest indicates an unapproved-model override.")
+
+          production_targets = manifest.get("production_targets")
+          deferred_targets = manifest.get("deferred_targets")
+          production_versions = manifest.get("production_model_versions")
+
+          if not isinstance(production_targets, list) or not production_targets:
+              raise SystemExit("Run manifest has no production targets.")
+          if not isinstance(deferred_targets, list):
+              raise SystemExit("Run manifest deferred_targets is invalid.")
+          if not isinstance(production_versions, dict):
+              raise SystemExit("Run manifest production_model_versions is invalid.")
+          if set(production_versions) != set(production_targets):
+              raise SystemExit("Run manifest production version coverage mismatch.")
+          if any(not production_versions.get(target) for target in production_targets):
+              raise SystemExit("A production target is missing an explicit model version.")
+
+          print("final_validation=PASS")
+          print("run_manifest=PASS")
+          print("market_data_used=false")
+          print("allow_unapproved_models=false")
+          print("production_targets=" + ",".join(production_targets))
+          print("deferred_targets=" + ",".join(deferred_targets))
+          PY
+
+      - name: Verify protected Prop Engine paths were not modified
+        shell: bash
+        run: |
+          protected_paths=(
+            "$PROP_ENGINE_ROOT/models"
+            "$PROP_ENGINE_ROOT/config"
+            "$PROP_ENGINE_ROOT/scripts"
+          )
+
+          if ! git diff --quiet -- "${protected_paths[@]}"; then
+            echo "::error::Prop Engine modified a protected tracked path."
+            git diff --name-only -- "${protected_paths[@]}"
+            exit 1
+          fi
+
+          protected_untracked="$(git ls-files --others --exclude-standard -- "${protected_paths[@]}")"
+          if [[ -n "$protected_untracked" ]]; then
+            echo "::error::Prop Engine created files under protected paths."
+            printf '%s\n' "$protected_untracked"
+            exit 1
+          fi
+
+      - name: Stage approved production artifacts
+        shell: bash
+        run: |
+          git add -A             "$PROP_ENGINE_ROOT/data/current"             "$PROP_ENGINE_ROOT/evaluation"             "$PROP_ENGINE_ROOT/logs"             "$PROP_ENGINE_ROOT/output"
+
+          echo "Staged Prop Engine files:"
+          git diff --cached --name-only
+
+      - name: Commit and push Prop Engine outputs
+        shell: bash
+        run: |
+          if git diff --cached --quiet; then
+            echo "No approved Prop Engine artifact changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git commit -m "Update NFL Prop Engine ${NFL_SEASON} Week ${NFL_WEEK}"
+
+          # If the branch changed while this job ran, push fails rather than
+          # rebasing generated outputs onto a different source revision.
+          git push origin "HEAD:${GITHUB_REF_NAME}"
