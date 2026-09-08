@@ -387,6 +387,28 @@ def mapping(v: np.ndarray, m: dict[str, Any]) -> np.ndarray:
     return out
 
 
+def apply_point_prediction_blend(
+    frame: pd.DataFrame,
+    calibrated_point: np.ndarray,
+    calibration: dict[str, Any],
+) -> np.ndarray:
+    # Independently reproduce production point-calibration blending.
+    spec = calibration.get("point_prediction_blend")
+    if not isinstance(spec, dict):
+        return np.asarray(calibrated_point, dtype="float64")
+    alpha = float(spec.get("calibrated_weight", 1.0))
+    if not 0.0 <= alpha <= 1.0:
+        raise AssertionError(
+            f"Invalid point calibration weight in Issue36 validator: {alpha}"
+        )
+    raw = num(frame["selected_point_prediction"]).to_numpy(dtype="float64")
+    base = np.asarray(calibrated_point, dtype="float64")
+    output = raw + alpha * (base - raw)
+    if bool(spec.get("floor_at_zero")):
+        output = np.maximum(output, 0.0)
+    return output
+
+
 def calibrate(point: pd.Series, context: pd.DataFrame, cal: dict[str, Any]) -> pd.DataFrame:
     f = context.copy().reset_index(drop=True)
     f["selected_point_prediction"] = num(point).to_numpy(dtype="float64")
@@ -414,6 +436,7 @@ def calibrate(point: pd.Series, context: pd.DataFrame, cal: dict[str, Any]) -> p
         expected=mapping(raw,c["expected_count"]["mapping"]); pp1=1-np.exp(-expected); pp2=1-np.exp(-expected)*(1+expected)
         p1=mapping(pp1,c["probability_1_plus"]["mapping"]); p2=mapping(pp2,c["probability_2_plus"]["mapping"])
     projection = expected if expected is not None else q50
+    projection = apply_point_prediction_blend(f, projection, cal)
     return pd.DataFrame({"projection":projection,"low":low,"high":high,"probability_1_plus":p1,"probability_2_plus":p2})
 
 

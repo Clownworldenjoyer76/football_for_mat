@@ -1,0 +1,257 @@
+{
+  "end_season": 2025,
+  "ended_at": "2026-09-08T16:09:52.687797Z",
+  "failed_script": null,
+  "failed_step_number": null,
+  "force": true,
+  "market_features_used": false,
+  "pipeline": [
+    "build/build_player_identity.py",
+    "build/build_historical_universe.py",
+    "build/build_targets.py",
+    "build/build_player_opportunity.py",
+    "build/build_team_opportunity.py",
+    "build/build_position_allowed.py",
+    "build/build_role_history.py",
+    "build/build_player_form.py",
+    "build/build_team_form.py",
+    "build/build_environment_history.py",
+    "build/build_defensive_features.py",
+    "build/build_kicking_features.py",
+    "build/build_historical_features.py",
+    "validate/audit_market_exclusion.py",
+    "validate/validate_historical_data.py"
+  ],
+  "start_season": 2012,
+  "started_at": "2026-09-08T15:53:54.952056Z",
+  "status": "success",
+  "steps": [
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_player_identity.py"
+      ],
+      "duration_seconds": 35.340405,
+      "ended_at": "2026-09-08T15:54:30.292843Z",
+      "exit_code": 0,
+      "script": "build/build_player_identity.py",
+      "started_at": "2026-09-08T15:53:54.952440Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "",
+      "step_number": 1
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_historical_universe.py"
+      ],
+      "duration_seconds": 373.786571,
+      "ended_at": "2026-09-08T16:00:44.080071Z",
+      "exit_code": 0,
+      "script": "build/build_historical_universe.py",
+      "started_at": "2026-09-08T15:54:30.293500Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "",
+      "step_number": 2
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_targets.py"
+      ],
+      "duration_seconds": 7.185257,
+      "ended_at": "2026-09-08T16:00:51.266091Z",
+      "exit_code": 0,
+      "script": "build/build_targets.py",
+      "started_at": "2026-09-08T16:00:44.080833Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "",
+      "step_number": 3
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_player_opportunity.py"
+      ],
+      "duration_seconds": 39.82213,
+      "ended_at": "2026-09-08T16:01:31.088690Z",
+      "exit_code": 0,
+      "script": "build/build_player_opportunity.py",
+      "started_at": "2026-09-08T16:00:51.266563Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "",
+      "step_number": 4
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_opportunity.py"
+      ],
+      "duration_seconds": 19.112235,
+      "ended_at": "2026-09-08T16:01:50.201621Z",
+      "exit_code": 0,
+      "script": "build/build_team_opportunity.py",
+      "started_at": "2026-09-08T16:01:31.089386Z",
+      "status": "success",
+      "stderr_tail": "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\common.py:325: DtypeWarning: Columns (0: lateral_receiver_player_id, 1: lateral_receiver_player_name, 2: lateral_rusher_player_id, 3: lateral_rusher_player_name, 4: lateral_interception_player_id, 5: lateral_interception_player_name, 6: lateral_punt_returner_player_id, 7: lateral_punt_returner_player_name, 8: lateral_kickoff_returner_player_id, 9: lateral_kickoff_returner_player_name, 10: own_kickoff_recovery_player_id, 11: own_kickoff_recovery_player_name, 12: blocked_player_id, 13: blocked_player_name, 14: forced_fumble_player_2_team, 15: forced_fumble_player_2_player_id, 16: forced_fumble_player_2_player_name, 17: assist_tackle_3_player_id, 18: assist_tackle_3_player_name, 19: assist_tackle_3_team, 20: assist_tackle_4_player_id, 21: assist_tackle_4_player_name, 22: assist_tackle_4_team, 23: fumbled_2_player_id, 24: fumbled_2_player_name, 25: fumbled_2_team, 26: fumble_recovery_2_team, 27: fumble_recovery_2_player_id, 28: fumble_recovery_2_player_name, 29: safety_player_name, 30: safety_player_id) have mixed types. Specify dtype option on import or set low_memory=False.\n  df = pd.read_csv(resolved)\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\common.py:325: DtypeWarning: Columns (0: two_point_conv_result, 1: lateral_receiver_player_id, 2: lateral_receiver_player_name, 3: lateral_rusher_player_id, 4: lateral_rusher_player_name, 5: interception_player_id, 6: interception_player_name, 7: lateral_interception_player_id, 8: lateral_interception_player_name, 9: lateral_punt_returner_player_id, 10: lateral_punt_returner_player_name, 11: lateral_kickoff_returner_player_id, 12: lateral_kickoff_returner_player_name, 13: own_kickoff_recovery_player_id, 14: own_kickoff_recovery_player_name, 15: blocked_player_id, 16: blocked_player_name, 17: qb_hit_2_player_id, 18: qb_hit_2_player_name, 19: forced_fumble_player_2_team, 20: forced_fumble_player_2_player_id, 21: forced_fumble_player_2_player_name, 22: solo_tackle_2_team, 23: solo_tackle_2_player_id, 24: solo_tackle_2_player_name, 25: tackle_with_assist_2_player_id, 26: tackle_with_assist_2_player_name, 27: tackle_with_assist_2_team, 28: pass_defense_2_player_id, 29: pass_defense_2_player_name, 30: fumbled_2_player_id, 31: fumbled_2_player_name, 32: fumbled_2_team, 33: fumble_recovery_2_team, 34: fumble_recovery_2_player_id, 35: fumble_recovery_2_player_name, 36: half_sack_1_player_id, 37: half_sack_1_player_name, 38: half_sack_2_player_id, 39: half_sack_2_player_name, 40: safety_player_name, 41: safety_player_id) have mixed types. Specify dtype option on import or set low_memory=False.\n  df = pd.read_csv(resolved)\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\common.py:325: DtypeWarning: Columns (0: two_point_conv_result, 1: lateral_receiver_player_id, 2: lateral_receiver_player_name, 3: lateral_rusher_player_id, 4: lateral_rusher_player_name, 5: lateral_interception_player_id, 6: lateral_interception_player_name, 7: lateral_kickoff_returner_player_id, 8: lateral_kickoff_returner_player_name, 9: own_kickoff_recovery_player_id, 10: own_kickoff_recovery_player_name, 11: blocked_player_id, 12: blocked_player_name, 13: forced_fumble_player_2_team, 14: forced_fumble_player_2_player_id, 15: forced_fumble_player_2_player_name, 16: solo_tackle_2_team, 17: solo_tackle_2_player_id, 18: solo_tackle_2_player_name, 19: fumbled_2_player_id, 20: fumbled_2_player_name, 21: fumbled_2_team, 22: fumble_recovery_2_team, 23: fumble_recovery_2_player_id, 24: fumble_recovery_2_player_name, 25: safety_player_name, 26: safety_player_id, 27: surface) have mixed types. Specify dtype option on import or set low_memory=False.\n  df = pd.read_csv(resolved)\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\common.py:325: DtypeWarning: Columns (0: lateral_receiver_player_id, 1: lateral_receiver_player_name, 2: lateral_rusher_player_id, 3: lateral_rusher_player_name, 4: lateral_interception_player_id, 5: lateral_interception_player_name, 6: lateral_kickoff_returner_player_id, 7: lateral_kickoff_returner_player_name, 8: own_kickoff_recovery_player_id, 9: own_kickoff_recovery_player_name, 10: blocked_player_id, 11: blocked_player_name, 12: qb_hit_2_player_id, 13: qb_hit_2_player_name, 14: forced_fumble_player_2_team, 15: forced_fumble_player_2_player_id, 16: forced_fumble_player_2_player_name, 17: solo_tackle_2_team, 18: solo_tackle_2_player_id, 19: solo_tackle_2_player_name, 20: assist_tackle_3_player_id, 21: assist_tackle_3_player_name, 22: assist_tackle_3_team, 23: assist_tackle_4_player_id, 24: assist_tackle_4_player_name, 25: assist_tackle_4_team, 26: pass_defense_2_player_id, 27: pass_defense_2_player_name, 28: fumbled_2_player_id, 29: fumbled_2_player_name, 30: fumbled_2_team, 31: fumble_recovery_2_team, 32: fumble_recovery_2_player_id, 33: fumble_recovery_2_player_name, 34: safety_player_name, 35: safety_player_id) have mixed types. Specify dtype option on import or set low_memory=False.\n  df = pd.read_csv(resolved)\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\common.py:325: DtypeWarning: Columns (0: two_point_conv_result, 1: lateral_receiver_player_id, 2: lateral_receiver_player_name, 3: lateral_rusher_player_id, 4: lateral_rusher_player_name, 5: lateral_interception_player_id, 6: lateral_interception_player_name, 7: own_kickoff_recovery_player_id, 8: own_kickoff_recovery_player_name, 9: blocked_player_id, 10: blocked_player_name, 11: forced_fumble_player_2_team, 12: forced_fumble_player_2_player_id, 13: forced_fumble_player_2_player_name, 14: solo_tackle_2_team, 15: solo_tackle_2_player_id, 16: solo_tackle_2_player_name, 17: assist_tackle_3_player_id, 18: assist_tackle_3_player_name, 19: assist_tackle_3_team, 20: assist_tackle_4_player_id, 21: assist_tackle_4_player_name, 22: assist_tackle_4_team, 23: fumbled_2_player_id, 24: fumbled_2_player_name, 25: fumbled_2_team, 26: fumble_recovery_2_team, 27: fumble_recovery_2_player_id, 28: fumble_recovery_2_player_name, 29: safety_player_name, 30: safety_player_id) have mixed types. Specify dtype option on import or set low_memory=False.\n  df = pd.read_csv(resolved)\n",
+      "stdout_tail": "",
+      "step_number": 5
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_position_allowed.py"
+      ],
+      "duration_seconds": 20.834401,
+      "ended_at": "2026-09-08T16:02:11.036636Z",
+      "exit_code": 0,
+      "script": "build/build_position_allowed.py",
+      "started_at": "2026-09-08T16:01:50.202234Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "",
+      "step_number": 6
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_role_history.py"
+      ],
+      "duration_seconds": 306.738546,
+      "ended_at": "2026-09-08T16:07:17.775640Z",
+      "exit_code": 0,
+      "script": "build/build_role_history.py",
+      "started_at": "2026-09-08T16:02:11.037099Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "",
+      "step_number": 7
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_player_form.py"
+      ],
+      "duration_seconds": 93.505634,
+      "ended_at": "2026-09-08T16:08:51.282241Z",
+      "exit_code": 0,
+      "script": "build/build_player_form.py",
+      "started_at": "2026-09-08T16:07:17.776605Z",
+      "status": "success",
+      "stderr_tail": "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_player_form.py:767: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.\n  output = pd.concat([base, feature_df], axis=1, copy=False)\n",
+      "stdout_tail": "ISSUE12 metric 01/39: pass_attempts\nISSUE12 metric 02/39: dropbacks\nISSUE12 metric 03/39: completions\nISSUE12 metric 04/39: passing_yards\nISSUE12 metric 05/39: passing_tds\nISSUE12 metric 06/39: yards_per_attempt\nISSUE12 metric 07/39: passing_td_rate\nISSUE12 metric 08/39: passing_air_yards\nISSUE12 metric 09/39: carries\nISSUE12 metric 10/39: rushing_yards\nISSUE12 metric 11/39: rushing_tds\nISSUE12 metric 12/39: yards_per_carry\nISSUE12 metric 13/39: carry_share\nISSUE12 metric 14/39: red_zone_carries\nISSUE12 metric 15/39: goal_line_carries\nISSUE12 metric 16/39: targets\nISSUE12 metric 17/39: receptions\nISSUE12 metric 18/39: receiving_yards\nISSUE12 metric 19/39: receiving_tds\nISSUE12 metric 20/39: yards_per_target\nISSUE12 metric 21/39: catch_rate\nISSUE12 metric 22/39: target_share\nISSUE12 metric 23/39: air_yards_share\nISSUE12 metric 24/39: red_zone_targets\nISSUE12 metric 25/39: red_zone_target_share\nISSUE12 metric 26/39: field_goal_attempts\nISSUE12 metric 27/39: field_goals_made\nISSUE12 metric 28/39: extra_point_attempts\nISSUE12 metric 29/39: extra_points_made\nISSUE12 metric 30/39: tackles\nISSUE12 metric 31/39: sacks\nISSUE12 metric 32/39: qb_hits\nISSUE12 metric 33/39: tackle_rate_per_def_play\nISSUE12 metric 34/39: sack_rate_per_def_play\nISSUE12 metric 35/39: qb_hit_rate_per_def_play\nISSUE12 metric 36/39: offense_snap_pct\nISSUE12 metric 37/39: defense_snap_pct\nISSUE12 metric 38/39: offense_participation\nISSUE12 metric 39/39: defense_participation\n",
+      "step_number": 8
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py"
+      ],
+      "duration_seconds": 4.950449,
+      "ended_at": "2026-09-08T16:08:56.233829Z",
+      "exit_code": 0,
+      "script": "build/build_team_form.py",
+      "started_at": "2026-09-08T16:08:51.283377Z",
+      "status": "success",
+      "stderr_tail": "sult of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_season_to_date\"] = std_mean\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:282: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll3_mean\"] = roll3\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:283: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll5_mean\"] = roll5\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:284: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll8_mean\"] = roll8\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:285: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_ewm3\"] = ewm3\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:286: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_ewm5\"] = ewm5\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:287: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_season_to_date\"] = std_mean\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:281: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_lag1\"] = lag1\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:282: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll3_mean\"] = roll3\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:283: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll5_mean\"] = roll5\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:284: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll8_mean\"] = roll8\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:285: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_ewm3\"] = ewm3\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:286: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_ewm5\"] = ewm5\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:287: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_season_to_date\"] = std_mean\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:281: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_lag1\"] = lag1\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:282: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll3_mean\"] = roll3\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:283: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll5_mean\"] = roll5\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:284: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll8_mean\"] = roll8\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:285: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_ewm3\"] = ewm3\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:286: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_ewm5\"] = ewm5\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:287: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_season_to_date\"] = std_mean\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:281: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_lag1\"] = lag1\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:282: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll3_mean\"] = roll3\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:283: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll5_mean\"] = roll5\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:284: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_roll8_mean\"] = roll8\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:285: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_ewm3\"] = ewm3\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:286: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_ewm5\"] = ewm5\nC:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_team_form.py:287: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n  result[f\"{metric}_season_to_date\"] = std_mean\n",
+      "stdout_tail": "ISSUE13 team metric 01/20: offensive_plays\nISSUE13 team metric 02/20: drives\nISSUE13 team metric 03/20: dropbacks\nISSUE13 team metric 04/20: pass_attempts\nISSUE13 team metric 05/20: rush_attempts\nISSUE13 team metric 06/20: pass_rate\nISSUE13 team metric 07/20: rush_rate\nISSUE13 team metric 08/20: points_per_drive\nISSUE13 team metric 09/20: red_zone_drives\nISSUE13 team metric 10/20: red_zone_pass_attempts\nISSUE13 team metric 11/20: red_zone_rush_attempts\nISSUE13 team metric 12/20: goal_line_rush_attempts\nISSUE13 team metric 13/20: field_goal_attempts\nISSUE13 team metric 14/20: extra_point_attempts\nISSUE13 team metric 15/20: off_epa_per_play\nISSUE13 team metric 16/20: off_success_rate\nISSUE13 team metric 17/20: yards_per_play\nISSUE13 team metric 18/20: red_zone_td_rate\nISSUE13 team metric 19/20: early_down_epa\nISSUE13 team metric 20/20: third_down_conversion_rate\nISSUE13 opponent metric 01/18: defensive_plays\nISSUE13 opponent metric 02/18: opponent_dropbacks\nISSUE13 opponent metric 03/18: opponent_pass_attempts\nISSUE13 opponent metric 04/18: opponent_rush_attempts\nISSUE13 opponent metric 05/18: passing_yards_allowed\nISSUE13 opponent metric 06/18: rushing_yards_allowed\nISSUE13 opponent metric 07/18: passing_tds_allowed\nISSUE13 opponent metric 08/18: rushing_tds_allowed\nISSUE13 opponent metric 09/18: sacks\nISSUE13 opponent metric 10/18: qb_hits\nISSUE13 opponent metric 11/18: red_zone_pass_attempts_allowed\nISSUE13 opponent metric 12/18: red_zone_rush_attempts_allowed\nISSUE13 opponent metric 13/18: goal_line_rush_attempts_allowed\nISSUE13 opponent metric 14/18: def_epa_per_play\nISSUE13 opponent metric 15/18: def_success_rate\nISSUE13 opponent metric 16/18: yards_per_play_allowed\nISSUE13 opponent metric 17/18: points_per_drive_allowed\nISSUE13 opponent metric 18/18: red_zone_td_rate_allowed\n{\"payload\":{\"ewm_policy\":\"strictly prior observed games; adjust=false; franchise history continues across seasons\",\"franchise_aliases\":{\"OAK\":\"LV\",\"SD\":\"LAC\",\"STL\":\"LAR\"},\"missing_policy\":\"missing source values remain missing and do not update rolling state\",\"opponent_base_metrics\":18,\"opponent_feature_columns\":126,\"opponent_output\":\"docs/win/football/nfl/prop_engine/data/historical/features/opponent_form.parquet\",\"opponent_total_columns\":129,\"rolling_policy\":\"last N observed strictly prior team games\",\"rows_each\":7326,\"same_week_realized_forbidden\":true,\"season_to_date_policy\":\"mean of observed prior values in current season only\",\"status\":\"passed\",\"suffixes\":[\"lag1\",\"roll3_mean\",\"roll5_mean\",\"roll8_mean\",\"ewm3\",\"ewm5\",\"season_to_date\"],\"team_base_metrics\":20,\"team_feature_columns\":140,\"team_output\":\"docs/win/football/nfl/prop_engine/data/historical/features/team_form.parquet\",\"team_total_columns\":143},\"script\":\"build_team_form.py\"}\n",
+      "step_number": 9
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_environment_history.py"
+      ],
+      "duration_seconds": 1.209267,
+      "ended_at": "2026-09-08T16:08:57.443546Z",
+      "exit_code": 0,
+      "script": "build/build_environment_history.py",
+      "started_at": "2026-09-08T16:08:56.234279Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "{\"payload\":{\"columns\":23,\"embedded_game_betting_columns_loaded\":false,\"games\":3663,\"international_games\":52,\"neutral_site_games\":57,\"odds_directory_read\":false,\"output\":\"docs/win/football/nfl/prop_engine/data/historical/features/environment.parquet\",\"rows\":3663,\"status\":\"passed\",\"travel_missing\":0,\"travel_nonmissing\":3663,\"travel_policy\":\"mirror current build_travel.py: away franchise home coordinates to home franchise home coordinates; neutral/international status is represented separately\",\"weather_missing\":1203,\"weather_nonmissing\":2460,\"weather_policy\":\"historical temp/wind only; compatible with current-week temperature/wind_speed\"},\"script\":\"build_environment_history.py\"}\n",
+      "step_number": 10
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_defensive_features.py"
+      ],
+      "duration_seconds": 6.03128,
+      "ended_at": "2026-09-08T16:09:03.475305Z",
+      "exit_code": 0,
+      "script": "build/build_defensive_features.py",
+      "started_at": "2026-09-08T16:08:57.444031Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "{\"payload\":{\"columns\":28,\"front7_rows\":156880,\"opponent_context_policy\":\"defender opponent joined to already-lagged team_form\",\"output\":\"docs/win/football/nfl/prop_engine/data/historical/features/defensive_features.parquet\",\"pass_rush_share_created\":false,\"rows\":554654,\"secondary_rows\":104186,\"starter_rows\":192088,\"status\":\"passed\",\"team_def_sack_rate_policy\":\"mean of last 3 observed strictly prior per-game sacks/opponent_dropbacks rates\"},\"script\":\"build_defensive_features.py\"}\n",
+      "step_number": 11
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_kicking_features.py"
+      ],
+      "duration_seconds": 1.826124,
+      "ended_at": "2026-09-08T16:09:05.301919Z",
+      "exit_code": 0,
+      "script": "build/build_kicking_features.py",
+      "started_at": "2026-09-08T16:09:03.475801Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "{\"payload\":{\"columns\":22,\"output\":\"docs/win/football/nfl/prop_engine/data/historical/features/kicking_features.parquet\",\"primary_kicker_policy\":\"pregame roster/depth/injury state first; field-goal role then strictly prior kicking usage\",\"primary_kickers\":7319,\"rows\":9562,\"same_game_result_used\":false,\"status\":\"passed\",\"team_games\":7319},\"script\":\"build_kicking_features.py\"}\n",
+      "step_number": 12
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\build\\build_historical_features.py"
+      ],
+      "duration_seconds": 38.518254,
+      "ended_at": "2026-09-08T16:09:43.820758Z",
+      "exit_code": 0,
+      "script": "build/build_historical_features.py",
+      "started_at": "2026-09-08T16:09:05.302509Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "{\"payload\":{\"categorical_features\":9,\"columns\":798,\"features\":774,\"manifest\":\"docs/win/football/nfl/prop_engine/data/historical/features/feature_manifest.json\",\"market_feature_count\":0,\"numeric_features\":765,\"output\":\"docs/win/football/nfl/prop_engine/data/historical/features/player_game_features.parquet\",\"position_allowed_lagged\":true,\"rows\":554654,\"schema_hash\":\"9a908e10d5b8c978bce91460a15897d1c66b7df458adf4846e56c4d9d08f7c2d\",\"status\":\"passed\",\"target_columns_in_manifest\":false},\"script\":\"build_historical_features.py\"}\n",
+      "step_number": 13
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\validate\\audit_market_exclusion.py"
+      ],
+      "duration_seconds": 5.590437,
+      "ended_at": "2026-09-08T16:09:49.412371Z",
+      "exit_code": 0,
+      "script": "validate/audit_market_exclusion.py",
+      "started_at": "2026-09-08T16:09:43.821936Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "{\"files_scanned\":175,\"forbidden_feature_columns\":[],\"forbidden_feature_hit_count\":0,\"forbidden_source_reference_count\":0,\"forbidden_source_references\":[],\"market_features_used\":false,\"passed\":true}\nMARKET EXCLUSION AUDIT: PASS\n",
+      "step_number": 14
+    },
+    {
+      "command": [
+        "C:\\Users\\Mat\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\scripts\\validate\\validate_historical_data.py"
+      ],
+      "duration_seconds": 3.27507,
+      "ended_at": "2026-09-08T16:09:52.687738Z",
+      "exit_code": 0,
+      "script": "validate/validate_historical_data.py",
+      "started_at": "2026-09-08T16:09:49.412671Z",
+      "status": "success",
+      "stderr_tail": "",
+      "stdout_tail": "{\"checks\":[{\"details\":{\"canonical_grain\":[\"season\",\"week\",\"game_id\",\"player_id\"],\"duplicate_rows\":0,\"rows\":554654},\"name\":\"unique_feature_table_grain\",\"passed\":true},{\"details\":{\"blank_rows\":0},\"name\":\"nonblank_player_ids\",\"passed\":true},{\"details\":{\"invalid_team_rows\":0,\"missing_game_rows\":0},\"name\":\"team_belongs_to_game\",\"passed\":true},{\"details\":{\"invalid_opponent_rows\":0},\"name\":\"opponent_is_other_game_team\",\"passed\":true},{\"details\":{\"continuous_signed_targets_allow_negative_yardage\":true,\"targets\":{\"kicking_points\":{\"negative_rows\":0,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"derived_count\"},\"passing_tds\":{\"negative_rows\":0,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"count_nonnegative\"},\"passing_yards\":{\"negative_rows\":19,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"continuous_signed\"},\"receiving_tds\":{\"negative_rows\":0,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"count_nonnegative\"},\"receiving_yards\":{\"negative_rows\":785,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"continuous_signed\"},\"rushing_tds\":{\"negative_rows\":0,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"count_nonnegative\"},\"rushing_yards\":{\"negative_rows\":2218,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"continuous_signed\"},\"sacks\":{\"negative_rows\":0,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"count_nonnegative\"},\"tackles\":{\"negative_rows\":0,\"negative_rows_invalid\":0,\"nonfinite_rows\":0,\"nonnull_rows\":324863,\"nonnumeric_rows\":0,\"type\":\"count_nonnegative\"}}},\"name\":\"targets_valid_and_nonnegative\",\"passed\":true},{\"details\":{\"error\":\"\",\"feature_count\":774},\"name\":\"no_forbidden_feature\",\"passed\":true},{\"details\":{\"bad_paths\":[],\"paths_checked\":[\"docs/win/football/nfl/prop_engine/data/historical/universe/player_game_universe.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/targets/player_game_targets.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/features/player_role_history.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/features/player_form.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/features/team_form.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/features/opponent_form.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/features/environment.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/features/defensive_features.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/features/kicking_features.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/opportunity/position_allowed_week.parquet\",\"docs/win/football/nfl/prop_engine/data/historical/features/player_game_features.parquet\"]},\"name\":\"no_sportsbook_market_path_in_manifest\",\"passed\":true},{\"details\":{\"bad_features\":[]},\"name\":\"no_same_game_snap_feature\",\"passed\":true},{\"details\":{\"bad_features\":[]},\"name\":\"no_same_game_participation_feature\",\"passed\":true},{\"details\":{\"bad_features\":[]},\"name\":\"no_same_game_target_share\",\"passed\":true},{\"details\":{\"bad_matchup_features\":[],\"bad_team_features\":[]},\"name\":\"no_same_game_team_performance\",\"passed\":true},{\"details\":{\"bad_matchup_features\":[],\"bad_opponent_features\":[]},\"name\":\"no_same_game_opponent_performance\",\"passed\":true},{\"details\":{\"bad_features\":[]},\"name\":\"no_final_score_feature\",\"passed\":true},{\"details\":{\"bad_features\":[]},\"name\":\"no_target_column_in_feature_list\",\"passed\":true},{\"details\":{\"bad_rows\":0,\"fallback_upstream_contract_used\":true,\"manifest_policy\":\"null because upstream role-history output does not retain the source snapshot timestamp; upstream builder validated pregame depth\",\"timestamp_rows\":0},\"name\":\"depth_snapshot_precedes_kickoff\",\"passed\":true},{\"details\":{\"bad_rows\":0,\"not_applicable_when_no_timestamps\":true,\"timestamp_rows\":0},\"name\":\"injury_snapshot_precedes_kickoff_when_timestamps_exist\",\"passed\":true},{\"details\":{\"feature_rows\":554654,\"manifest_row_count\":554654,\"universe_duplicate_rows\":0,\"universe_rows\":554654,\"unmatched_grain_rows\":0},\"name\":\"no_join_multiplication\",\"passed\":true},{\"details\":{\"minimum_rows_per_target\":100,\"rows_by_target\":{\"kicking_points\":6788,\"passing_tds\":8351,\"passing_yards\":8351,\"receiving_tds\":77214,\"receiving_yards\":77214,\"rushing_tds\":85565,\"rushing_yards\":85565,\"sacks\":149009,\"tackles\":149009},\"training_end_season\":2024},\"name\":\"minimum_training_sample_per_target\",\"passed\":true},{\"details\":{\"failure_exit_code\":1,\"independent_validator_executes_self_test\":true,\"self_test_argument\":\"--self-test-failure-exit\"},\"name\":\"failure_returns_nonzero_exit_code\",\"passed\":true}],\"checks_failed\":0,\"checks_passed\":19,\"checks_required\":19,\"failed_checks\":[],\"failure_exit_code\":1,\"feature_count\":774,\"feature_manifest\":\"docs/win/football/nfl/prop_engine/data/historical/features/feature_manifest.json\",\"feature_table\":\"docs/win/football/nfl/prop_engine/data/historical/features/player_game_features.parquet\",\"market_features_used\":false,\"row_count\":554654,\"script\":\"validate_historical_data.py\",\"status\":\"passed\",\"target_count\":9}\nHISTORICAL VALIDATION GATE: PASS\n",
+      "step_number": 15
+    }
+  ],
+  "steps_executed": 15,
+  "steps_total": 15
+}
