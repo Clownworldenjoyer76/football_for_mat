@@ -266,13 +266,7 @@ def run_market_preflight() -> bool:
 
 
 def write_csv_atomic(df: pd.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    h = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="", prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, delete=False)
-    tmp = Path(h.name)
-    try:
-        h.close(); df.to_csv(tmp, index=False); os.replace(tmp, path)
-    finally:
-        if tmp.exists(): tmp.unlink()
+    common.write_csv_atomic(df, path)
 
 
 def main() -> int:

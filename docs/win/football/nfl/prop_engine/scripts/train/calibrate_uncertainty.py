@@ -37,6 +37,7 @@ import sys
 import tempfile
 
 import numpy as np
+import yaml
 import pandas as pd
 import pyarrow.parquet as pq
 
@@ -59,6 +60,13 @@ COVERAGE_PATH = Path(
 CALIBRATION_ROOT = Path(
     "docs/win/football/nfl/prop_engine/models/calibration"
 )
+ACCEPTANCE_THRESHOLDS_PATH = Path(
+    "docs/win/football/nfl/prop_engine/config/acceptance_thresholds.yaml"
+)
+
+# Validation-only strength for the displayed point prediction.
+# 0.0 = raw selected point; 1.0 = full existing calibrated point.
+POINT_PREDICTION_BLEND_CANDIDATES = (0.0, 0.25, 0.50, 0.75, 1.0)
 
 QUANTILE_TARGETS = [
     "passing_yards",
@@ -352,11 +360,23 @@ def load_oof_selected_predictions(
         ]
         actual = pd.to_numeric(frame["actual"], errors="coerce")
         point = pd.to_numeric(frame[source_column], errors="coerce")
-        valid = actual.notna() & point.notna() & np.isfinite(actual) & np.isfinite(point)
-        frame = frame.loc[valid, [*GRAIN, "fold_id", "actual"]].copy()
+        baseline = pd.to_numeric(frame["baseline_projection"], errors="coerce")
+        valid = (
+            actual.notna()
+            & point.notna()
+            & baseline.notna()
+            & np.isfinite(actual)
+            & np.isfinite(point)
+            & np.isfinite(baseline)
+        )
+        frame = frame.loc[
+            valid,
+            [*GRAIN, "fold_id", "actual", "baseline_projection"],
+        ].copy()
         frame["target"] = target
         frame["selected_architecture"] = contract.selected_architecture
         frame["selected_point_prediction"] = point.loc[valid].to_numpy(dtype="float64")
+        frame["baseline_projection"] = baseline.loc[valid].to_numpy(dtype="float64")
         if frame.empty:
             raise ValueError(f"No finite OOF calibration rows for {target}.")
         frame["residual"] = (
@@ -1040,11 +1060,168 @@ def target_is_nonnegative(config: dict[str, Any], target: str) -> bool:
     return str(config["targets"][target].get("type", "")) != "continuous_signed"
 
 
+def _point_mae(actual: np.ndarray, prediction: np.ndarray) -> float:
+    return float(np.mean(np.abs(prediction - actual)))
+
+
+def _point_bias(actual: np.ndarray, prediction: np.ndarray) -> float:
+    return float(np.mean(prediction - actual))
+
+
+def _point_poisson_deviance(actual: np.ndarray, prediction: np.ndarray) -> float:
+    y = np.asarray(actual, dtype="float64")
+    lam = np.maximum(np.asarray(prediction, dtype="float64"), 1e-12)
+    if np.any(y < 0.0):
+        raise ValueError("Negative actual in point-calibration Poisson gate.")
+    terms = np.empty_like(y)
+    zero = y <= 0.0
+    terms[zero] = lam[zero]
+    nz = ~zero
+    terms[nz] = y[nz] * np.log(y[nz] / lam[nz]) - (y[nz] - lam[nz])
+    return float(2.0 * np.mean(terms))
+
+
+def _point_brier_1plus(actual: np.ndarray, probability: np.ndarray) -> float:
+    event = (np.asarray(actual, dtype="float64") >= 1.0).astype("float64")
+    p = np.clip(np.asarray(probability, dtype="float64"), 0.0, 1.0)
+    return float(np.mean(np.square(p - event)))
+
+
+def _base_calibrated_point(
+    frame: pd.DataFrame,
+    payload: dict[str, Any],
+    *,
+    floor_at_zero: bool,
+) -> np.ndarray:
+    raw = frame["selected_point_prediction"].to_numpy(dtype="float64")
+    if "count_calibration" in payload:
+        mapping = payload["count_calibration"]["expected_count"]["mapping"]
+        return np.maximum(apply_mapping(np.maximum(raw, 0.0), mapping), 0.0)
+    qcal = payload.get("quantile_calibration")
+    if not isinstance(qcal, dict):
+        raise ValueError("Point calibration has no count or quantile calibration.")
+    output = raw + float(qcal["residual_quantiles"]["q50"])
+    if floor_at_zero:
+        output = np.maximum(output, 0.0)
+    return output
+
+
+def _base_probability_1plus(
+    frame: pd.DataFrame,
+    payload: dict[str, Any],
+    base_point: np.ndarray,
+) -> np.ndarray:
+    raw = frame["selected_point_prediction"].to_numpy(dtype="float64")
+    if "count_calibration" in payload:
+        ccal = payload["count_calibration"]
+        expected = apply_mapping(
+            np.maximum(raw, 0.0),
+            ccal["expected_count"]["mapping"],
+        )
+        poisson_p1 = 1.0 - np.exp(-np.maximum(expected, 0.0))
+        return np.clip(
+            apply_mapping(poisson_p1, ccal["probability_1_plus"]["mapping"]),
+            0.0,
+            1.0,
+        )
+    return 1.0 - np.exp(-np.maximum(base_point, 0.0))
+
+
+def fit_point_prediction_blend(
+    config: dict[str, Any],
+    target: str,
+    frame: pd.DataFrame,
+    payload: dict[str, Any],
+    acceptance: dict[str, Any],
+) -> dict[str, Any]:
+    # Selection uses only the 2024 validation rows already loaded into frame.
+    actual = frame["actual"].to_numpy(dtype="float64")
+    raw = frame["selected_point_prediction"].to_numpy(dtype="float64")
+    baseline = frame["baseline_projection"].to_numpy(dtype="float64")
+    floor_at_zero = target_is_nonnegative(config, target)
+    base = _base_calibrated_point(frame, payload, floor_at_zero=floor_at_zero)
+    p1 = _base_probability_1plus(frame, payload, base)
+
+    baseline_mae = _point_mae(actual, baseline)
+    if not math.isfinite(baseline_mae) or baseline_mae <= 0.0:
+        raise ValueError(f"{target}: invalid baseline MAE for point calibration.")
+
+    candidates: list[dict[str, Any]] = []
+    passing: list[tuple[float, float, float]] = []
+    for alpha in POINT_PREDICTION_BLEND_CANDIDATES:
+        prediction = raw + float(alpha) * (base - raw)
+        if floor_at_zero:
+            prediction = np.maximum(prediction, 0.0)
+
+        candidate_mae = _point_mae(actual, prediction)
+        candidate_bias = _point_bias(actual, prediction)
+        abs_bias = abs(candidate_bias)
+        improvement = (baseline_mae - candidate_mae) / baseline_mae * 100.0
+        gates: dict[str, bool] = {
+            "mae": candidate_mae <= float(acceptance["maximum_validation_mae"]) + 1e-12,
+            "bias": abs_bias <= float(acceptance["maximum_allowed_bias"]) + 1e-12,
+            "improvement": improvement + 1e-12 >= float(acceptance["minimum_improvement_vs_baseline_pct"]),
+        }
+
+        brier = None
+        poisson = None
+        if "maximum_brier_1plus" in acceptance and "maximum_poisson_deviance" in acceptance:
+            brier = _point_brier_1plus(actual, p1)
+            poisson = _point_poisson_deviance(actual, prediction)
+            gates["brier_1plus"] = brier <= float(acceptance["maximum_brier_1plus"]) + 1e-12
+            gates["poisson_deviance"] = poisson <= float(acceptance["maximum_poisson_deviance"]) + 1e-12
+
+        passed = bool(all(gates.values()))
+        candidates.append({
+            "calibrated_weight": float(alpha),
+            "raw_weight": float(1.0 - alpha),
+            "validation_mae": candidate_mae,
+            "validation_bias": candidate_bias,
+            "validation_absolute_bias": abs_bias,
+            "validation_improvement_vs_baseline_pct": improvement,
+            "validation_brier_1plus": brier,
+            "validation_poisson_deviance": poisson,
+            "passed_all_configured_gates": passed,
+            "failed_gates": [name for name, ok in gates.items() if not ok],
+        })
+        if passed:
+            passing.append((candidate_mae, abs_bias, float(alpha)))
+
+    if passing:
+        passing.sort(key=lambda item: (item[0], item[1], item[2]))
+        chosen_alpha = float(passing[0][2])
+        status = "validation_candidate_passed_all_gates"
+    else:
+        chosen_alpha = 1.0
+        status = "no_validation_candidate_passed_all_gates"
+
+    chosen = next(
+        item for item in candidates
+        if abs(float(item["calibrated_weight"]) - chosen_alpha) <= 1e-12
+    )
+    return {
+        "method": "validation_only_blend_raw_with_existing_calibrated_point",
+        "selection_split": "validation",
+        "selection_season": int(frame["season"].iloc[0]),
+        "test_rows_used_for_selection": False,
+        "candidate_calibrated_weights": [float(v) for v in POINT_PREDICTION_BLEND_CANDIDATES],
+        "calibrated_weight": chosen_alpha,
+        "raw_weight": float(1.0 - chosen_alpha),
+        "floor_at_zero": bool(floor_at_zero),
+        "selection_status": status,
+        "selected_validation_metrics": chosen,
+        "candidate_metrics": candidates,
+        "probability_calibration_unchanged": True,
+        "interval_calibration_unchanged": True,
+    }
+
+
 def build_target_calibration(
     config: dict[str, Any],
     contract: SelectedContract,
     frame: pd.DataFrame,
     usage_source: dict[str, Any],
+    acceptance: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     target = contract.target
     signal = usage_signal(frame, usage_source)
@@ -1142,6 +1319,14 @@ def build_target_calibration(
     else:
         payload["calibration_mode"] = "count"
 
+    payload["point_prediction_blend"] = fit_point_prediction_blend(
+        config,
+        target,
+        frame,
+        payload,
+        acceptance,
+    )
+
     return payload, coverage_output
 
 
@@ -1179,12 +1364,48 @@ def main() -> int:
         raise RuntimeError("Issue 28 market-exclusion preflight failed.")
 
     config = common.load_config()
+
+    acceptance_path = common.repo_root() / ACCEPTANCE_THRESHOLDS_PATH
+    if not acceptance_path.is_file():
+        raise FileNotFoundError(f"Missing acceptance thresholds: {acceptance_path}")
+    with acceptance_path.open("r", encoding="utf-8-sig") as handle:
+        acceptance_thresholds = yaml.safe_load(handle)
+    if not isinstance(acceptance_thresholds, dict):
+        raise ValueError("acceptance_thresholds.yaml must be a YAML mapping.")
+
     targets = list(config["targets"].keys())
     if set(QUANTILE_TARGETS) - set(targets):
         raise ValueError("Configured targets missing required quantile targets.")
 
     print("CHECK 01: selected architecture and OOF calibration contracts")
     contracts = load_selected_contracts(targets)
+    # _CONFIG_ENFORCED_CALIBRATION_SPLIT
+    training = config["training"]
+    expected_validation = int(
+        training["development_validation_season"]
+    )
+    expected_test = int(
+        training["untouched_test_season"]
+    )
+    expected_train_end = int(
+        training["model_selection_train_end_season"]
+    )
+    for target, contract in contracts.items():
+        observed = (
+            int(contract.validation_season),
+            int(contract.test_season),
+            int(contract.model_selection_train_end_season),
+        )
+        expected = (
+            expected_validation,
+            expected_test,
+            expected_train_end,
+        )
+        if observed != expected:
+            raise ValueError(
+                f"{target}: selected-model split contract "
+                f"{observed} != config.training {expected}"
+            )
     oof = load_oof_selected_predictions(targets, contracts)
 
     print("CHECK 02: pregame calibration context and risk flags")
@@ -1197,11 +1418,14 @@ def main() -> int:
     for target in targets:
         frame = context.loc[context["target"].astype(str).eq(target)].copy()
         frame = frame.reset_index(drop=True)
+        if target not in acceptance_thresholds:
+            raise ValueError(f"Missing acceptance thresholds for {target}.")
         payload, target_coverage = build_target_calibration(
             config,
             contracts[target],
             frame,
             usage_sources[target],
+            acceptance_thresholds[target],
         )
         output_path = common.prop_root() / CALIBRATION_ROOT.relative_to(
             "docs/win/football/nfl/prop_engine"

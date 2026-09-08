@@ -69,23 +69,15 @@ for p in (SCRIPTS_ROOT, TRAIN_DIR, SCRIPT_DIR):
         sys.path.insert(0, str(p))
 
 import common
+
+_CONFIG_CONTRACT = common.load_config()
 import project_components as pc
 import train_opportunity_models as opportunity
 import train_efficiency_models as efficiency
 
 GRAIN = ["season", "week", "game_id", "player_id"]
 TEAM_GRAIN = ["season", "week", "game_id", "team"]
-TARGETS = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
-    "kicking_points",
-    "tackles",
-    "sacks",
-]
+TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 OUTPUT_COLUMNS = [
     "season",
     "week",
@@ -264,24 +256,7 @@ def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    h = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        newline="",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
-    )
-    temp = Path(h.name)
-    h.close()
-    try:
-        frame.to_csv(temp, index=False, lineterminator="\n")
-        os.replace(temp, path)
-    finally:
-        if temp.exists():
-            temp.unlink()
+    common.write_csv_atomic(frame, path)
 
 
 def sha256_file(path: Path) -> str:
@@ -739,7 +714,7 @@ def build_component_points(
         numeric(base["opponent_offensive_plays"]) * numeric(base["allocated_def_participation"]) * numeric(base["tackle_rate_per_defensive_play"])
     )
     points["sacks"] = (
-        numeric(base["opponent_dropbacks"]) * numeric(base["allocated_def_participation"]) * numeric(base["sack_rate_per_defensive_play"])
+        numeric(base["opponent_offensive_plays"]) * numeric(base["allocated_def_participation"]) * numeric(base["sack_rate_per_defensive_play"])
     )
 
     for target, values in points.items():
@@ -906,6 +881,25 @@ def count_outputs(frame: pd.DataFrame, payload: dict[str, Any]) -> dict[str, np.
     }
 
 
+def apply_point_prediction_blend(
+    frame: pd.DataFrame,
+    calibrated_point: np.ndarray,
+    calibration: dict[str, Any],
+) -> np.ndarray:
+    spec = calibration.get("point_prediction_blend")
+    if not isinstance(spec, dict):
+        return np.asarray(calibrated_point, dtype="float64")
+    alpha = float(spec.get("calibrated_weight", 1.0))
+    if not 0.0 <= alpha <= 1.0:
+        raise ValueError(f"Invalid point calibration weight: {alpha}")
+    raw = numeric(frame["selected_point_prediction"]).to_numpy(dtype="float64")
+    base = np.asarray(calibrated_point, dtype="float64")
+    output = raw + alpha * (base - raw)
+    if bool(spec.get("floor_at_zero")):
+        output = np.maximum(output, 0.0)
+    return output
+
+
 def calibrate_current_target(
     target: str,
     point: pd.Series,
@@ -937,11 +931,17 @@ def calibrate_current_target(
         result["probability_2_plus"] = cout["probability_2_plus"]
 
     if cout is not None:
-        result["projection"] = cout["expected_count"]
+        base_point = cout["expected_count"]
     elif qout is not None:
-        result["projection"] = qout["q50"]
+        base_point = qout["q50"]
     else:
         raise ValueError(f"{target}: no calibration output")
+
+    result["projection"] = apply_point_prediction_blend(
+        frame,
+        np.asarray(base_point, dtype="float64"),
+        calibration,
+    )
     return result[["projection", "low", "high", "probability_1_plus", "probability_2_plus"]]
 
 

@@ -1,12 +1,12 @@
 {
   "blend_weights": {
-    "component": 1.0,
-    "direct": 0.0,
+    "component": 0.0,
+    "direct": 1.0,
     "selected_from_validation_only": true
   },
   "comparison_row_policy": "common_evaluable_rows; missing baseline projections excluded; no missing projection is imputed to zero",
   "component_dependencies": [
-    "opponent_dropbacks",
+    "opponent_offensive_plays",
     "player_defensive_participation",
     "sack_rate_per_defensive_play"
   ],
@@ -23,12 +23,12 @@
     "selected_on_validation_only": true,
     "validation_variant_metrics": {
       "primary": {
-        "brier_1plus": 0.06452236366803674,
-        "logloss_1plus": 0.2264255240996751,
-        "mae": 0.15963123411972266,
-        "median_ae": 0.058103023292145076,
-        "poisson_deviance": 0.3666017467185793,
-        "rmse": 0.3233311955069534
+        "brier_1plus": 0.06443921099774523,
+        "logloss_1plus": 0.2258694652663404,
+        "mae": 0.15784426774639038,
+        "median_ae": 0.053837919371977065,
+        "poisson_deviance": 0.3655526799056691,
+        "rmse": 0.3228884515477811
       }
     },
     "variant": "primary"
@@ -48,27 +48,27 @@
     "team_red_zone_pass_attempts_ewm5",
     "team_red_zone_pass_attempts_season_to_date"
   ],
-  "selected_architecture": "component",
-  "selected_candidate": "component",
+  "selected_architecture": "direct",
+  "selected_candidate": "direct",
   "selected_test_metrics_reporting_only": {
-    "brier_1plus": 0.0663867055020266,
-    "logloss_1plus": 0.23542932959797522,
-    "mae": 0.14463373141561714,
-    "median_ae": 0.04607132702715565,
-    "poisson_deviance": 0.3941935134223968,
-    "rmse": 0.32691518538890585
+    "brier_1plus": 0.06521879541817861,
+    "logloss_1plus": 0.2279553893417497,
+    "mae": 0.15952711296966457,
+    "median_ae": 0.053308802762437914,
+    "poisson_deviance": 0.3635023497901693,
+    "rmse": 0.3194444700833707
   },
   "selected_validation_metrics": {
-    "brier_1plus": 0.06664369344980575,
-    "logloss_1plus": 0.233660915932051,
-    "mae": 0.14513081565708774,
-    "median_ae": 0.04407303843174132,
-    "poisson_deviance": 0.39425411530838184,
-    "rmse": 0.3331329752224007
+    "brier_1plus": 0.06458565921320249,
+    "logloss_1plus": 0.22594497263781396,
+    "mae": 0.15843157763096813,
+    "median_ae": 0.053560051513604545,
+    "poisson_deviance": 0.36548398440777946,
+    "rmse": 0.3235336452954422
   },
   "selection_frozen_before_test_reporting": true,
   "selection_metric": "validation_mae",
-  "selection_reason": "selected on chronological validation only: component had the lowest validation MAE=0.145130815657; RMSE, median AE, then fixed candidate order are tie-breakers; 2025 metrics are reporting-only",
+  "selection_reason": "selected on chronological validation only: direct had the lowest validation MAE=0.158431577631; RMSE, median AE, then fixed candidate order are tie-breakers; 2025 metrics are reporting-only",
   "selection_tiebreakers": [
     "validation_rmse",
     "validation_median_ae",

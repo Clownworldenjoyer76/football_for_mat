@@ -93,7 +93,7 @@ REQUIRED_MATCHUP_COLUMNS = [
     "matchup_player_target_share_x_opp_targets",
     "matchup_player_carry_share_x_opp_rushes",
     "matchup_player_tackle_rate_x_opp_plays",
-    "matchup_player_sack_rate_x_opp_dropbacks",
+    "matchup_player_sack_rate_x_opp_plays",
     "matchup_off_epa_vs_def_epa",
     "matchup_pass_rate_vs_opponent",
     "matchup_rush_rate_vs_opponent",
@@ -1195,9 +1195,9 @@ def main() -> int:
         out["player_tackle_rate_per_def_play_roll3_mean"],
         out["matchup_expected_opponent_plays"],
     )
-    out["matchup_player_sack_rate_x_opp_dropbacks"] = safe_product(
+    out["matchup_player_sack_rate_x_opp_plays"] = safe_product(
         out["player_sack_rate_per_def_play_roll5_mean"],
-        out["matchup_expected_opponent_dropbacks"],
+        out["matchup_expected_opponent_plays"],
     )
     out["matchup_off_epa_vs_def_epa"] = (
         pd.to_numeric(
@@ -1478,7 +1478,7 @@ def main() -> int:
             "matchup_player_target_share_x_opp_targets": "player target_share roll3 * opponent-position targets_allowed lag1",
             "matchup_player_carry_share_x_opp_rushes": "player carry_share roll3 * opponent-position carries_allowed lag1",
             "matchup_player_tackle_rate_x_opp_plays": "player tackle_rate roll3 * expected opponent plays",
-            "matchup_player_sack_rate_x_opp_dropbacks": "player sack_rate roll5 * expected opponent dropbacks",
+            "matchup_player_sack_rate_x_opp_plays": "player sack_rate roll5 * expected opponent plays",
             "matchup_off_epa_vs_def_epa": "team off_epa_per_play roll3 - opponent def_epa_per_play roll3",
             "matchup_pass_rate_vs_opponent": "team pass_rate roll3 - opponent prior pass attempts / opponent prior defensive plays",
             "matchup_rush_rate_vs_opponent": "team rush_rate roll3 - opponent prior rush attempts / opponent prior defensive plays",

@@ -37,13 +37,26 @@ class ProjectionConstraintTests(unittest.TestCase):
         self.assertFalse(self.long.duplicated(keys).any())
 
     def test_projection_interval_constraints(self) -> None:
+        tol = 1e-9
         projection = pd.to_numeric(self.long["projection"], errors="coerce")
         low = pd.to_numeric(self.long["low"], errors="coerce")
         high = pd.to_numeric(self.long["high"], errors="coerce")
         self.assertFalse(projection.isna().any())
-        self.assertTrue(projection.ge(0.0).all())
-        self.assertTrue((low <= projection).all())
-        self.assertTrue((projection <= high).all())
+        self.assertTrue(projection.ge(-tol).all())
+
+        # Match the accepted Issue 38 contract: interval bounds may both be
+        # unavailable for targets without an interval, but one-sided/null-
+        # asymmetric intervals are invalid. When present, bounds must contain
+        # the projection.
+        asymmetric = low.isna() ^ high.isna()
+        self.assertFalse(bool(asymmetric.any()))
+        bounded = low.notna() & high.notna()
+        self.assertTrue(
+            (low.loc[bounded] <= projection.loc[bounded] + tol).all()
+        )
+        self.assertTrue(
+            (projection.loc[bounded] <= high.loc[bounded] + tol).all()
+        )
 
     def test_probability_constraints(self) -> None:
         for column in ["probability_1_plus", "probability_2_plus"]:

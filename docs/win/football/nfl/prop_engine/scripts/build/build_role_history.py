@@ -195,15 +195,7 @@ def clean(value: Any) -> str:
 
 
 def normalize_team(value: Any) -> str:
-    team = clean(value).upper()
-
-    if not team:
-        return ""
-
-    return HISTORICAL_FRANCHISE_ALIASES.get(
-        team,
-        team,
-    )
+    return common.normalize_team(value)
 
 
 def normalize_team_history_identity(

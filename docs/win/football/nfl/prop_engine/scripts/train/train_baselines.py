@@ -84,6 +84,13 @@ if str(SCRIPTS_ROOT) not in sys.path:
 import common
 
 
+
+_CONFIG_CONTRACT = common.load_config()
+_TRAINING_CONTRACT = _CONFIG_CONTRACT["training"]
+MODEL_SELECTION_TRAIN_END = int(_TRAINING_CONTRACT["model_selection_train_end_season"])
+DEVELOPMENT_VALIDATION_SEASON = int(_TRAINING_CONTRACT["development_validation_season"])
+FINAL_TRAIN_END = int(_TRAINING_CONTRACT["final_train_end_season"])
+UNTOUCHED_TEST_SEASON = int(_TRAINING_CONTRACT["untouched_test_season"])
 OUTPUT_PATH = (
     "docs/win/football/nfl/prop_engine/evaluation/"
     "baseline_oof_predictions.parquet"
@@ -110,17 +117,7 @@ OUTPUT_COLUMNS = [
     "baseline_projection",
 ]
 
-TARGETS = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
-    "kicking_points",
-    "tackles",
-    "sacks",
-]
+TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 
 TARGET_COLUMN = {
     target: f"target_{target}"
@@ -904,27 +901,27 @@ def validate_contract(
 
     test = folds.loc[folds["test_flag"].eq(1)].iloc[0]
 
-    if int(test["validation_start_season"]) != 2025:
+    if int(test["validation_start_season"]) != UNTOUCHED_TEST_SEASON:
         raise ValueError(
             "Issue 21 requires the untouched test season to be 2025."
         )
 
-    if int(test["train_end_season"]) != 2024:
+    if int(test["train_end_season"]) != FINAL_TRAIN_END:
         raise ValueError(
             "Issue 21 requires the untouched test to train through 2024."
         )
 
-    dev_2024 = folds.loc[
-        folds["validation_start_season"].eq(2024)
+    development_fold = folds.loc[
+        folds["validation_start_season"].eq(DEVELOPMENT_VALIDATION_SEASON)
         & folds["test_flag"].eq(0)
     ]
 
-    if len(dev_2024) != 1:
+    if len(development_fold) != 1:
         raise ValueError(
             "Expected exactly one 2024 development validation fold."
         )
 
-    if int(dev_2024.iloc[0]["train_end_season"]) != 2023:
+    if int(development_fold.iloc[0]["train_end_season"]) != MODEL_SELECTION_TRAIN_END:
         raise ValueError(
             "Issue 21 development policy requires train through 2023 "
             "and validate 2024."
@@ -1179,9 +1176,9 @@ def validate_output(
     )
 
     # 2025 may appear only under the untouched test fold.
-    rows_2025 = output.loc[output["season"].eq(2025)]
+    rows_test = output.loc[output["season"].eq(UNTOUCHED_TEST_SEASON)]
 
-    if not rows_2025.empty:
+    if not rows_test.empty:
         allowed_test_ids = set(
             folds.loc[
                 folds["test_flag"].eq(1),
@@ -1189,7 +1186,7 @@ def validate_output(
             ].astype(str)
         )
 
-        if not set(rows_2025["fold_id"].astype(str)) <= allowed_test_ids:
+        if not set(rows_test["fold_id"].astype(str)) <= allowed_test_ids:
             raise ValueError(
                 "2025 predictions appeared in a development fold."
             )
@@ -1298,7 +1295,7 @@ def main() -> int:
         "targets": int(output["target"].nunique()),
         "random_split_used": False,
         "target_columns_used_in_projection": False,
-        "untouched_test_season": 2025,
+        "untouched_test_season": UNTOUCHED_TEST_SEASON,
         "test_tuning_used": False,
         "coverage": coverage_payload,
     }

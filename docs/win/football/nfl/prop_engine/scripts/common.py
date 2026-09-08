@@ -62,10 +62,14 @@ _REQUIRED_CONFIG_SECTIONS = (
     "uncertainty",
     "models",
     "forbidden_features",
+    "forbidden_input_paths",
     "output",
 )
 
 _TEAM_ALIASES = {
+    "SD": "LAC",
+    "OAK": "LV",
+    "STL": "LAR",
     "WAS": "WSH",
     "LA": "LAR",
     "JAC": "JAX",
@@ -203,8 +207,86 @@ def load_config() -> dict:
             "must be a non-empty list."
         )
 
+    forbidden_inputs = config.get("forbidden_input_paths")
+
+    if not isinstance(forbidden_inputs, list) or not forbidden_inputs:
+        raise ValueError(
+            "Config section 'forbidden_input_paths' "
+            "must be a non-empty list."
+        )
+
+    normalized_forbidden_inputs = [
+        str(value).strip().replace("\\", "/")
+        for value in forbidden_inputs
+        if str(value).strip()
+    ]
+
+    if len(normalized_forbidden_inputs) != len(forbidden_inputs):
+        raise ValueError(
+            "Config forbidden_input_paths cannot contain blank values."
+        )
+
+    if len(set(normalized_forbidden_inputs)) != len(normalized_forbidden_inputs):
+        raise ValueError(
+            "Config forbidden_input_paths cannot contain duplicates."
+        )
+
     return config
 
+
+
+def forbidden_input_paths(
+    config: Mapping[str, Any] | None = None,
+) -> tuple[tuple[Path, bool, str], ...]:
+    active = load_config() if config is None else config
+    values = active.get("forbidden_input_paths")
+
+    if not isinstance(values, list) or not values:
+        raise ValueError(
+            "Config forbidden_input_paths must be a non-empty list."
+        )
+
+    rules: list[tuple[Path, bool, str]] = []
+
+    for raw in values:
+        reference = str(raw).strip().replace("\\", "/")
+
+        if not reference:
+            raise ValueError(
+                "Config forbidden_input_paths cannot contain blank values."
+            )
+
+        rules.append(
+            (
+                _resolve_repo_path(reference),
+                reference.endswith("/"),
+                reference,
+            )
+        )
+
+    return tuple(rules)
+
+
+def reject_forbidden_input_path(
+    path: str | os.PathLike[str],
+    config: Mapping[str, Any] | None = None,
+) -> None:
+    resolved = _resolve_repo_path(path)
+
+    for forbidden, is_directory, reference in forbidden_input_paths(config):
+        blocked = (
+            resolved == forbidden
+            or (
+                is_directory
+                and forbidden in resolved.parents
+            )
+        )
+
+        if blocked:
+            raise ValueError(
+                "Prop Engine direct input is forbidden by Issue 54: "
+                f"{reference} (requested {resolved})"
+            )
 
 def require_columns(
     df: pd.DataFrame,
@@ -233,6 +315,7 @@ def read_csv_required(
 ) -> pd.DataFrame:
     """Read a required CSV and optionally validate its columns."""
     resolved = _resolve_repo_path(path)
+    reject_forbidden_input_path(resolved)
 
     if not resolved.is_file():
         raise FileNotFoundError(
@@ -257,6 +340,7 @@ def read_parquet_required(
 ) -> pd.DataFrame:
     """Read a required parquet file and optionally validate its columns."""
     resolved = _resolve_repo_path(path)
+    reject_forbidden_input_path(resolved)
 
     if not resolved.is_file():
         raise FileNotFoundError(

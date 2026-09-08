@@ -2500,7 +2500,7 @@ def load_participation_data(
     )
 
     for season in seasons:
-        if season < 2016:
+        if season < int(config["seasons"]["participation_feature_start"]):
             continue
 
         path = (

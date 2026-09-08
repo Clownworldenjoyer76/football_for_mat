@@ -808,7 +808,10 @@ def validate_output(
                 f"{column} must remain null before rich_feature_start={rich_feature_start}."
             )
 
-    pre_participation = output["season"].lt(2016)
+    participation_feature_start = int(
+        config["seasons"]["participation_feature_start"]
+    )
+    pre_participation = output["season"].lt(participation_feature_start)
     for column in ["offense_participation", "defense_participation"]:
         if output.loc[pre_participation, column].notna().any():
             raise ValueError(f"{column} must remain null before 2016.")
@@ -831,6 +834,9 @@ def run() -> dict[str, Any]:
     start_season = int(config["seasons"]["historical_start"])
     end_season = int(config["seasons"]["historical_end"])
     rich_feature_start = int(config["seasons"]["rich_feature_start"])
+    participation_feature_start = int(
+        config["seasons"]["participation_feature_start"]
+    )
 
     crosswalk_path = repo / config["paths"]["identity_crosswalk"]
     output_path = repo / config["paths"]["player_opportunity"]
@@ -876,7 +882,10 @@ def run() -> dict[str, Any]:
         )
         base = attach_snaps(base, snaps)
 
-        if part_path.is_file():
+        if (
+            season >= participation_feature_start
+            and part_path.is_file()
+        ):
             part_source = common.read_parquet_required(part_path)
             part_players, part_teams, part_diag = build_participation(
                 part_source, season=season, path=part_path
@@ -1028,7 +1037,7 @@ def run() -> dict[str, Any]:
         "source_availability": {
             "player_stats": "2012-2025",
             "snap_counts": "2013-2025; 2012 file empty",
-            "participation": "2016-2025",
+            "participation": f"{participation_feature_start}-{end_season}",
             "pbp_rich": f"{rich_feature_start}-{end_season}",
         },
         "season_diagnostics": diagnostics,

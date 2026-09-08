@@ -47,6 +47,7 @@ paths:
 
 seasons:
   historical_start: 2012
+  participation_feature_start: 2016
   rich_feature_start: 2021
   historical_end: 2025
   current: 2026
@@ -103,13 +104,30 @@ injuries: {}
 
 weather: {}
 
-training: {}
+training:
+  model_selection_train_end_season: 2023
+  development_validation_season: 2024
+  final_train_end_season: 2024
+  untouched_test_season: 2025
 
 validation: {}
 
 uncertainty: {}
 
 models: {}
+
+forbidden_input_paths:
+  - docs/win/football/nfl/data/historic_data/odds/
+  - docs/win/football/nfl/scripts/00_intake/pull_odds.py
+  - docs/win/football/nfl/scripts/00_intake/pull_opening_odds.py
+  - docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py
+  - docs/win/football/nfl/scripts/00_intake/enrich_spread.py
+  - docs/win/football/nfl/scripts/00_intake/enrich_totals.py
+  - docs/win/football/nfl/scripts/00_intake/pull_market_futures.py
+  - docs/win/football/nfl/data/historic_data/predictions/drat/
+  - docs/win/football/nfl/data/historic_data/predictions/epred/
+  - docs/win/football/nfl/training/
+  - docs/win/football/nfl/01_merge/
 
 forbidden_features:
   - odds

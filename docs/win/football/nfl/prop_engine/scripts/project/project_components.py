@@ -188,6 +188,7 @@ def validate_booster_manifest(root: Path, family: str, name: str) -> tuple[lgb.B
     numeric_features = list(manifest.get("numeric_features", []))
     categorical = list(manifest.get("categorical_features", []))
     feature_names = numeric_features + categorical
+    common.reject_forbidden_feature_columns(feature_names, common.load_config())
     if int(manifest.get("feature_count", len(feature_names))) != len(feature_names):
         raise ValueError(f"{family}/{name}: manifest feature_count mismatch")
     booster = lgb.Booster(model_file=str(model_path))

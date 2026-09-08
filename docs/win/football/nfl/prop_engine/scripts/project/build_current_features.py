@@ -64,17 +64,9 @@ if str(SCRIPTS_ROOT) not in sys.path:
 import common
 
 
-TARGETS = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
-    "kicking_points",
-    "tackles",
-    "sacks",
-]
+
+_CONFIG_CONTRACT = common.load_config()
+TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 
 GRAIN = ["season", "week", "game_id", "player_id"]
 PLAYER_PRIOR_FAMILIES = ("role", "player", "history")
@@ -1054,9 +1046,9 @@ def recompute_matchups(out: pd.DataFrame) -> None:
         out["matchup_player_tackle_rate_x_opp_plays"] = safe_product(
             out["player_tackle_rate_per_def_play_roll3_mean"], out["matchup_expected_opponent_plays"]
         )
-    if exists("matchup_player_sack_rate_x_opp_dropbacks", "player_sack_rate_per_def_play_roll5_mean", "matchup_expected_opponent_dropbacks"):
-        out["matchup_player_sack_rate_x_opp_dropbacks"] = safe_product(
-            out["player_sack_rate_per_def_play_roll5_mean"], out["matchup_expected_opponent_dropbacks"]
+    if exists("matchup_player_sack_rate_x_opp_plays", "player_sack_rate_per_def_play_roll5_mean", "matchup_expected_opponent_plays"):
+        out["matchup_player_sack_rate_x_opp_plays"] = safe_product(
+            out["player_sack_rate_per_def_play_roll5_mean"], out["matchup_expected_opponent_plays"]
         )
     if exists("matchup_off_epa_vs_def_epa", "team_off_epa_per_play_roll3_mean", "opponent_def_epa_per_play_roll3_mean"):
         out["matchup_off_epa_vs_def_epa"] = (

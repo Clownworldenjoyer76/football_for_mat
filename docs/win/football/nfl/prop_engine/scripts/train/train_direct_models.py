@@ -75,6 +75,9 @@ if str(SCRIPTS_ROOT) not in sys.path:
 import common
 
 
+
+_CONFIG_CONTRACT = common.load_config()
+_TRAINING_CONTRACT = _CONFIG_CONTRACT["training"]
 SEED = 24024
 MODEL_SELECTION_TRAIN_END = 2023
 DEVELOPMENT_VALIDATION_SEASON = 2024
@@ -95,17 +98,7 @@ FOLDS_PATH = (
     "docs/win/football/nfl/prop_engine/evaluation/backtest_folds.parquet"
 )
 
-TARGETS = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
-    "kicking_points",
-    "tackles",
-    "sacks",
-]
+TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 
 PRIMARY_OBJECTIVE = {
     "passing_yards": "regression",

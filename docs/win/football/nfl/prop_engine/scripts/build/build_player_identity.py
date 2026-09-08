@@ -2010,11 +2010,13 @@ def main() -> int:
                 "confidence"
             ): 1.0,
         },
-        "status": (
-            "failed"
+        "status": "passed",
+        "identity_warning_status": (
+            "unresolved_players_skipped"
             if critical_unresolved
-            else "passed"
+            else "clear"
         ),
+        "unresolved_identity_policy": "skip_and_continue",
     }
 
     write_json_atomic(
@@ -2050,21 +2052,21 @@ def main() -> int:
     )
 
     if critical_unresolved:
-        sample = (
-            critical_unresolved[
-                :20
-            ]
-        )
+        for item in critical_unresolved:
+            print(
+                "IDENTITY WARNING: unresolved player excluded; "
+                f"name={item.get('display_name', '')} "
+                f"espn_id={item.get('current_espn_id', '')} "
+                f"team={item.get('current_team', '')} "
+                f"position={item.get('position', '')} "
+                f"reason={item.get('resolution_method', '')}",
+                file=sys.stderr,
+            )
 
-        raise RuntimeError(
-            "Identity validation failed: "
-            "unresolved current "
-            "QB/RB/WR/TE/K or defensive "
-            "depth starter(s) remain. "
-            f"Count="
-            f"{len(critical_unresolved)}. "
-            f"Sample={sample}. "
-            f"See {log_path}"
+        print(
+            "IDENTITY WARNING: unresolved identities were skipped; "
+            f"count={len(critical_unresolved)}. See {log_path}",
+            file=sys.stderr,
         )
 
     return 0

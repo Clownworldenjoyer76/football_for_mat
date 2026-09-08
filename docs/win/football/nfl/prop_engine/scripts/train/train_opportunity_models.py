@@ -84,11 +84,14 @@ if str(SCRIPTS_ROOT) not in sys.path:
 import common
 
 
-SEED = 22022
-MODEL_SELECTION_TRAIN_END = 2023
-DEVELOPMENT_VALIDATION_SEASON = 2024
-FINAL_TRAIN_END = 2024
-UNTOUCHED_TEST_SEASON = 2025
+
+_CONFIG_CONTRACT = common.load_config()
+_TRAINING_CONTRACT = _CONFIG_CONTRACT["training"]
+SEED = 76076
+MODEL_SELECTION_TRAIN_END = int(_TRAINING_CONTRACT["model_selection_train_end_season"])
+DEVELOPMENT_VALIDATION_SEASON = int(_TRAINING_CONTRACT["development_validation_season"])
+FINAL_TRAIN_END = int(_TRAINING_CONTRACT["final_train_end_season"])
+UNTOUCHED_TEST_SEASON = int(_TRAINING_CONTRACT["untouched_test_season"])
 
 FEATURE_MANIFEST_PATH = (
     "docs/win/football/nfl/prop_engine/data/historical/features/"

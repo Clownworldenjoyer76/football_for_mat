@@ -32,6 +32,9 @@ if str(SCRIPTS_ROOT) not in sys.path:
 import common
 
 
+
+_CONFIG_CONTRACT = common.load_config()
+_CONFIG_TARGETS = _CONFIG_CONTRACT["targets"]
 OUTPUT_COLUMNS = [
     "season",
     "week",
@@ -57,12 +60,11 @@ OUTPUT_COLUMNS = [
 
 
 DIRECT_TARGETS = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
+    target
+    for target, spec in _CONFIG_TARGETS.items()
+    if isinstance(spec, dict)
+    and spec.get("source_column")
+    and target != "sacks"
 ]
 
 
@@ -84,9 +86,10 @@ TARGET_VALUE_COLUMNS = [
 
 
 SIGNED_YARDAGE_TARGETS = {
-    "passing_yards",
-    "rushing_yards",
-    "receiving_yards",
+    target
+    for target, spec in _CONFIG_TARGETS.items()
+    if isinstance(spec, dict)
+    and spec.get("type") == "continuous_signed"
 }
 
 

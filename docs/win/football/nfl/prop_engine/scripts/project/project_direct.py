@@ -58,18 +58,10 @@ if str(SCRIPTS_ROOT) not in sys.path:
 
 import common
 
+
+_CONFIG_CONTRACT = common.load_config()
 GRAIN = ["season", "week", "game_id", "player_id"]
-TARGETS = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
-    "kicking_points",
-    "tackles",
-    "sacks",
-]
+TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 OUTPUT_MAP = {target: f"direct_{target}" for target in TARGETS}
 OUTPUT_COLUMNS = [*GRAIN, *[OUTPUT_MAP[t] for t in TARGETS]]
 
@@ -437,6 +429,7 @@ def validate_and_load_model(
     numeric_features = list(manifest.get("numeric_features", []))
     categorical_features = list(manifest.get("categorical_features", []))
     feature_names = [*numeric_features, *categorical_features]
+    common.reject_forbidden_feature_columns(feature_names, common.load_config())
     if not feature_names or len(feature_names) != len(set(feature_names)):
         raise ValueError(f"{target}: invalid/duplicate direct feature list")
     if int(manifest.get("feature_count", -1)) != len(feature_names):

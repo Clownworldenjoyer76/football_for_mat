@@ -521,6 +521,32 @@ def main() -> int:
     audit_path = common.repo_root() / AUDIT_REL
     audit = pd.read_parquet(audit_path)
     selected, architectures = selected_rows(config, audit, args.split)
+    # _CONFIG_ENFORCED_REPORTING_SPLIT
+    training = config["training"]
+    split_season = {
+        "validation": int(
+            training["development_validation_season"]
+        ),
+        "test": int(
+            training["untouched_test_season"]
+        ),
+    }.get(str(args.split))
+    if split_season is None:
+        raise ValueError(
+            f"Unsupported reporting split: {args.split!r}"
+        )
+    observed_seasons = set(
+        pd.to_numeric(
+            selected["season"],
+            errors="raise",
+        ).astype(int)
+    )
+    if observed_seasons != {split_season}:
+        raise ValueError(
+            f"{args.split} report rows must use configured "
+            f"season {split_season}; "
+            f"observed={sorted(observed_seasons)}"
+        )
     enriched, context_meta = load_context(config, selected)
 
     # Required reports.

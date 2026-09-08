@@ -331,7 +331,7 @@ def component_points(
     p["receiving_tds"] = rzv * rz * num(base["receiving_td_per_red_zone_target"])
     p["kicking_points"] = 3*num(base["projected_fg_attempts"])*num(base["projected_fg_make_probability"]) + num(base["projected_pat_attempts"])*num(base["extra_point_conversion"])
     p["tackles"] = num(base["opponent_offensive_plays"]) * num(base["allocated_def_participation"]) * num(base["tackle_rate_per_defensive_play"])
-    p["sacks"] = num(base["opponent_dropbacks"]) * num(base["allocated_def_participation"]) * num(base["sack_rate_per_defensive_play"])
+    p["sacks"] = num(base["opponent_offensive_plays"]) * num(base["allocated_def_participation"]) * num(base["sack_rate_per_defensive_play"])
     for t in TARGETS:
         if t not in {"passing_yards", "rushing_yards", "receiving_yards"}:
             p[t] = p[t].clip(lower=0)

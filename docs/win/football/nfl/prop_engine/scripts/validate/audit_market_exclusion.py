@@ -40,6 +40,10 @@ OUTPUT_RELATIVE_PATH = (
     "market_exclusion_audit.json"
 )
 
+FORBIDDEN_INPUT_CONTRACT_RELATIVE_PATH = (
+    "docs/win/football/nfl/prop_engine/config/prop_engine.yaml"
+)
+
 FEATURE_LIST_KEYS = {
     "feature_columns",
     "numeric_features",
@@ -52,25 +56,26 @@ SKIP_SUFFIXES = {".pyc", ".pyo", ".tmp", ".lock"}
 SKIP_NAMES = {".DS_Store", "Thumbs.db"}
 
 
-def forbidden_source_references() -> list[str]:
-    """Return the exact Issue 28 deny-list without self-matching its source."""
-    nfl = "docs/win/football/nfl/"
-    historic = nfl + "data/historic_data/"
-    intake = nfl + "scripts/00_intake/"
-    predictions = historic + "predictions/"
+def forbidden_source_references(config: dict | None = None) -> list[str]:
+    active = common.load_config() if config is None else config
+    values = active.get("forbidden_input_paths")
+    if not isinstance(values, list) or not values:
+        raise ValueError(
+            "Config forbidden_input_paths must be a non-empty list."
+        )
 
-    return [
-        historic + "odds/",
-        intake + "pull_" + "odds.py",
-        intake + "pull_opening_" + "odds.py",
-        intake + "enrich_" + "moneyline.py",
-        intake + "enrich_" + "spread.py",
-        intake + "enrich_" + "totals.py",
-        intake + "pull_market_" + "futures.py",
-        predictions + "drat/",
-        predictions + "epred/",
+    normalized = [
+        str(value).strip().replace("\\", "/")
+        for value in values
+        if str(value).strip()
     ]
 
+    if len(normalized) != len(values):
+        raise ValueError(
+            "Config forbidden_input_paths cannot contain blank values."
+        )
+
+    return list(dict.fromkeys(normalized))
 
 def normalize_reference_text(value: str) -> str:
     return value.replace("\\", "/").casefold()
@@ -246,13 +251,14 @@ def scan_one_file(
             # Non-text files have no inspectable source reference contract here.
             return source_hits, feature_hits
 
-    source_hits.extend(
-        scan_text_for_source_references(
-            text,
-            display_path=display,
-            deny_refs=deny_refs,
+    if display != FORBIDDEN_INPUT_CONTRACT_RELATIVE_PATH:
+        source_hits.extend(
+            scan_text_for_source_references(
+                text,
+                display_path=display,
+                deny_refs=deny_refs,
+            )
         )
-    )
 
     if suffix == ".json":
         try:
@@ -271,17 +277,57 @@ def scan_one_file(
     return source_hits, feature_hits
 
 
+
+def configured_path_forbidden_hits(
+    config: dict,
+    deny_refs: Iterable[str],
+) -> list[str]:
+    hits: list[str] = []
+    paths = config.get("paths", {})
+
+    if not isinstance(paths, dict):
+        raise ValueError("Config paths must be a mapping.")
+
+    normalized_rules = [
+        (
+            normalize_reference_text(reference),
+            str(reference).replace("\\", "/").endswith("/"),
+            str(reference),
+        )
+        for reference in deny_refs
+    ]
+
+    for key, value in paths.items():
+        candidate = normalize_reference_text(str(value))
+        for rule, is_directory, reference in normalized_rules:
+            blocked = (
+                candidate == rule
+                or (
+                    is_directory
+                    and candidate.startswith(rule)
+                )
+            )
+            if blocked:
+                hits.append(
+                    f"config.paths.{key} -> {reference}"
+                )
+
+    return sorted(set(hits))
+
 def audit_paths(
     roots: Iterable[Path],
     *,
     config: dict,
     repo: Path | None = None,
 ) -> dict:
-    deny_refs = forbidden_source_references()
+    deny_refs = forbidden_source_references(config)
     feature_tokens = forbidden_feature_tokens(config)
     files = iter_scan_files(roots)
 
-    source_hits: list[str] = []
+    source_hits: list[str] = configured_path_forbidden_hits(
+        config,
+        deny_refs,
+    )
     feature_hits: list[str] = []
     for path in files:
         one_source, one_feature = scan_one_file(

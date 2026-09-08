@@ -11,6 +11,105 @@
   },
   "forbidden_features_used": false,
   "market_features_used": false,
+  "point_prediction_blend": {
+    "calibrated_weight": 0.25,
+    "candidate_calibrated_weights": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "candidate_metrics": [
+      {
+        "calibrated_weight": 0.0,
+        "failed_gates": [],
+        "passed_all_configured_gates": true,
+        "raw_weight": 1.0,
+        "validation_absolute_bias": 1.4437590771664945,
+        "validation_bias": -1.4437590771664945,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 5.667785870282524,
+        "validation_mae": 7.901974664910666,
+        "validation_poisson_deviance": null
+      },
+      {
+        "calibrated_weight": 0.25,
+        "failed_gates": [],
+        "passed_all_configured_gates": true,
+        "raw_weight": 0.75,
+        "validation_absolute_bias": 1.5425600783890312,
+        "validation_bias": -1.5425600783890312,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 6.293495036479695,
+        "validation_mae": 7.849560566243445,
+        "validation_poisson_deviance": null
+      },
+      {
+        "calibrated_weight": 0.5,
+        "failed_gates": [
+          "bias"
+        ],
+        "passed_all_configured_gates": false,
+        "raw_weight": 0.5,
+        "validation_absolute_bias": 1.6413610796115676,
+        "validation_bias": -1.6413610796115676,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 6.797631467500239,
+        "validation_mae": 7.807330312852967,
+        "validation_poisson_deviance": null
+      },
+      {
+        "calibrated_weight": 0.75,
+        "failed_gates": [
+          "bias"
+        ],
+        "passed_all_configured_gates": false,
+        "raw_weight": 0.25,
+        "validation_absolute_bias": 1.7401620808341038,
+        "validation_bias": -1.7401620808341038,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 7.065600310944328,
+        "validation_mae": 7.784883230152578,
+        "validation_poisson_deviance": null
+      },
+      {
+        "calibrated_weight": 1.0,
+        "failed_gates": [
+          "bias"
+        ],
+        "passed_all_configured_gates": false,
+        "raw_weight": 0.0,
+        "validation_absolute_bias": 1.8389630820566405,
+        "validation_bias": -1.8389630820566405,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 7.1398104002042855,
+        "validation_mae": 7.778666835778472,
+        "validation_poisson_deviance": null
+      }
+    ],
+    "floor_at_zero": false,
+    "interval_calibration_unchanged": true,
+    "method": "validation_only_blend_raw_with_existing_calibrated_point",
+    "probability_calibration_unchanged": true,
+    "raw_weight": 0.75,
+    "selected_validation_metrics": {
+      "calibrated_weight": 0.25,
+      "failed_gates": [],
+      "passed_all_configured_gates": true,
+      "raw_weight": 0.75,
+      "validation_absolute_bias": 1.5425600783890312,
+      "validation_bias": -1.5425600783890312,
+      "validation_brier_1plus": null,
+      "validation_improvement_vs_baseline_pct": 6.293495036479695,
+      "validation_mae": 7.849560566243445,
+      "validation_poisson_deviance": null
+    },
+    "selection_season": 2024,
+    "selection_split": "validation",
+    "selection_status": "validation_candidate_passed_all_gates",
+    "test_rows_used_for_selection": false
+  },
   "quantile_calibration": {
     "coverage_widening": {
       "global": {

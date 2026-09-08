@@ -177,7 +177,7 @@ COMPONENT_DEPENDENCIES = {
         "tackle_rate_per_defensive_play",
     ],
     "sacks": [
-        "opponent_dropbacks",
+        "opponent_offensive_plays",
         "player_defensive_participation",
         "sack_rate_per_defensive_play",
     ],
@@ -1130,7 +1130,7 @@ def build_component_target_prediction(
         )
     elif target == "sacks":
         projection = (
-            frame["opponent_dropbacks"]
+            frame["opponent_offensive_plays"]
             * frame["player_defensive_participation"]
             * frame["sack_rate_per_defensive_play"]
         )
@@ -1323,6 +1323,32 @@ def main() -> int:
     folds = common.read_parquet_required(FOLDS_PATH)
     policy = resolve_folds(folds)
     assert_trainer_cutoffs(policy)
+
+    # _CONFIG_ENFORCED_SELECTION_POLICY
+    training = config["training"]
+    configured_policy = {
+        "selection_train_end_season": int(
+            training["model_selection_train_end_season"]
+        ),
+        "validation_season": int(
+            training["development_validation_season"]
+        ),
+        "final_train_end_season": int(
+            training["final_train_end_season"]
+        ),
+        "test_season": int(
+            training["untouched_test_season"]
+        ),
+    }
+    observed_policy = {
+        key: int(policy[key])
+        for key in configured_policy
+    }
+    if observed_policy != configured_policy:
+        raise ValueError(
+            "Backtest-fold policy differs from config.training. "
+            f"observed={observed_policy}, configured={configured_policy}"
+        )
 
     baseline = common.read_parquet_required(BASELINE_PATH)
     baseline_validation, baseline_test = load_baseline_windows(

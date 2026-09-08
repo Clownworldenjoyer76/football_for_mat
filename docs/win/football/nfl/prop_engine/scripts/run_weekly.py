@@ -32,6 +32,8 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 import common
 
+
+_CONFIG_CONTRACT = common.load_config()
 PIPELINE = (
     'build/refresh_nflverse_player_data.py',
     'build/build_player_identity.py',
@@ -49,10 +51,7 @@ PIPELINE = (
     'validate/validate_week.py',
 )
 
-TARGETS = (
-    'passing_yards', 'passing_tds', 'rushing_yards', 'rushing_tds',
-    'receiving_yards', 'receiving_tds', 'kicking_points', 'tackles', 'sacks',
-)
+TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 
 REQUIRED_MANIFEST_KEYS = (
     'season', 'week', 'as_of', 'generated_at', 'source_files', 'source_hashes',

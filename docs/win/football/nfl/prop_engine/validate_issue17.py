@@ -108,7 +108,7 @@ REQUIRED_MATCHUPS = [
     "matchup_player_target_share_x_opp_targets",
     "matchup_player_carry_share_x_opp_rushes",
     "matchup_player_tackle_rate_x_opp_plays",
-    "matchup_player_sack_rate_x_opp_dropbacks",
+    "matchup_player_sack_rate_x_opp_plays",
     "matchup_off_epa_vs_def_epa",
     "matchup_pass_rate_vs_opponent",
     "matchup_rush_rate_vs_opponent",
@@ -1026,12 +1026,12 @@ def main() -> int:
         )
         * expected["matchup_expected_opponent_plays"]
     )
-    expected["matchup_player_sack_rate_x_opp_dropbacks"] = (
+    expected["matchup_player_sack_rate_x_opp_plays"] = (
         pd.to_numeric(
             calc["player_sack_rate_per_def_play_roll5_mean"],
             errors="coerce",
         )
-        * expected["matchup_expected_opponent_dropbacks"]
+        * expected["matchup_expected_opponent_plays"]
     )
     expected["matchup_off_epa_vs_def_epa"] = (
         pd.to_numeric(calc["team_off_epa_per_play_roll3_mean"], errors="coerce")

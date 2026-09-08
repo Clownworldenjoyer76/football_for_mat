@@ -345,6 +345,35 @@ def main() -> int:
         config["seasons"]["historical_end"]
     )
 
+    # _CONFIG_ENFORCED_BACKTEST_POLICY
+    training = config["training"]
+    configured_policy = {
+        "model_selection_train_end_season": int(
+            training["model_selection_train_end_season"]
+        ),
+        "development_validation_season": int(
+            training["development_validation_season"]
+        ),
+        "final_train_end_season": int(
+            training["final_train_end_season"]
+        ),
+        "untouched_test_season": int(
+            training["untouched_test_season"]
+        ),
+    }
+    derived_policy = {
+        "model_selection_train_end_season": historical_end - 2,
+        "development_validation_season": historical_end - 1,
+        "final_train_end_season": historical_end - 1,
+        "untouched_test_season": historical_end,
+    }
+    if configured_policy != derived_policy:
+        raise ValueError(
+            "Configured training split boundaries disagree with the "
+            "chronological annual-fold contract. "
+            f"configured={configured_policy}, derived={derived_policy}"
+        )
+
     feature_path = config["paths"]["historical_features"]
     output_path = (
         "docs/win/football/nfl/prop_engine/evaluation/"

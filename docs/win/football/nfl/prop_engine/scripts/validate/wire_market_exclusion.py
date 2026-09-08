@@ -23,6 +23,8 @@ if str(SCRIPTS_ROOT) not in sys.path:
 import common
 
 
+_CONFIG_CONTRACT = common.load_config()
+
 MARKER = "# ISSUE28_MARKET_EXCLUSION_PREFLIGHT"
 BLOCK = [
     f"    {MARKER}\n",

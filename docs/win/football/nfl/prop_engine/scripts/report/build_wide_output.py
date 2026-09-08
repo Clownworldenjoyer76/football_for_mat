@@ -37,18 +37,10 @@ if str(SCRIPTS_ROOT) not in sys.path:
 
 import common
 
+
+_CONFIG_CONTRACT = common.load_config()
 GRAIN = ["season", "week", "game_id", "player_id"]
-TARGETS = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
-    "kicking_points",
-    "tackles",
-    "sacks",
-]
+TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 
 OUTPUT_COLUMNS = [
     "season",

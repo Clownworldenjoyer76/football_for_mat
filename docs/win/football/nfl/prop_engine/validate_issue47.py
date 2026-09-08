@@ -94,7 +94,7 @@ def main() -> int:
     e2e_text = (TESTS / "test_end_to_end.py").read_text(encoding="utf-8")
     for marker in [
         "historical_features",
-        "historical_player_stats_pattern",
+        "player_opportunity",
         "overlay_current_player_stats",
         "player_pass_attempts_lag1",
         "player_pass_attempts_season_to_date",

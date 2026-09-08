@@ -1,0 +1,239 @@
+{
+  "all_candidates": [
+    {
+      "final_severity": 1.0,
+      "name": "unit_positive_severity",
+      "selection_severity": 1.0,
+      "test_failed_reporting_only": [
+        "mae",
+        "improvement"
+      ],
+      "test_metrics_reporting_only": {
+        "abs_bias": 0.011808594199018052,
+        "baseline_mae": 0.09886624015545015,
+        "bias": -0.011808594199018052,
+        "brier_1plus": 0.0448886433314496,
+        "event_rate": 0.05993275836865955,
+        "improvement_vs_baseline_pct": -4.206912570379933,
+        "mae": 0.10302545644041179,
+        "mean_actual": 0.07396579447449203,
+        "mean_expected_count": 0.06215720027547397,
+        "mean_p1": 0.06215720027547397,
+        "poisson_deviance": 0.23724208016161516,
+        "rows": 6841
+      },
+      "validation_failed": [
+        "mae",
+        "improvement"
+      ],
+      "validation_metrics": {
+        "abs_bias": 0.011737773735968298,
+        "baseline_mae": 0.094660843759946,
+        "bias": -0.011737773735968298,
+        "brier_1plus": 0.04292608006188718,
+        "event_rate": 0.06144683323649041,
+        "improvement_vs_baseline_pct": -4.763181596479735,
+        "mae": 0.09916971164899219,
+        "mean_actual": 0.07364904125508426,
+        "mean_expected_count": 0.06191126751911596,
+        "mean_p1": 0.06191126751911596,
+        "poisson_deviance": 0.22409621878547584,
+        "rows": 6884
+      }
+    },
+    {
+      "final_severity": 1.1866117404737384,
+      "name": "training_positive_mean_severity",
+      "selection_severity": 1.1853691578234364,
+      "test_failed_reporting_only": [
+        "mae",
+        "improvement"
+      ],
+      "test_metrics_reporting_only": {
+        "abs_bias": 0.0002093308726371211,
+        "baseline_mae": 0.09886624015545015,
+        "bias": -0.0002093308726371211,
+        "brier_1plus": 0.0448886433314496,
+        "event_rate": 0.05993275836865955,
+        "improvement_vs_baseline_pct": -9.691974092404273,
+        "mae": 0.10844833053745057,
+        "mean_actual": 0.07396579447449203,
+        "mean_expected_count": 0.07375646360185491,
+        "mean_p1": 0.06215720027547397,
+        "poisson_deviance": 0.23512922066687794,
+        "rows": 6841
+      },
+      "validation_failed": [
+        "mae",
+        "improvement"
+      ],
+      "validation_metrics": {
+        "abs_bias": 0.0002613342161682975,
+        "baseline_mae": 0.094660843759946,
+        "bias": -0.0002613342161682975,
+        "brier_1plus": 0.04292608006188718,
+        "event_rate": 0.06144683323649041,
+        "improvement_vs_baseline_pct": -9.760755028220018,
+        "mae": 0.10390045682700043,
+        "mean_actual": 0.07364904125508426,
+        "mean_expected_count": 0.07338770703891595,
+        "mean_p1": 0.06191126751911596,
+        "poisson_deviance": 0.22200043263249217,
+        "rows": 6884
+      }
+    }
+  ],
+  "architecture": "binary_hurdle_probability_x_positive_count_severity",
+  "binary_target": "target_rushing_tds >= 1",
+  "chosen_from_2024_only": {
+    "final_severity": 1.0,
+    "name": "unit_positive_severity",
+    "selection_severity": 1.0,
+    "test_failed_reporting_only": [
+      "mae",
+      "improvement"
+    ],
+    "test_metrics_reporting_only": {
+      "abs_bias": 0.011808594199018052,
+      "baseline_mae": 0.09886624015545015,
+      "bias": -0.011808594199018052,
+      "brier_1plus": 0.0448886433314496,
+      "event_rate": 0.05993275836865955,
+      "improvement_vs_baseline_pct": -4.206912570379933,
+      "mae": 0.10302545644041179,
+      "mean_actual": 0.07396579447449203,
+      "mean_expected_count": 0.06215720027547397,
+      "mean_p1": 0.06215720027547397,
+      "poisson_deviance": 0.23724208016161516,
+      "rows": 6841
+    },
+    "validation_failed": [
+      "mae",
+      "improvement"
+    ],
+    "validation_metrics": {
+      "abs_bias": 0.011737773735968298,
+      "baseline_mae": 0.094660843759946,
+      "bias": -0.011737773735968298,
+      "brier_1plus": 0.04292608006188718,
+      "event_rate": 0.06144683323649041,
+      "improvement_vs_baseline_pct": -4.763181596479735,
+      "mae": 0.09916971164899219,
+      "mean_actual": 0.07364904125508426,
+      "mean_expected_count": 0.06191126751911596,
+      "mean_p1": 0.06191126751911596,
+      "poisson_deviance": 0.22409621878547584,
+      "rows": 6884
+    }
+  },
+  "diagnostic_only": true,
+  "market_data_used": false,
+  "outputs": {
+    "csv": "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\evaluation\\issue56_rushing_tds_hurdle_predictions.csv",
+    "json": "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\evaluation\\issue56_rushing_tds_hurdle_diagnostic.json"
+  },
+  "preflight": {
+    "audit_rows": {
+      "test": 6841,
+      "validation": 6884
+    },
+    "binary_params": {
+      "bagging_fraction": 1.0,
+      "bagging_freq": 0,
+      "bagging_seed": 24024,
+      "boosting_type": "gbdt",
+      "data_random_seed": 24024,
+      "deterministic": true,
+      "feature_fraction": 1.0,
+      "feature_fraction_seed": 24024,
+      "force_col_wise": true,
+      "lambda_l1": 0.0,
+      "lambda_l2": 0.0,
+      "learning_rate": 0.03,
+      "max_bin": 255,
+      "metric": "binary_logloss",
+      "min_data_in_leaf": 40,
+      "num_leaves": 31,
+      "num_threads": 1,
+      "objective": "binary",
+      "seed": 24024,
+      "verbosity": -1
+    },
+    "feature_count": 167,
+    "final_train_end": 2024,
+    "market_features_used": false,
+    "selection_train_end": 2023,
+    "test_season": 2025,
+    "test_used_for_selection": false,
+    "thresholds": {
+      "maximum_allowed_bias": 0.017295,
+      "maximum_brier_1plus": 0.051884,
+      "maximum_poisson_deviance": 0.445741,
+      "maximum_validation_mae": 0.090797,
+      "minimum_improvement_vs_baseline_pct": 7.784147,
+      "minimum_training_rows": 78537,
+      "production_approval": false
+    },
+    "validation_season": 2024
+  },
+  "production_files_modified": false,
+  "selection_status": "no_candidate_passed_2024_gates",
+  "severity_policy": {
+    "2025_outcomes_used_for_severity": false,
+    "candidate_names": [
+      "unit_positive_severity",
+      "training_positive_mean_severity"
+    ],
+    "final_global_positive_mean_through_2024": 1.1866117404737384,
+    "selection_global_positive_mean_through_2023": 1.1853691578234364
+  },
+  "status": "complete",
+  "target": "rushing_tds",
+  "thresholds_unchanged": {
+    "maximum_allowed_bias": 0.017295,
+    "maximum_brier_1plus": 0.051884,
+    "maximum_poisson_deviance": 0.445741,
+    "maximum_validation_mae": 0.090797,
+    "minimum_improvement_vs_baseline_pct": 7.784147,
+    "minimum_training_rows": 78537,
+    "production_approval": false
+  },
+  "training_policy": {
+    "best_iteration_selected_on_2024": 270,
+    "binary_params": {
+      "bagging_fraction": 1.0,
+      "bagging_freq": 0,
+      "bagging_seed": 24024,
+      "boosting_type": "gbdt",
+      "data_random_seed": 24024,
+      "deterministic": true,
+      "feature_fraction": 1.0,
+      "feature_fraction_seed": 24024,
+      "force_col_wise": true,
+      "lambda_l1": 0.0,
+      "lambda_l2": 0.0,
+      "learning_rate": 0.03,
+      "max_bin": 255,
+      "metric": "binary_logloss",
+      "min_data_in_leaf": 40,
+      "num_leaves": 31,
+      "num_threads": 1,
+      "objective": "binary",
+      "seed": 24024,
+      "verbosity": -1
+    },
+    "final_train_end": 2024,
+    "final_training_positive_rows": 4855,
+    "final_training_rows": 85565,
+    "selection_train_end": 2023,
+    "selection_training_positive_rows": 4429,
+    "selection_training_rows": 78537,
+    "test_positive_rows": 414,
+    "test_rows": 7035,
+    "test_season": 2025,
+    "test_used_for_selection": false,
+    "validation_positive_rows": 426,
+    "validation_rows": 7028,
+    "validation_season": 2024
+  }
+}

@@ -773,22 +773,7 @@ def write_output_atomic(
         raise ValueError("Issue 12 output column order mismatch before write.")
     common.ensure_unique(output, GRAIN, "Issue 12 player form output")
 
-    handle = tempfile.NamedTemporaryFile(
-        mode="wb",
-        prefix=f".{destination.name}.",
-        suffix=".tmp",
-        dir=destination.parent,
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-    handle.close()
-
-    try:
-        output.to_parquet(temp_path, index=False)
-        os.replace(temp_path, destination)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
+    common.write_parquet_atomic(output, destination)
 
 
 def main() -> None:

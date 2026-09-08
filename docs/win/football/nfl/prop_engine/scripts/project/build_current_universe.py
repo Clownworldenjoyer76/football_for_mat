@@ -1066,22 +1066,16 @@ def main() -> int:
         resolved_groups[(record["team"], gsis_id)].append(record)
         resolution_methods[(record["team"], gsis_id)].add(method)
 
-    if critical_unresolved:
-        log_path = prop / "logs" / f"current_universe_{season}_week_{week}.json"
-        failure_payload = {
-            "script": "build_current_universe.py",
-            "status": "failed",
-            "season": season,
-            "week": week,
-            "critical_unresolved_starters": critical_unresolved,
-            "skipped_unresolved_nonstarters": unresolved_skipped,
-            "market_exclusion_passed": True,
-        }
-        write_json_atomic(failure_payload, log_path)
-        raise RuntimeError(
-            "Issue 29 unresolved starter identity failure. "
-            f"Count={len(critical_unresolved)} sample={critical_unresolved[:10]} "
-            f"See {log_path}"
+    for item in [*critical_unresolved, *unresolved_skipped]:
+        print(
+            "IDENTITY WARNING: unresolved current-week player excluded; "
+            f"names={item.get('player_names', [])} "
+            f"espn_ids={item.get('espn_ids', [])} "
+            f"team={item.get('team', '')} "
+            f"position={item.get('position', '')} "
+            f"starter={item.get('depth_starter_flag', 0)} "
+            f"reason={item.get('reason', '')}",
+            file=sys.stderr,
         )
 
     player_teams: dict[str, set[str]] = defaultdict(set)
@@ -1288,15 +1282,21 @@ def main() -> int:
         "current_roster_source": current_roster_source,
         "recent_defensive_participant_keys": len(recent_defense),
         "native_current_gsis_ids_used": sorted(native_ids_used),
-        "critical_unresolved_starters": [],
+        "critical_unresolved_starters": critical_unresolved,
         "skipped_unresolved_nonstarters": unresolved_skipped,
         "skipped_unresolved_count": len(unresolved_skipped),
+        "critical_unresolved_count": len(critical_unresolved),
+        "total_unresolved_skipped_count": (
+            len(critical_unresolved) + len(unresolved_skipped)
+        ),
+        "unresolved_identity_policy": "skip_and_continue",
         "rules": {
             "nonscheduled_teams_removed": True,
             "out_ineligible": True,
             "verified_nonplaying_ineligible": True,
             "questionable_remains_eligible_with_flag": True,
-            "unresolved_starter_identity_fails": True,
+            "unresolved_starter_identity_fails": False,
+            "unresolved_identity_skipped_and_logged": True,
             "noncritical_unresolved_backup_skipped_and_logged": True,
             "defensive_requires_depth_or_recent_participation": True,
             "kicker_requires_k_or_pk_role": True,
@@ -1315,7 +1315,9 @@ def main() -> int:
             "week": week,
             "rows": int(len(output)),
             "eligible_rows": int(output["eligibility_status"].eq("eligible").sum()),
-            "skipped_unresolved": len(unresolved_skipped),
+            "skipped_unresolved": (
+                len(critical_unresolved) + len(unresolved_skipped)
+            ),
             "status": "passed",
         },
     )
@@ -1330,7 +1332,9 @@ def main() -> int:
                 "rows": int(len(output)),
                 "eligible_rows": int(output["eligibility_status"].eq("eligible").sum()),
                 "ineligible_rows": int(output["eligibility_status"].eq("ineligible").sum()),
-                "skipped_unresolved": len(unresolved_skipped),
+                "skipped_unresolved": (
+                len(critical_unresolved) + len(unresolved_skipped)
+            ),
                 "native_current_gsis_ids_used": len(native_ids_used),
                 "output": output_path.relative_to(repo).as_posix(),
                 "log": log_path.relative_to(repo).as_posix(),

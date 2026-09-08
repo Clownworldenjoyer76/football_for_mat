@@ -27,8 +27,10 @@ import argparse
 import importlib
 import json
 import os
+import shutil
 import sys
 import tempfile
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -313,6 +315,108 @@ def load_nflreadpy(
         module_version(nfl),
     )
 
+
+
+def nflverse_release_url(
+    family: str,
+    season: int,
+) -> str:
+    releases = {
+        "player_stats": (
+            "stats_player",
+            f"stats_player_week_{season}.parquet",
+        ),
+        "weekly_rosters": (
+            "weekly_rosters",
+            f"roster_weekly_{season}.parquet",
+        ),
+        "snap_counts": (
+            "snap_counts",
+            f"snap_counts_{season}.parquet",
+        ),
+        "participation": (
+            "pbp_participation",
+            f"pbp_participation_{season}.parquet",
+        ),
+        "players": (
+            "players",
+            "players.parquet",
+        ),
+    }
+
+    if family not in releases:
+        raise ValueError(
+            f"Unsupported family: {family}"
+        )
+
+    tag, filename = releases[family]
+
+    return (
+        "https://github.com/"
+        "nflverse/nflverse-data/releases/download/"
+        f"{tag}/{filename}"
+    )
+
+
+def load_nflverse_release(
+    family: str,
+    season: int,
+) -> tuple[pd.DataFrame, str]:
+    # Official nflverse GitHub release fallback. This is attempted
+    # only after nflreadpy, so nflreadpy remains the first source.
+    url = nflverse_release_url(
+        family,
+        season,
+    )
+
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "football_for_mat-prop-engine/1.0"
+            ),
+        },
+    )
+
+    temp_path: Path | None = None
+
+    try:
+        with urllib.request.urlopen(
+            request,
+            timeout=60,
+        ) as response:
+            handle = tempfile.NamedTemporaryFile(
+                mode="wb",
+                prefix=(
+                    f".nflverse_{family}_{season}."
+                ),
+                suffix=".parquet",
+                delete=False,
+            )
+
+            temp_path = Path(
+                handle.name
+            )
+
+            with handle:
+                shutil.copyfileobj(
+                    response,
+                    handle,
+                )
+
+        return (
+            pd.read_parquet(
+                temp_path
+            ),
+            "official-github-release",
+        )
+
+    finally:
+        if (
+            temp_path is not None
+            and temp_path.exists()
+        ):
+            temp_path.unlink()
 
 def load_nfl_data_py(
     family: str,
@@ -646,6 +750,10 @@ def refresh_family(
             load_nflreadpy,
         ),
         (
+            "nflverse_release",
+            load_nflverse_release,
+        ),
+        (
             "nfl_data_py",
             load_nfl_data_py,
         ),
@@ -848,6 +956,13 @@ def main() -> int:
             "fallback_source": (
                 "nfl_data_py"
             ),
+            "official_release_fallback": (
+                True
+            ),
+            "fallback_order": [
+                "nflverse_release",
+                "nfl_data_py",
+            ],
             "market_data_allowed": (
                 config["system"][
                     "market_data_allowed"

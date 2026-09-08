@@ -1,0 +1,286 @@
+{
+  "status": "blocked",
+  "generated_at": "2026-09-07T16:23:50.930282Z",
+  "season": 2026,
+  "week": 1,
+  "checks_total": 30,
+  "checks_passed": 28,
+  "checks_blocked": 2,
+  "blocked_checks": [
+    {
+      "number": 28,
+      "name": "Production registry contains explicit approved versions"
+    },
+    {
+      "number": 30,
+      "name": "Run manifest contains complete production run metadata"
+    }
+  ],
+  "checks": [
+    {
+      "number": 1,
+      "name": "Every Prop Engine implementation file/deliverable is rooted under prop_engine",
+      "passed": true,
+      "details": {
+        "root": "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine"
+      }
+    },
+    {
+      "number": 2,
+      "name": "Existing game-prediction files remain unchanged",
+      "passed": true,
+      "details": {
+        "changed_outside_prop_engine": []
+      }
+    },
+    {
+      "number": 3,
+      "name": "GSIS ID is canonical",
+      "passed": true,
+      "details": {
+        "resolved_rows": 26514,
+        "unresolved_rows_allowed": 13
+      }
+    },
+    {
+      "number": 4,
+      "name": "All nine historical targets exist",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 5,
+      "name": "Zero-stat participants remain represented",
+      "passed": true,
+      "details": {
+        "rows": 86122
+      }
+    },
+    {
+      "number": 6,
+      "name": "Nonparticipants are not false zeros",
+      "passed": true,
+      "details": {
+        "rows": 227381
+      }
+    },
+    {
+      "number": 7,
+      "name": "All model features are pregame-safe",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 8,
+      "name": "Week 1 fallback exists",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 9,
+      "name": "Rookie fallback exists",
+      "passed": true,
+      "details": {
+        "rookie_rows": 222
+      }
+    },
+    {
+      "number": 10,
+      "name": "Trade logic exists",
+      "passed": true,
+      "details": {
+        "new_team_rows": 248
+      }
+    },
+    {
+      "number": 11,
+      "name": "Backup-promotion logic exists",
+      "passed": true,
+      "details": {
+        "role_test_returncode": 0
+      }
+    },
+    {
+      "number": 12,
+      "name": "QB starter selection exists",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 13,
+      "name": "Kicker selection exists",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 14,
+      "name": "Offensive opportunity allocation exists",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 15,
+      "name": "Defensive participation modeling exists",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 16,
+      "name": "Direct models exist for all nine targets",
+      "passed": true,
+      "details": {
+        "missing": []
+      }
+    },
+    {
+      "number": 17,
+      "name": "All required opportunity and efficiency component models exist",
+      "passed": true,
+      "details": {
+        "missing": []
+      }
+    },
+    {
+      "number": 18,
+      "name": "Chronological validation exists",
+      "passed": true,
+      "details": {
+        "split": {
+          "model_selection_train_end_season": 2023,
+          "development_validation_season": 2024,
+          "final_train_end_season": 2024,
+          "untouched_test_season": 2025
+        }
+      }
+    },
+    {
+      "number": 19,
+      "name": "2025 is untouched during initial model selection",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 20,
+      "name": "Uncertainty is calibrated",
+      "passed": true,
+      "details": {
+        "invalid_or_missing": []
+      }
+    },
+    {
+      "number": 21,
+      "name": "Final output includes point, low, and high estimates where applicable",
+      "passed": true,
+      "details": {
+        "active_rows": 3358
+      }
+    },
+    {
+      "number": 22,
+      "name": "TD and sack outputs include supported event probabilities",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 23,
+      "name": "Market-exclusion audit passes",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 24,
+      "name": "Historical validation passes",
+      "passed": true,
+      "details": {
+        "returncode": 0,
+        "status": "passed",
+        "checks_failed": 0
+      }
+    },
+    {
+      "number": 25,
+      "name": "Weekly validation passes",
+      "passed": true,
+      "details": {
+        "returncode": 0
+      }
+    },
+    {
+      "number": 26,
+      "name": "Unit tests pass",
+      "passed": true,
+      "details": {
+        "returncode": 0,
+        "stdout_tail": ".........................................                                [100%]\n41 passed in 1.87s\n",
+        "stderr_tail": ""
+      }
+    },
+    {
+      "number": 27,
+      "name": "End-to-end historical-as-current smoke test passes",
+      "passed": true,
+      "details": {
+        "returncode": 0
+      }
+    },
+    {
+      "number": 28,
+      "name": "Production registry contains explicit approved versions",
+      "passed": false,
+      "details": {
+        "targets": {
+          "passing_yards": {
+            "production_approved": false,
+            "version": null
+          },
+          "passing_tds": {
+            "production_approved": false,
+            "version": null
+          },
+          "rushing_yards": {
+            "production_approved": false,
+            "version": null
+          },
+          "rushing_tds": {
+            "production_approved": false,
+            "version": null
+          },
+          "receiving_yards": {
+            "production_approved": false,
+            "version": null
+          },
+          "receiving_tds": {
+            "production_approved": false,
+            "version": null
+          },
+          "kicking_points": {
+            "production_approved": false,
+            "version": null
+          },
+          "tackles": {
+            "production_approved": false,
+            "version": null
+          },
+          "sacks": {
+            "production_approved": false,
+            "version": null
+          }
+        }
+      }
+    },
+    {
+      "number": 29,
+      "name": "Weekly runner creates long and wide outputs",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "number": 30,
+      "name": "Run manifest contains complete production run metadata",
+      "passed": false,
+      "details": {
+        "path": "C:\\Users\\Mat\\Documents\\GitHub\\football_for_mat\\docs\\win\\football\\nfl\\prop_engine\\output\\2026\\week_1_run_manifest.json"
+      }
+    }
+  ]
+}

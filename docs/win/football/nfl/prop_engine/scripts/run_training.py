@@ -11,6 +11,8 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 import common
 
+
+_CONFIG_CONTRACT = common.load_config()
 PIPELINE = (
     'validate/audit_market_exclusion.py',
     'validate/validate_historical_data.py',
@@ -28,10 +30,7 @@ SEEDED_TRAINERS = frozenset({
     'train/train_efficiency_models.py',
     'train/train_direct_models.py',
 })
-TARGETS = (
-    'passing_yards','passing_tds','rushing_yards','rushing_tds',
-    'receiving_yards','receiving_tds','kicking_points','tackles','sacks',
-)
+TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 OPPORTUNITY_COMPONENTS = (
     'qb_pass_attempts','team_pass_attempts','team_rush_attempts',
     'player_carry_share','player_target_share','player_red_zone_target_share',

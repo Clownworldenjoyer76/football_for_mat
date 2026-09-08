@@ -117,6 +117,118 @@
   ],
   "forbidden_features_used": false,
   "market_features_used": false,
+  "point_prediction_blend": {
+    "calibrated_weight": 1.0,
+    "candidate_calibrated_weights": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "candidate_metrics": [
+      {
+        "calibrated_weight": 0.0,
+        "failed_gates": [
+          "bias"
+        ],
+        "passed_all_configured_gates": false,
+        "raw_weight": 1.0,
+        "validation_absolute_bias": 0.04108874086936792,
+        "validation_bias": -0.04108874086936792,
+        "validation_brier_1plus": 0.04647842346267121,
+        "validation_improvement_vs_baseline_pct": 8.649052436821915,
+        "validation_mae": 0.08647357774601021,
+        "validation_poisson_deviance": 0.42451538762758767
+      },
+      {
+        "calibrated_weight": 0.25,
+        "failed_gates": [
+          "mae",
+          "bias",
+          "improvement"
+        ],
+        "passed_all_configured_gates": false,
+        "raw_weight": 0.75,
+        "validation_absolute_bias": 0.03264227751766741,
+        "validation_bias": -0.03264227751766741,
+        "validation_brier_1plus": 0.04647842346267121,
+        "validation_improvement_vs_baseline_pct": 3.1030806370890436,
+        "validation_mae": 0.091723441446326,
+        "validation_poisson_deviance": 0.2866130671515435
+      },
+      {
+        "calibrated_weight": 0.5,
+        "failed_gates": [
+          "mae",
+          "bias",
+          "improvement"
+        ],
+        "passed_all_configured_gates": false,
+        "raw_weight": 0.5,
+        "validation_absolute_bias": 0.024195814165966896,
+        "validation_bias": -0.024195814165966896,
+        "validation_brier_1plus": 0.04647842346267121,
+        "validation_improvement_vs_baseline_pct": -2.4428911626438277,
+        "validation_mae": 0.0969733051466418,
+        "validation_poisson_deviance": 0.2722988055268784
+      },
+      {
+        "calibrated_weight": 0.75,
+        "failed_gates": [
+          "mae",
+          "improvement"
+        ],
+        "passed_all_configured_gates": false,
+        "raw_weight": 0.25,
+        "validation_absolute_bias": 0.015749350814266386,
+        "validation_bias": -0.015749350814266386,
+        "validation_brier_1plus": 0.04647842346267121,
+        "validation_improvement_vs_baseline_pct": -7.988862962376714,
+        "validation_mae": 0.10222316884695762,
+        "validation_poisson_deviance": 0.2649892793230753
+      },
+      {
+        "calibrated_weight": 1.0,
+        "failed_gates": [
+          "mae",
+          "improvement"
+        ],
+        "passed_all_configured_gates": false,
+        "raw_weight": 0.0,
+        "validation_absolute_bias": 0.007302887462565877,
+        "validation_bias": -0.007302887462565877,
+        "validation_brier_1plus": 0.04647842346267121,
+        "validation_improvement_vs_baseline_pct": -13.534834762109572,
+        "validation_mae": 0.1074730325472734,
+        "validation_poisson_deviance": 0.26191617678634294
+      }
+    ],
+    "floor_at_zero": true,
+    "interval_calibration_unchanged": true,
+    "method": "validation_only_blend_raw_with_existing_calibrated_point",
+    "probability_calibration_unchanged": true,
+    "raw_weight": 0.0,
+    "selected_validation_metrics": {
+      "calibrated_weight": 1.0,
+      "failed_gates": [
+        "mae",
+        "improvement"
+      ],
+      "passed_all_configured_gates": false,
+      "raw_weight": 0.0,
+      "validation_absolute_bias": 0.007302887462565877,
+      "validation_bias": -0.007302887462565877,
+      "validation_brier_1plus": 0.04647842346267121,
+      "validation_improvement_vs_baseline_pct": -13.534834762109572,
+      "validation_mae": 0.1074730325472734,
+      "validation_poisson_deviance": 0.26191617678634294
+    },
+    "selection_season": 2024,
+    "selection_split": "validation",
+    "selection_status": "no_validation_candidate_passed_all_gates",
+    "test_rows_used_for_selection": false
+  },
   "reporting_test_policy": {
     "test_reporting_only_preserved": true,
     "test_rows_used_for_calibration": false,
