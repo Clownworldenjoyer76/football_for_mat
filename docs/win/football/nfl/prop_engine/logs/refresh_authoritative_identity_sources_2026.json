@@ -1,0 +1,117 @@
+{
+  "builder": {
+    "path": "docs/win/football/nfl/prop_engine/scripts/build/build_player_identity.py",
+    "returncode": 0,
+    "stderr": "{\"payload\":{\"canonical_gsis_records\":26513,\"critical_unresolved_records\":0,\"status\":\"passed\",\"unresolved_current_records\":8},\"script\":\"build_player_identity.py\"}\n",
+    "stdout": ""
+  },
+  "canonical_source_repair": true,
+  "manual_identity_override": false,
+  "mappings": {
+    "4599158": {
+      "evidence": [
+        {
+          "gsis_id": "HEN032810",
+          "rows": 1,
+          "source": "players_exact_name_position"
+        }
+      ],
+      "gsis_id": "HEN032810",
+      "name": "Al-Jay Henderson",
+      "position": "RB",
+      "resolution_rule": "official_nflverse_unique_identity_evidence",
+      "surname": "henderson",
+      "team": "NYJ"
+    },
+    "4691889": {
+      "evidence": [
+        {
+          "gsis_id": "00-0041376",
+          "rows": 1,
+          "source": "roster_surname_team_position"
+        }
+      ],
+      "gsis_id": "00-0041376",
+      "name": "Greg Desrosiers Jr.",
+      "position": "RB",
+      "resolution_rule": "official_nflverse_unique_identity_evidence",
+      "surname": "desrosiers",
+      "team": "LAC"
+    },
+    "4699678": {
+      "evidence": [
+        {
+          "gsis_id": "00-0041357",
+          "rows": 1,
+          "source": "players_exact_espn"
+        },
+        {
+          "gsis_id": "00-0041357",
+          "rows": 1,
+          "source": "roster_exact_espn"
+        },
+        {
+          "gsis_id": "00-0041357",
+          "rows": 1,
+          "source": "players_exact_name_position"
+        },
+        {
+          "gsis_id": "00-0041357",
+          "rows": 1,
+          "source": "roster_exact_name_team_position"
+        },
+        {
+          "gsis_id": "00-0041357",
+          "rows": 1,
+          "source": "roster_surname_team_position"
+        }
+      ],
+      "gsis_id": "00-0041357",
+      "name": "Khalil Dinkins",
+      "position": "TE",
+      "resolution_rule": "official_nflverse_unique_identity_evidence",
+      "surname": "dinkins",
+      "team": "SF"
+    }
+  },
+  "official_assets": {
+    "players": {
+      "asset_id": "548883773",
+      "created_at": "2026-09-07T14:06:45Z",
+      "name": "players.parquet",
+      "release_updated_at": "2026-09-07T14:06:46Z",
+      "sha256": "bcf4e7e4adac7afeb8fae8f326c363c42eb223d4462752bc7f030c71103f50be",
+      "tag": "players",
+      "updated_at": "2026-09-07T14:06:46Z",
+      "url": "https://github.com/nflverse/nflverse-data/releases/download/players/players.parquet"
+    },
+    "weekly_roster_2026": {
+      "asset_id": "550407084",
+      "created_at": "2026-09-08T11:56:44Z",
+      "name": "roster_weekly_2026.parquet",
+      "release_updated_at": "2026-09-08T11:56:45Z",
+      "sha256": "8cda391904a385aa3a44612b17d63c97115ba962e938280ffb012ecd1dd8e556",
+      "tag": "weekly_rosters",
+      "updated_at": "2026-09-08T11:56:44Z",
+      "url": "https://github.com/nflverse/nflverse-data/releases/download/weekly_rosters/roster_weekly_2026.parquet"
+    }
+  },
+  "refreshed_at": "2026-09-08T12:05:38.145261Z",
+  "repository_sources": {
+    "players": {
+      "mapping_gsis_absent": 0,
+      "path": "docs/win/football/nfl/data/historic_data/players/players.parquet",
+      "sha256": "f86c5f61879cf0a025dfc3f62367f5b0d294a681423a466b58c9c0ea9b6bd9a2",
+      "updated_aliases": 2
+    },
+    "weekly_roster_2026": {
+      "gsis_mappings_present": 2,
+      "path": "docs/win/football/nfl/data/historic_data/weekly_rosters/roster_weekly_2026.parquet",
+      "sha256": "b23a7d79f96c5ae36f9038a2baa8d2d3a0b76dbca9b5946bdd5b8768fa924887",
+      "updated_alias_rows": 1
+    }
+  },
+  "script": "apply_gsis_identity_source_refresh.py",
+  "status": "passed",
+  "target_count": 3
+}

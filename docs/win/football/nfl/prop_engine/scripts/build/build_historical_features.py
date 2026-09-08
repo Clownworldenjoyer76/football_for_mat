@@ -70,17 +70,7 @@ LEADING_COLUMNS = [
     "home_flag",
 ]
 
-REQUIRED_TARGET_ORDER = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
-    "kicking_points",
-    "tackles",
-    "sacks",
-]
+REQUIRED_TARGET_ORDER = list(common.load_config()["targets"].keys())
 
 TARGET_COLUMNS = [f"target_{name}" for name in REQUIRED_TARGET_ORDER]
 

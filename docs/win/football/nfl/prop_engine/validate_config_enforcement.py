@@ -50,6 +50,9 @@ EXPECTED_TRAINING = {
     "development_validation_season": 2024,
     "final_train_end_season": 2024,
     "untouched_test_season": 2025,
+    "random_seed": 24024,
+    "deterministic": True,
+    "num_threads": 1,
 }
 
 PRODUCTION_DIRS = [
@@ -64,6 +67,7 @@ ROOT_PRODUCTION_FILES = [
     HERE / "scripts/run_historical_build.py",
     HERE / "scripts/run_training.py",
     HERE / "scripts/run_weekly.py",
+    HERE / "evaluate_production_approval.py",
 ]
 
 SPLIT_TRAINERS = [
@@ -420,55 +424,77 @@ def check_all_downstream_load_config() -> int:
 
 def check_no_literal_target_universe() -> int:
     checked = 0
-    candidates = [
-        *production_scripts(),
-        HERE / "scripts/run_training.py",
-        HERE / "scripts/run_weekly.py",
-    ]
+    violations: list[str] = []
 
-    for path in candidates:
-        if not path.is_file():
-            continue
+    configured = list(
+        common.load_config()["targets"].keys()
+    )
+    configured_set = set(configured)
 
+    for path in production_scripts():
         text = source(path)
         tree = ast.parse(text)
-        node = top_level_assignment(
-            tree,
-            "TARGETS",
+
+        for node in tree.body:
+            value_node: ast.AST | None = None
+            names: list[str] = []
+
+            if isinstance(node, ast.Assign):
+                value_node = node.value
+                names = [
+                    target.id
+                    for target in node.targets
+                    if isinstance(target, ast.Name)
+                ]
+            elif isinstance(node, ast.AnnAssign):
+                value_node = node.value
+                if isinstance(node.target, ast.Name):
+                    names = [node.target.id]
+
+            if value_node is None:
+                continue
+
+            if not isinstance(
+                value_node,
+                (ast.List, ast.Tuple, ast.Set),
+            ):
+                continue
+
+            try:
+                value = ast.literal_eval(value_node)
+            except Exception:
+                continue
+
+            if isinstance(value, (list, tuple, set)):
+                items = list(value)
+            else:
+                continue
+
+            if (
+                len(items) == len(configured)
+                and all(
+                    isinstance(item, str)
+                    for item in items
+                )
+                and set(items) == configured_set
+            ):
+                checked += 1
+                label = (
+                    ",".join(names)
+                    if names
+                    else "<unnamed>"
+                )
+                violations.append(
+                    f"{path.relative_to(HERE)}:"
+                    f"{label}"
+                )
+
+    if violations:
+        fail(
+            "Independent literal nine-target "
+            "production authority found: "
+            + "; ".join(violations)
         )
-        if node is None:
-            continue
-
-        checked += 1
-
-        try:
-            value = ast.literal_eval(node.value)
-        except Exception:
-            segment = (
-                ast.get_source_segment(
-                    text,
-                    node,
-                )
-                or ""
-            )
-            if "targets" not in segment.lower():
-                fail(
-                    f"{path.relative_to(HERE)}: "
-                    "TARGETS is dynamic but "
-                    "not config-derived."
-                )
-            continue
-
-        if (
-            isinstance(value, (list, tuple))
-            and list(value)
-            == EXPECTED_TARGETS
-        ):
-            fail(
-                f"{path.relative_to(HERE)} "
-                "retains an independent literal "
-                "nine-target TARGETS list."
-            )
 
     return checked
 
@@ -630,6 +656,244 @@ def check_other_split_consumers() -> None:
             "not enforce config-driven "
             "validation/test season."
         )
+
+
+
+SPLIT_AUTHORITY_VARIABLES = {
+    "MODEL_SELECTION_TRAIN_END":
+        "model_selection_train_end_season",
+    "DEVELOPMENT_VALIDATION_SEASON":
+        "development_validation_season",
+    "FINAL_TRAIN_END":
+        "final_train_end_season",
+    "UNTOUCHED_TEST_SEASON":
+        "untouched_test_season",
+    "MODEL_SELECTION_TRAIN_END_SEASON":
+        "model_selection_train_end_season",
+    "FINAL_TRAIN_END_SEASON":
+        "final_train_end_season",
+    "FINAL_TEST_SEASON":
+        "untouched_test_season",
+    "REPORTING_TEST_SEASON":
+        "untouched_test_season",
+}
+
+SEED_VARIABLE_NAMES = {
+    "SEED",
+    "RANDOM_SEED",
+    "TRAINING_SEED",
+    "MODEL_SEED",
+}
+
+
+def _assignment_value(
+    node: ast.AST,
+) -> ast.AST | None:
+    if isinstance(node, ast.Assign):
+        return node.value
+    if isinstance(node, ast.AnnAssign):
+        return node.value
+    return None
+
+
+def _assignment_names(
+    node: ast.AST,
+) -> list[str]:
+    if isinstance(node, ast.Assign):
+        return [
+            target.id
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        ]
+    if (
+        isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+    ):
+        return [node.target.id]
+    return []
+
+
+def check_no_independent_split_authorities() -> int:
+    checked = 0
+    violations: list[str] = []
+
+    for path in production_scripts():
+        text = source(path)
+        tree = ast.parse(text)
+
+        for node in tree.body:
+            value_node = _assignment_value(node)
+            if value_node is None:
+                continue
+
+            for name in _assignment_names(node):
+                key = SPLIT_AUTHORITY_VARIABLES.get(
+                    name
+                )
+                if key is None:
+                    continue
+
+                checked += 1
+
+                try:
+                    value = ast.literal_eval(
+                        value_node
+                    )
+                except Exception:
+                    segment = (
+                        ast.get_source_segment(
+                            text,
+                            value_node,
+                        )
+                        or ""
+                    )
+                    if (
+                        "_TRAINING_CONTRACT"
+                        not in segment
+                        and "config" not in segment.lower()
+                    ):
+                        violations.append(
+                            f"{path.relative_to(HERE)}:"
+                            f"{name}=non_config_expression"
+                        )
+                else:
+                    if (
+                        isinstance(value, int)
+                        and not isinstance(value, bool)
+                    ):
+                        violations.append(
+                            f"{path.relative_to(HERE)}:"
+                            f"{name}={value}"
+                        )
+
+    if violations:
+        fail(
+            "Independent authoritative split "
+            "season(s) found in production source: "
+            + "; ".join(violations)
+        )
+
+    return checked
+
+
+def check_seed_configuration(
+    config: dict[str, Any],
+) -> int:
+    training = config.get("training")
+    if not isinstance(training, dict):
+        fail(
+            "config.training must be a mapping."
+        )
+
+    seed = training.get("random_seed")
+    deterministic = training.get(
+        "deterministic"
+    )
+    num_threads = training.get(
+        "num_threads"
+    )
+
+    if (
+        isinstance(seed, bool)
+        or not isinstance(seed, int)
+        or seed < 0
+    ):
+        fail(
+            "training.random_seed must be a "
+            "nonnegative integer."
+        )
+    if deterministic is not True:
+        fail(
+            "training.deterministic must be true."
+        )
+    if (
+        isinstance(num_threads, bool)
+        or not isinstance(num_threads, int)
+        or num_threads < 1
+    ):
+        fail(
+            "training.num_threads must be a "
+            "positive integer."
+        )
+
+    checked = 0
+    violations: list[str] = []
+
+    runner = source(
+        HERE / "scripts/run_training.py"
+    )
+    required_runner_markers = [
+        "resolve_training_seed",
+        "training.get('random_seed')",
+        "config.training.random_seed",
+    ]
+    for marker in required_runner_markers:
+        if marker not in runner:
+            violations.append(
+                "scripts/run_training.py:"
+                f"missing_{marker}"
+            )
+
+    for path in production_scripts():
+        text = source(path)
+        tree = ast.parse(text)
+
+        for node in tree.body:
+            value_node = _assignment_value(node)
+            if value_node is None:
+                continue
+
+            for name in _assignment_names(node):
+                if name not in SEED_VARIABLE_NAMES:
+                    continue
+
+                checked += 1
+
+                try:
+                    value = ast.literal_eval(
+                        value_node
+                    )
+                except Exception:
+                    segment = (
+                        ast.get_source_segment(
+                            text,
+                            value_node,
+                        )
+                        or ""
+                    )
+                    if (
+                        "random_seed"
+                        not in segment
+                        and "_TRAINING_CONTRACT"
+                        not in segment
+                    ):
+                        violations.append(
+                            f"{path.relative_to(HERE)}:"
+                            f"{name}=non_config_expression"
+                        )
+                    continue
+
+                if (
+                    isinstance(value, int)
+                    and not isinstance(value, bool)
+                    and int(value) != int(seed)
+                ):
+                    violations.append(
+                        f"{path.relative_to(HERE)}:"
+                        f"{name}={value} "
+                        f"!= config.training.random_seed="
+                        f"{seed}"
+                    )
+
+    if violations:
+        fail(
+            "Conflicting seed configuration "
+            "found in production source: "
+            + "; ".join(violations)
+        )
+
+    return checked
+
 
 
 def check_participation_and_pbp(
@@ -949,6 +1213,13 @@ def main() -> int:
         check_no_literal_target_universe()
     )
 
+    split_authorities_checked = (
+        check_no_independent_split_authorities()
+    )
+    seed_sources_checked = (
+        check_seed_configuration(config)
+    )
+
     check_split_trainer_sources()
     check_other_split_consumers()
     check_target_builder()
@@ -1012,6 +1283,35 @@ def main() -> int:
     )
     print(
         "hardcoded_training_split_sources=0"
+    )
+    print(
+        "independent_target_lists=0"
+    )
+    print(
+        "independent_split_authorities=0"
+    )
+    print(
+        "conflicting_seed_configuration=0"
+    )
+    print(
+        f"split_authorities_checked="
+        f"{split_authorities_checked}"
+    )
+    print(
+        f"seed_sources_checked="
+        f"{seed_sources_checked}"
+    )
+    print(
+        "training_random_seed="
+        f"{config['training']['random_seed']}"
+    )
+    print(
+        "training_deterministic="
+        f"{str(config['training']['deterministic']).lower()}"
+    )
+    print(
+        "training_num_threads="
+        f"{config['training']['num_threads']}"
     )
     print(
         "signed_historical_yardage_"

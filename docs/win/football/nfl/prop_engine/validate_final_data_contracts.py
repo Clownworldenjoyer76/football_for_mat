@@ -281,6 +281,8 @@ def static_source_contracts() -> None:
             "environment_opponent_miles_traveled",
             'if"played_game_flag"incandidate_featuresor"played_game_flag"inout.columns:',
             '"outcome_metadata":["played_game_flag"]',
+            "common.reject_forbidden_feature_columns(",
+            "REQUIRED_TARGET_ORDER",
         ],
         "build_historical_features.py",
     )
@@ -313,6 +315,8 @@ def static_source_contracts() -> None:
             "selected_manifest_specs(",
             "feature_manifest.json",
             "position_allowed",
+            "common.reject_forbidden_feature_columns(",
+            'TARGETS=list(_CONFIG_CONTRACT["targets"].keys())',
         ],
         "build_current_features.py",
     )
@@ -372,6 +376,263 @@ def raw_columns(path: Path, excluded: set[str]) -> set[str]:
     return {column for column in cols if column not in excluded}
 
 
+def strict_leakage_reason(
+    name: str,
+    target_columns: set[str],
+) -> str | None:
+    """Return a fail-closed leakage reason for a model feature name.
+
+    Raw realized fields are rejected by exact semantic identity. Engineered
+    role/history/matchup features are not rejected merely because their names
+    contain words such as "snap", "participation", "target_share", or
+    "carry_share"; their chronology is independently validated elsewhere in
+    this validator.
+    """
+    feature = clean(name)
+    lower = feature.casefold()
+
+    if not feature:
+        return None
+
+    if feature in target_columns:
+        return "configured target column"
+
+    if "played_game_flag" in lower:
+        return "played_game_flag"
+
+    if lower.startswith("target_"):
+        return "target_* outcome column"
+
+    if lower.startswith("audit_"):
+        return "audit_* outcome column"
+
+    final_score_tokens = (
+        "final_score",
+        "home_score",
+        "away_score",
+        "score_home",
+        "score_away",
+    )
+    if any(token in lower for token in final_score_tokens):
+        return "final score field"
+
+    raw_base = lower
+    for prefix in (
+        "player_",
+        "raw_",
+        "same_game_",
+        "realized_",
+    ):
+        if raw_base.startswith(prefix):
+            raw_base = raw_base[len(prefix):]
+            break
+
+    raw_snap_participation = {
+        "snaps",
+        "snap_count",
+        "snap_counts",
+        "snap_pct",
+        "offense_snaps",
+        "defense_snaps",
+        "offense_snap_count",
+        "defense_snap_count",
+        "offense_snap_pct",
+        "defense_snap_pct",
+        "participation",
+        "offense_participation",
+        "defense_participation",
+    }
+    if raw_base in raw_snap_participation:
+        return "same-game snap/participation field"
+
+    raw_team_shares = {
+        "target_share",
+        "carry_share",
+        "red_zone_target_share",
+        "air_yards_share",
+    }
+    if raw_base in raw_team_shares:
+        return "same-game target/carry share"
+
+    return None
+
+
+
+def require_no_explicit_leakage_features(
+    names: Iterable[str],
+    *,
+    target_columns: set[str],
+    label: str,
+) -> None:
+    violations: list[str] = []
+
+    for raw_name in names:
+        name = clean(raw_name)
+        reason = strict_leakage_reason(
+            name,
+            target_columns,
+        )
+        if reason is not None:
+            violations.append(
+                f"{name} [{reason}]"
+            )
+
+    if violations:
+        fail(
+            f"{label}: explicit leakage feature(s): "
+            + "; ".join(violations[:30])
+        )
+
+
+def validate_historical_current_semantics(
+    prop: Path,
+    config: dict[str, Any],
+    historical_manifest: dict[str, Any],
+    historical_features: list[str],
+) -> int:
+    """Require current feature outputs/manifests to mirror historical semantics."""
+    leading = [
+        clean(value)
+        for value in historical_manifest.get(
+            "leading_columns",
+            [],
+        )
+        if clean(value)
+    ]
+
+    if not leading:
+        fail(
+            "Historical feature manifest has no leading_columns."
+        )
+
+    expected_columns = [
+        *leading,
+        *[
+            name
+            for name in historical_features
+            if name not in leading
+        ],
+    ]
+
+    current_root = (
+        prop
+        / "data/current/features"
+    )
+    current_manifests = sorted(
+        current_root.glob(
+            "*_feature_manifest.json"
+        )
+    )
+
+    checked = 0
+
+    for manifest_path in current_manifests:
+        payload = read_json(
+            manifest_path
+        )
+
+        manifest_features = payload.get(
+            "feature_columns"
+        )
+        if isinstance(
+            manifest_features,
+            list,
+        ):
+            normalized = [
+                clean(value)
+                for value in manifest_features
+                if clean(value)
+            ]
+            if normalized != historical_features:
+                missing = [
+                    value
+                    for value in historical_features
+                    if value not in normalized
+                ]
+                extra = [
+                    value
+                    for value in normalized
+                    if value not in historical_features
+                ]
+                fail(
+                    f"{manifest_path}: current/historical "
+                    "feature semantics differ; "
+                    f"missing={missing[:20]} "
+                    f"extra={extra[:20]}"
+                )
+
+        output_columns = payload.get(
+            "output_columns"
+        )
+        if isinstance(
+            output_columns,
+            list,
+        ):
+            normalized_output = [
+                clean(value)
+                for value in output_columns
+                if clean(value)
+            ]
+            if normalized_output != expected_columns:
+                missing = [
+                    value
+                    for value in expected_columns
+                    if value not in normalized_output
+                ]
+                extra = [
+                    value
+                    for value in normalized_output
+                    if value not in expected_columns
+                ]
+                fail(
+                    f"{manifest_path}: current output schema "
+                    "does not match canonical historical schema; "
+                    f"missing={missing[:20]} "
+                    f"extra={extra[:20]}"
+                )
+
+        parquet_name = (
+            manifest_path.name
+            .replace(
+                "_feature_manifest.json",
+                "_features.parquet",
+            )
+        )
+        parquet_path = (
+            manifest_path.parent
+            / parquet_name
+        )
+
+        if parquet_path.is_file():
+            actual_columns = list(
+                pd.read_parquet(
+                    parquet_path
+                ).columns
+            )
+            if actual_columns != expected_columns:
+                missing = [
+                    value
+                    for value in expected_columns
+                    if value not in actual_columns
+                ]
+                extra = [
+                    value
+                    for value in actual_columns
+                    if value not in expected_columns
+                ]
+                fail(
+                    f"{parquet_path}: current feature table "
+                    "does not exactly match historical feature "
+                    "semantics/order; "
+                    f"missing={missing[:20]} "
+                    f"extra={extra[:20]}"
+                )
+
+        checked += 1
+
+    return checked
+
+
 def validate_feature_manifests(
     prop: Path,
     config: dict[str, Any],
@@ -386,6 +647,17 @@ def validate_feature_manifests(
     features = [clean(x) for x in manifest.get("feature_columns", []) if clean(x)]
     if not features:
         fail("Historical feature manifest has no feature_columns.")
+
+    target_columns = {
+        clean(name)
+        for name in config["targets"].keys()
+        if clean(name)
+    }
+    require_no_explicit_leakage_features(
+        features,
+        target_columns=target_columns,
+        label="historical feature manifest",
+    )
 
     forbidden_exact = {"played_game_flag"}
     bad = [x for x in features if "played_game_flag" in x]
@@ -446,6 +718,11 @@ def validate_feature_manifests(
     for path in all_manifests:
         data = read_json(path)
         names = manifest_feature_names(data)
+        require_no_explicit_leakage_features(
+            names,
+            target_columns=target_columns,
+            label=str(path),
+        )
         for name in names:
             if "played_game_flag" in name:
                 fail(f"played_game_flag appears as a model feature in {path}: {name}")
@@ -466,6 +743,13 @@ def validate_feature_manifests(
                 fail(f"Raw same-week team realization in {path}: {name}")
             if name.startswith("opponent_") and name[len("opponent_"):] in opponent_raw:
                 fail(f"Raw same-week opponent realization in {path}: {name}")
+
+    validate_historical_current_semantics(
+        prop,
+        config,
+        manifest,
+        features,
+    )
 
     return len(manifests), features
 
@@ -1157,6 +1441,12 @@ def main() -> int:
     print(f"career_efficiency_trade_contract={'PASS' if career_survives_trade else 'FAIL'}")
     print("environment_team_relative_contract=PASS")
     print("played_game_flag_in_model_features=0")
+    print("configured_target_columns_in_model_features=0")
+    print("same_game_snap_features_in_model_features=0")
+    print("same_game_participation_features_in_model_features=0")
+    print("final_score_features_in_model_features=0")
+    print("same_game_target_carry_share_features_in_model_features=0")
+    print("historical_current_feature_semantics=PASS")
     print("contradictory_participation_assignment_allowed=false")
     print("unsafe_global_snap_alias_assignment_allowed=false")
     print("FINAL DATA CONTRACTS VALIDATION: PASS")

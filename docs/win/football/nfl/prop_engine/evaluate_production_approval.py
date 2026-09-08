@@ -25,17 +25,7 @@ if str(SCRIPTS) not in sys.path:
 
 import common
 
-TARGETS = [
-    "passing_yards",
-    "passing_tds",
-    "rushing_yards",
-    "rushing_tds",
-    "receiving_yards",
-    "receiving_tds",
-    "kicking_points",
-    "tackles",
-    "sacks",
-]
+TARGETS = list(common.load_config()["targets"].keys())
 
 SELECTED_PROJECTION_COLUMNS = {
     "baseline": "baseline_projection",

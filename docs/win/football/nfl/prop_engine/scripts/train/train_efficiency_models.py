@@ -82,7 +82,7 @@ import common
 
 _CONFIG_CONTRACT = common.load_config()
 _TRAINING_CONTRACT = _CONFIG_CONTRACT["training"]
-SEED = 76076
+SEED = 24024
 MODEL_SELECTION_TRAIN_END = int(_TRAINING_CONTRACT["model_selection_train_end_season"])
 DEVELOPMENT_VALIDATION_SEASON = int(_TRAINING_CONTRACT["development_validation_season"])
 FINAL_TRAIN_END = int(_TRAINING_CONTRACT["final_train_end_season"])

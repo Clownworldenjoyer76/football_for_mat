@@ -1,8 +1,24 @@
-# NFL Prop Engine direct Python dependencies
-pandas
+# NFL Prop Engine isolated Python dependencies.
+#
+# Scope:
+#   docs/win/football/nfl/prop_engine/
+#
+# This environment is football-data/modeling only.
+# Do not add sportsbook, odds, market-projection, DRAT, EPRED,
+# consensus-projection, or other forbidden prediction-source packages.
+#
+# lightgbm is pinned to the version recorded by persisted model metadata.
+# nflreadpy is pinned to the version recorded by the successful source refresh.
+# pyarrow is the primary parquet engine.
+# fastparquet is required by the independent parquet-schema audit fallback.
+# tzdata supplies IANA timezone data for zoneinfo on Windows.
+#
 numpy
+pandas
 PyYAML
 pyarrow
-lightgbm
-nflreadpy
-pytest
+fastparquet
+lightgbm==4.6.0
+tzdata
+nflreadpy==0.1.5
+nfl-data-py
