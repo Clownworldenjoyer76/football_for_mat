@@ -20,8 +20,8 @@ EXPECTED_PIPELINE = [
     'validate/validate_source_quality.py',
     'project/build_current_universe.py',
     'project/select_roles.py',
-    'project/build_week1_priors.py',
     'project/build_current_features.py',
+    'project/build_week1_priors.py',
     'project/project_components.py',
     'project/allocate_team_opportunity.py',
     'project/project_direct.py',
@@ -81,9 +81,9 @@ def main() -> int:
         fail('Identity args mismatch')
     if m.child_args(EXPECTED_PIPELINE[2], 2026, 1) != []:
         fail('Market audit args mismatch')
-    if m.child_args(EXPECTED_PIPELINE[6], 2026, 1) != ['--season','2026']:
+    if m.child_args(EXPECTED_PIPELINE[7], 2026, 1) != ['--season','2026']:
         fail('Week 1 prior args mismatch')
-    for script in [EXPECTED_PIPELINE[3],EXPECTED_PIPELINE[4],EXPECTED_PIPELINE[5],*EXPECTED_PIPELINE[7:]]:
+    for script in [EXPECTED_PIPELINE[3],EXPECTED_PIPELINE[4],EXPECTED_PIPELINE[5],EXPECTED_PIPELINE[6],*EXPECTED_PIPELINE[8:]]:
         if m.child_args(script, 2026, 1) != ['--season','2026','--week','1']:
             fail(f'Weekly args mismatch: {script}')
 
@@ -93,15 +93,18 @@ def main() -> int:
     registry, versions = m.registry_state(HERE)
     if set(versions) != set(m.TARGETS):
         fail('model_versions coverage mismatch')
-    try:
-        m.assert_model_approval(registry, False)
-    except RuntimeError:
-        pass
-    else:
-        fail('Unapproved models did not block default run')
-    m.assert_model_approval(registry, True)
+    production_targets, deferred_targets = m.assert_model_approval(registry, False)
+    if set(production_targets) | set(deferred_targets) != set(m.TARGETS):
+        fail('Production/deferred target partition mismatch')
+    if set(production_targets) & set(deferred_targets):
+        fail('Production/deferred target partition overlaps')
+    all_targets, no_deferred = m.assert_model_approval(registry, True)
+    if all_targets != list(m.TARGETS) or no_deferred != []:
+        fail('Explicit unapproved override contract failed')
     approved = {t:{'production_approved':True,'version':f'{t}-v1'} for t in m.TARGETS}
-    m.assert_model_approval(approved, False)
+    all_approved, deferred = m.assert_model_approval(approved, False)
+    if all_approved != list(m.TARGETS) or deferred != []:
+        fail('Fully approved registry contract failed')
 
     calls=[]
     def ok_exec(**kw):
@@ -117,11 +120,11 @@ def main() -> int:
     status, rows = m.run_pipeline(pipeline=m.PIPELINE, scripts_root=HERE/'scripts',
                                   repo_root=HERE.parents[4], season=2026, week=2,
                                   skip_refresh=False, executor=ok_exec)
-    expected = [s for i,s in enumerate(EXPECTED_PIPELINE,1) if i != 7]
+    expected = [s for i,s in enumerate(EXPECTED_PIPELINE,1) if i != 8]
     if status != 'success' or calls != expected:
         fail('Week >1 conditional prior behavior failed')
     skipped=[r for r in rows if r.status=='skipped']
-    if len(skipped)!=1 or skipped[0].step_number!=7:
+    if len(skipped)!=1 or skipped[0].step_number!=8:
         fail('Week >1 skip record incorrect')
 
     calls=[]
@@ -157,7 +160,9 @@ def main() -> int:
     synth=[result(m,i,s,['python',s],True) for i,s in enumerate(EXPECTED_PIPELINE,1)]
     manifest=m.make_manifest(season=2026,week=1,as_of='2026-09-06T12:00:00Z',
         source_files=['source/a.parquet'],source_hashes={'source/a.parquet':'abc'},
-        model_versions={t:None for t in m.TARGETS},feature_schema_hash='deadbeef',
+        model_versions={t:None for t in m.TARGETS},
+        production_targets=list(m.TARGETS),deferred_targets=[],
+        feature_schema_hash='deadbeef',
         validation_passed=True,steps=synth,skip_refresh=False,
         allow_unapproved_models=True,status='success',failure=None)
     if any(k not in manifest for k in REQUIRED_KEYS):
@@ -179,7 +184,7 @@ def main() -> int:
     print('week1_priors_conditional=true')
     print('skip_refresh_verified=true')
     print('stop_on_first_failure=true')
-    print('unapproved_models_block_default=true')
+    print('approved_registry_subset_runs_in_default_production=true')
     print('explicit_unapproved_override=true')
     print('production_registry_mutated=false')
     print('source_hashes_sha256=true')

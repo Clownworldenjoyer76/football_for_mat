@@ -78,6 +78,7 @@ import train_efficiency_models as efficiency
 GRAIN = ["season", "week", "game_id", "player_id"]
 TEAM_GRAIN = ["season", "week", "game_id", "team"]
 TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
+# SIX_TARGET_PRODUCTION_REGISTRY_MODE
 OUTPUT_COLUMNS = [
     "season",
     "week",
@@ -303,10 +304,13 @@ def normalize_position_group(series: pd.Series) -> pd.Series:
     )
 
 
-def load_selected_contracts(prop: Path) -> dict[str, dict[str, Any]]:
+def load_selected_contracts(
+    prop: Path,
+    targets: list[str],
+) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
     supported = {"direct", "component", "direct_component_blend"}
-    for target in TARGETS:
+    for target in targets:
         path = prop / "models" / target / "selected_model.json"
         payload = load_json(path)
         if payload.get("target") != target:
@@ -330,9 +334,13 @@ def load_selected_contracts(prop: Path) -> dict[str, dict[str, Any]]:
     return result
 
 
-def load_calibrations(prop: Path, selected: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def load_calibrations(
+    prop: Path,
+    selected: dict[str, dict[str, Any]],
+    targets: list[str],
+) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
-    for target in TARGETS:
+    for target in targets:
         path = prop / "models" / "calibration" / f"{target}_calibration.json"
         payload = load_json(path)
         if payload.get("target") != target:
@@ -360,52 +368,47 @@ def _entry_version(entry: Any) -> str:
     return ""
 
 
-def resolve_registry_versions(registry: dict[str, Any], registry_path: Path) -> tuple[dict[str, str], dict[str, str]]:
-    versions: dict[str, str] = {}
+def resolve_registry_versions(
+    registry: dict[str, Any],
+    registry_path: Path,
+) -> tuple[dict[str, Any], dict[str, str], list[str], list[str]]:
+    _ = registry_path
+    if list(registry.keys()) != TARGETS:
+        raise ValueError("Production registry target set/order mismatch.")
+
+    versions: dict[str, Any] = {}
     sources: dict[str, str] = {}
-    containers: list[tuple[str, Any]] = [
-        ("targets", registry.get("targets")),
-        ("models", registry.get("models")),
-        ("production", registry.get("production")),
-        ("root", registry),
-    ]
+    production_targets: list[str] = []
+    deferred_targets: list[str] = []
+
     for target in TARGETS:
-        found = ""
-        source = ""
-        for container_name, container in containers:
-            if isinstance(container, dict) and target in container:
-                found = _entry_version(container[target])
-                if found:
-                    source = f"{container_name}.{target}"
-                    break
-            if isinstance(container, list):
-                for item in container:
-                    if not isinstance(item, dict):
-                        continue
-                    item_target = clean_text(item.get("target") or item.get("name"))
-                    if item_target == target:
-                        found = _entry_version(item)
-                        if found:
-                            source = f"{container_name}[target={target}]"
-                            break
-                if found:
-                    break
-        if not found:
-            for key in ("model_version", "production_version", "active_version", "release_version"):
-                candidate = clean_text(registry.get(key))
-                if candidate:
-                    found = candidate
-                    source = f"root.{key}"
-                    break
-        if not found:
-            # The registry is still authoritative even when an early schema has
-            # no explicit version field: use its immutable content hash rather
-            # than inventing a semantic version.
-            found = "registry-" + sha256_file(registry_path)[:12]
-            source = "registry_sha256_fallback"
-        versions[target] = found
-        sources[target] = source
-    return versions, sources
+        entry = registry[target]
+        if not isinstance(entry, dict):
+            raise ValueError(f"{target}: invalid production registry entry.")
+        if list(entry.keys()) != ["production_approved", "version"]:
+            raise ValueError(f"{target}: unexpected production registry entry schema.")
+
+        approved = entry.get("production_approved")
+        version = entry.get("version")
+        if approved is True:
+            version_text = clean_text(version)
+            if not version_text:
+                raise ValueError(f"{target}: approved target has blank production version.")
+            versions[target] = version_text
+            sources[target] = f"root.{target}"
+            production_targets.append(target)
+        elif approved is False and version is None:
+            versions[target] = None
+            sources[target] = f"root.{target}"
+            deferred_targets.append(target)
+        else:
+            raise ValueError(
+                f"{target}: invalid registry state approved={approved!r} version={version!r}"
+            )
+
+    if not production_targets:
+        raise ValueError("No approved production targets in registry.")
+    return versions, sources, production_targets, deferred_targets
 
 
 TEAM_OPPONENT_CURRENT_SOURCE = {
@@ -1000,10 +1003,15 @@ def main() -> int:
     if any(str(c).startswith("target_") for c in features.columns):
         raise ValueError("Issue 36 current features unexpectedly contain target columns")
 
-    selected = load_selected_contracts(prop)
-    calibrations = load_calibrations(prop, selected)
     registry = load_json(registry_path)
-    model_versions, version_sources = resolve_registry_versions(registry, registry_path)
+    (
+        model_versions,
+        version_sources,
+        production_targets,
+        deferred_targets,
+    ) = resolve_registry_versions(registry, registry_path)
+    selected = load_selected_contracts(prop, production_targets)
+    calibrations = load_calibrations(prop, selected, production_targets)
     eligibility = load_yaml(eligibility_path)
 
     # The direct file is the accepted current target-eligibility gate from Issue 35.
@@ -1042,7 +1050,7 @@ def main() -> int:
     eligible_counts: dict[str, int] = {}
     universe_key = pd.MultiIndex.from_frame(universe[GRAIN])
     component_key = pd.MultiIndex.from_frame(component[GRAIN])
-    for target in TARGETS:
+    for target in production_targets:
         direct_col = DIRECT_COLUMNS[target]
         direct_values = direct_indexed[direct_col].reindex(universe_key).reset_index(drop=True)
         component_map = pd.Series(
@@ -1109,8 +1117,10 @@ def main() -> int:
     audit = apply_display_rounding(audit)
     if list(audit.columns) != OUTPUT_COLUMNS:
         raise ValueError("Issue 36 exact output header order changed")
-    if len(audit) != len(universe) * len(TARGETS):
-        raise ValueError("Issue 36 audit output must contain player x target rows")
+    if len(audit) != len(universe) * len(production_targets):
+        raise ValueError(
+            "Issue 36 audit output must contain player x approved-production-target rows"
+        )
     if audit.duplicated([*GRAIN, "target"]).any():
         raise ValueError("Issue 36 audit output has duplicate player-target rows")
 
@@ -1121,7 +1131,7 @@ def main() -> int:
         raise ValueError("Issue 36 active-only output contains ineligible rows")
 
     # Stable production ordering.
-    target_rank = {target: i for i, target in enumerate(TARGETS)}
+    target_rank = {target: i for i, target in enumerate(production_targets)}
     for frame in (audit, active):
         frame["_target_order"] = frame["target"].map(target_rank)
         frame.sort_values(
@@ -1142,7 +1152,9 @@ def main() -> int:
         "season": season,
         "week": week,
         "players": int(len(universe)),
-        "targets": len(TARGETS),
+        "targets": len(production_targets),
+        "production_targets": list(production_targets),
+        "deferred_targets": list(deferred_targets),
         "audit_rows": int(len(audit)),
         "active_rows": int(len(active)),
         "columns": len(OUTPUT_COLUMNS),
@@ -1180,11 +1192,11 @@ def main() -> int:
             "target_eligibility": repo_relative(eligibility_path),
             "selected_models": {
                 target: repo_relative(prop / "models" / target / "selected_model.json")
-                for target in TARGETS
+                for target in production_targets
             },
             "calibrations": {
                 target: repo_relative(prop / "models" / "calibration" / f"{target}_calibration.json")
-                for target in TARGETS
+                for target in production_targets
             },
         },
         "policy": {

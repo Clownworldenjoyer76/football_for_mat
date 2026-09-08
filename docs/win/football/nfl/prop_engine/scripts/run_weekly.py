@@ -41,8 +41,11 @@ PIPELINE = (
     'validate/validate_source_quality.py',
     'project/build_current_universe.py',
     'project/select_roles.py',
-    'project/build_week1_priors.py',
+    # WEEK1_FEATURES_BEFORE_PRIORS_SEQUENCE
+    # Week 1 priors consume the freshly materialized current-feature frame,
+    # so features must be rebuilt from the current universe/roles first.
     'project/build_current_features.py',
+    'project/build_week1_priors.py',
     'project/project_components.py',
     'project/allocate_team_opportunity.py',
     'project/project_direct.py',
@@ -53,9 +56,12 @@ PIPELINE = (
 
 TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 
+# SIX_TARGET_PRODUCTION_REGISTRY_MODE
 REQUIRED_MANIFEST_KEYS = (
     'season', 'week', 'as_of', 'generated_at', 'source_files', 'source_hashes',
-    'model_versions', 'feature_schema_hash', 'validation_passed', 'market_data_used',
+    'model_versions', 'production_model_versions', 'production_targets',
+    'deferred_targets', 'feature_schema_hash', 'validation_passed',
+    'market_data_used', 'allow_unapproved_models', 'status',
 )
 
 SEASON_ONLY = frozenset({
@@ -152,20 +158,31 @@ def registry_state(prop_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return registry, versions
 
 
-def assert_model_approval(registry: dict[str, Any], allow_unapproved_models: bool) -> None:
+def assert_model_approval(
+    registry: dict[str, Any],
+    allow_unapproved_models: bool,
+) -> tuple[list[str], list[str]]:
     if allow_unapproved_models:
-        return
-    blocked = []
+        return list(TARGETS), []
+
+    approved: list[str] = []
+    deferred: list[str] = []
     for target in TARGETS:
         entry = registry[target]
-        if entry.get('production_approved') is not True or entry.get('version') in (None, ''):
-            blocked.append(target)
-    if blocked:
-        raise RuntimeError(
-            'Weekly projection blocked by production registry. Use '
-            '--allow-unapproved-models only for an explicit non-production run. '
-            'Blocked targets: ' + ', '.join(blocked)
-        )
+        approved_flag = entry.get('production_approved')
+        version = entry.get('version')
+        if approved_flag is True and isinstance(version, str) and version.strip():
+            approved.append(target)
+        elif approved_flag is False and version is None:
+            deferred.append(target)
+        else:
+            raise RuntimeError(
+                f'Invalid production registry state for {target}: '
+                f'production_approved={approved_flag!r} version={version!r}'
+            )
+    if not approved:
+        raise RuntimeError('Production weekly run requires at least one approved/versioned target.')
+    return approved, deferred
 
 
 def validate_pipeline_files(prop_root: Path, pipeline: Sequence[str] = PIPELINE) -> None:
@@ -186,10 +203,10 @@ def command_for_step(script: str, scripts_root: Path, season: int, week: int) ->
     return [sys.executable, str((scripts_root / script).resolve()), *child_args(script, season, week)]
 
 
-def should_skip_step(step_number: int, week: int, skip_refresh: bool) -> str | None:
-    if step_number == 1 and skip_refresh:
+def should_skip_step(script: str, week: int, skip_refresh: bool) -> str | None:
+    if script == 'build/refresh_nflverse_player_data.py' and skip_refresh:
         return '--skip-refresh'
-    if step_number == 7 and int(week) != 1:
+    if script == 'project/build_week1_priors.py' and int(week) != 1:
         return 'week1_priors_not_required'
     return None
 
@@ -214,7 +231,7 @@ def run_pipeline(*, pipeline: Sequence[str], scripts_root: Path, repo_root: Path
     results: list[StepResult] = []
     for number, script in enumerate(pipeline, start=1):
         command = command_for_step(script, scripts_root, season, week)
-        reason = should_skip_step(number, week, skip_refresh)
+        reason = should_skip_step(script, week, skip_refresh)
         if reason is not None:
             print(f'[{number:02d}/{len(pipeline):02d}] {script} SKIP ({reason})')
             results.append(StepResult(number, script, 'skipped', None, command, None, None, None, reason))
@@ -319,10 +336,15 @@ def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
 
 def make_manifest(*, season: int, week: int, as_of: str, source_files: list[str],
                   source_hashes: dict[str, str], model_versions: dict[str, Any],
+                  production_targets: list[str], deferred_targets: list[str],
                   feature_schema_hash: str | None, validation_passed: bool,
                   steps: Sequence[StepResult], skip_refresh: bool,
                   allow_unapproved_models: bool, status: str,
                   failure: str | None) -> dict[str, Any]:
+    production_model_versions = {
+        target: model_versions[target]
+        for target in production_targets
+    }
     manifest = {
         'season': int(season),
         'week': int(week),
@@ -331,6 +353,9 @@ def make_manifest(*, season: int, week: int, as_of: str, source_files: list[str]
         'source_files': source_files,
         'source_hashes': source_hashes,
         'model_versions': model_versions,
+        'production_model_versions': production_model_versions,
+        'production_targets': list(production_targets),
+        'deferred_targets': list(deferred_targets),
         'feature_schema_hash': feature_schema_hash,
         'validation_passed': bool(validation_passed),
         'market_data_used': False,
@@ -362,11 +387,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     validation_passed = False
     failure: str | None = None
     model_versions = {target: None for target in TARGETS}
+    production_targets: list[str] = []
+    deferred_targets: list[str] = []
 
     try:
         validate_pipeline_files(prop_root)
         registry, model_versions = registry_state(prop_root)
-        assert_model_approval(registry, args.allow_unapproved_models)
+        production_targets, deferred_targets = assert_model_approval(
+            registry, args.allow_unapproved_models
+        )
         status, steps = run_pipeline(
             pipeline=PIPELINE, scripts_root=scripts_root, repo_root=repo_root,
             season=args.season, week=args.week, skip_refresh=args.skip_refresh,
@@ -375,6 +404,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             report = validation_report_path(prop_root, args.season, args.week)
             if not report.is_file():
                 raise FileNotFoundError(f'Required weekly validation report missing: {report}')
+            report_payload = load_json(report)
+            if report_payload.get('status') != 'passed':
+                raise RuntimeError(
+                    f'Weekly validation report status is not passed: {report_payload.get("status")!r}'
+                )
             validation_passed = True
         else:
             failed = next((s for s in steps if s.status == 'failed'), None)
@@ -404,7 +438,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     manifest = make_manifest(
         season=args.season, week=args.week, as_of=as_of,
         source_files=source_files, source_hashes=source_hashes,
-        model_versions=model_versions, feature_schema_hash=feature_hash,
+        model_versions=model_versions,
+        production_targets=production_targets,
+        deferred_targets=deferred_targets,
+        feature_schema_hash=feature_hash,
         validation_passed=validation_passed, steps=steps,
         skip_refresh=args.skip_refresh,
         allow_unapproved_models=args.allow_unapproved_models,

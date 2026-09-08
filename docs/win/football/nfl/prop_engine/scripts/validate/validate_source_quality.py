@@ -178,6 +178,25 @@ def universe_counts(prop: Path, season: int, week: int) -> tuple[int, int, int]:
     return int(u["game_id"].astype(str).nunique()), int(u["team"].astype(str).nunique()), int(len(u))
 
 
+# WEEKLY_ROSTER_PRODUCTION_UNIVERSE_ID_GATE
+# Raw nflverse weekly rosters can contain developmental/unresolved backup rows
+# with no GSIS ID. Production identity is enforced separately by the current
+# universe builder. Raw weekly-roster ID incompleteness is nonblocking only
+# when the current production universe exists and every universe player_id is
+# canonical/nonblank.
+def production_universe_identity_status(
+    prop: Path,
+    season: int,
+    week: int,
+) -> tuple[int, int]:
+    p = prop / "data" / "current" / f"{season}_week_{week}_universe.parquet"
+    if not p.is_file():
+        return 0, 0
+    u = pd.read_parquet(p, columns=["player_id"])
+    missing = int(u["player_id"].map(clean).eq("").sum())
+    return int(len(u)), missing
+
+
 def prior_schedule_team_games(schedule_df: pd.DataFrame, season: int, week: int) -> int:
     if schedule_df.empty or week <= 1:
         return 0
@@ -276,6 +295,9 @@ def main() -> int:
     run_date = datetime.now(timezone.utc).date().isoformat(); market_ok = run_market_preflight()
     paths = source_paths(repo, prop, config, season, week)
     games, teams, universe_rows = universe_counts(prop, season, week)
+    universe_identity_rows, universe_missing_player_ids = (
+        production_universe_identity_status(prop, season, week)
+    )
     schedule_raw, _ = load_source("schedule", paths["schedule"])
     rows: list[dict[str, Any]] = []
     for source in SOURCES:
@@ -290,7 +312,22 @@ def main() -> int:
         if not fresh_ok: quality = "fail"; reasons.append(f"freshness={fresh_status}")
         if dupes > 0: quality = "fail"; reasons.append(f"duplicate_key_rows={dupes}")
         for label, pct in (("player_id", pid_pct), ("team", team_pct), ("game_id", gid_pct)):
-            if pct is not None and pct > 0: quality = "fail"; reasons.append(f"missing_{label}_pct={pct:.4f}")
+            if pct is None or pct <= 0:
+                continue
+            if (
+                source == "weekly_roster"
+                and label == "player_id"
+                and universe_identity_rows > 0
+                and universe_missing_player_ids == 0
+            ):
+                reasons.append(
+                    f"raw_missing_player_id_pct={pct:.4f}_nonblocking;"
+                    f"production_universe_player_ids_complete=true;"
+                    f"production_universe_rows={universe_identity_rows}"
+                )
+                continue
+            quality = "fail"
+            reasons.append(f"missing_{label}_pct={pct:.4f}")
         actual = int(len(relevant))
         if source in DETERMINISTIC_ROWS and expected > 0:
             ratio = actual / expected

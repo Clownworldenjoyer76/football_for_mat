@@ -41,6 +41,7 @@ import common
 _CONFIG_CONTRACT = common.load_config()
 GRAIN = ["season", "week", "game_id", "player_id"]
 TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
+# SIX_TARGET_PRODUCTION_REGISTRY_MODE
 
 OUTPUT_COLUMNS = [
     "season",
@@ -148,6 +149,43 @@ TARGET_MAP: dict[str, dict[str, str]] = {
         "probability_1_plus": "sacks_prob_1plus",
     },
 }
+
+
+def production_target_state(prop: Path) -> tuple[list[str], list[str]]:
+    registry = read_json(prop / "models" / "production_registry.json")
+    if list(registry.keys()) != TARGETS:
+        raise ValueError("Issue 37 production registry target set/order mismatch.")
+    approved: list[str] = []
+    deferred: list[str] = []
+    for target in TARGETS:
+        entry = registry[target]
+        if not isinstance(entry, dict):
+            raise ValueError(f"{target}: invalid registry entry")
+        if entry.get("production_approved") is True:
+            version = entry.get("version")
+            if not isinstance(version, str) or not version.strip():
+                raise ValueError(f"{target}: approved registry target has blank version")
+            approved.append(target)
+        elif entry.get("production_approved") is False and entry.get("version") is None:
+            deferred.append(target)
+        else:
+            raise ValueError(f"{target}: invalid production registry state")
+    if not approved:
+        raise ValueError("Issue 37 requires at least one approved production target")
+    return approved, deferred
+
+
+def output_columns_for(targets: list[str]) -> list[str]:
+    fixed = {
+        "season", "week", "game_id", "player_id", "player_name", "team",
+        "opponent", "position", "injury_game_status", "role_status", "generated_at",
+    }
+    mapped = {
+        output
+        for target in targets
+        for output in TARGET_MAP[target].values()
+    }
+    return [column for column in OUTPUT_COLUMNS if column in fixed or column in mapped]
 
 
 def parse_args() -> argparse.Namespace:
@@ -275,17 +313,18 @@ def assert_metadata_invariant(source: pd.DataFrame) -> None:
             )
 
 
-def build_wide(source: pd.DataFrame) -> pd.DataFrame:
+def build_wide(source: pd.DataFrame, targets: list[str]) -> pd.DataFrame:
     assert_metadata_invariant(source)
+    output_columns = output_columns_for(targets)
 
     counts = source.groupby(GRAIN, sort=False, dropna=False)["target"].agg(list)
-    bad_count = counts.map(len).ne(len(TARGETS))
+    bad_count = counts.map(len).ne(len(targets))
     if bad_count.any():
         raise ValueError(
-            "Issue 37 requires exactly nine target rows per player-game; "
+            "Issue 37 requires exactly one row per approved production target per player-game; "
             f"sample={counts[bad_count].head(10).to_dict()}"
         )
-    expected_targets = set(TARGETS)
+    expected_targets = set(targets)
     bad_set = counts.map(lambda values: set(map(str, values)) != expected_targets)
     if bad_set.any():
         raise ValueError(
@@ -301,7 +340,7 @@ def build_wide(source: pd.DataFrame) -> pd.DataFrame:
     if base.duplicated(GRAIN).any():
         raise ValueError("Issue 37 base player-game grain is not unique")
 
-    for target in TARGETS:
+    for target in targets:
         subset = source.loc[source["target"].astype(str).eq(target)].copy()
         if subset.duplicated(GRAIN).any():
             raise ValueError(f"Issue 37 duplicate source row for target={target}")
@@ -312,7 +351,7 @@ def build_wide(source: pd.DataFrame) -> pd.DataFrame:
 
     mapped_numeric = [
         column
-        for column in OUTPUT_COLUMNS
+        for column in output_columns
         if column not in {
             *GRAIN,
             "player_name",
@@ -330,23 +369,27 @@ def build_wide(source: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Issue 37 mapped wide values contain nulls: {missing}")
 
     probability_columns = [
-        "passing_tds_prob_1plus",
-        "rushing_tds_prob_1plus",
-        "receiving_tds_prob_1plus",
-        "sacks_prob_1plus",
+        column
+        for column in [
+            "passing_tds_prob_1plus",
+            "rushing_tds_prob_1plus",
+            "receiving_tds_prob_1plus",
+            "sacks_prob_1plus",
+        ]
+        if column in output_columns
     ]
     for column in probability_columns:
         values = numeric(base[column])
         if values.lt(0.0).any() or values.gt(1.0).any():
             raise ValueError(f"Issue 37 probability outside [0,1]: {column}")
 
-    base = base[OUTPUT_COLUMNS].sort_values(
+    base = base[output_columns].sort_values(
         ["season", "week", "game_id", "team", "position", "player_name", "player_id"],
         kind="mergesort",
         na_position="last",
     ).reset_index(drop=True)
 
-    if list(base.columns) != OUTPUT_COLUMNS:
+    if list(base.columns) != output_columns:
         raise RuntimeError("Issue 37 exact output header/order mismatch")
     if base.duplicated(GRAIN).any():
         raise RuntimeError("Issue 37 output contains duplicate player-game rows")
@@ -368,6 +411,7 @@ def main() -> int:
     log_path = prop / "logs" / f"wide_output_{season}_week_{week}.json"
 
     market = run_market_preflight()
+    production_targets, deferred_targets = production_target_state(prop)
 
     if not source_path.is_file():
         raise FileNotFoundError(f"Issue 37 required Issue 36 long output missing: {source_path}")
@@ -388,10 +432,10 @@ def main() -> int:
     source = normalize_grain(source, "Issue 36 long output")
     if set(source["season"].unique()) != {season} or set(source["week"].unique()) != {week}:
         raise ValueError("Issue 37 source season/week mismatch")
-    if set(source["target"].astype(str).unique()) != set(TARGETS):
-        raise ValueError("Issue 37 source target set mismatch")
+    if set(source["target"].astype(str).unique()) != set(production_targets):
+        raise ValueError("Issue 37 source target set differs from approved production registry")
 
-    wide = build_wide(source)
+    wide = build_wide(source, production_targets)
     write_csv_atomic(wide, output_path)
 
     generated_values = sorted({str(v).strip() for v in wide["generated_at"].tolist() if str(v).strip()})
@@ -405,7 +449,9 @@ def main() -> int:
         "teams": int(wide["team"].nunique()),
         "columns": int(len(wide.columns)),
         "source_long_rows": int(len(source)),
-        "targets_reshaped": len(TARGETS),
+        "targets_reshaped": len(production_targets),
+        "production_targets": list(production_targets),
+        "deferred_targets": list(deferred_targets),
         "additional_rounding_applied": False,
         "probabilities_in_unit_interval": True,
         "market_exclusion_passed": bool(market["passed"]),

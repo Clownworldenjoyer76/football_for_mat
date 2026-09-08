@@ -28,6 +28,7 @@ import common
 
 _CONFIG_CONTRACT = common.load_config()
 TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
+# SIX_TARGET_PRODUCTION_REGISTRY_MODE
 GRAIN = ["season", "week", "game_id", "player_id"]
 PLAYER_GAME = ["game_id", "player_id"]
 TEAM_GRAIN = ["season", "week", "game_id", "team"]
@@ -104,6 +105,30 @@ def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
         os.replace(temp, destination)
     finally:
         temp.unlink(missing_ok=True)
+
+
+def production_target_state(prop: Path) -> tuple[list[str], list[str]]:
+    registry = read_json(prop / "models" / "production_registry.json")
+    if list(registry.keys()) != TARGETS:
+        raise AssertionError("Production registry target set/order mismatch")
+    approved: list[str] = []
+    deferred: list[str] = []
+    for target in TARGETS:
+        entry = registry[target]
+        if not isinstance(entry, dict):
+            raise AssertionError(f"{target}: invalid production registry entry")
+        if entry.get("production_approved") is True:
+            version = entry.get("version")
+            if not isinstance(version, str) or not version.strip():
+                raise AssertionError(f"{target}: approved registry entry has blank version")
+            approved.append(target)
+        elif entry.get("production_approved") is False and entry.get("version") is None:
+            deferred.append(target)
+        else:
+            raise AssertionError(f"{target}: invalid production registry state")
+    if not approved:
+        raise AssertionError("No approved production targets")
+    return approved, deferred
 
 
 def build_team_maps(team_master: pd.DataFrame) -> tuple[dict[str, str], set[str]]:
@@ -186,7 +211,11 @@ def run_market_audit(prop: Path) -> dict[str, Any]:
     return {"files_scanned": int(audit.get("files_scanned", 0)), "audit": str(audit_path.relative_to(common.repo_root()))}
 
 
-def validate_model_schemas(prop: Path, current_features: pd.DataFrame) -> dict[str, Any]:
+def validate_model_schemas(
+    prop: Path,
+    current_features: pd.DataFrame,
+    production_targets: list[str],
+) -> dict[str, Any]:
     try:
         import lightgbm as lgb
     except ModuleNotFoundError as exc:
@@ -220,7 +249,7 @@ def validate_model_schemas(prop: Path, current_features: pd.DataFrame) -> dict[s
             raise AssertionError(f"{label}: current feature schema missing {missing[:20]}")
         checked_models[label] = {"features": len(feature_names), "current_required": len(required)}
 
-    for target in TARGETS:
+    for target in production_targets:
         selected_path = prop / "models" / target / "selected_model.json"
         selected = read_json(selected_path)
         architecture = clean(selected.get("selected_architecture") or selected.get("selected_candidate"))
@@ -300,6 +329,7 @@ def main() -> int:
     week = int(args.week)
     repo = common.repo_root()
     prop = common.prop_root()
+    production_targets, deferred_targets = production_target_state(prop)
     output_path = prop / "output" / str(season) / f"week_{week}_validation.json"
     generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -403,11 +433,18 @@ def main() -> int:
             active = frames["active"]
             common.ensure_unique(long, ["game_id", "player_id", "target"], "Issue 38 long output")
             common.ensure_unique(active, ["game_id", "player_id", "target"], "Issue 38 active output")
-            if set(long["target"].astype(str)) != set(TARGETS):
-                raise AssertionError("Long output does not contain exactly the nine targets")
-            expected = len(frames["universe"]) * len(TARGETS)
+            if set(long["target"].astype(str)) != set(production_targets):
+                raise AssertionError(
+                    "Long output target set differs from approved production registry"
+                )
+            if set(active["target"].astype(str)) - set(production_targets):
+                raise AssertionError("Active output contains deferred/unapproved target")
+            expected = len(frames["universe"]) * len(production_targets)
             if len(long) != expected:
-                raise AssertionError(f"Long audit row count {len(long)} != universe*9 {expected}")
+                raise AssertionError(
+                    f"Long audit row count {len(long)} != "
+                    f"universe*approved_targets {expected}"
+                )
             return {"audit_rows": len(long), "active_rows": len(active), "duplicate_rows": 0}
 
         record("no duplicate player_id + game_id + target", duplicate_grain)
@@ -556,12 +593,18 @@ def main() -> int:
             context = universe[[*GRAIN, "position", "eligibility_status", "injury_game_status", "eligibility_reason"]].merge(
                 allocation, on=GRAIN, how="left", validate="one_to_one"
             )
-            active_def = frames["active"].loc[frames["active"]["target"].astype(str).isin({"tackles", "sacks"})].merge(
+            defensive_targets = {
+                target for target in ("tackles", "sacks")
+                if target in production_targets
+            }
+            active_def = frames["active"].loc[
+                frames["active"]["target"].astype(str).isin(defensive_targets)
+            ].merge(
                 context, on=GRAIN, how="left", validate="many_to_one", suffixes=("", "_universe")
             )
             if active_def["position_universe"].isna().any():
                 raise AssertionError("Defensive active projection missing universe context")
-            for target in ("tackles", "sacks"):
+            for target in sorted(defensive_targets):
                 allowed = {str(x).strip().upper() for x in eligibility[target]["eligible_positions"]}
                 rows = active_def.loc[active_def["target"].astype(str).eq(target)]
                 bad_pos = ~rows["position_universe"].astype(str).str.upper().isin(allowed)
@@ -577,7 +620,9 @@ def main() -> int:
         record("defensive projections limited to plausible participants", defensive_plausibility)
 
         def schema_contract() -> dict[str, Any]:
-            return validate_model_schemas(prop, frames["features"])
+            return validate_model_schemas(
+                prop, frames["features"], production_targets
+            )
 
         record("current feature schema matches every selected production model", schema_contract)
 
@@ -605,6 +650,8 @@ def main() -> int:
         "checks_passed": sum(1 for c in checks if c.get("passed") is True),
         "checks_failed": sum(1 for c in checks if c.get("passed") is not True),
         "checks": checks,
+        "production_targets": list(production_targets),
+        "deferred_targets": list(deferred_targets),
         "failure_returns_nonzero_exit_code": True,
         "market_features_used": False,
     }

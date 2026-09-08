@@ -1,14 +1,14 @@
 {
   "active_output": "docs/win/football/nfl/prop_engine/output/2026/week_1_active_player_projections.csv",
   "active_output_ineligible_rows": 0,
-  "active_rows": 3358,
+  "active_rows": 1764,
   "architecture_target_counts": {
-    "component": 3,
-    "direct": 2,
+    "component": 1,
+    "direct": 1,
     "direct_component_blend": 4
   },
   "audit_output": "docs/win/football/nfl/prop_engine/output/2026/week_1_player_projections.csv",
-  "audit_rows": 17865,
+  "audit_rows": 14340,
   "columns": 25,
   "component_runtime": {
     "allocated_carry_share_used": true,
@@ -33,6 +33,11 @@
     ],
     "red_zone_share_reconciled_from_issue33_exposure": true
   },
+  "deferred_targets": [
+    "rushing_tds",
+    "receiving_tds",
+    "sacks"
+  ],
   "display_rounding": {
     "probabilities_rounded": false,
     "tackles_and_kicking": 1,
@@ -43,16 +48,13 @@
     "kicking_points": 32,
     "passing_tds": 32,
     "passing_yards": 32,
-    "receiving_tds": 422,
-    "receiving_yards": 422,
-    "rushing_tds": 509,
-    "rushing_yards": 509,
-    "sacks": 700,
+    "receiving_yards": 439,
+    "rushing_yards": 529,
     "tackles": 700
   },
-  "feature_asof": "2026-09-08T12:43:53+00:00",
+  "feature_asof": "2026-09-08T19:19:55+00:00",
   "final_projection_floor_zero": true,
-  "generated_at": "2026-09-08T13:08:23+00:00",
+  "generated_at": "2026-09-08T19:20:23+00:00",
   "ineligible_audit_projection_zero": true,
   "inputs": {
     "allocated_opportunity": "docs/win/football/nfl/prop_engine/data/current/2026_week_1_allocated_opportunity.parquet",
@@ -60,11 +62,8 @@
       "kicking_points": "docs/win/football/nfl/prop_engine/models/calibration/kicking_points_calibration.json",
       "passing_tds": "docs/win/football/nfl/prop_engine/models/calibration/passing_tds_calibration.json",
       "passing_yards": "docs/win/football/nfl/prop_engine/models/calibration/passing_yards_calibration.json",
-      "receiving_tds": "docs/win/football/nfl/prop_engine/models/calibration/receiving_tds_calibration.json",
       "receiving_yards": "docs/win/football/nfl/prop_engine/models/calibration/receiving_yards_calibration.json",
-      "rushing_tds": "docs/win/football/nfl/prop_engine/models/calibration/rushing_tds_calibration.json",
       "rushing_yards": "docs/win/football/nfl/prop_engine/models/calibration/rushing_yards_calibration.json",
-      "sacks": "docs/win/football/nfl/prop_engine/models/calibration/sacks_calibration.json",
       "tackles": "docs/win/football/nfl/prop_engine/models/calibration/tackles_calibration.json"
     },
     "component_projections": "docs/win/football/nfl/prop_engine/data/current/2026_week_1_component_projections.parquet",
@@ -75,11 +74,8 @@
       "kicking_points": "docs/win/football/nfl/prop_engine/models/kicking_points/selected_model.json",
       "passing_tds": "docs/win/football/nfl/prop_engine/models/passing_tds/selected_model.json",
       "passing_yards": "docs/win/football/nfl/prop_engine/models/passing_yards/selected_model.json",
-      "receiving_tds": "docs/win/football/nfl/prop_engine/models/receiving_tds/selected_model.json",
       "receiving_yards": "docs/win/football/nfl/prop_engine/models/receiving_yards/selected_model.json",
-      "rushing_tds": "docs/win/football/nfl/prop_engine/models/rushing_tds/selected_model.json",
       "rushing_yards": "docs/win/football/nfl/prop_engine/models/rushing_yards/selected_model.json",
-      "sacks": "docs/win/football/nfl/prop_engine/models/sacks/selected_model.json",
       "tackles": "docs/win/football/nfl/prop_engine/models/tackles/selected_model.json"
     },
     "target_eligibility": "docs/win/football/nfl/prop_engine/config/target_eligibility.yaml",
@@ -88,7 +84,7 @@
   "log": "docs/win/football/nfl/prop_engine/logs/week_projections_2026_week_1.json",
   "market_exclusion_passed": true,
   "market_features_used": false,
-  "players": 1985,
+  "players": 2390,
   "policy": {
     "count_projection_is_calibrated_expected_count": true,
     "display_rounding_after_calibration": true,
@@ -102,21 +98,29 @@
     "quantile_projection_is_calibrated_q50": true,
     "selected_architecture_from_registry_assets_only": true
   },
-  "registry_sha256": "cf046d5ea9df76c60c1a4a5dee5bf04d6fc4cdc042c4a2ff24f5b925b9c0ac6e",
+  "production_targets": [
+    "passing_yards",
+    "passing_tds",
+    "rushing_yards",
+    "receiving_yards",
+    "kicking_points",
+    "tackles"
+  ],
+  "registry_sha256": "7a44cff45c0dd835da2497a079fc880355c4a3a2779eb4dc99f2f9e64ce706e5",
   "registry_version_sources": {
-    "kicking_points": "registry_sha256_fallback",
-    "passing_tds": "registry_sha256_fallback",
-    "passing_yards": "registry_sha256_fallback",
-    "receiving_tds": "registry_sha256_fallback",
-    "receiving_yards": "registry_sha256_fallback",
-    "rushing_tds": "registry_sha256_fallback",
-    "rushing_yards": "registry_sha256_fallback",
-    "sacks": "registry_sha256_fallback",
-    "tackles": "registry_sha256_fallback"
+    "kicking_points": "root.kicking_points",
+    "passing_tds": "root.passing_tds",
+    "passing_yards": "root.passing_yards",
+    "receiving_tds": "root.receiving_tds",
+    "receiving_yards": "root.receiving_yards",
+    "rushing_tds": "root.rushing_tds",
+    "rushing_yards": "root.rushing_yards",
+    "sacks": "root.sacks",
+    "tackles": "root.tackles"
   },
   "script": "project_week.py",
   "season": 2026,
   "status": "passed",
-  "targets": 9,
+  "targets": 6,
   "week": 1
 }
