@@ -803,10 +803,14 @@ def numeric_frame(
     frame: pd.DataFrame,
     columns: list[str],
 ) -> pd.DataFrame:
-    output = pd.DataFrame(index=frame.index)
-    for column in columns:
-        output[column] = common.safe_numeric(frame[column]).astype("float64")
-    return output
+    # Build the complete numeric block before constructing the DataFrame.
+    # Repeated output[column] assignment fragments pandas' internal block
+    # manager for wide feature matrices and emits PerformanceWarning.
+    data = {
+        column: common.safe_numeric(frame[column]).astype("float64")
+        for column in columns
+    }
+    return pd.DataFrame(data, index=frame.index)
 
 
 def transform_label(
