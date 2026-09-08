@@ -1,0 +1,155 @@
+{
+  "version": "20260908_1821_passing_yards_blend",
+  "training_start": "season:2012",
+  "training_end": "season:2024",
+  "target": "passing_yards",
+  "feature_schema_hash": "d05a91fc09f139e989847b3ca8a206608abb324ea511822308bd3a50d4ef0956",
+  "git_commit_sha": "2ebfa762c1a4a47dcb22befce517ce3bac357b20",
+  "model_family": "blend",
+  "validation_metrics": {
+    "mae": 61.841387169830575,
+    "bias": -5.148136219521843,
+    "absolute_bias": 5.148136219521843,
+    "improvement_vs_baseline_pct": 15.419342962115667
+  },
+  "final_test_metrics": {
+    "test_season": 2025,
+    "test_rows": 670,
+    "mae": 61.01045273901951,
+    "bias": 3.779436394702845,
+    "absolute_bias": 3.779436394702845,
+    "improvement_vs_baseline_pct": 16.273127523082643
+  },
+  "blend_weights": {
+    "direct": 0.63,
+    "component": 0.37
+  },
+  "uncertainty_calibration_version": "sha256:47efc8ba95202a2698fc1d723fa59cb7c8901315d90b2c4eadaf68775d6b9da1",
+  "selected_architecture": "direct_component_blend",
+  "promotion_timestamp_utc": "2026-09-08T18:21:16.559431Z",
+  "promotion_mode": "six_of_nine_target_specific",
+  "production_approval_qualified": true,
+  "test_used_for_selection": false,
+  "test_used_for_calibration": false,
+  "market_features_used": false,
+  "feature_schema_hash_method": "sha256(canonical_json(ordered_feature_manifest_sha256_sources))",
+  "feature_schema_sources": [
+    {
+      "role": "direct",
+      "name": "passing_yards",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/passing_yards/feature_manifest.json",
+      "feature_manifest_sha256": "7c9ed03506368f9481e3a5f73379b1615b323b5458d05648c7efd39925c4953f"
+    },
+    {
+      "role": "component",
+      "name": "qb_pass_attempts",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/components/qb_pass_attempts/feature_manifest.json",
+      "feature_manifest_sha256": "1d9e83fabeaa942ca6c7fab51441a031153e2f9694806377df274671f726efeb"
+    },
+    {
+      "role": "efficiency",
+      "name": "passing_yards_per_attempt",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/efficiency/passing_yards_per_attempt/feature_manifest.json",
+      "feature_manifest_sha256": "eead3548ea2c80f1e3d6e05aaf1d7e5633afcc790de7743379e62857268e9ecf"
+    }
+  ],
+  "model_sources": [
+    {
+      "role": "direct",
+      "name": "passing_yards",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/passing_yards",
+      "snapshot_directory": "artifacts/direct/passing_yards"
+    },
+    {
+      "role": "component",
+      "name": "qb_pass_attempts",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/components/qb_pass_attempts",
+      "snapshot_directory": "artifacts/component/qb_pass_attempts"
+    },
+    {
+      "role": "efficiency",
+      "name": "passing_yards_per_attempt",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/efficiency/passing_yards_per_attempt",
+      "snapshot_directory": "artifacts/efficiency/passing_yards_per_attempt"
+    }
+  ],
+  "source_selected_model": {
+    "path": "docs/win/football/nfl/prop_engine/models/passing_yards/selected_model.json",
+    "sha256": "3aeb34f644ad7c72afd20fbf3c5ce37f46013b1bfd22ed966314adefc7bd88e3"
+  },
+  "source_calibration": {
+    "path": "docs/win/football/nfl/prop_engine/models/calibration/passing_yards_calibration.json",
+    "sha256": "47efc8ba95202a2698fc1d723fa59cb7c8901315d90b2c4eadaf68775d6b9da1"
+  },
+  "source_approval_evaluation": {
+    "path": "docs/win/football/nfl/prop_engine/evaluation/production_approval_evaluation.json",
+    "sha256": "5c306d5eb56d379032efb1610911440a3e68b7b55b49a47ae700258f6dfab11a"
+  },
+  "artifact_manifest": [
+    {
+      "path": "approval_evidence.json",
+      "sha256": "732c3b29b0a9a287878d7eb14a28ce56f6f0f674c3488b80fed7128db2c929ff",
+      "size_bytes": 1567
+    },
+    {
+      "path": "artifacts/component/qb_pass_attempts/feature_manifest.json",
+      "sha256": "1d9e83fabeaa942ca6c7fab51441a031153e2f9694806377df274671f726efeb",
+      "size_bytes": 3415
+    },
+    {
+      "path": "artifacts/component/qb_pass_attempts/metadata.json",
+      "sha256": "7fe3da31d3b9e3d6a67f2eed5628c4cfc9a3d6edf68ec1eb3538e77031bee56a",
+      "size_bytes": 10396
+    },
+    {
+      "path": "artifacts/component/qb_pass_attempts/model.txt",
+      "sha256": "1d75e9d503dd22e651e4336a0b444685af4079055efad05ca9d76a6648b24aa8",
+      "size_bytes": 316799
+    },
+    {
+      "path": "artifacts/direct/passing_yards/direct_model.txt",
+      "sha256": "01a53d7055028ae211b71df66636fcec762ec8c721cc1ff5c23f994d226eb0d0",
+      "size_bytes": 649973
+    },
+    {
+      "path": "artifacts/direct/passing_yards/feature_manifest.json",
+      "sha256": "7c9ed03506368f9481e3a5f73379b1615b323b5458d05648c7efd39925c4953f",
+      "size_bytes": 26249
+    },
+    {
+      "path": "artifacts/direct/passing_yards/metadata.json",
+      "sha256": "419aa395cdf20fa1b6e4f8ca5b160cf8382c9b12247c771b7879ecbb6039a86f",
+      "size_bytes": 2628
+    },
+    {
+      "path": "artifacts/direct/passing_yards/selected_model.json",
+      "sha256": "3aeb34f644ad7c72afd20fbf3c5ce37f46013b1bfd22ed966314adefc7bd88e3",
+      "size_bytes": 2770
+    },
+    {
+      "path": "artifacts/efficiency/passing_yards_per_attempt/feature_manifest.json",
+      "sha256": "eead3548ea2c80f1e3d6e05aaf1d7e5633afcc790de7743379e62857268e9ecf",
+      "size_bytes": 2168
+    },
+    {
+      "path": "artifacts/efficiency/passing_yards_per_attempt/metadata.json",
+      "sha256": "8393dbca59b9439028212f6260187b7943dcb9a3dbb2d347a8f244588b62542b",
+      "size_bytes": 4826
+    },
+    {
+      "path": "artifacts/efficiency/passing_yards_per_attempt/model.txt",
+      "sha256": "8e6b90c968ef37519112f8bab55c3d9974d6784dd41f10f799d880efda7e037a",
+      "size_bytes": 114794
+    },
+    {
+      "path": "calibration.json",
+      "sha256": "47efc8ba95202a2698fc1d723fa59cb7c8901315d90b2c4eadaf68775d6b9da1",
+      "size_bytes": 6680
+    },
+    {
+      "path": "selected_model.json",
+      "sha256": "3aeb34f644ad7c72afd20fbf3c5ce37f46013b1bfd22ed966314adefc7bd88e3",
+      "size_bytes": 2770
+    }
+  ]
+}

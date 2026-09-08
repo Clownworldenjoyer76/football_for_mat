@@ -1,0 +1,107 @@
+{
+  "version": "20260908_1821_tackles_direct",
+  "training_start": "season:2012",
+  "training_end": "season:2024",
+  "target": "tackles",
+  "feature_schema_hash": "41ce0c67443ef1d8bfbb79e0da78f486d5b284f7bd38c53458df9e15b630c7ee",
+  "git_commit_sha": "2ebfa762c1a4a47dcb22befce517ce3bac357b20",
+  "model_family": "direct",
+  "validation_metrics": {
+    "mae": 1.4325404969644604,
+    "bias": -0.028004993857199015,
+    "absolute_bias": 0.028004993857199015,
+    "improvement_vs_baseline_pct": 18.0454102168998,
+    "brier_1plus": 0.14341538031470472,
+    "poisson_deviance": 1.567835304505141
+  },
+  "final_test_metrics": {
+    "test_season": 2025,
+    "test_rows": 12354,
+    "mae": 1.4923220317014396,
+    "bias": -0.09005001992425928,
+    "absolute_bias": 0.09005001992425928,
+    "improvement_vs_baseline_pct": 16.335122540008914,
+    "brier_1plus": 0.13588931714492744,
+    "poisson_deviance": 1.5681403131854414
+  },
+  "blend_weights": {},
+  "uncertainty_calibration_version": "sha256:d562913f3ef9c984ed7663e9f1263a191e89f5610ebc26d1d76d1dfe19f0d330",
+  "selected_architecture": "direct",
+  "promotion_timestamp_utc": "2026-09-08T18:21:16.559431Z",
+  "promotion_mode": "six_of_nine_target_specific",
+  "production_approval_qualified": true,
+  "test_used_for_selection": false,
+  "test_used_for_calibration": false,
+  "market_features_used": false,
+  "feature_schema_hash_method": "sha256(canonical_json(ordered_feature_manifest_sha256_sources))",
+  "feature_schema_sources": [
+    {
+      "role": "direct",
+      "name": "tackles",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/tackles/feature_manifest.json",
+      "feature_manifest_sha256": "33ae0442c12b91d122ec96e8140cd5f03e65bc684c8f61df97475663ce829bcd"
+    }
+  ],
+  "model_sources": [
+    {
+      "role": "direct",
+      "name": "tackles",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/tackles",
+      "snapshot_directory": "artifacts/direct/tackles"
+    }
+  ],
+  "source_selected_model": {
+    "path": "docs/win/football/nfl/prop_engine/models/tackles/selected_model.json",
+    "sha256": "ecf5e67fe690b3269396c3ee97ff065c1806832c95570ea2a974c9f761a1f93f"
+  },
+  "source_calibration": {
+    "path": "docs/win/football/nfl/prop_engine/models/calibration/tackles_calibration.json",
+    "sha256": "d562913f3ef9c984ed7663e9f1263a191e89f5610ebc26d1d76d1dfe19f0d330"
+  },
+  "source_approval_evaluation": {
+    "path": "docs/win/football/nfl/prop_engine/evaluation/production_approval_evaluation.json",
+    "sha256": "5c306d5eb56d379032efb1610911440a3e68b7b55b49a47ae700258f6dfab11a"
+  },
+  "artifact_manifest": [
+    {
+      "path": "approval_evidence.json",
+      "sha256": "2c092bf6d3a981379f6c2fd8c7afce0a217ebb6394214799577e643811280565",
+      "size_bytes": 1652
+    },
+    {
+      "path": "artifacts/direct/tackles/challenger_model.txt",
+      "sha256": "0356955357da7336ccfcd15bbea031094452ab608abd0479a6df693e70062c7b",
+      "size_bytes": 933758
+    },
+    {
+      "path": "artifacts/direct/tackles/direct_model.txt",
+      "sha256": "d2eadaa1002fea1628828da870d974fedf1ba70a7afcc4eb5c406a0d88e65f6b",
+      "size_bytes": 2524486
+    },
+    {
+      "path": "artifacts/direct/tackles/feature_manifest.json",
+      "sha256": "33ae0442c12b91d122ec96e8140cd5f03e65bc684c8f61df97475663ce829bcd",
+      "size_bytes": 13196
+    },
+    {
+      "path": "artifacts/direct/tackles/metadata.json",
+      "sha256": "de63553689609e4111a1dca321b9352e5786b3cd3835b22cdacfbdc1f20b971b",
+      "size_bytes": 3120
+    },
+    {
+      "path": "artifacts/direct/tackles/selected_model.json",
+      "sha256": "ecf5e67fe690b3269396c3ee97ff065c1806832c95570ea2a974c9f761a1f93f",
+      "size_bytes": 3182
+    },
+    {
+      "path": "calibration.json",
+      "sha256": "d562913f3ef9c984ed7663e9f1263a191e89f5610ebc26d1d76d1dfe19f0d330",
+      "size_bytes": 12093
+    },
+    {
+      "path": "selected_model.json",
+      "sha256": "ecf5e67fe690b3269396c3ee97ff065c1806832c95570ea2a974c9f761a1f93f",
+      "size_bytes": 3182
+    }
+  ]
+}

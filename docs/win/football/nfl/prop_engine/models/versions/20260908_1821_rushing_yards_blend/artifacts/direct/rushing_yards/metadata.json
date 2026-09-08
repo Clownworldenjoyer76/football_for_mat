@@ -1,0 +1,81 @@
+{
+  "environment_join_contract": {
+    "secondary_join_performed": false,
+    "source": "canonical_issue17_feature_table",
+    "travel_join_key": "game_id",
+    "weather_join_key": "game_id"
+  },
+  "feature_count": 198,
+  "feature_hash": "290c41e8610468d698eb1f8e526d90544b775ce2c6bea81fa7343729071427e8",
+  "feature_manifest": {
+    "feature_hash": "290c41e8610468d698eb1f8e526d90544b775ce2c6bea81fa7343729071427e8",
+    "path": "docs/win/football/nfl/prop_engine/models/rushing_yards/feature_manifest.json",
+    "sha256": "c6d9ae76f4f30e40160f3448f93cbfee70362167c8add38a79a9faeb39bf3a2f"
+  },
+  "forbidden_columns_used": false,
+  "lightgbm_version": "4.6.0",
+  "market_features_used": false,
+  "missing_required_feature_policy": "fail",
+  "model_family": "lightgbm_regression",
+  "objective": "regression",
+  "primary": {
+    "best_iteration_selected_on_2024": 166,
+    "model_family": "lightgbm_regression",
+    "model_sha256": "459aa792a9ab0f393b3d6d275e0c7fc708da081eb88bf5caef5d37ffeae7c9c5",
+    "objective": "regression",
+    "params": {
+      "bagging_fraction": 1.0,
+      "bagging_freq": 0,
+      "bagging_seed": 24024,
+      "boosting_type": "gbdt",
+      "data_random_seed": 24024,
+      "deterministic": true,
+      "feature_fraction": 1.0,
+      "feature_fraction_seed": 24024,
+      "force_col_wise": true,
+      "lambda_l1": 0.0,
+      "lambda_l2": 0.0,
+      "learning_rate": 0.03,
+      "max_bin": 255,
+      "metric": "rmse",
+      "min_data_in_leaf": 40,
+      "num_leaves": 31,
+      "num_threads": 1,
+      "objective": "regression",
+      "seed": 24024,
+      "verbosity": -1
+    },
+    "validation_2024_metrics": {
+      "mae": 6.414236284287371,
+      "r2": 0.6214408346013598,
+      "rmse": 14.27135070575023
+    }
+  },
+  "random_seed": 24024,
+  "rows": {
+    "final_train_through_2024": 85565,
+    "model_selection_train": 78537,
+    "validation_2024": 7028
+  },
+  "status": "trained",
+  "tackles_regression_challenger": {
+    "present": false
+  },
+  "target": "rushing_yards",
+  "target_columns_used_as_features": false,
+  "training_end": "2025-01-05T20:20:00+00:00",
+  "training_policy": {
+    "development_validation_season": 2024,
+    "final_train_end_season": 2024,
+    "model_selection_train_end_season": 2023,
+    "random_split_used": false,
+    "untouched_test_season": 2025,
+    "untouched_test_used_for_categories": false,
+    "untouched_test_used_for_feature_schema": false,
+    "untouched_test_used_for_fit": false,
+    "untouched_test_used_for_metrics": false,
+    "untouched_test_used_for_selection": false
+  },
+  "training_rows": 85565,
+  "training_start": "2012-09-05T20:30:00+00:00"
+}

@@ -1,0 +1,182 @@
+{
+  "version": "20260908_1821_receiving_yards_blend",
+  "training_start": "season:2012",
+  "training_end": "season:2024",
+  "target": "receiving_yards",
+  "feature_schema_hash": "89ed8fea38bda13e9bf55b9406985f3d92d97ae798ca29b6343afe86ce548627",
+  "git_commit_sha": "2ebfa762c1a4a47dcb22befce517ce3bac357b20",
+  "model_family": "blend",
+  "validation_metrics": {
+    "mae": 14.133903136211694,
+    "bias": -2.040617005350985,
+    "absolute_bias": 2.040617005350985,
+    "improvement_vs_baseline_pct": 19.710113339827114
+  },
+  "final_test_metrics": {
+    "test_season": 2025,
+    "test_rows": 5831,
+    "mae": 14.17792745171855,
+    "bias": -1.4672950831897107,
+    "absolute_bias": 1.4672950831897107,
+    "improvement_vs_baseline_pct": 16.96673319173232
+  },
+  "blend_weights": {
+    "direct": 0.67,
+    "component": 0.32999999999999996
+  },
+  "uncertainty_calibration_version": "sha256:0e5bad9224a8eb98cd3354ff9b549fc01850069a49c419ce40a049ad040bf716",
+  "selected_architecture": "direct_component_blend",
+  "promotion_timestamp_utc": "2026-09-08T18:21:16.559431Z",
+  "promotion_mode": "six_of_nine_target_specific",
+  "production_approval_qualified": true,
+  "test_used_for_selection": false,
+  "test_used_for_calibration": false,
+  "market_features_used": false,
+  "feature_schema_hash_method": "sha256(canonical_json(ordered_feature_manifest_sha256_sources))",
+  "feature_schema_sources": [
+    {
+      "role": "direct",
+      "name": "receiving_yards",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/receiving_yards/feature_manifest.json",
+      "feature_manifest_sha256": "5ea693c13b501c6150e2f4fbed6c08b260e47fb5333950e2caba855018d78a03"
+    },
+    {
+      "role": "component",
+      "name": "team_pass_attempts",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/components/team_pass_attempts/feature_manifest.json",
+      "feature_manifest_sha256": "6ddcf2baed1b1a9975b0b954acc5ea38d75504ae99ba694995cf90869564f886"
+    },
+    {
+      "role": "component",
+      "name": "player_target_share",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/components/player_target_share/feature_manifest.json",
+      "feature_manifest_sha256": "036d3a79feb4c6ddaa6e4a59c458e61a89bc26119d230d52ac51fa02ee128ba0"
+    },
+    {
+      "role": "efficiency",
+      "name": "receiving_yards_per_target",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/efficiency/receiving_yards_per_target/feature_manifest.json",
+      "feature_manifest_sha256": "ba66b5f1a6d49a616f50415accdaf6036e22afbe19a69a4fe73ffd77761a363e"
+    }
+  ],
+  "model_sources": [
+    {
+      "role": "direct",
+      "name": "receiving_yards",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/receiving_yards",
+      "snapshot_directory": "artifacts/direct/receiving_yards"
+    },
+    {
+      "role": "component",
+      "name": "team_pass_attempts",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/components/team_pass_attempts",
+      "snapshot_directory": "artifacts/component/team_pass_attempts"
+    },
+    {
+      "role": "component",
+      "name": "player_target_share",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/components/player_target_share",
+      "snapshot_directory": "artifacts/component/player_target_share"
+    },
+    {
+      "role": "efficiency",
+      "name": "receiving_yards_per_target",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/efficiency/receiving_yards_per_target",
+      "snapshot_directory": "artifacts/efficiency/receiving_yards_per_target"
+    }
+  ],
+  "source_selected_model": {
+    "path": "docs/win/football/nfl/prop_engine/models/receiving_yards/selected_model.json",
+    "sha256": "1b61ba93534c2d451b7f1cb8adbab81fcdc4d667536d1fb9cd5ff123c19476f2"
+  },
+  "source_calibration": {
+    "path": "docs/win/football/nfl/prop_engine/models/calibration/receiving_yards_calibration.json",
+    "sha256": "0e5bad9224a8eb98cd3354ff9b549fc01850069a49c419ce40a049ad040bf716"
+  },
+  "source_approval_evaluation": {
+    "path": "docs/win/football/nfl/prop_engine/evaluation/production_approval_evaluation.json",
+    "sha256": "5c306d5eb56d379032efb1610911440a3e68b7b55b49a47ae700258f6dfab11a"
+  },
+  "artifact_manifest": [
+    {
+      "path": "approval_evidence.json",
+      "sha256": "2ff84124fe9412a98f91a0fdf9213c0888b88abe45e15fb427999f19c849d4a8",
+      "size_bytes": 1576
+    },
+    {
+      "path": "artifacts/component/player_target_share/feature_manifest.json",
+      "sha256": "036d3a79feb4c6ddaa6e4a59c458e61a89bc26119d230d52ac51fa02ee128ba0",
+      "size_bytes": 3650
+    },
+    {
+      "path": "artifacts/component/player_target_share/metadata.json",
+      "sha256": "035a5025aa5ca3697ce34aab0ab1cc206212bb26d97599e12367596a0ec6a888",
+      "size_bytes": 11054
+    },
+    {
+      "path": "artifacts/component/player_target_share/model.txt",
+      "sha256": "11c29a68014e43504f4569b853b8f2a828da0a1a71def9a8e7ccea8efb8cec0d",
+      "size_bytes": 795330
+    },
+    {
+      "path": "artifacts/component/team_pass_attempts/feature_manifest.json",
+      "sha256": "6ddcf2baed1b1a9975b0b954acc5ea38d75504ae99ba694995cf90869564f886",
+      "size_bytes": 6468
+    },
+    {
+      "path": "artifacts/component/team_pass_attempts/metadata.json",
+      "sha256": "65b5840bdda68656b0bdf3bfb2296f064c2b0eb260ba67a09b1c6e900299a05a",
+      "size_bytes": 18631
+    },
+    {
+      "path": "artifacts/component/team_pass_attempts/model.txt",
+      "sha256": "60fe934eae3489c0fa5fd32378add20db3c62174beb41f8609688c5b2c1ad1a1",
+      "size_bytes": 194909
+    },
+    {
+      "path": "artifacts/direct/receiving_yards/direct_model.txt",
+      "sha256": "caa0100e285924082c948fb38430c78ef857ca7fd0753cfc92cd0f7d09335a1f",
+      "size_bytes": 887136
+    },
+    {
+      "path": "artifacts/direct/receiving_yards/feature_manifest.json",
+      "sha256": "5ea693c13b501c6150e2f4fbed6c08b260e47fb5333950e2caba855018d78a03",
+      "size_bytes": 27800
+    },
+    {
+      "path": "artifacts/direct/receiving_yards/metadata.json",
+      "sha256": "66cce49f00d46e7cf2acaaf588a841d70d2f9952ac9caa3e218a55b40a090fe6",
+      "size_bytes": 2637
+    },
+    {
+      "path": "artifacts/direct/receiving_yards/selected_model.json",
+      "sha256": "1b61ba93534c2d451b7f1cb8adbab81fcdc4d667536d1fb9cd5ff123c19476f2",
+      "size_bytes": 2821
+    },
+    {
+      "path": "artifacts/efficiency/receiving_yards_per_target/feature_manifest.json",
+      "sha256": "ba66b5f1a6d49a616f50415accdaf6036e22afbe19a69a4fe73ffd77761a363e",
+      "size_bytes": 2145
+    },
+    {
+      "path": "artifacts/efficiency/receiving_yards_per_target/metadata.json",
+      "sha256": "56e0d635d7231c71676d742ddd6044346b09e3856616fd6c5b7a4303cbb880af",
+      "size_bytes": 5154
+    },
+    {
+      "path": "artifacts/efficiency/receiving_yards_per_target/model.txt",
+      "sha256": "590357f9cde54dd019b9ae1426c10b7da8f424892d69c45e5309cba8ada02db5",
+      "size_bytes": 182908
+    },
+    {
+      "path": "calibration.json",
+      "sha256": "0e5bad9224a8eb98cd3354ff9b549fc01850069a49c419ce40a049ad040bf716",
+      "size_bytes": 8131
+    },
+    {
+      "path": "selected_model.json",
+      "sha256": "1b61ba93534c2d451b7f1cb8adbab81fcdc4d667536d1fb9cd5ff123c19476f2",
+      "size_bytes": 2821
+    }
+  ]
+}

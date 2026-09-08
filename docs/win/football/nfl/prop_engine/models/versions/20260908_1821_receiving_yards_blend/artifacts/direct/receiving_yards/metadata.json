@@ -1,0 +1,81 @@
+{
+  "environment_join_contract": {
+    "secondary_join_performed": false,
+    "source": "canonical_issue17_feature_table",
+    "travel_join_key": "game_id",
+    "weather_join_key": "game_id"
+  },
+  "feature_count": 218,
+  "feature_hash": "dd75b7d18aa2886415ec0fb1e4931af4ac523daea2b19e021fe0f38bbb7245bd",
+  "feature_manifest": {
+    "feature_hash": "dd75b7d18aa2886415ec0fb1e4931af4ac523daea2b19e021fe0f38bbb7245bd",
+    "path": "docs/win/football/nfl/prop_engine/models/receiving_yards/feature_manifest.json",
+    "sha256": "5ea693c13b501c6150e2f4fbed6c08b260e47fb5333950e2caba855018d78a03"
+  },
+  "forbidden_columns_used": false,
+  "lightgbm_version": "4.6.0",
+  "market_features_used": false,
+  "missing_required_feature_policy": "fail",
+  "model_family": "lightgbm_regression",
+  "objective": "regression",
+  "primary": {
+    "best_iteration_selected_on_2024": 301,
+    "model_family": "lightgbm_regression",
+    "model_sha256": "caa0100e285924082c948fb38430c78ef857ca7fd0753cfc92cd0f7d09335a1f",
+    "objective": "regression",
+    "params": {
+      "bagging_fraction": 1.0,
+      "bagging_freq": 0,
+      "bagging_seed": 24024,
+      "boosting_type": "gbdt",
+      "data_random_seed": 24024,
+      "deterministic": true,
+      "feature_fraction": 1.0,
+      "feature_fraction_seed": 24024,
+      "force_col_wise": true,
+      "lambda_l1": 0.0,
+      "lambda_l2": 0.0,
+      "learning_rate": 0.03,
+      "max_bin": 255,
+      "metric": "rmse",
+      "min_data_in_leaf": 40,
+      "num_leaves": 31,
+      "num_threads": 1,
+      "objective": "regression",
+      "seed": 24024,
+      "verbosity": -1
+    },
+    "validation_2024_metrics": {
+      "mae": 14.185157639011956,
+      "r2": 0.46457464408462823,
+      "rmse": 21.31306577644567
+    }
+  },
+  "random_seed": 24024,
+  "rows": {
+    "final_train_through_2024": 77214,
+    "model_selection_train": 70870,
+    "validation_2024": 6344
+  },
+  "status": "trained",
+  "tackles_regression_challenger": {
+    "present": false
+  },
+  "target": "receiving_yards",
+  "target_columns_used_as_features": false,
+  "training_end": "2025-01-05T20:20:00+00:00",
+  "training_policy": {
+    "development_validation_season": 2024,
+    "final_train_end_season": 2024,
+    "model_selection_train_end_season": 2023,
+    "random_split_used": false,
+    "untouched_test_season": 2025,
+    "untouched_test_used_for_categories": false,
+    "untouched_test_used_for_feature_schema": false,
+    "untouched_test_used_for_fit": false,
+    "untouched_test_used_for_metrics": false,
+    "untouched_test_used_for_selection": false
+  },
+  "training_rows": 77214,
+  "training_start": "2012-09-05T20:30:00+00:00"
+}

@@ -1,0 +1,81 @@
+{
+  "blend_weights": {
+    "component": 0.22999999999999998,
+    "direct": 0.77,
+    "selected_from_validation_only": true
+  },
+  "comparison_row_policy": "common_evaluable_rows; missing baseline projections excluded; no missing projection is imputed to zero",
+  "component_dependencies": [
+    "qb_pass_attempts",
+    "passing_td_rate"
+  ],
+  "component_share_reconciliation": {
+    "method": "normalize_positive_predicted_shares_within_team_game",
+    "player_carry_share": true,
+    "player_goal_line_carry_share": true,
+    "player_red_zone_target_share": true,
+    "player_target_share": true
+  },
+  "direct_variant": {
+    "model_file": "docs/win/football/nfl/prop_engine/models/passing_tds/direct_model.txt",
+    "objective": "poisson",
+    "selected_on_validation_only": true,
+    "validation_variant_metrics": {
+      "primary": {
+        "brier_1plus": 0.18098410643126836,
+        "logloss_1plus": 0.545751419219771,
+        "mae": 0.8331607717351945,
+        "median_ae": 0.6579440090013836,
+        "poisson_deviance": 1.076714520971426,
+        "rmse": 1.0561695329940846
+      }
+    },
+    "variant": "primary"
+  },
+  "final_train_end_season": 2024,
+  "goal_line_volume_proxy_order": [
+    "team_goal_line_rush_attempts_roll3_mean",
+    "team_goal_line_rush_attempts_roll5_mean",
+    "team_goal_line_rush_attempts_ewm5",
+    "team_goal_line_rush_attempts_season_to_date"
+  ],
+  "market_features_used": false,
+  "model_selection_train_end_season": 2023,
+  "red_zone_volume_proxy_order": [
+    "team_red_zone_pass_attempts_roll3_mean",
+    "team_red_zone_pass_attempts_roll5_mean",
+    "team_red_zone_pass_attempts_ewm5",
+    "team_red_zone_pass_attempts_season_to_date"
+  ],
+  "selected_architecture": "direct_component_blend",
+  "selected_candidate": "direct_component_blend",
+  "selected_test_metrics_reporting_only": {
+    "brier_1plus": 0.1749837307005853,
+    "logloss_1plus": 0.5305773897276912,
+    "mae": 0.8419729462096843,
+    "median_ae": 0.7014382854837078,
+    "poisson_deviance": 1.0748022996337812,
+    "rmse": 1.0578939053772303
+  },
+  "selected_validation_metrics": {
+    "brier_1plus": 0.178192509049405,
+    "logloss_1plus": 0.5396515315639804,
+    "mae": 0.8332624944445243,
+    "median_ae": 0.6612028890400532,
+    "poisson_deviance": 1.065486981293207,
+    "rmse": 1.056690512084694
+  },
+  "selection_frozen_before_test_reporting": true,
+  "selection_metric": "validation_mae",
+  "selection_reason": "selected on chronological validation only: direct_component_blend had the lowest validation MAE=0.833262494445; RMSE, median AE, then fixed candidate order are tie-breakers; 2025 metrics are reporting-only",
+  "selection_tiebreakers": [
+    "validation_rmse",
+    "validation_median_ae",
+    "candidate_order"
+  ],
+  "target": "passing_tds",
+  "test_reporting_only": true,
+  "test_season": 2025,
+  "test_used_for_selection": false,
+  "validation_season": 2024
+}

@@ -1,0 +1,159 @@
+{
+  "version": "20260908_1821_passing_tds_blend",
+  "training_start": "season:2012",
+  "training_end": "season:2024",
+  "target": "passing_tds",
+  "feature_schema_hash": "e2026456b19431bbbfea27967e22e42de46a5bc3d32455a6fb39387e6748423e",
+  "git_commit_sha": "2ebfa762c1a4a47dcb22befce517ce3bac357b20",
+  "model_family": "blend",
+  "validation_metrics": {
+    "mae": 0.8256856485095111,
+    "bias": -0.0008945083036370656,
+    "absolute_bias": 0.0008945083036370656,
+    "improvement_vs_baseline_pct": 8.642289630718102,
+    "brier_1plus": 0.17379244246985517,
+    "poisson_deviance": 1.0537395979693
+  },
+  "final_test_metrics": {
+    "test_season": 2025,
+    "test_rows": 670,
+    "mae": 0.8393776082332174,
+    "bias": 0.019871939777711203,
+    "absolute_bias": 0.019871939777711203,
+    "improvement_vs_baseline_pct": 11.167508626095394,
+    "brier_1plus": 0.17074905835056373,
+    "poisson_deviance": 1.0668246041593252
+  },
+  "blend_weights": {
+    "direct": 0.77,
+    "component": 0.22999999999999998
+  },
+  "uncertainty_calibration_version": "sha256:ef2d556f651befd057e25cd929334ad496a5d3bff94f412d21f58c370311399a",
+  "selected_architecture": "direct_component_blend",
+  "promotion_timestamp_utc": "2026-09-08T18:21:16.559431Z",
+  "promotion_mode": "six_of_nine_target_specific",
+  "production_approval_qualified": true,
+  "test_used_for_selection": false,
+  "test_used_for_calibration": false,
+  "market_features_used": false,
+  "feature_schema_hash_method": "sha256(canonical_json(ordered_feature_manifest_sha256_sources))",
+  "feature_schema_sources": [
+    {
+      "role": "direct",
+      "name": "passing_tds",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/passing_tds/feature_manifest.json",
+      "feature_manifest_sha256": "8b755376a0469583a178c32c7c16cbfb35c78795ea2ea871a731d887dfce34bd"
+    },
+    {
+      "role": "component",
+      "name": "qb_pass_attempts",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/components/qb_pass_attempts/feature_manifest.json",
+      "feature_manifest_sha256": "1d9e83fabeaa942ca6c7fab51441a031153e2f9694806377df274671f726efeb"
+    },
+    {
+      "role": "efficiency",
+      "name": "passing_td_rate",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/efficiency/passing_td_rate/feature_manifest.json",
+      "feature_manifest_sha256": "540bc4c7304afd154d68c602f762d6570e73bf2957f94e9be6759461ed82ca9d"
+    }
+  ],
+  "model_sources": [
+    {
+      "role": "direct",
+      "name": "passing_tds",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/passing_tds",
+      "snapshot_directory": "artifacts/direct/passing_tds"
+    },
+    {
+      "role": "component",
+      "name": "qb_pass_attempts",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/components/qb_pass_attempts",
+      "snapshot_directory": "artifacts/component/qb_pass_attempts"
+    },
+    {
+      "role": "efficiency",
+      "name": "passing_td_rate",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/efficiency/passing_td_rate",
+      "snapshot_directory": "artifacts/efficiency/passing_td_rate"
+    }
+  ],
+  "source_selected_model": {
+    "path": "docs/win/football/nfl/prop_engine/models/passing_tds/selected_model.json",
+    "sha256": "8a117b6cab92094911cc585898a1608543252b0ca3e754fdec39901d578d5982"
+  },
+  "source_calibration": {
+    "path": "docs/win/football/nfl/prop_engine/models/calibration/passing_tds_calibration.json",
+    "sha256": "ef2d556f651befd057e25cd929334ad496a5d3bff94f412d21f58c370311399a"
+  },
+  "source_approval_evaluation": {
+    "path": "docs/win/football/nfl/prop_engine/evaluation/production_approval_evaluation.json",
+    "sha256": "5c306d5eb56d379032efb1610911440a3e68b7b55b49a47ae700258f6dfab11a"
+  },
+  "artifact_manifest": [
+    {
+      "path": "approval_evidence.json",
+      "sha256": "563a7fd8e006a92429073113a8c0a56014d0e4eb902f34fbbc0b67c9e9c3b220",
+      "size_bytes": 1653
+    },
+    {
+      "path": "artifacts/component/qb_pass_attempts/feature_manifest.json",
+      "sha256": "1d9e83fabeaa942ca6c7fab51441a031153e2f9694806377df274671f726efeb",
+      "size_bytes": 3415
+    },
+    {
+      "path": "artifacts/component/qb_pass_attempts/metadata.json",
+      "sha256": "7fe3da31d3b9e3d6a67f2eed5628c4cfc9a3d6edf68ec1eb3538e77031bee56a",
+      "size_bytes": 10396
+    },
+    {
+      "path": "artifacts/component/qb_pass_attempts/model.txt",
+      "sha256": "1d75e9d503dd22e651e4336a0b444685af4079055efad05ca9d76a6648b24aa8",
+      "size_bytes": 316799
+    },
+    {
+      "path": "artifacts/direct/passing_tds/direct_model.txt",
+      "sha256": "1f32bf67d3fb88a41ce1fe8b199a39d06409c7eae793df8b4fb3afb6ecfffeb7",
+      "size_bytes": 1010421
+    },
+    {
+      "path": "artifacts/direct/passing_tds/feature_manifest.json",
+      "sha256": "8b755376a0469583a178c32c7c16cbfb35c78795ea2ea871a731d887dfce34bd",
+      "size_bytes": 20218
+    },
+    {
+      "path": "artifacts/direct/passing_tds/metadata.json",
+      "sha256": "057b89a58357571ecfb995e67734aaef7c89f58930c8a7331f0b1b94c901a0d7",
+      "size_bytes": 2648
+    },
+    {
+      "path": "artifacts/direct/passing_tds/selected_model.json",
+      "sha256": "8a117b6cab92094911cc585898a1608543252b0ca3e754fdec39901d578d5982",
+      "size_bytes": 2899
+    },
+    {
+      "path": "artifacts/efficiency/passing_td_rate/feature_manifest.json",
+      "sha256": "540bc4c7304afd154d68c602f762d6570e73bf2957f94e9be6759461ed82ca9d",
+      "size_bytes": 2128
+    },
+    {
+      "path": "artifacts/efficiency/passing_td_rate/metadata.json",
+      "sha256": "3d83971a1a57d62cf8d0a8aa2f43e454f7e1b55f51ff601dd57543d847314c76",
+      "size_bytes": 4816
+    },
+    {
+      "path": "artifacts/efficiency/passing_td_rate/model.txt",
+      "sha256": "8b4f200cbcd20655241bb73fe065f11ce186a40af5a0883c1baa51224fc43425",
+      "size_bytes": 101348
+    },
+    {
+      "path": "calibration.json",
+      "sha256": "ef2d556f651befd057e25cd929334ad496a5d3bff94f412d21f58c370311399a",
+      "size_bytes": 8041
+    },
+    {
+      "path": "selected_model.json",
+      "sha256": "8a117b6cab92094911cc585898a1608543252b0ca3e754fdec39901d578d5982",
+      "size_bytes": 2899
+    }
+  ]
+}

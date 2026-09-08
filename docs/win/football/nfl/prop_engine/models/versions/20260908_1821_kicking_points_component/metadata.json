@@ -1,0 +1,178 @@
+{
+  "version": "20260908_1821_kicking_points_component",
+  "training_start": "season:2012",
+  "training_end": "season:2024",
+  "target": "kicking_points",
+  "feature_schema_hash": "dc28ced35dd809bf13ddaf05899f2d38f2774d1decfdc2f4e2c5407057ed1056",
+  "git_commit_sha": "2ebfa762c1a4a47dcb22befce517ce3bac357b20",
+  "model_family": "component",
+  "validation_metrics": {
+    "mae": 3.035122854142538,
+    "bias": -0.23118260284015477,
+    "absolute_bias": 0.23118260284015477,
+    "improvement_vs_baseline_pct": 12.54891797309012,
+    "brier_1plus": 0.013035760192689594,
+    "poisson_deviance": 2.0883307801387265
+  },
+  "final_test_metrics": {
+    "test_season": 2025,
+    "test_rows": 535,
+    "mae": 3.014539758171622,
+    "bias": -0.13405584803362702,
+    "absolute_bias": 0.13405584803362702,
+    "improvement_vs_baseline_pct": 12.403194491411236,
+    "brier_1plus": 0.0261226940021915,
+    "poisson_deviance": 2.1275747214812215
+  },
+  "blend_weights": {},
+  "uncertainty_calibration_version": "sha256:abe5a09310a988d2a99196f54924c7f1a76ad40d45d0183a5a962b0e40d38be0",
+  "selected_architecture": "component",
+  "promotion_timestamp_utc": "2026-09-08T18:21:16.559431Z",
+  "promotion_mode": "six_of_nine_target_specific",
+  "production_approval_qualified": true,
+  "test_used_for_selection": false,
+  "test_used_for_calibration": false,
+  "market_features_used": false,
+  "feature_schema_hash_method": "sha256(canonical_json(ordered_feature_manifest_sha256_sources))",
+  "feature_schema_sources": [
+    {
+      "role": "component",
+      "name": "field_goal_attempts",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/components/field_goal_attempts/feature_manifest.json",
+      "feature_manifest_sha256": "a4c7d11387d816f1367604b256438881a7a025b622218708092499de12fb75b0"
+    },
+    {
+      "role": "efficiency",
+      "name": "field_goal_conversion",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/efficiency/field_goal_conversion/feature_manifest.json",
+      "feature_manifest_sha256": "a9fd602e3bc4b38f50b9313d7decee208d6fe153475f7e3f270a1fd3ef5ec1cb"
+    },
+    {
+      "role": "component",
+      "name": "extra_point_attempts",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/components/extra_point_attempts/feature_manifest.json",
+      "feature_manifest_sha256": "f453dc005fe82204e61046f8d2c57675d85fa22bbbc9a0a91bb681dad2e6860c"
+    },
+    {
+      "role": "efficiency",
+      "name": "extra_point_conversion",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/efficiency/extra_point_conversion/feature_manifest.json",
+      "feature_manifest_sha256": "a5945e26a44bcbf639b2a1eb6e30a5401f9400a27833694e7f1678167d58abcd"
+    }
+  ],
+  "model_sources": [
+    {
+      "role": "component",
+      "name": "field_goal_attempts",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/components/field_goal_attempts",
+      "snapshot_directory": "artifacts/component/field_goal_attempts"
+    },
+    {
+      "role": "efficiency",
+      "name": "field_goal_conversion",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/efficiency/field_goal_conversion",
+      "snapshot_directory": "artifacts/efficiency/field_goal_conversion"
+    },
+    {
+      "role": "component",
+      "name": "extra_point_attempts",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/components/extra_point_attempts",
+      "snapshot_directory": "artifacts/component/extra_point_attempts"
+    },
+    {
+      "role": "efficiency",
+      "name": "extra_point_conversion",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/efficiency/extra_point_conversion",
+      "snapshot_directory": "artifacts/efficiency/extra_point_conversion"
+    }
+  ],
+  "source_selected_model": {
+    "path": "docs/win/football/nfl/prop_engine/models/kicking_points/selected_model.json",
+    "sha256": "7a51b8aab2b5a13a7dd182e7769ddff7bae109728777a4cbeb1e0fe974884559"
+  },
+  "source_calibration": {
+    "path": "docs/win/football/nfl/prop_engine/models/calibration/kicking_points_calibration.json",
+    "sha256": "abe5a09310a988d2a99196f54924c7f1a76ad40d45d0183a5a962b0e40d38be0"
+  },
+  "source_approval_evaluation": {
+    "path": "docs/win/football/nfl/prop_engine/evaluation/production_approval_evaluation.json",
+    "sha256": "5c306d5eb56d379032efb1610911440a3e68b7b55b49a47ae700258f6dfab11a"
+  },
+  "artifact_manifest": [
+    {
+      "path": "approval_evidence.json",
+      "sha256": "e0ee9df90d8094d720f2de09d7ec52ac6d6e8a092353a3057c803e6bff72cf3f",
+      "size_bytes": 1651
+    },
+    {
+      "path": "artifacts/component/extra_point_attempts/feature_manifest.json",
+      "sha256": "f453dc005fe82204e61046f8d2c57675d85fa22bbbc9a0a91bb681dad2e6860c",
+      "size_bytes": 2204
+    },
+    {
+      "path": "artifacts/component/extra_point_attempts/metadata.json",
+      "sha256": "780de8b9fea8cd7e258cd3ab2aec3500c760bdfeb9102a8312ccd81a853f0105",
+      "size_bytes": 6282
+    },
+    {
+      "path": "artifacts/component/extra_point_attempts/model.txt",
+      "sha256": "04374ac6a12fb0ec671e652d84aa75892afb2eb20c1d36c36afd575d09c2ae06",
+      "size_bytes": 146604
+    },
+    {
+      "path": "artifacts/component/field_goal_attempts/feature_manifest.json",
+      "sha256": "a4c7d11387d816f1367604b256438881a7a025b622218708092499de12fb75b0",
+      "size_bytes": 2197
+    },
+    {
+      "path": "artifacts/component/field_goal_attempts/metadata.json",
+      "sha256": "7a3ae98d8583782c201220a4f07f9ded856b6390f80767bb5bfe15159cb7970b",
+      "size_bytes": 6081
+    },
+    {
+      "path": "artifacts/component/field_goal_attempts/model.txt",
+      "sha256": "d8f96f8b2563aa1adb015e7a5cd1606852d084cb6f47cb928fbcb17a07e5952e",
+      "size_bytes": 10913
+    },
+    {
+      "path": "artifacts/efficiency/extra_point_conversion/feature_manifest.json",
+      "sha256": "a5945e26a44bcbf639b2a1eb6e30a5401f9400a27833694e7f1678167d58abcd",
+      "size_bytes": 2462
+    },
+    {
+      "path": "artifacts/efficiency/extra_point_conversion/metadata.json",
+      "sha256": "79df87ccecadc39754a5aa828dbf0ef63a05b1e35ca0084a6a8e3022c2bb28e5",
+      "size_bytes": 4922
+    },
+    {
+      "path": "artifacts/efficiency/extra_point_conversion/model.txt",
+      "sha256": "5054ced4fd357af9804833b7b83209234210fc9698b8e90019fc98de2d4f7910",
+      "size_bytes": 15725
+    },
+    {
+      "path": "artifacts/efficiency/field_goal_conversion/feature_manifest.json",
+      "sha256": "a9fd602e3bc4b38f50b9313d7decee208d6fe153475f7e3f270a1fd3ef5ec1cb",
+      "size_bytes": 2441
+    },
+    {
+      "path": "artifacts/efficiency/field_goal_conversion/metadata.json",
+      "sha256": "7d35798e395165a29728b396d401bee27d382ceee88d20f8fd3126302e7c4354",
+      "size_bytes": 4881
+    },
+    {
+      "path": "artifacts/efficiency/field_goal_conversion/model.txt",
+      "sha256": "6d80d740694dbb2cb7e4a836a356701d0539cf183ea88b932d23ec8456433f7d",
+      "size_bytes": 9623
+    },
+    {
+      "path": "calibration.json",
+      "sha256": "abe5a09310a988d2a99196f54924c7f1a76ad40d45d0183a5a962b0e40d38be0",
+      "size_bytes": 7357
+    },
+    {
+      "path": "selected_model.json",
+      "sha256": "7a51b8aab2b5a13a7dd182e7769ddff7bae109728777a4cbeb1e0fe974884559",
+      "size_bytes": 2792
+    }
+  ]
+}

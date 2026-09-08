@@ -1,0 +1,197 @@
+{
+  "best_iteration_selected_on_2024": 4,
+  "conditional_td_label_policy": {
+    "exact_pbp_touchdown_flags": false,
+    "goal_line_definition": null,
+    "red_zone_definition": null
+  },
+  "feature_count": 19,
+  "feature_importance": [
+    {
+      "feature": "eff_league_prior_rate",
+      "gain": 20.441638991236687,
+      "split": 20
+    },
+    {
+      "feature": "player_extra_points_made_season_to_date",
+      "gain": 4.6944709867239,
+      "split": 13
+    },
+    {
+      "feature": "player_extra_points_made_career_prior",
+      "gain": 4.441506013274193,
+      "split": 11
+    },
+    {
+      "feature": "player_extra_point_attempts_season_to_date",
+      "gain": 3.7268870174884796,
+      "split": 11
+    },
+    {
+      "feature": "player_extra_point_attempts_career_prior",
+      "gain": 3.5809640139341354,
+      "split": 10
+    },
+    {
+      "feature": "eff_shrunk_rate",
+      "gain": 3.249811977148056,
+      "split": 12
+    },
+    {
+      "feature": "eff_player_prior_rate",
+      "gain": 3.2424860298633575,
+      "split": 11
+    },
+    {
+      "feature": "eff_position_prior_rate",
+      "gain": 3.185750961303711,
+      "split": 9
+    },
+    {
+      "feature": "history_history_games",
+      "gain": 2.5296379923820496,
+      "split": 8
+    },
+    {
+      "feature": "player_extra_point_attempts_lag1",
+      "gain": 1.7416289746761322,
+      "split": 6
+    },
+    {
+      "feature": "player_extra_points_made_lag1",
+      "gain": 0.9528550058603287,
+      "split": 4
+    },
+    {
+      "feature": "player_extra_point_attempts_roll3_mean",
+      "gain": 0.8083249926567078,
+      "split": 3
+    },
+    {
+      "feature": "player_extra_points_made_roll3_mean",
+      "gain": 0.4393239915370941,
+      "split": 1
+    },
+    {
+      "feature": "player_extra_point_attempts_roll5_mean",
+      "gain": 0.2697789967060089,
+      "split": 1
+    },
+    {
+      "feature": "eff_player_prior_exposure",
+      "gain": 0.0,
+      "split": 0
+    },
+    {
+      "feature": "eff_prior_weight",
+      "gain": 0.0,
+      "split": 0
+    },
+    {
+      "feature": "eff_rookie_position_prior_flag",
+      "gain": 0.0,
+      "split": 0
+    },
+    {
+      "feature": "history_no_nfl_history_flag",
+      "gain": 0.0,
+      "split": 0
+    },
+    {
+      "feature": "player_extra_points_made_roll5_mean",
+      "gain": 0.0,
+      "split": 0
+    }
+  ],
+  "feature_manifest_sha256": "a5945e26a44bcbf639b2a1eb6e30a5401f9400a27833694e7f1678167d58abcd",
+  "label": {
+    "first_training_season": 2012,
+    "last_training_season": 2024,
+    "maximum": 1.0,
+    "mean": 0.9493429983167725,
+    "minimum": 0.0
+  },
+  "lightgbm_version": "4.6.0",
+  "model": "extra_point_conversion",
+  "model_sha256": "5054ced4fd357af9804833b7b83209234210fc9698b8e90019fc98de2d4f7910",
+  "model_type": "lightgbm_regression",
+  "params": {
+    "bagging_fraction": 1.0,
+    "bagging_freq": 0,
+    "bagging_seed": 24024,
+    "boosting_type": "gbdt",
+    "data_random_seed": 24024,
+    "deterministic": true,
+    "feature_fraction": 1.0,
+    "feature_fraction_seed": 24024,
+    "force_col_wise": true,
+    "lambda_l1": 0.0,
+    "lambda_l2": 0.0,
+    "learning_rate": 0.03,
+    "max_bin": 255,
+    "metric": "rmse",
+    "min_data_in_leaf": 40,
+    "num_leaves": 31,
+    "num_threads": 1,
+    "objective": "regression",
+    "seed": 24024,
+    "verbosity": -1
+  },
+  "rows": {
+    "final_train_through_2024": 6139,
+    "model_selection_train": 5647,
+    "validation_2024": 492
+  },
+  "seed": 24024,
+  "shrinkage": {
+    "final_priors_through_2024": {
+      "league": {
+        "exposure": 15847.0,
+        "numerator": 15134.0,
+        "rate": 0.9550072568940493
+      },
+      "positions": {
+        "SPEC": {
+          "exposure": 11022.0,
+          "numerator": 10542.0,
+          "rate": 0.9564507348938487
+        },
+        "ST": {
+          "exposure": 4825.0,
+          "numerator": 4592.0,
+          "rate": 0.9517098445595855
+        }
+      },
+      "through_season": 2024
+    },
+    "hierarchy": "player_to_position_to_league",
+    "player_history_key": "player_id",
+    "prior_exposure": 40.0,
+    "rookies_use_position_prior": true,
+    "strictly_prior_kickoff": true,
+    "strong_shrinkage": false,
+    "team_change_resets_efficiency": false
+  },
+  "status": "trained",
+  "trade_policy": {
+    "old_team_opportunity_share": false,
+    "preserve_player_efficiency": true,
+    "share_features_in_model": false
+  },
+  "training_policy": {
+    "development_validation_season": 2024,
+    "final_train_end_season": 2024,
+    "model_selection_train_end_season": 2023,
+    "random_split_used": false,
+    "untouched_test_season": 2025,
+    "untouched_test_used_for_fit": false,
+    "untouched_test_used_for_metrics": false,
+    "untouched_test_used_for_priors": false,
+    "untouched_test_used_for_selection": false
+  },
+  "validation_2024_metrics": {
+    "mae": 0.0906438380311976,
+    "r2": 0.0054283715432205115,
+    "rmse": 0.1677479841923136
+  }
+}

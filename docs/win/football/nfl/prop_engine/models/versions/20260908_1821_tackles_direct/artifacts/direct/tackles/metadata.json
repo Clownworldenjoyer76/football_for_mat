@@ -1,0 +1,93 @@
+{
+  "environment_join_contract": {
+    "secondary_join_performed": false,
+    "source": "canonical_issue17_feature_table",
+    "travel_join_key": "game_id",
+    "weather_join_key": "game_id"
+  },
+  "feature_count": 102,
+  "feature_hash": "d1400b37ea382e9fd0cd78667243010e839b4a0d0cb6d6d4aa0a2309a8670112",
+  "feature_manifest": {
+    "feature_hash": "d1400b37ea382e9fd0cd78667243010e839b4a0d0cb6d6d4aa0a2309a8670112",
+    "path": "docs/win/football/nfl/prop_engine/models/tackles/feature_manifest.json",
+    "sha256": "33ae0442c12b91d122ec96e8140cd5f03e65bc684c8f61df97475663ce829bcd"
+  },
+  "forbidden_columns_used": false,
+  "lightgbm_version": "4.6.0",
+  "market_features_used": false,
+  "missing_required_feature_policy": "fail",
+  "model_family": "lightgbm_poisson",
+  "objective": "poisson",
+  "primary": {
+    "best_iteration_selected_on_2024": 706,
+    "model_family": "lightgbm_poisson",
+    "model_sha256": "d2eadaa1002fea1628828da870d974fedf1ba70a7afcc4eb5c406a0d88e65f6b",
+    "objective": "poisson",
+    "params": {
+      "bagging_fraction": 1.0,
+      "bagging_freq": 0,
+      "bagging_seed": 24024,
+      "boosting_type": "gbdt",
+      "data_random_seed": 24024,
+      "deterministic": true,
+      "feature_fraction": 1.0,
+      "feature_fraction_seed": 24024,
+      "force_col_wise": true,
+      "lambda_l1": 0.0,
+      "lambda_l2": 0.0,
+      "learning_rate": 0.03,
+      "max_bin": 255,
+      "metric": "rmse",
+      "min_data_in_leaf": 40,
+      "num_leaves": 31,
+      "num_threads": 1,
+      "objective": "poisson",
+      "poisson_max_delta_step": 0.7,
+      "seed": 24024,
+      "verbosity": -1
+    },
+    "validation_2024_metrics": {
+      "mae": 1.4286850370481197,
+      "r2": 0.4611685540566035,
+      "rmse": 1.9569407657055298
+    }
+  },
+  "random_seed": 24024,
+  "rows": {
+    "final_train_through_2024": 149009,
+    "model_selection_train": 136478,
+    "validation_2024": 12531
+  },
+  "status": "trained",
+  "tackles_regression_challenger": {
+    "best_iteration_selected_on_2024": 310,
+    "model_family": "lightgbm_regression",
+    "model_sha256": "0356955357da7336ccfcd15bbea031094452ab608abd0479a6df693e70062c7b",
+    "objective": "regression",
+    "path": "docs/win/football/nfl/prop_engine/models/tackles/challenger_model.txt",
+    "present": true,
+    "selection_deferred_to_issue_25": true,
+    "validation_2024_metrics": {
+      "mae": 1.4331516641372222,
+      "r2": 0.45872882495989165,
+      "rmse": 1.9613660949593241
+    }
+  },
+  "target": "tackles",
+  "target_columns_used_as_features": false,
+  "training_end": "2025-01-05T20:20:00+00:00",
+  "training_policy": {
+    "development_validation_season": 2024,
+    "final_train_end_season": 2024,
+    "model_selection_train_end_season": 2023,
+    "random_split_used": false,
+    "untouched_test_season": 2025,
+    "untouched_test_used_for_categories": false,
+    "untouched_test_used_for_feature_schema": false,
+    "untouched_test_used_for_fit": false,
+    "untouched_test_used_for_metrics": false,
+    "untouched_test_used_for_selection": false
+  },
+  "training_rows": 149009,
+  "training_start": "2012-09-05T20:30:00+00:00"
+}

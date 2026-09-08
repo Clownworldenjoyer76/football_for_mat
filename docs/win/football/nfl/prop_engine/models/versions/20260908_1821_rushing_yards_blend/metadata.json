@@ -1,0 +1,182 @@
+{
+  "version": "20260908_1821_rushing_yards_blend",
+  "training_start": "season:2012",
+  "training_end": "season:2024",
+  "target": "rushing_yards",
+  "feature_schema_hash": "1d7dd941a2f6f7cd2f67ab098a71a4903f386de83cf21b2207e6771ba13de0a9",
+  "git_commit_sha": "2ebfa762c1a4a47dcb22befce517ce3bac357b20",
+  "model_family": "blend",
+  "validation_metrics": {
+    "mae": 7.771234492079444,
+    "bias": -1.4667803523469118,
+    "absolute_bias": 1.4667803523469118,
+    "improvement_vs_baseline_pct": 7.404607847767986
+  },
+  "final_test_metrics": {
+    "test_season": 2025,
+    "test_rows": 5123,
+    "mae": 7.581460677885884,
+    "bias": -1.3693441805873103,
+    "absolute_bias": 1.3693441805873103,
+    "improvement_vs_baseline_pct": 11.219447380001865
+  },
+  "blend_weights": {
+    "direct": 0.73,
+    "component": 0.27
+  },
+  "uncertainty_calibration_version": "sha256:80b3ca514a0f87457dfaecc78862b6e5e8c77b87310f801abecc116427cc1515",
+  "selected_architecture": "direct_component_blend",
+  "promotion_timestamp_utc": "2026-09-08T18:21:16.559431Z",
+  "promotion_mode": "six_of_nine_target_specific",
+  "production_approval_qualified": true,
+  "test_used_for_selection": false,
+  "test_used_for_calibration": false,
+  "market_features_used": false,
+  "feature_schema_hash_method": "sha256(canonical_json(ordered_feature_manifest_sha256_sources))",
+  "feature_schema_sources": [
+    {
+      "role": "direct",
+      "name": "rushing_yards",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/rushing_yards/feature_manifest.json",
+      "feature_manifest_sha256": "c6d9ae76f4f30e40160f3448f93cbfee70362167c8add38a79a9faeb39bf3a2f"
+    },
+    {
+      "role": "component",
+      "name": "team_rush_attempts",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/components/team_rush_attempts/feature_manifest.json",
+      "feature_manifest_sha256": "312ec546854d87c47649db354f9c44018c629d70f69fddf9d049da35a6347248"
+    },
+    {
+      "role": "component",
+      "name": "player_carry_share",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/components/player_carry_share/feature_manifest.json",
+      "feature_manifest_sha256": "a9278865495c2e1b1a58b211c97e3cb91ac4d574530fd9905f1bb6ca2c8cb57e"
+    },
+    {
+      "role": "efficiency",
+      "name": "rushing_yards_per_carry",
+      "feature_manifest_path": "docs/win/football/nfl/prop_engine/models/efficiency/rushing_yards_per_carry/feature_manifest.json",
+      "feature_manifest_sha256": "71db8db24af4e3da33f319340e771001c93e73d16c8bbba9a22e99856358d25a"
+    }
+  ],
+  "model_sources": [
+    {
+      "role": "direct",
+      "name": "rushing_yards",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/rushing_yards",
+      "snapshot_directory": "artifacts/direct/rushing_yards"
+    },
+    {
+      "role": "component",
+      "name": "team_rush_attempts",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/components/team_rush_attempts",
+      "snapshot_directory": "artifacts/component/team_rush_attempts"
+    },
+    {
+      "role": "component",
+      "name": "player_carry_share",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/components/player_carry_share",
+      "snapshot_directory": "artifacts/component/player_carry_share"
+    },
+    {
+      "role": "efficiency",
+      "name": "rushing_yards_per_carry",
+      "source_directory": "docs/win/football/nfl/prop_engine/models/efficiency/rushing_yards_per_carry",
+      "snapshot_directory": "artifacts/efficiency/rushing_yards_per_carry"
+    }
+  ],
+  "source_selected_model": {
+    "path": "docs/win/football/nfl/prop_engine/models/rushing_yards/selected_model.json",
+    "sha256": "75cb24389a2175a566e75ff41cf8991c6642817c38557a82fe75263265cf3a29"
+  },
+  "source_calibration": {
+    "path": "docs/win/football/nfl/prop_engine/models/calibration/rushing_yards_calibration.json",
+    "sha256": "80b3ca514a0f87457dfaecc78862b6e5e8c77b87310f801abecc116427cc1515"
+  },
+  "source_approval_evaluation": {
+    "path": "docs/win/football/nfl/prop_engine/evaluation/production_approval_evaluation.json",
+    "sha256": "5c306d5eb56d379032efb1610911440a3e68b7b55b49a47ae700258f6dfab11a"
+  },
+  "artifact_manifest": [
+    {
+      "path": "approval_evidence.json",
+      "sha256": "2be81ca33ed2da57a21e041aba1151f4a7de401ba7aec2ce9abf1ea372b4f738",
+      "size_bytes": 1573
+    },
+    {
+      "path": "artifacts/component/player_carry_share/feature_manifest.json",
+      "sha256": "a9278865495c2e1b1a58b211c97e3cb91ac4d574530fd9905f1bb6ca2c8cb57e",
+      "size_bytes": 3468
+    },
+    {
+      "path": "artifacts/component/player_carry_share/metadata.json",
+      "sha256": "93c068ed8fca20629267e92afa7ae232de2a87ae6f93fdc691f1f6dfad6fca5b",
+      "size_bytes": 10484
+    },
+    {
+      "path": "artifacts/component/player_carry_share/model.txt",
+      "sha256": "70b5c3d5f11723431f6de981aa1e454231b3b22cd47b62307641e71e6c390e2f",
+      "size_bytes": 509287
+    },
+    {
+      "path": "artifacts/component/team_rush_attempts/feature_manifest.json",
+      "sha256": "312ec546854d87c47649db354f9c44018c629d70f69fddf9d049da35a6347248",
+      "size_bytes": 6472
+    },
+    {
+      "path": "artifacts/component/team_rush_attempts/metadata.json",
+      "sha256": "e093c9d6ca7707bb5ddae432206055de44c85be5b432dfc40dbb2f694de1222b",
+      "size_bytes": 18752
+    },
+    {
+      "path": "artifacts/component/team_rush_attempts/model.txt",
+      "sha256": "9514ee6f18c46a4104f5d872d54eb3327b7ff6be06da53683f716a0ad489516b",
+      "size_bytes": 564496
+    },
+    {
+      "path": "artifacts/direct/rushing_yards/direct_model.txt",
+      "sha256": "459aa792a9ab0f393b3d6d275e0c7fc708da081eb88bf5caef5d37ffeae7c9c5",
+      "size_bytes": 492095
+    },
+    {
+      "path": "artifacts/direct/rushing_yards/feature_manifest.json",
+      "sha256": "c6d9ae76f4f30e40160f3448f93cbfee70362167c8add38a79a9faeb39bf3a2f",
+      "size_bytes": 25655
+    },
+    {
+      "path": "artifacts/direct/rushing_yards/metadata.json",
+      "sha256": "89fa41c47ba85a43dead1afd16cdd92645fb8390c0379be0822a1923c1f6d742",
+      "size_bytes": 2631
+    },
+    {
+      "path": "artifacts/direct/rushing_yards/selected_model.json",
+      "sha256": "75cb24389a2175a566e75ff41cf8991c6642817c38557a82fe75263265cf3a29",
+      "size_bytes": 2797
+    },
+    {
+      "path": "artifacts/efficiency/rushing_yards_per_carry/feature_manifest.json",
+      "sha256": "71db8db24af4e3da33f319340e771001c93e73d16c8bbba9a22e99856358d25a",
+      "size_bytes": 2130
+    },
+    {
+      "path": "artifacts/efficiency/rushing_yards_per_carry/metadata.json",
+      "sha256": "2184a6e97231225a7681a9124f4d0a322407d865a1c95ec309025c6fa63cc198",
+      "size_bytes": 5040
+    },
+    {
+      "path": "artifacts/efficiency/rushing_yards_per_carry/model.txt",
+      "sha256": "d3ee06a0240c590372e2f178f9832ba6af71af41072153d2e84179d5d303ca96",
+      "size_bytes": 77453
+    },
+    {
+      "path": "calibration.json",
+      "sha256": "80b3ca514a0f87457dfaecc78862b6e5e8c77b87310f801abecc116427cc1515",
+      "size_bytes": 8207
+    },
+    {
+      "path": "selected_model.json",
+      "sha256": "75cb24389a2175a566e75ff41cf8991c6642817c38557a82fe75263265cf3a29",
+      "size_bytes": 2797
+    }
+  ]
+}

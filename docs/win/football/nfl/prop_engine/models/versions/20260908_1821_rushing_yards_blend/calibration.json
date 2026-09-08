@@ -1,0 +1,295 @@
+{
+  "calibration_mode": "quantiles",
+  "calibration_source": {
+    "fold_id": "dev_2024",
+    "model_selection_train_end_season": 2023,
+    "oof_residuals_used": true,
+    "prediction_file": "docs/win/football/nfl/prop_engine/evaluation/model_selection_predictions.parquet",
+    "rows": 5335,
+    "season": 2024,
+    "split": "validation"
+  },
+  "forbidden_features_used": false,
+  "market_features_used": false,
+  "point_prediction_blend": {
+    "calibrated_weight": 1.0,
+    "candidate_calibrated_weights": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "candidate_metrics": [
+      {
+        "calibrated_weight": 0.0,
+        "failed_gates": [],
+        "passed_all_configured_gates": true,
+        "raw_weight": 1.0,
+        "validation_absolute_bias": 1.0762284195920382,
+        "validation_bias": -1.0762284195920382,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 5.172694129520753,
+        "validation_mae": 7.958551857095539,
+        "validation_poisson_deviance": null
+      },
+      {
+        "calibrated_weight": 0.25,
+        "failed_gates": [],
+        "passed_all_configured_gates": true,
+        "raw_weight": 0.75,
+        "validation_absolute_bias": 1.1738664027807568,
+        "validation_bias": -1.1738664027807568,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 5.831015368119575,
+        "validation_mae": 7.9033010654810205,
+        "validation_poisson_deviance": null
+      },
+      {
+        "calibrated_weight": 0.5,
+        "failed_gates": [],
+        "passed_all_configured_gates": true,
+        "raw_weight": 0.5,
+        "validation_absolute_bias": 1.271504385969475,
+        "validation_bias": -1.271504385969475,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 6.487356433312076,
+        "validation_mae": 7.848216463473974,
+        "validation_poisson_deviance": null
+      },
+      {
+        "calibrated_weight": 0.75,
+        "failed_gates": [],
+        "passed_all_configured_gates": true,
+        "raw_weight": 0.25,
+        "validation_absolute_bias": 1.3691423691581934,
+        "validation_bias": -1.3691423691581934,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 7.136489054723662,
+        "validation_mae": 7.793736843050161,
+        "validation_poisson_deviance": null
+      },
+      {
+        "calibrated_weight": 1.0,
+        "failed_gates": [],
+        "passed_all_configured_gates": true,
+        "raw_weight": 0.0,
+        "validation_absolute_bias": 1.4667803523469118,
+        "validation_bias": -1.4667803523469118,
+        "validation_brier_1plus": null,
+        "validation_improvement_vs_baseline_pct": 7.404607847767986,
+        "validation_mae": 7.771234492079444,
+        "validation_poisson_deviance": null
+      }
+    ],
+    "floor_at_zero": false,
+    "interval_calibration_unchanged": true,
+    "method": "validation_only_blend_raw_with_existing_calibrated_point",
+    "probability_calibration_unchanged": true,
+    "raw_weight": 0.0,
+    "selected_validation_metrics": {
+      "calibrated_weight": 1.0,
+      "failed_gates": [],
+      "passed_all_configured_gates": true,
+      "raw_weight": 0.0,
+      "validation_absolute_bias": 1.4667803523469118,
+      "validation_bias": -1.4667803523469118,
+      "validation_brier_1plus": null,
+      "validation_improvement_vs_baseline_pct": 7.404607847767986,
+      "validation_mae": 7.771234492079444,
+      "validation_poisson_deviance": null
+    },
+    "selection_season": 2024,
+    "selection_split": "validation",
+    "selection_status": "validation_candidate_passed_all_gates_rushing_yards_robust_margin",
+    "test_rows_used_for_selection": false
+  },
+  "quantile_calibration": {
+    "coverage_widening": {
+      "global": {
+        "q10_q90": 1.0,
+        "q25_q75": 1.0
+      },
+      "segment_extra": {
+        "q10_q90": {
+          "OFF|high": {
+            "multiplier": 2.483944280189508,
+            "rows": 1364
+          },
+          "OFF|low": {
+            "multiplier": 1.0,
+            "rows": 1177
+          },
+          "OFF|medium": {
+            "multiplier": 1.0,
+            "rows": 985
+          },
+          "QB|high": {
+            "multiplier": 1.1927087336744098,
+            "rows": 34
+          },
+          "QB|medium": {
+            "multiplier": 1.0,
+            "rows": 39
+          },
+          "RB|high": {
+            "multiplier": 2.0548792768789594,
+            "rows": 292
+          },
+          "RB|low": {
+            "multiplier": 1.0,
+            "rows": 171
+          },
+          "RB|medium": {
+            "multiplier": 1.0,
+            "rows": 158
+          },
+          "TE|low": {
+            "multiplier": 1.0,
+            "rows": 284
+          },
+          "TE|medium": {
+            "multiplier": 1.0,
+            "rows": 35
+          },
+          "WR|low": {
+            "multiplier": 1.0,
+            "rows": 619
+          },
+          "WR|medium": {
+            "multiplier": 1.0,
+            "rows": 156
+          }
+        },
+        "q25_q75": {
+          "OFF|high": {
+            "multiplier": 5.0,
+            "rows": 1364
+          },
+          "OFF|low": {
+            "multiplier": 1.0,
+            "rows": 1177
+          },
+          "OFF|medium": {
+            "multiplier": 1.4537606325742587,
+            "rows": 985
+          },
+          "QB|high": {
+            "multiplier": 4.3184257079607775,
+            "rows": 34
+          },
+          "QB|medium": {
+            "multiplier": 2.019123365221269,
+            "rows": 39
+          },
+          "RB|high": {
+            "multiplier": 5.0,
+            "rows": 292
+          },
+          "RB|low": {
+            "multiplier": 1.0,
+            "rows": 171
+          },
+          "RB|medium": {
+            "multiplier": 1.564807741353408,
+            "rows": 158
+          },
+          "TE|low": {
+            "multiplier": 1.0,
+            "rows": 284
+          },
+          "TE|medium": {
+            "multiplier": 1.0,
+            "rows": 35
+          },
+          "WR|low": {
+            "multiplier": 1.0,
+            "rows": 619
+          },
+          "WR|medium": {
+            "multiplier": 1.0,
+            "rows": 156
+          }
+        }
+      },
+      "segment_key": "position_group|usage_bucket",
+      "segment_min_rows": 30
+    },
+    "floor_at_zero": false,
+    "intervals": {
+      "q10_q90": {
+        "expected_coverage": 0.8,
+        "lower": "q10",
+        "upper": "q90"
+      },
+      "q25_q75": {
+        "expected_coverage": 0.5,
+        "lower": "q25",
+        "upper": "q75"
+      }
+    },
+    "method": "selected_point_plus_oof_residual_quantiles_with_interval_widening",
+    "outputs": [
+      "q10",
+      "q25",
+      "q50",
+      "q75",
+      "q90"
+    ],
+    "residual_quantiles": {
+      "q10": -11.098363483973529,
+      "q25": -2.8280743892341764,
+      "q50": -0.3905519327548732,
+      "q75": -0.29648685780668066,
+      "q90": 14.656111202385997
+    },
+    "risk_widening": {
+      "combination": "multiply_active_factors_then_cap",
+      "combined_cap": 3.0,
+      "factors": {
+        "backup_promotion": {
+          "minimum_required_multiplier": 1.15,
+          "multiplier": 1.3557120007442256,
+          "rows": 93
+        },
+        "low_history": {
+          "minimum_required_multiplier": 1.1,
+          "multiplier": 1.1,
+          "rows": 288
+        },
+        "rookie": {
+          "minimum_required_multiplier": 1.25,
+          "multiplier": 1.25,
+          "rows": 73
+        }
+      },
+      "low_history_games_threshold": 4
+    }
+  },
+  "reporting_test_policy": {
+    "test_reporting_only_preserved": true,
+    "test_rows_used_for_calibration": false,
+    "test_season": 2025
+  },
+  "selected_architecture": "direct_component_blend",
+  "target": "rushing_yards",
+  "usage_bucket": {
+    "fitted_on_oof_validation_only": true,
+    "labels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "source": {
+      "columns": [
+        "player_carries_roll3_mean"
+      ],
+      "label": "player_carries_roll3_mean",
+      "method": "single"
+    },
+    "thresholds": {
+      "low_max": 0.0,
+      "medium_max": 2.0
+    }
+  }
+}
