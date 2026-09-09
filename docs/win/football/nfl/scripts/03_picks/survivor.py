@@ -16,24 +16,16 @@ OUTPUT COLUMNS:
   away_team
   home_team
 
-Favorite definition:
-  A negative spread is the favorite.
+A negative spread is the favorite.
 
-Examples:
-  -25.0 is a larger favorite than -5.0.
-
-The output pt_diff is the positive magnitude of the favorite's negative spread:
-  -25.0 -> 25.0
-  -5.0  -> 5.0
-
-Rows are sorted by pt_diff descending, so the largest favorite appears first.
+Rows are sorted from largest favorite to smallest favorite.
 """
 
 from __future__ import annotations
 
-import argparse
 import math
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +37,11 @@ NFL_ROOT = SCRIPT_DIR.parents[1]
 
 DEFAULT_INPUT_DIR = NFL_ROOT / "03_picks" / "all_games"
 DEFAULT_OUTPUT_DIR = NFL_ROOT / "03_picks" / "survivor"
+
+INPUT_PATTERN = "all_week_*_NFL_picks.csv"
+FILENAME_PATTERN = re.compile(
+    r"^all_week_(\d+)_NFL_picks\.csv$"
+)
 
 OUTPUT_COLUMNS = [
     "week",
@@ -252,8 +249,6 @@ def build_output(
             pick = away_team
             favorite_spread = away_spread
 
-        pt_diff = abs(favorite_spread)
-
         rows.append(
             {
                 "week": clean(
@@ -263,7 +258,9 @@ def build_output(
                     row["game_id"]
                 ),
                 "pick": pick,
-                "pt_diff_numeric": pt_diff,
+                "pt_diff_numeric": abs(
+                    favorite_spread
+                ),
                 "away_team": away_team,
                 "home_team": home_team,
             }
@@ -314,84 +311,91 @@ def write_atomic_csv(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--week",
-        type=int,
-        required=True,
-        help="NFL week number",
+    input_paths = sorted(
+        DEFAULT_INPUT_DIR.glob(
+            INPUT_PATTERN
+        )
     )
 
-    args = parser.parse_args()
-
-    if args.week <= 0:
+    if not input_paths:
         fail(
-            "--week must be greater than 0"
+            f"No input files found: "
+            f"{DEFAULT_INPUT_DIR / INPUT_PATTERN}"
         )
 
-    input_path = (
-        DEFAULT_INPUT_DIR
-        / f"all_week_{args.week}_NFL_picks.csv"
-    )
+    total_games = 0
 
-    output_path = (
-        DEFAULT_OUTPUT_DIR
-        / f"{args.week}_survivor_picks.csv"
-    )
-
-    if not input_path.is_file():
-        fail(
-            f"Input file not found: "
-            f"{input_path}"
+    for input_path in input_paths:
+        match = FILENAME_PATTERN.match(
+            input_path.name
         )
 
-    source = pd.read_csv(
-        input_path,
-        dtype=str,
-        keep_default_na=False,
-    )
+        if not match:
+            continue
 
-    require_columns(
-        source,
-        REQUIRED_INPUT_COLUMNS,
-        str(input_path),
-    )
-
-    validate_game_ids(
-        source,
-        str(input_path),
-    )
-
-    validate_week(
-        source,
-        args.week,
-        str(input_path),
-    )
-
-    output = build_output(
-        source
-    )
-
-    if len(output) != len(source):
-        fail(
-            "Output row count does not match "
-            "input row count"
+        week = int(
+            match.group(1)
         )
 
-    if list(output.columns) != OUTPUT_COLUMNS:
-        fail(
-            "Output column integrity check failed"
+        source = pd.read_csv(
+            input_path,
+            dtype=str,
+            keep_default_na=False,
         )
 
-    write_atomic_csv(
-        output,
-        output_path,
-    )
+        require_columns(
+            source,
+            REQUIRED_INPUT_COLUMNS,
+            str(input_path),
+        )
+
+        validate_game_ids(
+            source,
+            str(input_path),
+        )
+
+        validate_week(
+            source,
+            week,
+            str(input_path),
+        )
+
+        output = build_output(
+            source
+        )
+
+        if len(output) != len(source):
+            fail(
+                "Output row count does not match "
+                "input row count"
+            )
+
+        if list(output.columns) != OUTPUT_COLUMNS:
+            fail(
+                "Output column integrity check failed"
+            )
+
+        output_path = (
+            DEFAULT_OUTPUT_DIR
+            / f"{week}_survivor_picks.csv"
+        )
+
+        write_atomic_csv(
+            output,
+            output_path,
+        )
+
+        total_games += len(output)
+
+        print(
+            f"WROTE {output_path} | "
+            f"games={len(output)}"
+        )
 
     print(
-        f"WROTE {output_path} | "
-        f"games={len(output)}"
+        f"COMPLETE | "
+        f"files={len(input_paths)} | "
+        f"games={total_games}"
     )
 
     return 0
