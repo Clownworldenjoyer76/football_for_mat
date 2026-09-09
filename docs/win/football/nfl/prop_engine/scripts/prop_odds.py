@@ -10,20 +10,15 @@ Each CSV is one row per game/player and includes:
   player_name
   player_id
   requested prop columns
-  American odds
-  decimal odds
-  fractional odds
   ESPN odds total
 
 ESPN occasionally returns duplicate prop rows. Exact duplicate offers are collapsed.
 
 If a requested market has multiple distinct offers for the same player,
-the target values and odds are retained as pipe-delimited lists in the
-same order so each target lines up with its corresponding odds.
+the target values are retained as pipe-delimited lists in the same order.
 
 For selection-style markets that have no numeric target, such as touchdown
-scorer markets, the market column is written as AVAILABLE while the odds
-columns contain the actual ESPN sportsbook price.
+scorer markets, the market column is written as AVAILABLE.
 """
 
 from __future__ import annotations
@@ -58,13 +53,6 @@ BASE_COLUMNS = [
     "game_id",
     "player_name",
     "player_id",
-]
-
-ODDS_FIELDS = [
-    ("american", "Odds American"),
-    ("decimal", "Odds Decimal"),
-    ("fraction", "Odds Fraction"),
-    ("total", "Odds Total"),
 ]
 
 CATEGORY_CONFIG = {
@@ -963,14 +951,6 @@ def category_fieldnames(
             column
         )
 
-        for (
-            _odds_key,
-            odds_label,
-        ) in ODDS_FIELDS:
-            fieldnames.append(
-                f"{column} {odds_label}"
-            )
-
     return fieldnames
 
 
@@ -1106,15 +1086,6 @@ def build_category_rows(
                 for column in columns:
                     row[column] = ""
 
-                    for (
-                        _odds_key,
-                        odds_label,
-                    ) in ODDS_FIELDS:
-                        row[
-                            f"{column} "
-                            f"{odds_label}"
-                        ] = ""
-
                 rows[
                     key
                 ] = row
@@ -1166,37 +1137,6 @@ def build_category_rows(
                 offer[0]
                 for offer in ordered
             )
-
-            for (
-                odds_index,
-                (
-                    _odds_key,
-                    odds_label,
-                ),
-            ) in enumerate(
-                ODDS_FIELDS,
-                start=1,
-            ):
-                values = [
-                    offer[
-                        odds_index
-                    ]
-                    for offer in ordered
-                ]
-
-                if any(values):
-                    row[
-                        f"{market_column} "
-                        f"{odds_label}"
-                    ] = "|".join(
-                        values
-                    )
-
-                else:
-                    row[
-                        f"{market_column} "
-                        f"{odds_label}"
-                    ] = ""
 
     return sorted(
         rows.values(),
