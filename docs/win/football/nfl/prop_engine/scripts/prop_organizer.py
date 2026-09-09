@@ -136,6 +136,7 @@ def simple_output_path(season: int, week: int, category: str) -> Path:
     return (
         FINAL_ROOT
         / str(season)
+        / "stage_1"
         / f"week_{week}"
         / category
         / f"week_{week}_{category}.csv"
@@ -241,6 +242,7 @@ def build_combo_outputs(season: int, week: int) -> None:
     pass_rush_path = (
         FINAL_ROOT
         / str(season)
+        / "stage_1"
         / f"week_{week}"
         / "combo"
         / "pass_rush_yds"
@@ -295,6 +297,7 @@ def build_combo_outputs(season: int, week: int) -> None:
     rec_rush_path = (
         FINAL_ROOT
         / str(season)
+        / "stage_1"
         / f"week_{week}"
         / "combo"
         / "rec_rush_yds"
