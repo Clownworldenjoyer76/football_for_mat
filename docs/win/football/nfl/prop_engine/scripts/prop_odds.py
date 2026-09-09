@@ -5,13 +5,20 @@ Outputs are written under:
   docs/win/football/nfl/prop_engine/output/{season}/week_{week}_props/
 
 Each CSV is one row per game/player and includes:
-  game_date, game_id, player_name, player_id, <requested prop columns>
+  game_date
+  game_id
+  player_name
+  player_id
+  requested prop columns
+  ESPN odds total
 
-ESPN occasionally returns duplicate prop rows. Exact duplicate values are collapsed.
-If a requested market has multiple distinct current targets for the same player
-(e.g. Receiving Yards Milestones), values are retained as a pipe-delimited list.
-For selection-style markets that have no numeric target (such as touchdown scorer
-markets), the cell is written as AVAILABLE when that market exists for the player.
+ESPN occasionally returns duplicate prop rows. Exact duplicate offers are collapsed.
+
+If a requested market has multiple distinct offers for the same player,
+the target values are retained as pipe-delimited lists in the same order.
+
+For selection-style markets that have no numeric target, such as touchdown
+scorer markets, the market column is written as AVAILABLE.
 """
 
 from __future__ import annotations
@@ -41,7 +48,12 @@ TARGET_WEEK_GRACE = timedelta(hours=5)
 PROP_ENGINE_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_ROOT = PROP_ENGINE_DIR / "output"
 
-BASE_COLUMNS = ["game_date", "game_id", "player_name", "player_id"]
+BASE_COLUMNS = [
+    "game_date",
+    "game_id",
+    "player_name",
+    "player_id",
+]
 
 CATEGORY_CONFIG = {
     "passing": {
@@ -182,350 +194,1163 @@ def secure_ref(value: object) -> str:
     return str(value or "").strip().replace("http://", "https://", 1)
 
 
+def clean_value(value: object) -> str:
+    if value is None:
+        return ""
+
+    if isinstance(value, bool):
+        return str(value)
+
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+
+    return str(value).strip()
+
+
 def http_get_json(url: str) -> object:
     last_error: Exception | None = None
+
     for attempt in range(1, HTTP_RETRIES + 1):
-        request = Request(url, headers={"User-Agent": "nfl-prop-odds-espn/1.0"})
+        request = Request(
+            url,
+            headers={
+                "User-Agent": "nfl-prop-odds-espn/1.0",
+            },
+        )
+
         try:
             with urlopen(request, timeout=HTTP_TIMEOUT) as response:
                 return json.loads(response.read().decode("utf-8"))
-        except (HTTPError, URLError, json.JSONDecodeError, TimeoutError) as exc:
+
+        except (
+            HTTPError,
+            URLError,
+            json.JSONDecodeError,
+            TimeoutError,
+        ) as exc:
             last_error = exc
-            if isinstance(exc, HTTPError) and exc.code not in {408, 425, 429, 500, 502, 503, 504}:
+
+            if (
+                isinstance(exc, HTTPError)
+                and exc.code
+                not in {
+                    408,
+                    425,
+                    429,
+                    500,
+                    502,
+                    503,
+                    504,
+                }
+            ):
                 raise
+
             if attempt < HTTP_RETRIES:
-                time.sleep(min(2 ** (attempt - 1), 8))
-    raise RuntimeError(f"ESPN request failed: {url}: {last_error}")
+                time.sleep(
+                    min(
+                        2 ** (attempt - 1),
+                        8,
+                    )
+                )
+
+    raise RuntimeError(
+        f"ESPN request failed: {url}: {last_error}"
+    )
 
 
 def parse_datetime(value: object) -> datetime | None:
     text = str(value or "").strip()
+
     if not text:
         return None
+
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
+
     try:
         result = datetime.fromisoformat(text)
     except ValueError:
         return None
+
     if result.tzinfo is None:
-        result = result.replace(tzinfo=timezone.utc)
-    return result.astimezone(timezone.utc)
+        result = result.replace(
+            tzinfo=timezone.utc
+        )
+
+    return result.astimezone(
+        timezone.utc
+    )
 
 
-def week_events_url(season: int, week: int) -> str:
+def week_events_url(
+    season: int,
+    week: int,
+) -> str:
     return (
-        f"{ESPN_CORE_BASE}/seasons/{season}/types/{SEASON_TYPE}/weeks/{week}/events"
+        f"{ESPN_CORE_BASE}/seasons/{season}/types/"
+        f"{SEASON_TYPE}/weeks/{week}/events"
         "?limit=100&lang=en&region=us"
     )
 
 
 def event_id_from_ref(ref: str) -> str:
-    match = re.search(r"/events/(\d+)", ref)
+    match = re.search(
+        r"/events/(\d+)",
+        ref,
+    )
+
     return match.group(1) if match else ""
 
 
 def athlete_id_from_ref(ref: str) -> str:
-    match = re.search(r"/athletes/(\d+)", ref)
+    match = re.search(
+        r"/athletes/(\d+)",
+        ref,
+    )
+
     return match.group(1) if match else ""
 
 
-def event_odds_url(event_id: str) -> str:
+def event_odds_url(
+    event_id: str,
+) -> str:
     return (
-        f"{ESPN_CORE_BASE}/events/{event_id}/competitions/{event_id}/odds"
+        f"{ESPN_CORE_BASE}/events/{event_id}/"
+        f"competitions/{event_id}/odds"
         "?lang=en&region=us"
     )
 
 
-def fetch_week_events(season: int, week: int) -> list[dict]:
-    payload = http_get_json(week_events_url(season, week))
-    refs = payload.get("items", []) if isinstance(payload, dict) else []
-    event_refs = [secure_ref(item.get("$ref")) for item in refs if isinstance(item, dict) and item.get("$ref")]
+def fetch_week_events(
+    season: int,
+    week: int,
+) -> list[dict]:
+    payload = http_get_json(
+        week_events_url(
+            season,
+            week,
+        )
+    )
+
+    refs = (
+        payload.get("items", [])
+        if isinstance(payload, dict)
+        else []
+    )
+
+    event_refs = [
+        secure_ref(
+            item.get("$ref")
+        )
+        for item in refs
+        if isinstance(item, dict)
+        and item.get("$ref")
+    ]
 
     events: list[dict] = []
-    with ThreadPoolExecutor(max_workers=WORKERS) as executor:
-        futures = {executor.submit(http_get_json, ref): ref for ref in event_refs}
-        for future in as_completed(futures):
+
+    with ThreadPoolExecutor(
+        max_workers=WORKERS
+    ) as executor:
+        futures = {
+            executor.submit(
+                http_get_json,
+                ref,
+            ): ref
+            for ref in event_refs
+        }
+
+        for future in as_completed(
+            futures
+        ):
             ref = futures[future]
+
             try:
                 event = future.result()
             except Exception as exc:
-                print(f"WARN event fetch failed: {ref}: {exc}", file=sys.stderr)
+                print(
+                    f"WARN event fetch failed: "
+                    f"{ref}: {exc}",
+                    file=sys.stderr,
+                )
                 continue
-            if not isinstance(event, dict):
+
+            if not isinstance(
+                event,
+                dict,
+            ):
                 continue
-            event_id = str(event.get("id") or event_id_from_ref(ref)).strip()
+
+            event_id = str(
+                event.get("id")
+                or event_id_from_ref(ref)
+            ).strip()
+
             if not event_id:
                 continue
+
             events.append(
                 {
                     "event_id": event_id,
-                    "date": str(event.get("date", "")).strip(),
+                    "date": str(
+                        event.get(
+                            "date",
+                            "",
+                        )
+                    ).strip(),
                     "event": event,
                 }
             )
 
-    events.sort(key=lambda row: (row["date"], row["event_id"]))
+    events.sort(
+        key=lambda row: (
+            row["date"],
+            row["event_id"],
+        )
+    )
+
     return events
 
 
-def choose_target_week(season: int) -> int:
-    now = datetime.now(timezone.utc)
-    threshold = now - TARGET_WEEK_GRACE
+def choose_target_week(
+    season: int,
+) -> int:
+    now = datetime.now(
+        timezone.utc
+    )
+
+    threshold = (
+        now
+        - TARGET_WEEK_GRACE
+    )
+
     last_week_with_events = 1
 
-    for week in range(1, MAX_REGULAR_WEEKS + 1):
-        events = fetch_week_events(season, week)
+    for week in range(
+        1,
+        MAX_REGULAR_WEEKS + 1,
+    ):
+        events = fetch_week_events(
+            season,
+            week,
+        )
+
         if not events:
             continue
+
         last_week_with_events = week
+
         for event in events:
-            event_dt = parse_datetime(event.get("date"))
-            if event_dt and event_dt >= threshold:
+            event_dt = parse_datetime(
+                event.get("date")
+            )
+
+            if (
+                event_dt
+                and event_dt >= threshold
+            ):
                 return week
 
     return last_week_with_events
 
 
-def select_prop_ref(odds_payload: object) -> str:
-    if not isinstance(odds_payload, dict):
+def select_prop_ref(
+    odds_payload: object,
+) -> str:
+    if not isinstance(
+        odds_payload,
+        dict,
+    ):
         return ""
-    items = [item for item in odds_payload.get("items", []) if isinstance(item, dict)]
 
-    # Prefer DraftKings/provider 100 because that is the provider exposed in the
-    # verified ESPN prop feed; fall back to any provider that exposes propBets.
+    items = [
+        item
+        for item in odds_payload.get(
+            "items",
+            [],
+        )
+        if isinstance(
+            item,
+            dict,
+        )
+    ]
+
     ordered = sorted(
         items,
-        key=lambda item: 0
-        if str((item.get("provider") or {}).get("id", "")) == "100"
-        or str((item.get("provider") or {}).get("name", "")) == "DraftKings"
-        else 1,
+        key=lambda item: (
+            0
+            if (
+                str(
+                    (
+                        item.get("provider")
+                        or {}
+                    ).get(
+                        "id",
+                        "",
+                    )
+                )
+                == "100"
+                or str(
+                    (
+                        item.get("provider")
+                        or {}
+                    ).get(
+                        "name",
+                        "",
+                    )
+                )
+                == "DraftKings"
+            )
+            else 1
+        ),
     )
+
     for item in ordered:
-        prop_bets = item.get("propBets")
-        if isinstance(prop_bets, dict) and prop_bets.get("$ref"):
-            ref = secure_ref(prop_bets["$ref"])
-            separator = "&" if "?" in ref else "?"
-            return f"{ref}{separator}limit=1000"
+        prop_bets = item.get(
+            "propBets"
+        )
+
+        if (
+            isinstance(
+                prop_bets,
+                dict,
+            )
+            and prop_bets.get("$ref")
+        ):
+            ref = secure_ref(
+                prop_bets["$ref"]
+            )
+
+            separator = (
+                "&"
+                if "?" in ref
+                else "?"
+            )
+
+            return (
+                f"{ref}"
+                f"{separator}"
+                f"limit=1000"
+            )
+
     return ""
 
 
-def fetch_game_props(event: dict) -> dict:
-    event_id = event["event_id"]
-    odds = http_get_json(event_odds_url(event_id))
-    prop_ref = select_prop_ref(odds)
+def fetch_game_props(
+    event: dict,
+) -> dict:
+    event_id = event[
+        "event_id"
+    ]
+
+    odds = http_get_json(
+        event_odds_url(
+            event_id
+        )
+    )
+
+    prop_ref = select_prop_ref(
+        odds
+    )
+
     if not prop_ref:
-        return {**event, "props": []}
+        return {
+            **event,
+            "props": [],
+        }
 
-    payload = http_get_json(prop_ref)
-    props = payload.get("items", []) if isinstance(payload, dict) else []
-    return {**event, "props": [row for row in props if isinstance(row, dict)]}
+    payload = http_get_json(
+        prop_ref
+    )
+
+    props = (
+        payload.get(
+            "items",
+            [],
+        )
+        if isinstance(
+            payload,
+            dict,
+        )
+        else []
+    )
+
+    return {
+        **event,
+        "props": [
+            row
+            for row in props
+            if isinstance(
+                row,
+                dict,
+            )
+        ],
+    }
 
 
-def fetch_all_game_props(events: list[dict]) -> list[dict]:
+def fetch_all_game_props(
+    events: list[dict],
+) -> list[dict]:
     results: list[dict] = []
-    with ThreadPoolExecutor(max_workers=WORKERS) as executor:
-        futures = {executor.submit(fetch_game_props, event): event for event in events}
-        for future in as_completed(futures):
+
+    with ThreadPoolExecutor(
+        max_workers=WORKERS
+    ) as executor:
+        futures = {
+            executor.submit(
+                fetch_game_props,
+                event,
+            ): event
+            for event in events
+        }
+
+        for future in as_completed(
+            futures
+        ):
             event = futures[future]
+
             try:
-                results.append(future.result())
+                results.append(
+                    future.result()
+                )
+
             except Exception as exc:
                 print(
-                    f"WARN props fetch failed: game_id={event['event_id']}: {exc}",
+                    f"WARN props fetch failed: "
+                    f"game_id="
+                    f"{event['event_id']}: "
+                    f"{exc}",
                     file=sys.stderr,
                 )
-                results.append({**event, "props": []})
-    results.sort(key=lambda row: (row["date"], row["event_id"]))
+
+                results.append(
+                    {
+                        **event,
+                        "props": [],
+                    }
+                )
+
+    results.sort(
+        key=lambda row: (
+            row["date"],
+            row["event_id"],
+        )
+    )
+
     return results
 
 
-def resolve_athletes(game_props: list[dict]) -> dict[str, str]:
-    refs: dict[str, str] = {}
+def resolve_athletes(
+    game_props: list[dict],
+) -> dict[str, str]:
+    refs: dict[
+        str,
+        str,
+    ] = {}
+
     for game in game_props:
         for prop in game["props"]:
-            athlete = prop.get("athlete")
-            if not isinstance(athlete, dict):
-                continue
-            ref = secure_ref(athlete.get("$ref"))
-            athlete_id = athlete_id_from_ref(ref)
-            if ref and athlete_id:
-                refs[athlete_id] = ref
+            athlete = prop.get(
+                "athlete"
+            )
 
-    names: dict[str, str] = {}
-    with ThreadPoolExecutor(max_workers=WORKERS) as executor:
-        futures = {executor.submit(http_get_json, ref): athlete_id for athlete_id, ref in refs.items()}
-        for future in as_completed(futures):
-            athlete_id = futures[future]
-            try:
-                payload = future.result()
-            except Exception as exc:
-                print(f"WARN athlete fetch failed: athlete_id={athlete_id}: {exc}", file=sys.stderr)
-                names[athlete_id] = ""
+            if not isinstance(
+                athlete,
+                dict,
+            ):
                 continue
-            if isinstance(payload, dict):
-                names[athlete_id] = str(
-                    payload.get("fullName")
-                    or payload.get("displayName")
-                    or payload.get("shortName")
+
+            ref = secure_ref(
+                athlete.get(
+                    "$ref"
+                )
+            )
+
+            athlete_id = (
+                athlete_id_from_ref(
+                    ref
+                )
+            )
+
+            if (
+                ref
+                and athlete_id
+            ):
+                refs[
+                    athlete_id
+                ] = ref
+
+    names: dict[
+        str,
+        str,
+    ] = {}
+
+    with ThreadPoolExecutor(
+        max_workers=WORKERS
+    ) as executor:
+        futures = {
+            executor.submit(
+                http_get_json,
+                ref,
+            ): athlete_id
+            for (
+                athlete_id,
+                ref,
+            ) in refs.items()
+        }
+
+        for future in as_completed(
+            futures
+        ):
+            athlete_id = futures[
+                future
+            ]
+
+            try:
+                payload = (
+                    future.result()
+                )
+
+            except Exception as exc:
+                print(
+                    f"WARN athlete fetch failed: "
+                    f"athlete_id={athlete_id}: "
+                    f"{exc}",
+                    file=sys.stderr,
+                )
+
+                names[
+                    athlete_id
+                ] = ""
+
+                continue
+
+            if isinstance(
+                payload,
+                dict,
+            ):
+                names[
+                    athlete_id
+                ] = str(
+                    payload.get(
+                        "fullName"
+                    )
+                    or payload.get(
+                        "displayName"
+                    )
+                    or payload.get(
+                        "shortName"
+                    )
                     or ""
                 ).strip()
+
             else:
-                names[athlete_id] = ""
+                names[
+                    athlete_id
+                ] = ""
+
     return names
 
 
-def current_prop_value(prop: dict) -> str:
-    current = prop.get("current")
-    if isinstance(current, dict):
-        target = current.get("target")
-        if isinstance(target, dict):
-            value = target.get("value")
-            if value not in (None, ""):
-                return str(value)
-            display = target.get("displayValue")
-            if display not in (None, ""):
-                return str(display)
+def current_prop_value(
+    prop: dict,
+) -> str:
+    current = prop.get(
+        "current"
+    )
 
-    # Scorer markets identify the player through athlete but currently have no
-    # numeric target in ESPN Core. Preserve market availability rather than
-    # silently treating the offered selection as absent.
+    if isinstance(
+        current,
+        dict,
+    ):
+        target = current.get(
+            "target"
+        )
+
+        if isinstance(
+            target,
+            dict,
+        ):
+            value = target.get(
+                "value"
+            )
+
+            if value not in (
+                None,
+                "",
+            ):
+                return clean_value(
+                    value
+                )
+
+            display = target.get(
+                "displayValue"
+            )
+
+            if display not in (
+                None,
+                "",
+            ):
+                return clean_value(
+                    display
+                )
+
+        elif target not in (
+            None,
+            "",
+        ):
+            return clean_value(
+                target
+            )
+
     return "AVAILABLE"
 
 
-def game_date(value: str) -> str:
-    parsed = parse_datetime(value)
-    return parsed.date().isoformat() if parsed else value
+def current_prop_odds(
+    prop: dict,
+) -> dict[str, str]:
+    odds = prop.get(
+        "odds"
+    )
+
+    if not isinstance(
+        odds,
+        dict,
+    ):
+        return {
+            "american": "",
+            "decimal": "",
+            "fraction": "",
+            "total": "",
+        }
+
+    return {
+        "american": clean_value(
+            odds.get(
+                "american"
+            )
+        ),
+        "decimal": clean_value(
+            odds.get(
+                "decimal"
+            )
+        ),
+        "fraction": clean_value(
+            odds.get(
+                "fraction"
+            )
+        ),
+        "total": clean_value(
+            odds.get(
+                "total"
+            )
+        ),
+    }
 
 
-def add_value(existing: str, new_value: str) -> str:
-    if not existing:
-        return new_value
-    values = existing.split("|")
-    if new_value in values:
-        return existing
+def game_date(
+    value: str,
+) -> str:
+    parsed = parse_datetime(
+        value
+    )
 
-    def sort_key(value: str) -> tuple[int, float | str]:
-        try:
-            return (0, float(value))
-        except ValueError:
-            return (1, value)
+    return (
+        parsed.date().isoformat()
+        if parsed
+        else value
+    )
 
-    return "|".join(sorted(values + [new_value], key=sort_key))
+
+def offer_sort_key(
+    offer: tuple[
+        str,
+        str,
+        str,
+        str,
+        str,
+    ],
+) -> tuple[
+    int,
+    float | str,
+    str,
+    str,
+    str,
+    str,
+]:
+    target = offer[0]
+
+    try:
+        return (
+            0,
+            float(target),
+            offer[1],
+            offer[2],
+            offer[3],
+            offer[4],
+        )
+
+    except ValueError:
+        return (
+            1,
+            target,
+            offer[1],
+            offer[2],
+            offer[3],
+            offer[4],
+        )
+
+
+def add_offer(
+    offers: dict[
+        str,
+        list[
+            tuple[
+                str,
+                str,
+                str,
+                str,
+                str,
+            ]
+        ],
+    ],
+    market_column: str,
+    target: str,
+    odds: dict[str, str],
+) -> None:
+    offer = (
+        target,
+        odds["american"],
+        odds["decimal"],
+        odds["fraction"],
+        odds["total"],
+    )
+
+    bucket = offers.setdefault(
+        market_column,
+        [],
+    )
+
+    if offer not in bucket:
+        bucket.append(
+            offer
+        )
+
+
+def category_fieldnames(
+    category: str,
+) -> list[str]:
+    fieldnames = list(
+        BASE_COLUMNS
+    )
+
+    for column in CATEGORY_CONFIG[
+        category
+    ]["columns"]:
+        fieldnames.append(
+            column
+        )
+
+    return fieldnames
 
 
 def build_category_rows(
     category: str,
     game_props: list[dict],
-    athlete_names: dict[str, str],
+    athlete_names: dict[
+        str,
+        str,
+    ],
 ) -> list[dict]:
-    config = CATEGORY_CONFIG[category]
-    market_map: dict[str, str] = config["markets"]
-    columns: list[str] = config["columns"]
-    rows: dict[tuple[str, str], dict] = {}
+    config = CATEGORY_CONFIG[
+        category
+    ]
+
+    market_map: dict[
+        str,
+        str,
+    ] = config["markets"]
+
+    columns: list[str] = (
+        config["columns"]
+    )
+
+    rows: dict[
+        tuple[
+            str,
+            str,
+        ],
+        dict,
+    ] = {}
+
+    offers_by_player: dict[
+        tuple[
+            str,
+            str,
+        ],
+        dict[
+            str,
+            list[
+                tuple[
+                    str,
+                    str,
+                    str,
+                    str,
+                    str,
+                ]
+            ],
+        ],
+    ] = {}
 
     for game in game_props:
-        event_id = game["event_id"]
-        date_value = game_date(game["date"])
+        event_id = game[
+            "event_id"
+        ]
+
+        date_value = game_date(
+            game["date"]
+        )
 
         for prop in game["props"]:
-            market_type = prop.get("type")
-            if not isinstance(market_type, dict):
+            market_type = prop.get(
+                "type"
+            )
+
+            if not isinstance(
+                market_type,
+                dict,
+            ):
                 continue
-            market_name = str(market_type.get("name", "")).strip()
-            output_column = market_map.get(market_name)
+
+            market_name = str(
+                market_type.get(
+                    "name",
+                    "",
+                )
+            ).strip()
+
+            output_column = (
+                market_map.get(
+                    market_name
+                )
+            )
+
             if not output_column:
                 continue
 
-            athlete = prop.get("athlete")
-            if not isinstance(athlete, dict):
+            athlete = prop.get(
+                "athlete"
+            )
+
+            if not isinstance(
+                athlete,
+                dict,
+            ):
                 continue
-            athlete_ref = secure_ref(athlete.get("$ref"))
-            player_id = athlete_id_from_ref(athlete_ref)
+
+            athlete_ref = (
+                secure_ref(
+                    athlete.get(
+                        "$ref"
+                    )
+                )
+            )
+
+            player_id = (
+                athlete_id_from_ref(
+                    athlete_ref
+                )
+            )
+
             if not player_id:
                 continue
 
-            key = (event_id, player_id)
+            key = (
+                event_id,
+                player_id,
+            )
+
             if key not in rows:
                 row = {
                     "game_date": date_value,
                     "game_id": event_id,
-                    "player_name": athlete_names.get(player_id, ""),
+                    "player_name": (
+                        athlete_names.get(
+                            player_id,
+                            "",
+                        )
+                    ),
                     "player_id": player_id,
                 }
-                row.update({column: "" for column in columns})
-                rows[key] = row
 
-            value = current_prop_value(prop)
-            rows[key][output_column] = add_value(rows[key][output_column], value)
+                for column in columns:
+                    row[column] = ""
+
+                rows[
+                    key
+                ] = row
+
+            target = (
+                current_prop_value(
+                    prop
+                )
+            )
+
+            odds = (
+                current_prop_odds(
+                    prop
+                )
+            )
+
+            player_offers = (
+                offers_by_player.setdefault(
+                    key,
+                    {},
+                )
+            )
+
+            add_offer(
+                player_offers,
+                output_column,
+                target,
+                odds,
+            )
+
+    for (
+        key,
+        market_offers,
+    ) in offers_by_player.items():
+        row = rows[key]
+
+        for (
+            market_column,
+            offers,
+        ) in market_offers.items():
+            ordered = sorted(
+                offers,
+                key=offer_sort_key,
+            )
+
+            row[
+                market_column
+            ] = "|".join(
+                offer[0]
+                for offer in ordered
+            )
 
     return sorted(
         rows.values(),
         key=lambda row: (
-            row["game_date"],
-            row["game_id"],
-            row["player_name"],
-            row["player_id"],
+            row[
+                "game_date"
+            ],
+            row[
+                "game_id"
+            ],
+            row[
+                "player_name"
+            ],
+            row[
+                "player_id"
+            ],
         ),
     )
 
 
-def write_csv(path: Path, category: str, rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = BASE_COLUMNS + CATEGORY_CONFIG[category]["columns"]
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+def write_csv(
+    path: Path,
+    category: str,
+    rows: list[dict],
+) -> None:
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    fieldnames = (
+        category_fieldnames(
+            category
+        )
+    )
+
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=fieldnames,
+        )
+
         writer.writeheader()
+
         for row in rows:
-            writer.writerow({field: row.get(field, "") for field in fieldnames})
+            writer.writerow(
+                {
+                    field: row.get(
+                        field,
+                        "",
+                    )
+                    for field in fieldnames
+                }
+            )
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Pull ESPN NFL weekly player props.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Pull ESPN NFL weekly player props."
+        )
+    )
+
     parser.add_argument(
         "--season",
         type=int,
-        default=int(os.getenv("NFL_SEASON", "2026")),
-        help="NFL season year (default: NFL_SEASON or 2026)",
+        default=int(
+            os.getenv(
+                "NFL_SEASON",
+                "2026",
+            )
+        ),
+        help=(
+            "NFL season year "
+            "(default: NFL_SEASON or 2026)"
+        ),
     )
+
     parser.add_argument(
         "--week",
         type=int,
-        default=int(os.getenv("NFL_WEEK", "0")) or None,
-        help="Regular-season week. If omitted, the current/upcoming week is detected.",
+        default=(
+            int(
+                os.getenv(
+                    "NFL_WEEK",
+                    "0",
+                )
+            )
+            or None
+        ),
+        help=(
+            "Regular-season week. "
+            "If omitted, the current/upcoming "
+            "week is detected."
+        ),
     )
+
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
     season = args.season
-    week = args.week or choose_target_week(season)
 
-    if not 1 <= week <= MAX_REGULAR_WEEKS:
-        raise ValueError(f"Week must be between 1 and {MAX_REGULAR_WEEKS}: {week}")
+    week = (
+        args.week
+        or choose_target_week(
+            season
+        )
+    )
 
-    events = fetch_week_events(season, week)
+    if not (
+        1
+        <= week
+        <= MAX_REGULAR_WEEKS
+    ):
+        raise ValueError(
+            f"Week must be between "
+            f"1 and "
+            f"{MAX_REGULAR_WEEKS}: "
+            f"{week}"
+        )
+
+    events = fetch_week_events(
+        season,
+        week,
+    )
+
     if not events:
-        raise RuntimeError(f"No ESPN NFL events found for season={season} week={week}")
+        raise RuntimeError(
+            f"No ESPN NFL events found for "
+            f"season={season} "
+            f"week={week}"
+        )
 
-    games = fetch_all_game_props(events)
-    athlete_names = resolve_athletes(games)
+    games = fetch_all_game_props(
+        events
+    )
 
-    week_root = OUTPUT_ROOT / str(season) / f"week_{week}_props"
-    total_props = sum(len(game["props"]) for game in games)
+    athlete_names = (
+        resolve_athletes(
+            games
+        )
+    )
 
-    for category, config in CATEGORY_CONFIG.items():
-        rows = build_category_rows(category, games, athlete_names)
-        output_path = week_root / category / config["filename"]
-        write_csv(output_path, category, rows)
-        print(f"{category}: {len(rows)} rows -> {output_path}")
+    week_root = (
+        OUTPUT_ROOT
+        / str(season)
+        / f"week_{week}_props"
+    )
 
-    print(f"season={season}")
-    print(f"week={week}")
-    print(f"games={len(events)}")
-    print(f"raw_prop_rows={total_props}")
-    print(f"output_root={week_root}")
+    total_props = sum(
+        len(
+            game["props"]
+        )
+        for game in games
+    )
+
+    for (
+        category,
+        config,
+    ) in CATEGORY_CONFIG.items():
+        rows = (
+            build_category_rows(
+                category,
+                games,
+                athlete_names,
+            )
+        )
+
+        output_path = (
+            week_root
+            / category
+            / config["filename"]
+        )
+
+        write_csv(
+            output_path,
+            category,
+            rows,
+        )
+
+        print(
+            f"{category}: "
+            f"{len(rows)} rows -> "
+            f"{output_path}"
+        )
+
+    print(
+        f"season={season}"
+    )
+
+    print(
+        f"week={week}"
+    )
+
+    print(
+        f"games={len(events)}"
+    )
+
+    print(
+        f"raw_prop_rows="
+        f"{total_props}"
+    )
+
+    print(
+        f"output_root="
+        f"{week_root}"
+    )
 
 
 if __name__ == "__main__":
