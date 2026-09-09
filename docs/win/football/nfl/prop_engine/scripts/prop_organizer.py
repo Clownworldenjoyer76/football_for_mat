@@ -164,6 +164,7 @@ def build_simple_output(season: int, week: int, category: str) -> None:
     output_rows = [
         {column: row.get(column, "") for column in output_columns}
         for row in rows
+        if str(row.get(config["actual"], "") or "").strip()
     ]
 
     write_csv(
@@ -207,6 +208,11 @@ def build_combo_outputs(season: int, week: int) -> None:
 
     pass_rush_rows: list[dict[str, str]] = []
     for row in rows:
+        if not str(
+            row.get("actual_prop_total_passing_plus_rushing_yards", "") or ""
+        ).strip():
+            continue
+
         pass_rush_rows.append(
             {
                 "game_date": row.get("game_date", ""),
@@ -256,6 +262,11 @@ def build_combo_outputs(season: int, week: int) -> None:
 
     rec_rush_rows: list[dict[str, str]] = []
     for row in rows:
+        if not str(
+            row.get("actual_prop_total_rushing_plus_receiving_yards", "") or ""
+        ).strip():
+            continue
+
         rec_rush_rows.append(
             {
                 "game_date": row.get("game_date", ""),
