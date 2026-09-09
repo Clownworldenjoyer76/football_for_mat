@@ -12,11 +12,6 @@ name: NFL 06 Final
 
 on:
   workflow_dispatch:
-    inputs:
-      week:
-        description: "NFL week number"
-        required: true
-        type: number
 
 permissions:
   contents: write
@@ -42,9 +37,9 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/04_final_results/grade_selected_picks.py
 
-      - name: Build survivor picks
+      - name: Run NFL survivor picks
         run: |
-          python docs/win/football/nfl/scripts/03_picks/survivor.py --week "${{ inputs.week }}"
+          python docs/win/football/nfl/scripts/03_picks/survivor.py
 
       - name: Commit final results
         run: |
