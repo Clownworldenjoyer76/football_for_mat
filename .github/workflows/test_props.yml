@@ -1,46 +1,51 @@
 name: test NFL Prop Odds
 
 on:
-  workflow_dispatch:
+workflow_dispatch:
 
 permissions:
-  contents: write
+contents: write
 
 jobs:
-  prop-odds:
-    runs-on: ubuntu-latest
+prop-odds:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+```
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+  - name: Set up Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.12"
 
-      - name: Install Python dependencies
-        run: python -m pip install pandas pyarrow
+  - name: Install Python dependencies
+    run: python -m pip install pandas pyarrow
 
-      - name: Run prop odds
-        run: python docs/win/football/nfl/prop_engine/scripts/prop_odds.py
+  - name: Run prop odds
+    run: python docs/win/football/nfl/prop_engine/scripts/prop_odds.py
 
-      - name: Build prop selections
-        run: python docs/win/football/nfl/prop_engine/scripts/build_prop_selections.py
+  - name: Build prop selections
+    run: python docs/win/football/nfl/prop_engine/scripts/build_prop_selections.py
 
-      - name: Run prop organizer
-        run: |
-          WEEK=$(find docs/win/football/nfl/prop_engine/output/2026 -maxdepth 1 -type d -name 'week_*_props' | sed -E 's/.*week_([0-9]+)_props/\1/' | sort -n | tail -1)
-          python docs/win/football/nfl/prop_engine/scripts/prop_organizer.py --week "$WEEK"
+  - name: Run prop organizer
+    run: |
+      WEEK=$(find docs/win/football/nfl/prop_engine/output/2026 -maxdepth 1 -type d -name 'week_*_props' | sed -E 's/.*week_([0-9]+)_props/\1/' | sort -n | tail -1)
+      python docs/win/football/nfl/prop_engine/scripts/prop_organizer.py --week "$WEEK"
 
-      - name: Run prop organizer stage 2
-        run: python docs/win/football/nfl/prop_engine/scripts/prop_organizer_stage2.py
+  - name: Run prop organizer stage 2
+    run: python docs/win/football/nfl/prop_engine/scripts/prop_organizer_stage2.py
 
-      - name: Commit outputs
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/win/football/nfl/prop_engine/output/
-          git add docs/win/football/nfl/prop_engine/prop_picks_final/
-          git diff --cached --quiet || git commit -m "Update NFL prop odds and selections"
-          git push
+  - name: Combine props
+    run: python docs/win/football/nfl/prop_engine/scripts/props_combined.py
+
+  - name: Commit outputs
+    run: |
+      git config user.name "github-actions[bot]"
+      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      git add docs/win/football/nfl/prop_engine/output/
+      git add docs/win/football/nfl/prop_engine/prop_picks_final/
+      git diff --cached --quiet || git commit -m "Update NFL prop odds and selections"
+      git push
+```
