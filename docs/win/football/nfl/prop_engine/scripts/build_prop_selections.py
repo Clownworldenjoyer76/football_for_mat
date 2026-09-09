@@ -6,6 +6,7 @@ Inputs:
   docs/win/football/nfl/prop_engine/output/{season}/week_{week}_props/
   docs/win/football/nfl/prop_engine/output/{season}/week_{week}_player_projections_wide.csv
   docs/win/football/nfl/data/master/roster_master.csv
+  docs/win/football/nfl/data/master/depth_charts/*/*_depth.csv
 
 Outputs:
   docs/win/football/nfl/prop_engine/output/{season}/week_{week}_props/
@@ -30,6 +31,7 @@ from typing import Iterable
 BASE_DIR = Path("docs/win/football/nfl")
 OUTPUT_ROOT = BASE_DIR / "prop_engine" / "output"
 ROSTER_PATH = BASE_DIR / "data" / "master" / "roster_master.csv"
+DEPTH_CHART_ROOT = BASE_DIR / "data" / "master" / "depth_charts"
 
 CATEGORIES = (
     "passing",
@@ -206,6 +208,23 @@ def normalize_name(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "", text.lower())
 
 
+def normalize_name_relaxed(value: object) -> str:
+    """Normalize a name while ignoring common generational suffixes."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    tokens = re.findall(r"[a-z0-9]+", text.lower())
+
+    suffixes = {"jr", "sr", "ii", "iii", "iv", "v", "2nd", "3rd"}
+    while tokens and tokens[-1] in suffixes:
+        tokens.pop()
+
+    return "".join(tokens)
+
+
 def read_csv(path: Path) -> tuple[list[dict[str, str]], list[str]]:
     with path.open("r", newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
@@ -273,12 +292,48 @@ def load_roster() -> tuple[dict[str, dict[str, str]], dict[str, dict[str, str]]]
     return by_id, by_name
 
 
+def load_depth_charts() -> tuple[
+    dict[str, dict[str, str]],
+    dict[str, list[dict[str, str]]],
+]:
+    if not DEPTH_CHART_ROOT.exists():
+        raise FileNotFoundError(f"Missing depth-chart folder: {DEPTH_CHART_ROOT}")
+
+    by_id: dict[str, dict[str, str]] = {}
+    by_name: dict[str, list[dict[str, str]]] = {}
+
+    files = sorted(DEPTH_CHART_ROOT.glob("*/*_depth.csv"))
+    if not files:
+        raise FileNotFoundError(
+            f"No depth-chart CSV files found under {DEPTH_CHART_ROOT}"
+        )
+
+    for path in files:
+        rows, _ = read_csv(path)
+        for row in rows:
+            espn_id = normalize_id(row.get("player_id"))
+            if espn_id and espn_id not in by_id:
+                by_id[espn_id] = row
+
+            for name_value in (
+                normalize_name(row.get("name")),
+                normalize_name_relaxed(row.get("name")),
+            ):
+                if name_value:
+                    by_name.setdefault(name_value, []).append(row)
+
+    return by_id, by_name
+
+
 def load_projections(
     path: Path,
 ) -> tuple[
     list[str],
     dict[tuple[str, str], dict[str, str]],
+    dict[tuple[str, str], dict[str, str]],
     dict[str, dict[str, str]],
+    dict[str, dict[str, str]],
+    dict[tuple[str, str], dict[str, str]],
 ]:
     if not path.exists():
         raise FileNotFoundError(f"Missing projection file: {path}")
@@ -293,17 +348,38 @@ def load_projections(
         )
 
     by_game_name: dict[tuple[str, str], dict[str, str]] = {}
+    by_game_relaxed_name: dict[tuple[str, str], dict[str, str]] = {}
     name_buckets: dict[str, list[dict[str, str]]] = {}
+    relaxed_name_buckets: dict[str, list[dict[str, str]]] = {}
+    by_game_espn_id: dict[tuple[str, str], dict[str, str]] = {}
+
+    espn_id_fields = [
+        field
+        for field in ("espn_player_id", "athlete_id", "espn_id")
+        if field in fieldnames
+    ]
 
     for row in rows:
         game_id = normalize_id(row.get("game_id"))
         player_name = normalize_name(row.get("player_name"))
+        relaxed_name = normalize_name_relaxed(row.get("player_name"))
 
         if game_id and player_name:
             by_game_name[(game_id, player_name)] = row
 
+        if game_id and relaxed_name:
+            by_game_relaxed_name[(game_id, relaxed_name)] = row
+
         if player_name:
             name_buckets.setdefault(player_name, []).append(row)
+
+        if relaxed_name:
+            relaxed_name_buckets.setdefault(relaxed_name, []).append(row)
+
+        for field in espn_id_fields:
+            espn_id = normalize_id(row.get(field))
+            if game_id and espn_id:
+                by_game_espn_id[(game_id, espn_id)] = row
 
     unique_by_name = {
         name: bucket[0]
@@ -311,7 +387,20 @@ def load_projections(
         if len(bucket) == 1
     }
 
-    return fieldnames, by_game_name, unique_by_name
+    unique_by_relaxed_name = {
+        name: bucket[0]
+        for name, bucket in relaxed_name_buckets.items()
+        if len(bucket) == 1
+    }
+
+    return (
+        fieldnames,
+        by_game_name,
+        by_game_relaxed_name,
+        unique_by_name,
+        unique_by_relaxed_name,
+        by_game_espn_id,
+    )
 
 
 def prop_player_id(row: dict[str, str]) -> str:
@@ -354,36 +443,99 @@ def roster_names(row: dict[str, str] | None) -> list[str]:
     return values
 
 
+def depth_chart_names(row: dict[str, str] | None) -> list[str]:
+    if not row:
+        return []
+
+    values: list[str] = []
+    raw_name = row.get("name", "")
+
+    for value in (
+        normalize_name(raw_name),
+        normalize_name_relaxed(raw_name),
+    ):
+        if value and value not in values:
+            values.append(value)
+
+    return values
+
+
+def find_depth_chart_row(
+    prop_row: dict[str, str],
+    depth_by_id: dict[str, dict[str, str]],
+) -> dict[str, str] | None:
+    espn_id = prop_player_id(prop_row)
+    if espn_id:
+        return depth_by_id.get(espn_id)
+    return None
+
+
 def find_projection_row(
     prop_row: dict[str, str],
     roster_row: dict[str, str] | None,
+    depth_row: dict[str, str] | None,
     by_game_name: dict[tuple[str, str], dict[str, str]],
+    by_game_relaxed_name: dict[tuple[str, str], dict[str, str]],
     unique_by_name: dict[str, dict[str, str]],
+    unique_by_relaxed_name: dict[str, dict[str, str]],
+    by_game_espn_id: dict[tuple[str, str], dict[str, str]],
 ) -> tuple[dict[str, str] | None, str]:
     game_id = normalize_id(prop_row.get("game_id"))
+    espn_id = prop_player_id(prop_row)
 
-    roster_candidate_names = roster_names(roster_row)
-    raw_prop_name = normalize_name(prop_player_name(prop_row))
-
-    for name in roster_candidate_names:
-        match = by_game_name.get((game_id, name))
+    if game_id and espn_id:
+        match = by_game_espn_id.get((game_id, espn_id))
         if match:
-            return match, "game_id+roster_name"
+            return match, "game_id+espn_player_id"
 
-    if raw_prop_name:
-        match = by_game_name.get((game_id, raw_prop_name))
-        if match:
-            return match, "game_id+prop_name"
+    candidate_groups = [
+        ("depth_chart_name", depth_chart_names(depth_row)),
+        ("roster_name", roster_names(roster_row)),
+        (
+            "prop_name",
+            [
+                normalize_name(prop_player_name(prop_row)),
+                normalize_name_relaxed(prop_player_name(prop_row)),
+            ],
+        ),
+    ]
 
-    for name in roster_candidate_names:
-        match = unique_by_name.get(name)
-        if match:
-            return match, "unique_roster_name"
+    # Exact normalized name + same game first.
+    for source, names in candidate_groups:
+        for name in names:
+            if not name:
+                continue
+            match = by_game_name.get((game_id, name))
+            if match:
+                return match, f"game_id+{source}"
 
-    if raw_prop_name:
-        match = unique_by_name.get(raw_prop_name)
-        if match:
-            return match, "unique_prop_name"
+    # Suffix-tolerant name + same game.
+    for source, names in candidate_groups:
+        for name in names:
+            if not name:
+                continue
+            relaxed = normalize_name_relaxed(name)
+            match = by_game_relaxed_name.get((game_id, relaxed))
+            if match:
+                return match, f"game_id+{source}_relaxed"
+
+    # Last resort: only use a name when it identifies one projection row globally.
+    for source, names in candidate_groups:
+        for name in names:
+            if not name:
+                continue
+            match = unique_by_name.get(name)
+            if match:
+                return match, f"unique_{source}"
+
+    for source, names in candidate_groups:
+        for name in names:
+            if not name:
+                continue
+            relaxed = normalize_name_relaxed(name)
+            match = unique_by_relaxed_name.get(relaxed)
+            if match:
+                return match, f"unique_{source}_relaxed"
 
     return None, "unmatched"
 
@@ -420,9 +572,13 @@ def build_category(
     props_root: Path,
     projection_fields: list[str],
     projection_by_game_name: dict[tuple[str, str], dict[str, str]],
+    projection_by_game_relaxed_name: dict[tuple[str, str], dict[str, str]],
     projection_unique_by_name: dict[str, dict[str, str]],
+    projection_unique_by_relaxed_name: dict[str, dict[str, str]],
+    projection_by_game_espn_id: dict[tuple[str, str], dict[str, str]],
     roster_by_id: dict[str, dict[str, str]],
     roster_by_name: dict[str, dict[str, str]],
+    depth_by_id: dict[str, dict[str, str]],
 ) -> list[dict[str, str]]:
     source_dir = props_root / category
     source_files = discover_prop_files(source_dir)
@@ -481,11 +637,17 @@ def build_category(
 
     for prop_row in source_rows:
         roster_row = find_roster_row(prop_row, roster_by_id, roster_by_name)
+        depth_row = find_depth_chart_row(prop_row, depth_by_id)
+
         projection_row, match_method = find_projection_row(
             prop_row,
             roster_row,
+            depth_row,
             projection_by_game_name,
+            projection_by_game_relaxed_name,
             projection_unique_by_name,
+            projection_unique_by_relaxed_name,
+            projection_by_game_espn_id,
         )
 
         if projection_row:
@@ -496,7 +658,10 @@ def build_category(
             espn_id = normalize_id(roster_row.get("id"))
 
         canonical_name = ""
-        if roster_row:
+        if depth_row:
+            canonical_name = str(depth_row.get("name") or "").strip()
+
+        if not canonical_name and roster_row:
             canonical_name = str(
                 roster_row.get("fullName")
                 or roster_row.get("displayName")
@@ -537,6 +702,13 @@ def build_category(
                     "game_id": normalize_id(prop_row.get("game_id")),
                     "player_name": canonical_name,
                     "espn_player_id": espn_id,
+                    "depth_chart_found": "yes" if depth_row else "no",
+                    "depth_chart_team": (
+                        str(depth_row.get("team") or "").strip() if depth_row else ""
+                    ),
+                    "depth_chart_name": (
+                        str(depth_row.get("name") or "").strip() if depth_row else ""
+                    ),
                 }
             )
 
@@ -576,11 +748,15 @@ def main() -> None:
         raise FileNotFoundError(f"Missing weekly props folder: {props_root}")
 
     roster_by_id, roster_by_name = load_roster()
+    depth_by_id, _depth_by_name = load_depth_charts()
 
     (
         projection_fields,
         projection_by_game_name,
+        projection_by_game_relaxed_name,
         projection_unique_by_name,
+        projection_unique_by_relaxed_name,
+        projection_by_game_espn_id,
     ) = load_projections(projection_path)
 
     all_unmatched: list[dict[str, str]] = []
@@ -594,9 +770,13 @@ def main() -> None:
                 props_root=props_root,
                 projection_fields=projection_fields,
                 projection_by_game_name=projection_by_game_name,
+                projection_by_game_relaxed_name=projection_by_game_relaxed_name,
                 projection_unique_by_name=projection_unique_by_name,
+                projection_unique_by_relaxed_name=projection_unique_by_relaxed_name,
+                projection_by_game_espn_id=projection_by_game_espn_id,
                 roster_by_id=roster_by_id,
                 roster_by_name=roster_by_name,
+                depth_by_id=depth_by_id,
             )
         )
 
@@ -607,7 +787,9 @@ def main() -> None:
     if not all_unmatched:
         print("None")
     else:
-        seen: set[tuple[str, str, str, str]] = set()
+        seen_category_records: set[tuple[str, str, str, str]] = set()
+        unique_players: dict[str, dict[str, str]] = {}
+
         for row in sorted(
             all_unmatched,
             key=lambda r: (
@@ -617,23 +799,46 @@ def main() -> None:
                 r["espn_player_id"],
             ),
         ):
-            key = (
+            record_key = (
                 row["category"],
                 row["game_id"],
                 row["player_name"],
                 row["espn_player_id"],
             )
-            if key in seen:
+            if record_key in seen_category_records:
                 continue
-            seen.add(key)
+            seen_category_records.add(record_key)
+
+            player_key = row["espn_player_id"] or normalize_name(row["player_name"])
+            unique_players.setdefault(player_key, row)
+
             print(
                 f'{row["category"]} | '
                 f'game_id={row["game_id"]} | '
                 f'player={row["player_name"]} | '
-                f'espn_player_id={row["espn_player_id"]}'
+                f'espn_player_id={row["espn_player_id"]} | '
+                f'depth_chart_found={row["depth_chart_found"]} | '
+                f'depth_chart_team={row["depth_chart_team"]}'
             )
 
-        print(f"Total unique unmatched players: {len(seen)}")
+        print(f"Total unmatched category records: {len(seen_category_records)}")
+        print(f"Total unique unmatched players: {len(unique_players)}")
+
+        print()
+        print("UNIQUE UNMATCHED PLAYERS")
+        print("------------------------")
+        for row in sorted(
+            unique_players.values(),
+            key=lambda r: (r["player_name"], r["espn_player_id"]),
+        ):
+            print(
+                f'player={row["player_name"]} | '
+                f'espn_player_id={row["espn_player_id"]} | '
+                f'depth_chart_found={row["depth_chart_found"]} | '
+                f'depth_chart_team={row["depth_chart_team"]} | '
+                f'depth_chart_name={row["depth_chart_name"]}'
+            )
+
 
 
 if __name__ == "__main__":
