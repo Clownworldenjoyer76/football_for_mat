@@ -12,6 +12,11 @@ name: NFL 06 Final
 
 on:
   workflow_dispatch:
+    inputs:
+      week:
+        description: "NFL week number"
+        required: true
+        type: number
 
 permissions:
   contents: write
@@ -37,6 +42,10 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/04_final_results/grade_selected_picks.py
 
+      - name: Build survivor picks
+        run: |
+          python docs/win/football/nfl/scripts/03_picks/survivor.py --week "${{ inputs.week }}"
+
       - name: Commit final results
         run: |
           git config user.name "github-actions[bot]"
@@ -44,6 +53,7 @@ jobs:
 
           git add docs/win/football/nfl/04_final_results/results/
           git add docs/win/football/nfl/errors/04_final_results/pull_final_scores.txt
+          git add docs/win/football/nfl/03_picks/survivor/
 
           if git diff --cached --quiet; then
             echo "No final-results changes to commit."
