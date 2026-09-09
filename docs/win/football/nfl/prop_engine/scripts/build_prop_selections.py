@@ -14,6 +14,8 @@ Outputs:
 The output is prop-row driven: every sportsbook prop row is preserved.
 Actual sportsbook fields are prefixed with "actual_prop_".
 Prop-engine fields are prefixed with "prop_engine_".
+Each category only carries projection fields relevant to that prop family.
+Unmatched projection players are marked in-row and printed after the run.
 """
 
 from __future__ import annotations
@@ -41,58 +43,133 @@ CATEGORIES = (
     "kicking",
 )
 
-EXPECTED_PROP_COLUMNS = {
+ACTUAL_FIELD_MAP = {
+    "passing": {
+        "Total Passing Yards": "actual_prop_total_passing_yards",
+        "Total Pass Completions": "actual_prop_total_pass_completions",
+        "Total Passing Attempts": "actual_prop_total_passing_attempts",
+        "Total Passing Touchdowns": "actual_prop_total_passing_touchdowns",
+        "Total Passing Interceptions": "actual_prop_total_passing_interceptions",
+    },
+    "rushing": {
+        "Total Carries": "actual_prop_total_carries",
+        "Total Rushing Yards": "actual_prop_total_rushing_yards",
+        "Longest Rush": "actual_prop_longest_rush",
+    },
+    "receiving": {
+        "Total Receiving Yards": "actual_prop_total_receiving_yards",
+        "Total Receptions": "actual_prop_total_receptions",
+        "Longest Reception": "actual_prop_longest_reception",
+        "Receiving Yards": "actual_prop_receiving_yards_milestones",
+    },
+    "combo": {
+        "Total Passing Plus Rushing Yards": "actual_prop_total_passing_plus_rushing_yards",
+        "Total Rushing Plus Receiving Yards": "actual_prop_total_rushing_plus_receiving_yards",
+    },
+    "tds": {
+        "Anytime Touchdown Scorer": "actual_prop_anytime_touchdown_scorer",
+        "First Touchdown Scorer": "actual_prop_first_touchdown_scorer",
+        "Last Touchdown Scorer": "actual_prop_last_touchdown_scorer",
+        "First Team Touchdown Scorer": "actual_prop_first_team_touchdown_scorer",
+        "Player to score 2+ touchdowns": "actual_prop_player_2plus_touchdowns",
+        "Player to score 3+ touchdowns": "actual_prop_player_3plus_touchdowns",
+    },
+    "1sthalf": {
+        "Total Passing Yards": "actual_prop_1st_half_total_passing_yards",
+        "Total Receiving Yards": "actual_prop_1st_half_total_receiving_yards",
+        "Total Rushing Yards": "actual_prop_1st_half_total_rushing_yards",
+        "Touchdown Scorer": "actual_prop_1st_half_touchdown_scorer",
+    },
+    "1stquarter": {
+        "Total Passing Yards": "actual_prop_1st_quarter_total_passing_yards",
+        "Total Receiving Yards": "actual_prop_1st_quarter_total_receiving_yards",
+        "Total Rushing Yards": "actual_prop_1st_quarter_total_rushing_yards",
+    },
+    "defense": {
+        "Total Tackles": "actual_prop_total_tackles",
+        "Total Assists": "actual_prop_total_assists",
+        "Total Tackles Plus Assists": "actual_prop_total_tackles_plus_assists",
+        "Total Sacks": "actual_prop_total_sacks",
+    },
+    "kicking": {
+        "Total Kicking Points": "actual_prop_total_kicking_points",
+        "Total Field Goals Made": "actual_prop_total_field_goals_made",
+        "Total Extra Points Made": "actual_prop_total_extra_points_made",
+    },
+}
+
+COMMON_ENGINE_FIELDS = [
+    "season",
+    "week",
+    "team",
+    "opponent",
+    "position",
+    "injury_game_status",
+    "role_status",
+    "generated_at",
+]
+
+CATEGORY_ENGINE_FIELDS = {
     "passing": [
-        "Total Passing Yards",
-        "Total Pass Completions",
-        "Total Passing Attempts",
-        "Total Passing Touchdowns",
-        "Total Passing Interceptions",
+        "passing_yards",
+        "passing_yards_low",
+        "passing_yards_high",
+        "passing_tds",
+        "passing_tds_prob_1plus",
     ],
     "rushing": [
-        "Total Carries",
-        "Total Rushing Yards",
-        "Longest Rush",
+        "rushing_yards",
+        "rushing_yards_low",
+        "rushing_yards_high",
     ],
     "receiving": [
-        "Total Receiving Yards",
-        "Total Receptions",
-        "Longest Reception",
-        "Receiving Yards",
+        "receiving_yards",
+        "receiving_yards_low",
+        "receiving_yards_high",
     ],
     "combo": [
-        "Total Passing Plus Rushing Yards",
-        "Total Rushing Plus Receiving Yards",
+        "passing_yards",
+        "passing_yards_low",
+        "passing_yards_high",
+        "rushing_yards",
+        "rushing_yards_low",
+        "rushing_yards_high",
+        "receiving_yards",
+        "receiving_yards_low",
+        "receiving_yards_high",
     ],
-    "tds": [
-        "Anytime Touchdown Scorer",
-        "First Touchdown Scorer",
-        "Last Touchdown Scorer",
-        "First Team Touchdown Scorer",
-        "Player to score 2+ touchdowns",
-        "Player to score 3+ touchdowns",
-    ],
+    "tds": [],
     "1sthalf": [
-        "Total Passing Yards",
-        "Total Receiving Yards",
-        "Total Rushing Yards",
-        "Touchdown Scorer",
+        "passing_yards",
+        "passing_yards_low",
+        "passing_yards_high",
+        "rushing_yards",
+        "rushing_yards_low",
+        "rushing_yards_high",
+        "receiving_yards",
+        "receiving_yards_low",
+        "receiving_yards_high",
     ],
     "1stquarter": [
-        "Total Passing Yards",
-        "Total Receiving Yards",
-        "Total Rushing Yards",
+        "passing_yards",
+        "passing_yards_low",
+        "passing_yards_high",
+        "rushing_yards",
+        "rushing_yards_low",
+        "rushing_yards_high",
+        "receiving_yards",
+        "receiving_yards_low",
+        "receiving_yards_high",
     ],
     "defense": [
-        "Total Tackles",
-        "Total Assists",
-        "Total Tackles Plus Assists",
-        "Total Sacks",
+        "tackles",
+        "tackles_low",
+        "tackles_high",
     ],
     "kicking": [
-        "Total Kicking Points",
-        "Total Field Goals Made",
-        "Total Extra Points Made",
+        "kicking_points",
+        "kicking_points_low",
+        "kicking_points_high",
     ],
 }
 
@@ -282,25 +359,33 @@ def find_projection_row(
     roster_row: dict[str, str] | None,
     by_game_name: dict[tuple[str, str], dict[str, str]],
     unique_by_name: dict[str, dict[str, str]],
-) -> dict[str, str] | None:
+) -> tuple[dict[str, str] | None, str]:
     game_id = normalize_id(prop_row.get("game_id"))
 
-    candidate_names = roster_names(roster_row)
+    roster_candidate_names = roster_names(roster_row)
     raw_prop_name = normalize_name(prop_player_name(prop_row))
-    if raw_prop_name and raw_prop_name not in candidate_names:
-        candidate_names.append(raw_prop_name)
 
-    for name in candidate_names:
+    for name in roster_candidate_names:
         match = by_game_name.get((game_id, name))
         if match:
-            return match
+            return match, "game_id+roster_name"
 
-    for name in candidate_names:
+    if raw_prop_name:
+        match = by_game_name.get((game_id, raw_prop_name))
+        if match:
+            return match, "game_id+prop_name"
+
+    for name in roster_candidate_names:
         match = unique_by_name.get(name)
         if match:
-            return match
+            return match, "unique_roster_name"
 
-    return None
+    if raw_prop_name:
+        match = unique_by_name.get(raw_prop_name)
+        if match:
+            return match, "unique_prop_name"
+
+    return None, "unmatched"
 
 
 def discover_prop_files(category_dir: Path) -> list[Path]:
@@ -338,7 +423,7 @@ def build_category(
     projection_unique_by_name: dict[str, dict[str, str]],
     roster_by_id: dict[str, dict[str, str]],
     roster_by_name: dict[str, dict[str, str]],
-) -> None:
+) -> list[dict[str, str]]:
     source_dir = props_root / category
     source_files = discover_prop_files(source_dir)
 
@@ -350,21 +435,32 @@ def build_category(
         source_rows.extend(rows)
         source_headers.append(fields)
 
+    field_map = ACTUAL_FIELD_MAP.get(category, {})
+
+    # Keep the configured fields first, then preserve any unexpected source
+    # fields with a clear actual_prop_ prefix rather than dropping data.
     discovered_prop_fields = [
         field
         for field in union_headers(source_headers)
-        if field not in PROP_KEY_FIELDS
+        if field not in PROP_KEY_FIELDS and field not in field_map
     ]
 
-    actual_fields = []
-    for field in EXPECTED_PROP_COLUMNS.get(category, []) + discovered_prop_fields:
-        if field not in actual_fields:
-            actual_fields.append(field)
+    extra_actual_map = {
+        field: "actual_prop_" + re.sub(
+            r"[^a-z0-9]+",
+            "_",
+            field.strip().lower(),
+        ).strip("_")
+        for field in discovered_prop_fields
+    }
 
+    actual_map = {**field_map, **extra_actual_map}
+
+    desired_engine_fields = COMMON_ENGINE_FIELDS + CATEGORY_ENGINE_FIELDS.get(category, [])
     engine_fields = [
         field
-        for field in projection_fields
-        if field not in ENGINE_KEY_FIELDS
+        for field in desired_engine_fields
+        if field in projection_fields
     ]
 
     output_fields = [
@@ -373,17 +469,19 @@ def build_category(
         "player_name",
         "espn_player_id",
         "prop_engine_player_id",
-        "prop_engine_player_name",
+        "projection_match_status",
+        "projection_match_method",
     ]
-    output_fields.extend(f"actual_prop_{field}" for field in actual_fields)
+    output_fields.extend(actual_map.values())
     output_fields.extend(f"prop_engine_{field}" for field in engine_fields)
 
     output_rows: list[dict[str, object]] = []
+    unmatched_rows: list[dict[str, str]] = []
     matched = 0
 
     for prop_row in source_rows:
         roster_row = find_roster_row(prop_row, roster_by_id, roster_by_name)
-        projection_row = find_projection_row(
+        projection_row, match_method = find_projection_row(
             prop_row,
             roster_row,
             projection_by_game_name,
@@ -408,6 +506,8 @@ def build_category(
         if not canonical_name:
             canonical_name = prop_player_name(prop_row)
 
+        match_status = "matched" if projection_row else "unmatched"
+
         output_row: dict[str, object] = {
             "game_date": prop_row.get("game_date", ""),
             "game_id": normalize_id(prop_row.get("game_id")),
@@ -416,13 +516,12 @@ def build_category(
             "prop_engine_player_id": (
                 projection_row.get("player_id", "") if projection_row else ""
             ),
-            "prop_engine_player_name": (
-                projection_row.get("player_name", "") if projection_row else ""
-            ),
+            "projection_match_status": match_status,
+            "projection_match_method": match_method,
         }
 
-        for field in actual_fields:
-            output_row[f"actual_prop_{field}"] = prop_row.get(field, "")
+        for source_field, output_field in actual_map.items():
+            output_row[output_field] = prop_row.get(source_field, "")
 
         for field in engine_fields:
             output_row[f"prop_engine_{field}"] = (
@@ -430,6 +529,16 @@ def build_category(
             )
 
         output_rows.append(output_row)
+
+        if not projection_row:
+            unmatched_rows.append(
+                {
+                    "category": category,
+                    "game_id": normalize_id(prop_row.get("game_id")),
+                    "player_name": canonical_name,
+                    "espn_player_id": espn_id,
+                }
+            )
 
     output_path = (
         props_root
@@ -443,9 +552,11 @@ def build_category(
     print(
         f"{category}: rows={len(output_rows)} "
         f"projection_matches={matched} "
-        f"unmatched={len(output_rows) - matched} "
+        f"unmatched={len(unmatched_rows)} "
         f"output={output_path}"
     )
+
+    return unmatched_rows
 
 
 def main() -> None:
@@ -472,18 +583,57 @@ def main() -> None:
         projection_unique_by_name,
     ) = load_projections(projection_path)
 
+    all_unmatched: list[dict[str, str]] = []
+
     for category in CATEGORIES:
-        build_category(
-            season=season,
-            week=week,
-            category=category,
-            props_root=props_root,
-            projection_fields=projection_fields,
-            projection_by_game_name=projection_by_game_name,
-            projection_unique_by_name=projection_unique_by_name,
-            roster_by_id=roster_by_id,
-            roster_by_name=roster_by_name,
+        all_unmatched.extend(
+            build_category(
+                season=season,
+                week=week,
+                category=category,
+                props_root=props_root,
+                projection_fields=projection_fields,
+                projection_by_game_name=projection_by_game_name,
+                projection_unique_by_name=projection_unique_by_name,
+                roster_by_id=roster_by_id,
+                roster_by_name=roster_by_name,
+            )
         )
+
+    print()
+    print("UNMATCHED PLAYERS")
+    print("-----------------")
+
+    if not all_unmatched:
+        print("None")
+    else:
+        seen: set[tuple[str, str, str, str]] = set()
+        for row in sorted(
+            all_unmatched,
+            key=lambda r: (
+                r["category"],
+                r["game_id"],
+                r["player_name"],
+                r["espn_player_id"],
+            ),
+        ):
+            key = (
+                row["category"],
+                row["game_id"],
+                row["player_name"],
+                row["espn_player_id"],
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            print(
+                f'{row["category"]} | '
+                f'game_id={row["game_id"]} | '
+                f'player={row["player_name"]} | '
+                f'espn_player_id={row["espn_player_id"]}'
+            )
+
+        print(f"Total unique unmatched players: {len(seen)}")
 
 
 if __name__ == "__main__":
