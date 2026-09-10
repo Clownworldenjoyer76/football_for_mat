@@ -98,7 +98,7 @@ jobs:
 
       - name: Restore canonical historical feature table
         id: historical_features_cache
-        uses: actions/cache@v4
+        uses: actions/cache@v7
         with:
           path: ${{ env.PROP_ENGINE_ROOT }}/data/historical/features/player_game_features.parquet
           key: nfl-prop-player-game-features-v3-${{ runner.os }}-${{ hashFiles('docs/win/football/nfl/prop_engine/requirements.txt', 'docs/win/football/nfl/prop_engine/config/prop_engine.yaml', 'docs/win/football/nfl/prop_engine/scripts/build/build_player_form.py', 'docs/win/football/nfl/prop_engine/scripts/build/build_historical_features.py', 'docs/win/football/nfl/prop_engine/data/historical/**/*.parquet', 'docs/win/football/nfl/prop_engine/data/historical/features/feature_manifest.json', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2010.parquet', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2011.parquet') }}
