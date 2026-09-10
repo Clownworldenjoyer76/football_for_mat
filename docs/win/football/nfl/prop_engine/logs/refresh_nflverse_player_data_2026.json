@@ -1,9 +1,9 @@
 {
-  "completed_at": "2026-09-09T10:44:05.356657Z",
+  "completed_at": "2026-09-10T13:18:35.467541Z",
   "counts": {
     "families": 5,
-    "successful_families": 2,
-    "unavailable_families": 3
+    "successful_families": 3,
+    "unavailable_families": 2
   },
   "families": {
     "participation": {
@@ -34,7 +34,7 @@
       "min_week": null,
       "output": "docs/win/football/nfl/prop_engine/data/current/source/pbp_participation_2026.parquet",
       "output_written": false,
-      "refresh_timestamp": "2026-09-09T10:44:04.850616Z",
+      "refresh_timestamp": "2026-09-10T13:18:35.163229Z",
       "row_count": 0,
       "season": 2026,
       "source": null,
@@ -44,37 +44,33 @@
     "player_stats": {
       "attempts": [
         {
-          "error": "Failed to download https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.parquet: 404 Client Error: Not Found for url: https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.parquet",
-          "error_type": "ConnectionError",
+          "column_count": 150,
+          "max_week": 1,
+          "min_week": 1,
+          "native_id_columns": [
+            "player_id"
+          ],
+          "row_count": 67,
           "source": "nflreadpy",
-          "status": "failed"
-        },
-        {
-          "error": "HTTP Error 404: Not Found",
-          "error_type": "HTTPError",
-          "source": "nflverse_release",
-          "status": "failed"
-        },
-        {
-          "error": "No module named 'nfl_data_py'",
-          "error_type": "ModuleNotFoundError",
-          "source": "nfl_data_py",
-          "status": "failed"
+          "source_version": "0.1.5",
+          "status": "success"
         }
       ],
-      "column_count": 0,
-      "existing_output_preserved": false,
+      "column_count": 150,
       "family": "player_stats",
-      "max_week": null,
-      "min_week": null,
+      "max_week": 1,
+      "min_week": 1,
+      "native_id_columns": [
+        "player_id"
+      ],
       "output": "docs/win/football/nfl/prop_engine/data/current/source/stats_player_week_2026.parquet",
-      "output_written": false,
-      "refresh_timestamp": "2026-09-09T10:44:04.020574Z",
-      "row_count": 0,
+      "output_written": true,
+      "refresh_timestamp": "2026-09-10T13:18:34.228775Z",
+      "row_count": 67,
       "season": 2026,
-      "source": null,
-      "source_version": null,
-      "status": "unavailable"
+      "source": "nflreadpy",
+      "source_version": "0.1.5",
+      "status": "success"
     },
     "players": {
       "attempts": [
@@ -87,7 +83,7 @@
             "pfr_id",
             "espn_id"
           ],
-          "row_count": 24826,
+          "row_count": 24823,
           "source": "nflreadpy",
           "source_version": "0.1.5",
           "status": "success"
@@ -104,8 +100,8 @@
       ],
       "output": "docs/win/football/nfl/prop_engine/data/current/source/players.parquet",
       "output_written": true,
-      "refresh_timestamp": "2026-09-09T10:44:05.356471Z",
-      "row_count": 24826,
+      "refresh_timestamp": "2026-09-10T13:18:35.467358Z",
+      "row_count": 24823,
       "season": 2026,
       "source": "nflreadpy",
       "source_version": "0.1.5",
@@ -114,8 +110,8 @@
     "snap_counts": {
       "attempts": [
         {
-          "error": "Season must be between 2012 and 2025",
-          "error_type": "ValueError",
+          "error": "Failed to download https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_2026.parquet: 404 Client Error: Not Found for url: https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_2026.parquet",
+          "error_type": "ConnectionError",
           "source": "nflreadpy",
           "status": "failed"
         },
@@ -139,7 +135,7 @@
       "min_week": null,
       "output": "docs/win/football/nfl/prop_engine/data/current/source/snap_counts_2026.parquet",
       "output_written": false,
-      "refresh_timestamp": "2026-09-09T10:44:04.586270Z",
+      "refresh_timestamp": "2026-09-10T13:18:34.910803Z",
       "row_count": 0,
       "season": 2026,
       "source": null,
@@ -149,12 +145,6 @@
     "weekly_rosters": {
       "attempts": [
         {
-          "error": "Season must be between 2002 and 2025",
-          "error_type": "ValueError",
-          "source": "nflreadpy",
-          "status": "failed"
-        },
-        {
           "column_count": 36,
           "max_week": 1,
           "min_week": 1,
@@ -163,9 +153,9 @@
             "pfr_id",
             "espn_id"
           ],
-          "row_count": 2955,
-          "source": "nflverse_release",
-          "source_version": "official-github-release",
+          "row_count": 2963,
+          "source": "nflreadpy",
+          "source_version": "0.1.5",
           "status": "success"
         }
       ],
@@ -180,11 +170,11 @@
       ],
       "output": "docs/win/football/nfl/prop_engine/data/current/source/roster_weekly_2026.parquet",
       "output_written": true,
-      "refresh_timestamp": "2026-09-09T10:44:04.286251Z",
-      "row_count": 2955,
+      "refresh_timestamp": "2026-09-10T13:18:34.408924Z",
+      "row_count": 2963,
       "season": 2026,
-      "source": "nflverse_release",
-      "source_version": "official-github-release",
+      "source": "nflreadpy",
+      "source_version": "0.1.5",
       "status": "success"
     }
   },
@@ -203,6 +193,6 @@
   },
   "script": "refresh_nflverse_player_data.py",
   "season": 2026,
-  "started_at": "2026-09-09T10:44:03.131609Z",
+  "started_at": "2026-09-10T13:18:33.539142Z",
   "status": "partial"
 }
