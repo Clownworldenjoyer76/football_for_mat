@@ -523,7 +523,6 @@ def current_realized_sources(
             audit[name] = item
             continue
 
-        common.reject_forbidden_feature_columns(df.columns, config)
         item["rows_before_filter"] = int(len(df))
 
         week_col = first_existing(df.columns, ["week", "week_num", "game_week"])
@@ -549,6 +548,29 @@ def current_realized_sources(
                                 f"Same/future current-season source leaked: {path} max_week={max_week}"
                             )
                         item["max_source_week_used"] = max_week
+
+        forbidden = config.get("forbidden_features")
+        if not isinstance(forbidden, list) or not forbidden:
+            raise ValueError(
+                "Config section 'forbidden_features' must be a non-empty list."
+            )
+        forbidden_tokens = [
+            str(value).strip().casefold()
+            for value in forbidden
+            if str(value).strip()
+        ]
+        forbidden_columns = [
+            column
+            for column in filtered.columns
+            if any(
+                token in str(column).casefold()
+                for token in forbidden_tokens
+            )
+        ]
+        if forbidden_columns:
+            filtered = filtered.drop(columns=forbidden_columns)
+
+        common.reject_forbidden_feature_columns(filtered.columns, config)
         item["rows_used"] = int(len(filtered))
         item["status"] = "read_filtered_strictly_prior" if week > 1 else "read_but_no_completed_weeks"
         frames[name] = filtered
