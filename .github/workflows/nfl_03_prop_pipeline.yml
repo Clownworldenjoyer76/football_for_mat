@@ -98,7 +98,7 @@ jobs:
 
       - name: Restore canonical historical feature table
         id: historical_features_cache
-        uses: actions/cache@v7
+        uses: actions/cache@v6
         with:
           path: ${{ env.PROP_ENGINE_ROOT }}/data/historical/features/player_game_features.parquet
           key: nfl-prop-player-game-features-v3-${{ runner.os }}-${{ hashFiles('docs/win/football/nfl/prop_engine/requirements.txt', 'docs/win/football/nfl/prop_engine/config/prop_engine.yaml', 'docs/win/football/nfl/prop_engine/scripts/build/build_player_form.py', 'docs/win/football/nfl/prop_engine/scripts/build/build_historical_features.py', 'docs/win/football/nfl/prop_engine/data/historical/**/*.parquet', 'docs/win/football/nfl/prop_engine/data/historical/features/feature_manifest.json', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2010.parquet', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2011.parquet') }}
@@ -440,4 +440,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/win/football/nfl/prop_engine/05_final/
           git diff --cached --quiet || git commit -m "Update NFL prop grades and reports"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Build prop dashboard reports
+        run: python docs/win/football/nfl/prop_engine/scripts/prop_reports.py
+
+      - name: Commit prop dashboard reports
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/win/football/nfl/prop_engine/05_final/reports/dashboard/
+          git diff --cached --quiet || git commit -m "Update NFL prop dashboard reports"
           git push origin "HEAD:${GITHUB_REF_NAME}"
