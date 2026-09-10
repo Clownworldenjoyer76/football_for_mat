@@ -29,6 +29,8 @@ edt_time:
 from __future__ import annotations
 
 import argparse
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -41,6 +43,7 @@ NFL_ROOT = SCRIPT_DIR.parents[1]
 
 DEFAULT_INPUT_DIR = NFL_ROOT / "03_picks"
 SELECTED_OUTPUT_DIR = NFL_ROOT / "03_picks" / "selected"
+LOCKED_OUTPUT_DIR = NFL_ROOT / "03_picks" / "locked"
 PROJECTION_OUTPUT_DIR = NFL_ROOT / "03_picks" / "projection"
 
 EASTERN_TZ = ZoneInfo("America/New_York")
@@ -307,10 +310,29 @@ def main() -> None:
         exist_ok=True,
     )
 
+    LOCKED_OUTPUT_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     selected_output.to_csv(
         selected_output_path,
         index=False,
         lineterminator="\n",
+    )
+
+    timestamp = datetime.now(
+        EASTERN_TZ
+    ).strftime("%Y%m%d_%H%M%S")
+
+    locked_output_path = (
+        LOCKED_OUTPUT_DIR
+        / f"week_{week}_NFL_select_picks_{timestamp}.csv"
+    )
+
+    shutil.copy2(
+        selected_output_path,
+        locked_output_path,
     )
 
     projection_output.to_csv(
@@ -321,6 +343,11 @@ def main() -> None:
 
     print(
         f"WROTE {selected_output_path} "
+        f"| rows={len(selected_output)}"
+    )
+
+    print(
+        f"WROTE {locked_output_path} "
         f"| rows={len(selected_output)}"
     )
 
