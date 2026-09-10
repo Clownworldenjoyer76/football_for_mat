@@ -36,6 +36,9 @@ jobs:
       - name: Run prop organizer stage 2
         run: python docs/win/football/nfl/prop_engine/scripts/prop_organizer_stage2.py
 
+      - name: Combine props
+        run: python docs/win/football/nfl/prop_engine/scripts/props_combined.py
+
       - name: Commit outputs
         run: |
           git config user.name "github-actions[bot]"

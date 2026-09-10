@@ -1,0 +1,444 @@
+name: NFL 00-07
+
+on:
+  workflow_dispatch:
+    inputs:
+      projection_mode:
+        description: Projection script to run
+        required: true
+        default: week1
+        type: choice
+        options:
+          - week1
+          - inseason
+
+permissions:
+  contents: write
+
+jobs:
+  nfl-all:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ============================================================
+      # NFL 00 DRAT
+      # ============================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout DRAT source repo
+        uses: actions/checkout@v4
+        with:
+          repository: Clownworldenjoyer76/nikki_and_mat_bets
+          ref: main
+          path: .source
+
+      - name: Set up Python for DRAT
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Verify DRAT source folder exists
+        env:
+          SOURCE_REPO: Clownworldenjoyer76/nikki_and_mat_bets
+          SOURCE_BRANCH: main
+          SOURCE_PATH: docs/data/weekly
+        run: |
+          set -e
+          if [ ! -d ".source/${SOURCE_PATH}" ]; then
+            echo "ERROR: ${SOURCE_PATH} not found in ${SOURCE_REPO}@${SOURCE_BRANCH}"
+            exit 1
+          fi
+          echo "Files found in source:"
+          ls -la ".source/${SOURCE_PATH}"
+
+      - name: Replace DRAT target path with source contents
+        env:
+          SOURCE_PATH: docs/data/weekly
+          TARGET_PATH: docs/win/football/nfl/00_intake/predictions/drat/raw
+        run: |
+          set -e
+          rm -rf "${TARGET_PATH}"
+          mkdir -p "${TARGET_PATH}"
+          cp -R ".source/${SOURCE_PATH}/." "${TARGET_PATH}/"
+
+          echo "Files now in ${TARGET_PATH}:"
+          ls -la "${TARGET_PATH}"
+
+      - name: Clean DRAT files
+        id: clean_drat
+        shell: bash
+        run: |
+          set +e
+
+          python docs/win/football/nfl/scripts/00_intake/clean_drat.py
+          status=$?
+
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Commit and push DRAT
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A \
+            docs/win/football/nfl/00_intake/predictions/drat/raw \
+            docs/win/football/nfl/00_intake/predictions/drat/clean \
+            docs/win/football/nfl/errors/00_intake/clean_drat.txt
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Pull and clean weekly DRAT predictions"
+            git push
+          fi
+
+      - name: Fail workflow if DRAT cleaning failed
+        if: steps.clean_drat.outputs.exit_code != '0'
+        run: |
+          echo "clean_drat.py reported errors."
+          echo "See docs/win/football/nfl/errors/00_intake/clean_drat.txt"
+          exit 1
+
+      # ============================================================
+      # NFL 02 DAILY
+      # ============================================================
+
+      - name: Set up Python for Daily
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Daily dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pull current odds
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_odds.py
+
+      - name: Build weekly schedule
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/build_weekly_schedule.py
+
+      - name: Build ESPN opening odds and movement
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_opening_odds.py
+
+      - name: Pull raw roster
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_raw_roster.py
+
+      - name: Clean roster
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/roster_cleanup.py
+
+      - name: Pull depth charts
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/depth_chart.py
+
+      - name: Clean depth charts
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/depth_cleanup.py
+
+      - name: Build QB map
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/build_qb_map.py
+
+      - name: Pull injuries
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_injuries.py
+
+      - name: Fetch weather
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/fetch_weather.py
+
+      - name: Pull ESPN predictions
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/pull_e_predictions.py
+
+      - name: Validate daily outputs
+        run: |
+          python docs/win/football/nfl/scripts/validation/validate_daily.py
+
+      - name: Commit and push all daily outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A docs/win/football/nfl/
+
+          if git diff --cached --quiet; then
+            echo "No NFL daily output changes to commit."
+          else
+            git commit -m "Update NFL daily AM data"
+            git push
+          fi
+
+      # ============================================================
+      # NFL 03 PREDICTIONS
+      # ============================================================
+
+      - name: Set up Python for Predictions
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Prediction dependencies
+        run: python -m pip install pandas numpy
+
+      - name: Run clean_e_pred.py
+        run: python docs/win/football/nfl/scripts/00_intake/clean_e_pred.py
+
+      - name: Run finalize_pred.py
+        run: python docs/win/football/nfl/scripts/00_intake/finalize_pred.py
+
+      - name: Run enrich_moneyline.py
+        run: python docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py
+
+      - name: Run enrich_spread.py
+        run: python docs/win/football/nfl/scripts/00_intake/enrich_spread.py
+
+      - name: Run enrich_totals.py
+        run: python docs/win/football/nfl/scripts/00_intake/enrich_totals.py
+
+      - name: Run enrich_combine.py
+        run: python docs/win/football/nfl/scripts/00_intake/enrich_combine.py
+
+      - name: Commit and push Predictions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/football/nfl/00_intake/predictions/clean \
+                  docs/win/football/nfl/00_intake/predictions/final \
+                  docs/win/football/nfl/00_intake/predictions/enriched/ \
+                  docs/win/football/nfl/errors/00_intake/clean_e_pred.txt \
+                  docs/win/football/nfl/errors/00_intake/finalize_pred.txt
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update NFL predictions and enrichment"
+            git push
+          fi
+
+      # ============================================================
+      # NFL 04 PROJECTION
+      # ============================================================
+
+      - name: Set up Python for Projection
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Projection dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy catboost pyarrow
+
+      - name: Run Week 1 projection
+        if: ${{ inputs.projection_mode == 'week1' }}
+        run: python docs/win/football/nfl/scripts/01_merge/projection_week1.py
+
+      - name: Run in-season projection
+        if: ${{ inputs.projection_mode == 'inseason' }}
+        run: python docs/win/football/nfl/scripts/01_merge/projection.py
+
+      - name: Commit projection output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/football/nfl/01_merge/
+
+          if git diff --cached --quiet; then
+            echo "No projection output changes to commit."
+          else
+            git commit -m "Update NFL projection output"
+            git push
+          fi
+
+      # ============================================================
+      # NFL 05 SELECT
+      # ============================================================
+
+      - name: Set up Python for Select
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Select dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyyaml
+
+      - name: Run NFL selection engine for all weeks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+
+          FILES=(
+            docs/win/football/nfl/01_merge/week_*_NFL_enriched.csv
+          )
+
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "ERROR: No weekly enriched files found."
+            exit 1
+          fi
+
+          for FILE in "${FILES[@]}"; do
+            BASENAME="$(basename "$FILE")"
+            WEEK="${BASENAME#week_}"
+            WEEK="${WEEK%_NFL_enriched.csv}"
+
+            echo "Running selections.py for Week $WEEK"
+
+            python docs/win/football/nfl/scripts/02_select/selections.py \
+              --week "$WEEK"
+          done
+
+      - name: Run NFL picks filter for all weeks
+        run: |
+          python docs/win/football/nfl/scripts/03_picks/picks.py
+
+      - name: Run all-games picks for all weeks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+
+          FILES=(
+            docs/win/football/nfl/02_select/week_*_NFL_selected.csv
+          )
+
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "ERROR: No weekly selected files found."
+            exit 1
+          fi
+
+          for FILE in "${FILES[@]}"; do
+            BASENAME="$(basename "$FILE")"
+            WEEK="${BASENAME#week_}"
+            WEEK="${WEEK%_NFL_selected.csv}"
+
+            echo "Running all_games_picks.py for Week $WEEK"
+
+            python docs/win/football/nfl/scripts/03_picks/all_games_picks.py \
+              --week "$WEEK"
+          done
+
+      - name: Run final picks for all weeks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+
+          FILES=(
+            docs/win/football/nfl/03_picks/week_*_NFL_picks.csv
+          )
+
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "ERROR: No weekly picks files found."
+            exit 1
+          fi
+
+          for FILE in "${FILES[@]}"; do
+            BASENAME="$(basename "$FILE")"
+            WEEK="${BASENAME#week_}"
+            WEEK="${WEEK%_NFL_picks.csv}"
+
+            echo "Running final_picks.py for Week $WEEK"
+
+            python docs/win/football/nfl/scripts/03_picks/final_picks.py \
+              --week "$WEEK"
+          done
+
+      - name: Commit selection and picks outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/football/nfl/02_select/
+          git add docs/win/football/nfl/03_picks/
+
+          if git diff --cached --quiet; then
+            echo "No NFL selection or picks output changes to commit."
+          else
+            git commit -m "Run NFL selections and picks for all available weeks"
+            git push
+          fi
+
+      # ============================================================
+      # NFL 06 FINAL
+      # ============================================================
+
+      - name: Set up Python for Final Results
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Run NFL final scores
+        run: |
+          python docs/win/football/nfl/scripts/04_final_results/pull_final_scores.py
+
+      - name: Grade NFL selected picks
+        run: |
+          python docs/win/football/nfl/scripts/04_final_results/grade_selected_picks.py
+
+      - name: Run NFL survivor picks
+        run: |
+          python docs/win/football/nfl/scripts/03_picks/survivor.py
+
+      - name: Commit final results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/football/nfl/04_final_results/results/
+          git add docs/win/football/nfl/errors/04_final_results/pull_final_scores.txt
+          git add docs/win/football/nfl/03_picks/survivor/
+
+          if git diff --cached --quiet; then
+            echo "No final-results changes to commit."
+          else
+            git commit -m "Update NFL final results"
+            git push
+          fi
+
+      # ============================================================
+      # NFL 07 NM BETS
+      # ============================================================
+
+      - name: Set up Python for NM Bets
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate NM NFL picks
+        run: |
+          python docs/win/football/nfl/scripts/03_picks/nmbets.py
+
+      - name: Commit NM NFL picks
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/win/football/nfl/03_picks/nmbets/
+
+          if git diff --cached --quiet; then
+            echo "No NM NFL picks changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Update NFL NM bets"
+          git push
