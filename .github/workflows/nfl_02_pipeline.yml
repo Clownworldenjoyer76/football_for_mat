@@ -25,17 +25,17 @@ jobs:
       # ============================================================
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout DRAT source repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: Clownworldenjoyer76/nikki_and_mat_bets
           ref: main
           path: .source
 
       - name: Set up Python for DRAT
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
