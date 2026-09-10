@@ -39,7 +39,7 @@ SEASON = 2026
 # ============================================================================
 
 WEEK = 1
-SCRIPT_VERSION = "2026-09-10-fix3"
+SCRIPT_VERSION = "2026-09-10-fix4"
 EXPECTED_FEATURE_COUNT = 260
 MISSING_CAT = "__MISSING__"
 
@@ -1001,47 +1001,81 @@ def validate_week1_base(base: pd.DataFrame, season: int, label: str) -> None:
             f"{missing_schedule_ids[:10]}"
         )
 
+    weekly_schedule_path = (
+        nfl_root()
+        / "00_intake/schedule/weekly/week_1_NFL_weekly_schedule.csv"
+    )
+    weekly_schedule = read_csv(weekly_schedule_path)
+    require_columns(
+        weekly_schedule,
+        ["game_id", "commence_time"],
+        str(weekly_schedule_path),
+    )
+    require_unique_game_id(
+        weekly_schedule,
+        str(weekly_schedule_path),
+    )
+    weekly_by_game = weekly_schedule.set_index("game_id")
+
     now_utc = pd.Timestamp.now(tz="UTC")
     started_game_ids: list[str] = []
 
     for game_id in base["game_id"]:
-        row = schedule_by_game.loc[game_id]
+        kickoff = None
 
-        game_date = clean(row["game_date"])
-        game_time = clean(row["game_time"])
-        game_timezone = clean(row["game_timezone"])
+        if game_id in weekly_by_game.index:
+            commence_time = clean(
+                weekly_by_game.loc[game_id]["commence_time"]
+            )
+            if commence_time:
+                kickoff = parse_timestamp(commence_time)
+                if kickoff is None:
+                    raise ValueError(
+                        f"{weekly_schedule_path}: invalid commence_time "
+                        f"for game_id={game_id}: {commence_time!r}"
+                    )
 
-        if not game_date or not game_time or not game_timezone:
-            raise ValueError(
-                f"{schedule_path}: missing kickoff date/time/timezone "
-                f"for game_id={game_id}"
+        if kickoff is None:
+            row = schedule_by_game.loc[game_id]
+
+            game_date = clean(row["game_date"])
+            game_time = clean(row["game_time"])
+            game_timezone = clean(row["game_timezone"])
+
+            if not game_date or not game_time or not game_timezone:
+                raise ValueError(
+                    f"{schedule_path}: missing kickoff date/time/timezone "
+                    f"for game_id={game_id} and no usable commence_time "
+                    f"exists in {weekly_schedule_path}"
+                )
+
+            kickoff = pd.to_datetime(
+                f"{game_date} {game_time}",
+                errors="coerce",
             )
 
-        kickoff = pd.to_datetime(
-            f"{game_date} {game_time}",
-            errors="coerce",
-        )
+            if pd.isna(kickoff):
+                raise ValueError(
+                    f"{schedule_path}: invalid kickoff date/time "
+                    f"for game_id={game_id}: "
+                    f"date={game_date!r} time={game_time!r}"
+                )
 
-        if pd.isna(kickoff):
-            raise ValueError(
-                f"{schedule_path}: invalid kickoff date/time "
-                f"for game_id={game_id}: "
-                f"date={game_date!r} time={game_time!r}"
-            )
+            try:
+                kickoff = kickoff.tz_localize(
+                    game_timezone,
+                    ambiguous="raise",
+                    nonexistent="raise",
+                )
+            except Exception as exc:
+                raise ValueError(
+                    f"{schedule_path}: invalid game_timezone={game_timezone!r} "
+                    f"for game_id={game_id}"
+                ) from exc
 
-        try:
-            kickoff = kickoff.tz_localize(
-                game_timezone,
-                ambiguous="raise",
-                nonexistent="raise",
-            )
-        except Exception as exc:
-            raise ValueError(
-                f"{schedule_path}: invalid game_timezone={game_timezone!r} "
-                f"for game_id={game_id}"
-            ) from exc
+            kickoff = kickoff.tz_convert("UTC")
 
-        if kickoff.tz_convert("UTC") <= now_utc:
+        if kickoff <= now_utc:
             started_game_ids.append(game_id)
 
     if started_game_ids:

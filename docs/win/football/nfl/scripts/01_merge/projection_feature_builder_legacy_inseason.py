@@ -33,7 +33,7 @@ from catboost import CatBoostRegressor
 SEASON = 2026
 # ============================================================================
 
-SCRIPT_VERSION = "2026-09-10-inseason-fix2"
+SCRIPT_VERSION = "2026-09-10-inseason-fix3"
 EXPECTED_FEATURE_COUNT = 260
 
 NFL_REL = Path("docs/win/football/nfl")
@@ -389,9 +389,10 @@ def filter_unstarted_games(
     """
     Remove games whose scheduled kickoff has already occurred.
 
-    The canonical season schedule is used instead of sportsbook availability
-    so a temporary/missing odds match is never treated as proof that a game
-    has already started.
+    The weekly schedule's UTC commence_time is used first. When it is blank,
+    the canonical season schedule's local date/time/timezone is used as the
+    fallback. Sportsbook availability itself is never used as proof that a
+    game has already started.
     """
     schedule_path = (
         root
@@ -450,58 +451,114 @@ def filter_unstarted_games(
             f"{missing_schedule_ids[:10]}"
         )
 
+    weekly_schedule_path = (
+        root
+        / "00_intake/schedule/weekly"
+        / f"week_{week}_NFL_weekly_schedule.csv"
+    )
+
+    weekly_schedule = read_csv(
+        weekly_schedule_path
+    )
+
+    require_columns(
+        weekly_schedule,
+        [
+            "game_id",
+            "commence_time",
+        ],
+        str(weekly_schedule_path),
+    )
+
+    require_unique_game_id(
+        weekly_schedule,
+        str(weekly_schedule_path),
+    )
+
+    weekly_by_game = weekly_schedule.set_index(
+        "game_id"
+    )
+
     now_utc = pd.Timestamp.now(tz="UTC")
     started_game_ids: list[str] = []
 
     for game_id in base["game_id"]:
-        row = schedule_by_game.loc[game_id]
+        kickoff = None
 
-        game_date = clean(
-            row["game_date"]
-        )
-        game_time = clean(
-            row["game_time"]
-        )
-        game_timezone = clean(
-            row["game_timezone"]
-        )
-
-        if (
-            not game_date
-            or not game_time
-            or not game_timezone
-        ):
-            raise ValueError(
-                f"{schedule_path}: missing kickoff "
-                f"date/time/timezone for game_id={game_id}"
+        if game_id in weekly_by_game.index:
+            commence_time = clean(
+                weekly_by_game.loc[
+                    game_id
+                ][
+                    "commence_time"
+                ]
             )
 
-        kickoff = pd.to_datetime(
-            f"{game_date} {game_time}",
-            errors="coerce",
-        )
+            if commence_time:
+                kickoff = parse_timestamp(
+                    commence_time
+                )
 
-        if pd.isna(kickoff):
-            raise ValueError(
-                f"{schedule_path}: invalid kickoff "
-                f"date/time for game_id={game_id}: "
-                f"date={game_date!r} time={game_time!r}"
+                if kickoff is None:
+                    raise ValueError(
+                        f"{weekly_schedule_path}: invalid "
+                        f"commence_time for game_id={game_id}: "
+                        f"{commence_time!r}"
+                    )
+
+        if kickoff is None:
+            row = schedule_by_game.loc[game_id]
+
+            game_date = clean(
+                row["game_date"]
+            )
+            game_time = clean(
+                row["game_time"]
+            )
+            game_timezone = clean(
+                row["game_timezone"]
             )
 
-        try:
-            kickoff = kickoff.tz_localize(
-                game_timezone,
-                ambiguous="raise",
-                nonexistent="raise",
-            )
-        except Exception as exc:
-            raise ValueError(
-                f"{schedule_path}: invalid "
-                f"game_timezone={game_timezone!r} "
-                f"for game_id={game_id}"
-            ) from exc
+            if (
+                not game_date
+                or not game_time
+                or not game_timezone
+            ):
+                raise ValueError(
+                    f"{schedule_path}: missing kickoff "
+                    f"date/time/timezone for game_id={game_id} "
+                    f"and no usable commence_time exists in "
+                    f"{weekly_schedule_path}"
+                )
 
-        if kickoff.tz_convert("UTC") <= now_utc:
+            kickoff = pd.to_datetime(
+                f"{game_date} {game_time}",
+                errors="coerce",
+            )
+
+            if pd.isna(kickoff):
+                raise ValueError(
+                    f"{schedule_path}: invalid kickoff "
+                    f"date/time for game_id={game_id}: "
+                    f"date={game_date!r} time={game_time!r}"
+                )
+
+            try:
+                kickoff = kickoff.tz_localize(
+                    game_timezone,
+                    ambiguous="raise",
+                    nonexistent="raise",
+                )
+            except Exception as exc:
+                raise ValueError(
+                    f"{schedule_path}: invalid "
+                    f"game_timezone={game_timezone!r} "
+                    f"for game_id={game_id}"
+                ) from exc
+
+            kickoff = kickoff.tz_convert("UTC")
+
+        if kickoff <= now_utc:
             started_game_ids.append(game_id)
 
     if started_game_ids:
