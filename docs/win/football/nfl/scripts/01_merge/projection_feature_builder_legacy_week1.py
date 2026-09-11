@@ -1042,9 +1042,9 @@ def validate_week1_base(base: pd.DataFrame, season: int, label: str) -> None:
             game_time = clean(row["game_time"])
             game_timezone = clean(row["game_timezone"])
 
-            if not game_date or not game_time or not game_timezone:
+            if not game_date or not game_time:
                 raise ValueError(
-                    f"{schedule_path}: missing kickoff date/time/timezone "
+                    f"{schedule_path}: missing kickoff date/time "
                     f"for game_id={game_id} and no usable commence_time "
                     f"exists in {weekly_schedule_path}"
                 )
@@ -1059,6 +1059,22 @@ def validate_week1_base(base: pd.DataFrame, season: int, label: str) -> None:
                     f"{schedule_path}: invalid kickoff date/time "
                     f"for game_id={game_id}: "
                     f"date={game_date!r} time={game_time!r}"
+                )
+
+            if not game_timezone:
+                # pull_schedule.py records the event's UTC date/time when it
+                # cannot resolve a game timezone. That timestamp is sufficient
+                # to identify an already-started game, which should be removed
+                # before strict feature validation is applied to future games.
+                kickoff_utc = kickoff.tz_localize("UTC")
+                if kickoff_utc <= now_utc:
+                    started_game_ids.append(game_id)
+                    continue
+
+                raise ValueError(
+                    f"{schedule_path}: missing kickoff timezone "
+                    f"for game_id={game_id} and no usable commence_time "
+                    f"exists in {weekly_schedule_path}"
                 )
 
             try:
