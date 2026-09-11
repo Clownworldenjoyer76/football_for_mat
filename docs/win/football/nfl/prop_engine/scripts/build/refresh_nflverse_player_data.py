@@ -649,7 +649,6 @@ def apply_weekly_roster_identity_corrections(
     current-source parquet is written.
 
     2026 Tennessee Jaylon Jones:
-        ESPN 4685145
         stale GSIS 00-0037106
         correct GSIS 00-0038407
     """
@@ -659,7 +658,6 @@ def apply_weekly_roster_identity_corrections(
     required = {
         "team",
         "gsis_id",
-        "espn_id",
     }
 
     missing = sorted(
@@ -681,12 +679,6 @@ def apply_weekly_roster_identity_corrections(
         .str.upper()
     )
 
-    espn_id = (
-        corrected["espn_id"]
-        .astype("string")
-        .str.strip()
-    )
-
     gsis_id = (
         corrected["gsis_id"]
         .astype("string")
@@ -695,7 +687,6 @@ def apply_weekly_roster_identity_corrections(
 
     stale_mask = (
         team.eq("TEN")
-        & espn_id.eq("4685145")
         & gsis_id.eq("00-0037106")
     )
 
@@ -703,11 +694,17 @@ def apply_weekly_roster_identity_corrections(
         stale_mask.sum()
     )
 
-    if correction_count:
-        corrected.loc[
-            stale_mask,
-            "gsis_id",
-        ] = "00-0038407"
+    if correction_count != 1:
+        raise ValueError(
+            "Expected exactly one 2026 TEN weekly-roster row "
+            "with GSIS 00-0037106; "
+            f"found {correction_count}"
+        )
+
+    corrected.loc[
+        stale_mask,
+        "gsis_id",
+    ] = "00-0038407"
 
     return corrected, correction_count
 
