@@ -1,0 +1,680 @@
+# 1. Repository Architecture
+
+The audited production football system is centered under:
+
+`docs/win/football/nfl/`
+
+Three active workflow entry points were identified:
+
+| Workflow                                     | Purpose                                        |
+| -------------------------------------------- | ---------------------------------------------- |
+| `.github/workflows/nfl_01_pipeline.yml`      | Primary NFL game prediction/betting pipeline   |
+| `.github/workflows/nfl_02_pipeline.yml`      | Secondary execution path for the game pipeline |
+| `.github/workflows/nfl_03_prop_pipeline.yml` | NFL player-prop prediction system              |
+
+The primary game system is organized approximately as:
+
+`00_intake` → `01_merge` → v4 inference → `02_select` → `03_picks` → `04_final_results`
+
+Historical model construction is under:
+
+`docs/win/football/nfl/scripts/training/`
+
+Production game-model artifacts are under:
+
+`docs/win/football/nfl/models/`
+
+The prop system is a largely separate modeling architecture under:
+
+`docs/win/football/nfl/prop_engine/`
+
+It has its own historical feature tables, LightGBM models, calibration artifacts, validation framework, production registry, and weekly projection path. Its configuration explicitly prohibits sportsbook, DRAT, EPRED, and main-game-model data from entering prop features.
+
+The GitHub connector exposes most fetched files as a single content record rather than stable source-line ranges. Where precise line numbers were unavailable, I am identifying the exact file and function/workflow operation rather than inventing line numbers.
+
+---
+
+# 2. End-to-End Pipeline
+
+## Game system
+
+The primary path is:
+
+1. External DRAT predictions are obtained and normalized.
+2. Static/weekly NFL inputs are refreshed, including schedule, PBP, team statistics, QB statistics, coaches, rankings/futures/travel and related sources.
+3. Current inputs are refreshed:
+
+   * odds
+   * weekly schedule
+   * roster
+   * depth chart
+   * injuries
+   * weather
+   * ESPN predictions
+4. Market enrichment builds moneyline, spread and total information.
+5. `projection.py` / `projection_week1.py` constructs the current feature row and loads the active v4 production models.
+6. `v4_production.py` produces:
+
+   * margin
+   * total
+   * home-win probability
+   * spread probabilities
+   * total probabilities
+7. `scripts/02_select/selections.py` converts market prices to fair implied probabilities, calculates edge/EV/Kelly and applies configured betting filters.
+8. `scripts/03_picks/` produces weekly selected-bet and projection files.
+9. Final scores are ingested and `grade_selected_picks.py` grades wagers.
+10. Additional final/NM outputs are generated.
+
+The final selected/projection builder explicitly reads the weekly picks file and writes selected and projection outputs.
+
+## Prop system
+
+The prop path is independent:
+
+historical player/game data → opportunity/form/environment/defensive features → chronological folds → direct/component candidate models → architecture selection → calibration → untouched 2025 test → production approval registry → weekly projection.
+
+The configured historical period is 2012–2025, with model selection through 2023, validation in 2024, and untouched test in 2025.
+
+---
+
+# 3. Critical / High Findings
+
+## Finding 1 — Historical betting prices are not point-in-time actionable
+
+**Severity:** Critical
+**Status:** Confirmed issue
+**Paths:**
+
+* `docs/win/football/nfl/training/MARKET_TIMING_AUDIT.md`
+* `docs/win/football/nfl/data/historic_data/odds/`
+* `docs/win/football/nfl/models/backtest/run_backtest.py`
+
+The repository explicitly documents that the canonical 2021–2025 historical market fields represent closing/untimestamped market information rather than a stored sportsbook snapshot from the actual historical prediction time. It also states that historical movement snapshots cannot be reconstructed from the available source.
+
+Therefore:
+
+**Would these historical prices have been known at the modeled decision time? No evidence proves that.**
+
+This means historical betting edge, EV, selection, ROI, or Kelly performance using those lines cannot establish what could actually have been wagered when a prediction would have been generated.
+
+This does **not** mean the current v4 outcome model leaks closing lines: v4 explicitly excludes markets. It means a realistic historical wagering backtest cannot currently be established from the stored historical prices.
+
+The production registry appropriately records:
+
+`historical_roi_claim_allowed: false`
+
+and states that market inputs are post-model only.
+
+---
+
+## Finding 2 — Historical selected-pick files are recomputed using current selection configuration
+
+**Severity:** High
+**Status:** Confirmed issue
+**Paths:**
+
+* `.github/workflows/nfl_01_pipeline.yml`
+* `.github/workflows/nfl_02_pipeline.yml`
+* `docs/win/football/nfl/scripts/02_select/selections.py`
+* `docs/win/football/nfl/scripts/03_picks/picks.py`
+* `docs/win/football/nfl/scripts/03_picks/final_picks.py`
+
+The workflow loops over **all existing weekly files**, not only the current week, reruns selection/pick generation, and rewrites outputs.
+
+`picks.py` writes to a temporary file and then replaces the existing output.
+
+Therefore a later change to `markets.yaml`, thresholds, selection logic, probability logic, or another downstream dependency can retroactively change historical selection files.
+
+Effect:
+
+Historical files under the normal production output tree are **not immutable evidence of what was actually selected at that historical moment**.
+
+This can materially distort retrospective bet counts, apparent win rate and ROI if those rewritten files are later treated as original historical decisions.
+
+I found evidence of the capability to rewrite history; I did **not** establish that any specific historical pick has already changed.
+
+---
+
+## Finding 3 — Production game model depends on historical DRAT/EPRED records whose prediction timestamps cannot be proven
+
+**Severity:** High
+**Status:** Potential risk
+**Paths:**
+
+* `docs/win/football/nfl/models/production_model.json`
+* `docs/win/football/nfl/data/historic_data/predictions/drat/`
+* `docs/win/football/nfl/data/historic_data/predictions/epred/`
+* `docs/win/football/nfl/scripts/training/step1.py`
+* `docs/win/football/nfl/scripts/training/step11_market_independent_v4.py`
+
+The active v4 production configuration selected the **augmented** variant for margin, total and moneyline.
+
+Those augmented features include historical DRAT/EPRED predictions.
+
+The historical DRAT file contains prediction probabilities alongside final scores but does not contain a preserved prediction capture timestamp.
+
+The historical EPRED records likewise do not establish an immutable pre-kickoff capture time.
+
+Consequently:
+
+**Would the exact DRAT/EPRED values used for every historical game definitely have been known before kickoff? The repository cannot prove it.**
+
+This is not evidence that those probability fields actually contain postgame information. Final scores may simply have been appended afterward.
+
+Therefore this is a **potential leakage/PIT-integrity risk**, not a confirmed leak.
+
+---
+
+## Finding 4 — Legacy stored game backtest is explicitly contaminated upstream
+
+**Severity:** High
+**Status:** Confirmed issue
+**Paths:**
+
+* `docs/win/football/nfl/models/backtest/README.md`
+* `docs/win/football/nfl/models/backtest/run_backtest.py`
+* legacy training/enrichment path
+
+The backtest documentation itself records that the older Step-11 feature schema contains outcome-derived enrichment/rule features created from multi-season result information.
+
+The chronological replay cannot undo leakage already embedded in upstream feature construction.
+
+Therefore the stored legacy backtest cannot be classified as fully leakage-free even though its model fitting loop itself is chronological.
+
+This matters separately from the current v4 model. The active v4 architecture was specifically redesigned to exclude those fields.
+
+---
+
+## Finding 5 — Betting-filter tuning has no independently provable holdout
+
+**Severity:** High
+**Status:** Potential risk
+**Paths:**
+
+* `docs/win/football/nfl/config/markets.yaml`
+* selection-analysis/backtest artifacts
+* `docs/win/football/nfl/scripts/02_select/selections.py`
+
+The current betting configuration contains detailed probability/edge/filter bands.
+
+I did not find repository evidence proving that these final wager-selection filters were frozen using a dataset completely separate from the historical results used to evaluate their apparent performance.
+
+That does **not** prove they were optimized improperly.
+
+It means selection-filter data snooping cannot be ruled out. If the same historical probability/results set was repeatedly searched to arrive at current thresholds, apparent betting performance would be optimistic even if the underlying model predictions were genuinely out-of-sample.
+
+---
+
+# 4. Medium / Low Findings
+
+| Severity   | Status             | Finding                                                                                                                       |
+| ---------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Medium** | Confirmed          | Historical team features use exact calendar `Week N-1` instead of each team's most recent completed game.                     |
+| **Medium** | Confirmed          | Spread/total probability and EV calculations do not model push probability as a separate outcome.                             |
+| **Medium** | Confirmed          | Moneyline modeling excludes tied games while wager grading supports a push on ties.                                           |
+| **Medium** | Potential          | Historical weather values cannot be proven to represent the weather forecast available at prediction time.                    |
+| **Medium** | Potential          | Historical starting-QB identity can contain hindsight if the actual starter was not known at the intended decision timestamp. |
+| **Medium** | Potential          | `nfl_02_pipeline.yml` can run without establishing that `nfl_01` static inputs were freshly updated.                          |
+| **Medium** | Potential          | Main workflows lack the explicit concurrency protection present in the prop workflow.                                         |
+| **Low**    | Potential          | Some runtime dependencies are installed unpinned outside the pinned root requirements.                                        |
+| **Low**    | Potential          | Full-dataset dtype/type inference occurs before OOF partitioning; it leaks schema characteristics, not target statistics.     |
+| **Low**    | Confirmed behavior | Step-1's intersection with external prediction availability can alter the evaluated game population.                          |
+
+### Calendar-week lag issue
+
+`step5.py` explicitly implements:
+
+game Week N → team-stat row from Week N−1.
+
+The join is performed using `_lag_week = _game_week - 1`.
+
+The team-stat source is itself weekly PBP-derived data.
+
+For a team that had a bye in N−1, there is no N−1 game-stat row. The model therefore receives missing team-strength features even though that team's most recent completed game is valid historical information.
+
+This is a correctness/feature-quality problem, not leakage.
+
+### Dependency reproducibility
+
+The main requirements file pins most modeling packages, but `requests` is unpinned.
+
+Projection setup separately installs `pandas numpy catboost pyarrow` without version pins, and another workflow installs `nflreadpy` separately.
+
+This creates reproducibility/drift risk across future workflow runs.
+
+---
+
+# 5. Calculation Verification
+
+## Game targets
+
+### Margin
+
+Implemented target:
+
+`home_score - away_score`
+
+**Status: Correct.**
+
+### Total
+
+Implemented target:
+
+`home_score + away_score`
+
+**Status: Correct.**
+
+### Historical home ATS result
+
+Internal historical convention:
+
+`spread_line > 0` means the home team is favored by that many points.
+
+Implemented ATS margin:
+
+`home_margin - spread_line`
+
+Under that convention this is correct.
+
+I found no inverted historical spread-sign bug.
+
+### Live sportsbook spread
+
+Live market data uses normal sportsbook notation, e.g. a favorite has a negative spread.
+
+The backtest explicitly transforms the internal historical convention into sportsbook convention:
+
+home live spread = `-spread_line`
+
+away live spread = `spread_line`.
+
+That conversion is correct.
+
+---
+
+## American odds
+
+The selector implements the standard conversion:
+
+Positive odds:
+
+`decimal = 1 + American / 100`
+
+Negative odds:
+
+`decimal = 1 + 100 / abs(American)`
+
+**Status: Correct.**
+
+Implied probability:
+
+`1 / decimal_odds`
+
+**Status: Correct.**
+
+---
+
+## Vig removal
+
+For two-way markets the code proportionally normalizes the two raw implied probabilities:
+
+`fair_i = raw_i / (raw_1 + raw_2)`
+
+**Status: Mathematically correct proportional vig removal.**
+
+This is one valid vig-removal model; it is not evidence that bookmaker margin is actually distributed proportionally.
+
+---
+
+## Edge
+
+Implemented:
+
+`model_probability - no_vig_market_probability`
+
+**Status: Correct under the stated definitions.**
+
+---
+
+## Expected value
+
+For a binary win/loss bet:
+
+`EV = p × net_win - (1-p)`
+
+The implementation matches this formula.
+
+**Status: Correct for binary outcomes.**
+
+### Problem: pushes
+
+Spread and total bets can push.
+
+The model calculates cover/over probabilities by using the empirical residual distribution and gives exact-equality residuals half weight. The complementary probability is then forced to `1-p`.
+
+But the grader treats a push as an actual third outcome returning zero profit.
+
+Therefore the betting layer does not explicitly calculate:
+
+* P(win)
+* P(loss)
+* P(push)
+
+separately.
+
+This is a **confirmed mathematical-model mismatch** for integer spread/total lines.
+
+It can affect EV, edge and staking near selection thresholds.
+
+---
+
+## Kelly
+
+Implemented binary full-Kelly formula:
+
+`f = (b×p - q) / b`
+
+where `b` is net decimal winnings and `q = 1-p`, clipped at zero.
+
+**Status: Correct for binary win/loss bets.**
+
+The same push limitation applies to spreads and totals.
+
+---
+
+## Grading/P&L
+
+Backtest profit math:
+
+* loss = `-risk`
+* push = `0`
+* positive American win = `risk × odds/100`
+* negative American win = `risk × 100/abs(odds)`
+
+**Status: Correct.**
+
+Win rate excludes pushes from decisions.
+
+Flat-bet ROI uses net profit divided by total one-unit stakes.
+
+Kelly ROI uses net profit divided by total Kelly risk.
+
+**Status: Correct.**
+
+---
+
+# 6. Point-in-Time / Leakage Audit
+
+## Effective timestamps
+
+| Feature source                  | Pre-kickoff status                                        |
+| ------------------------------- | --------------------------------------------------------- |
+| Schedule/home-away/venue        | **Safe in principle**                                     |
+| Rest/travel                     | **Safe in principle**                                     |
+| Prior completed team statistics | **Safe**, but post-bye retrieval is defective             |
+| Prior QB performance            | **Safe in principle**                                     |
+| Historical starting-QB identity | **Not fully provable**                                    |
+| Injury/depth features           | **Implementation contains strong lag/timestamp controls** |
+| Current live weather            | **Pregame input**                                         |
+| Historical weather              | **Not provably forecast-as-of**                           |
+| Current odds snapshots          | **Point-in-time traceable**                               |
+| Historical 2021–25 market lines | **Not point-in-time actionable**                          |
+| Historical DRAT                 | **Capture time unproven**                                 |
+| Historical EPRED                | **Capture time unproven**                                 |
+| Targets/final scores            | Explicitly prohibited from v4 predictive features         |
+
+The current odds puller is materially better than the historical market archive: it writes `snapshot_id`, `snapshot_fetched_at`, source update information and immutable timestamped snapshots.
+
+The current projection builder also removes games once kickoff has passed and fails when kickoff information is unusable. It uses one-to-one game merges and validates missing game IDs.
+
+Those are strong prospective point-in-time controls.
+
+### Conclusion
+
+I cannot certify the current **augmented game model's historical training set as completely point-in-time safe**, principally because DRAT, EPRED and some historical contextual inputs lack immutable as-of timestamps.
+
+I found no direct evidence of current-game scores, current-game results, closing odds or target columns entering the active v4 model feature matrix.
+
+The uncertainty is provenance/timestamp integrity, not an identified direct target-column leak.
+
+---
+
+# 7. Train/Test / Model Audit
+
+## Production game models
+
+The active architecture is v4 market-independent outcomes.
+
+Three targets are modeled:
+
+| Target      | Model                   |
+| ----------- | ----------------------- |
+| Home margin | CatBoost regression     |
+| Game total  | CatBoost regression     |
+| Home win    | CatBoost classification |
+
+Two feature variants are evaluated:
+
+* core
+* augmented
+
+The active production registry selects **augmented** for all three.
+
+The v4 common code explicitly rejects outcome/market features, checks global `game_id` uniqueness and preserves missing numeric values for CatBoost rather than fitting a whole-dataset statistical imputer.
+
+### Chronology
+
+OOF folds are expanding by season:
+
+* 2022 prediction: train 2021
+* 2023 prediction: train 2021–22
+* 2024 prediction: train 2021–23
+* 2025 prediction: train 2021–24
+
+No random train/test split was identified in v4.
+
+That is appropriate for chronological sports prediction.
+
+### Important distinction
+
+The game model does **not** have a conventional final untouched test season comparable to the prop engine.
+
+Its final core/augmented model variant is selected from OOF history.
+
+The repository does additionally calculate a nested chronological metric set in which each historical variant/calibration decision is based only on earlier periods.
+
+Therefore:
+
+* nested chronological metrics are the strongest game-model validation evidence;
+* overall post-selection OOF results should not be described as a completely untouched final test.
+
+### Performance
+
+Nested chronological margin RMSE is approximately **13.02 points**, versus approximately **14.32** for the naive comparator.
+
+The model therefore contains real predictive information relative to the naive baseline.
+
+However, the closing market remains stronger on several measures.
+
+For historical spread probabilities:
+
+* model Brier ≈ **0.2592**
+* closing line benchmark Brier ≈ **0.2501**
+
+and model log loss is also worse than closing.
+
+This is not a code defect. It is important model-performance context: the current predictive system has not demonstrated superiority to the closing market.
+
+---
+
+## Prop models
+
+The prop system has substantially stronger model-selection isolation.
+
+`build_backtest_folds.py` creates expanding-window chronological folds and explicitly verifies that training ends before validation/test kickoff ranges. There is exactly one untouched final historical test season.
+
+Architecture selection uses:
+
+* training through 2023
+* 2024 validation
+* 2025 reporting-only untouched test
+
+The selector explicitly prohibits the 2025 test from influencing architecture or blend weights.
+
+Examples:
+
+* passing yards: 63% direct / 37% component blend, selected on 2024 only.
+* passing TDs: 77% direct / 23% component blend, selected on 2024 only.
+
+Production-approved targets are currently:
+
+* passing yards
+* passing TDs
+* rushing yards
+* receiving yards
+* kicking points
+* tackles
+
+Blocked:
+
+* rushing TDs
+* receiving TDs
+* sacks
+
+The production registry correctly reflects those failures rather than deploying them.
+
+The frozen 2025 approval report independently confirms that test rows were not used for model selection or calibration.
+
+I found no train/test contamination in the audited prop selection process.
+
+---
+
+# 8. Backtest Audit
+
+There are two materially different concepts in the repository.
+
+## Legacy betting backtest
+
+The replay engine itself is well constructed in several respects:
+
+* chronological training
+* prior-data-only calibration
+* correct spread-sign conversion
+* correct win/loss/push grading
+* correct profit formulas
+* correct ROI denominators
+* writes confined to its backtest directory.
+
+But its results cannot establish realistic historical profitability because:
+
+1. upstream legacy features were already contaminated by outcome-derived enrichment; and
+2. historical market prices are untimestamped/closing rather than prediction-time executable prices.
+
+Therefore its stored ROI figures should not be treated as real-world achievable performance.
+
+## Current v4 historical validation
+
+The current v4 outcome model avoids the first problem by excluding markets/outcome-derived feature fields.
+
+But the second problem remains: there is no complete historical point-in-time sportsbook feed with which to perform a genuine v4 wagering replay.
+
+The repository recognizes this and blocks the historical ROI claim.
+
+That is the correct interpretation.
+
+---
+
+# 9. Workflow / Operational Audit
+
+## Correct sequencing
+
+The main workflow generally sequences upstream ingestion before:
+
+enrichment → projection → selection → final picks → grading.
+
+Failures in core Python steps are normally fatal rather than silently ignored.
+
+The current feature builder has explicit schema, game-ID and started-game checks.
+
+## Stale-input risk in `nfl_02_pipeline.yml`
+
+The secondary workflow reuses much of the prediction/pick path without independently performing the full Tuesday/static refresh done by `nfl_01_pipeline.yml`.
+
+There is no repository-level guarantee that the required PBP/team/QB/static sources were refreshed immediately before `nfl_02` is manually run.
+
+**Status:** Potential operational risk.
+
+## Concurrency
+
+The prop workflow defines an explicit concurrency group with `cancel-in-progress: false`.
+
+Equivalent concurrency protection was not found in the main game workflows.
+
+Two simultaneous main-workflow executions therefore have a potential branch/output collision risk, particularly because both generate and commit files.
+
+I found no evidence that such a collision has actually occurred.
+
+## Stale historical rewrites
+
+The most significant workflow issue remains the all-weeks regeneration behavior discussed above.
+
+A technically successful workflow can therefore produce historically different selected-pick files without any failure.
+
+That is a record-integrity problem rather than a command-failure problem.
+
+---
+
+# 10. Confirmed-Correct Areas
+
+The following areas were specifically investigated and did **not** produce a confirmed correctness defect:
+
+* v4 margin target construction.
+* v4 total target construction.
+* historical spread-sign convention.
+* live sportsbook spread-sign conversion.
+* American-to-decimal odds conversion.
+* raw implied probability.
+* proportional two-way vig removal.
+* binary EV formula.
+* binary Kelly formula.
+* wager payout math.
+* push grading.
+* flat ROI math.
+* Kelly ROI math.
+* global v4 `game_id` uniqueness enforcement.
+* one-to-one current-game merges.
+* current-game kickoff filtering.
+* current odds timestamp/snapshot preservation.
+* direct market/target-feature exclusion from v4.
+* chronological v4 OOF ordering.
+* prop-engine chronological fold construction.
+* prop-engine separation of 2024 model selection from 2025 test.
+* prop-engine market-feature prohibition.
+* prop production approval blocking targets that failed their frozen test gates.
+* team alias handling includes explicit validation and failures for ambiguous/unmapped mappings rather than silent arbitrary joins.
+
+The prop production approval report additionally records a clean market-exclusion audit across 175 scanned files with zero forbidden feature/source hits.
+
+---
+
+# 11. Overall Assessment
+
+## **Materially flawed**
+
+That classification applies to the repository **as an end-to-end validated betting system**, not to every modeling component.
+
+The strongest parts are the current v4 market-independent outcome modeling and, especially, the prop-engine train/validation/test architecture. I found no obvious inverted spread formula, broken American-odds conversion, random chronological splitting, direct target leakage into v4, or prop test-set selection contamination.
+
+The material problems are elsewhere:
+
+1. **Historical betting performance cannot be reconstructed at the actual decision timestamp because historical sportsbook states are closing/untimestamped.**
+2. **The legacy stored betting backtest contains acknowledged upstream leakage.**
+3. **Current historical selected-pick outputs are mutable because normal workflows rerun prior weeks using current selection logic.**
+4. **The active augmented game model relies on DRAT/EPRED historical prediction values whose pre-kickoff timestamps cannot be proven.**
+5. **Spread/total EV and Kelly calculations omit push probability as an explicit third state.**
+6. **Calendar-week rather than previous-game team-stat lags create real missing-feature errors after byes.**
+7. **The current game model beats naive benchmarks but has not demonstrated superior probabilistic performance to the closing market.**
+
+The repository itself already recognizes the most serious betting-validation limitation by explicitly disallowing a historical ROI claim.
+
+**Bottom line:** the predictive modeling core is considerably stronger than the overall classification suggests, and the prop framework is structurally sound based on the audited evidence. What prevents the repository from being classified as reliable is the inability to establish a clean, immutable, genuinely point-in-time historical wagering record and several secondary probability/feature-integrity issues.
