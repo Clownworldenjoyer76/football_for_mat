@@ -438,9 +438,6 @@ def main():
                         "has a blank home_score"
                     )
 
-    # Final-score output is produced by week, so it is not expected to cover
-    # the entire season schedule. Every final-score row that does exist must,
-    # however, belong to the canonical season schedule.
     extra_result_games = (
         result_game_ids
         - schedule_game_ids
@@ -723,8 +720,9 @@ def main():
     )
 
     if completed_games_exist and not qbr_files:
-        fail(
-            f"No QBR files found for season {season}"
+        warning(
+            f"No QBR files found for season {season}. "
+            "Continuing because ESPN QBR data may not yet be available."
         )
 
     for path in qbr_files:
