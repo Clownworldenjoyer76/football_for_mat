@@ -6,11 +6,22 @@
     "mode": "existing_current_source",
     "output": "docs/win/football/nfl/prop_engine/data/current/source/roster_weekly_2026.parquet"
   },
-  "eligible_rows": 1268,
+  "eligible_rows": 1260,
   "games": 16,
-  "ineligible_rows": 1128,
+  "ineligible_rows": 1136,
   "market_exclusion_passed": true,
   "market_features_used": false,
+  "multi_team_reconciliation_count": 1,
+  "multi_team_reconciliations": [
+    {
+      "authority": "player_crosswalk_current_team",
+      "kept_team": "TEN",
+      "player_id": "00-0037106",
+      "removed_teams": [
+        "CHI"
+      ]
+    }
+  ],
   "native_current_gsis_ids_used": [
     "00-0023459",
     "00-0025565",
@@ -635,7 +646,6 @@
     "00-0037094",
     "00-0037096",
     "00-0037098",
-    "00-0037106",
     "00-0037109",
     "00-0037112",
     "00-0037120",
@@ -2442,6 +2452,8 @@
     "canonical_player_id": "gsis_id",
     "defensive_requires_depth_or_recent_participation": true,
     "kicker_requires_k_or_pk_role": true,
+    "multi_team_gsis_reconciled_to_crosswalk_current_team": true,
+    "multi_team_without_crosswalk_current_team_fails": true,
     "native_gsis_ids_fabricated": false,
     "noncritical_unresolved_backup_skipped_and_logged": true,
     "nonscheduled_teams_removed": true,
@@ -2596,7 +2608,7 @@
   ],
   "status": "passed",
   "supporting_reads": {
-    "recent_snap_counts": null,
+    "recent_snap_counts": "docs/win/football/nfl/prop_engine/data/current/source/snap_counts_2026.parquet",
     "team_master": "docs/win/football/nfl/data/master/team_master.csv"
   },
   "total_unresolved_skipped_count": 6,

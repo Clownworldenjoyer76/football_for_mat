@@ -46,4 +46,16 @@ run_date,season,week,source,expected_rows,actual_rows,missing_player_id_pct,dupl
 2026-09-10,2026,1,team_stats,0,0,,0,,,1.0,not_required_week1,pass,paths=1/1; expected_basis=prior-week scheduled team-games; duplicate_key=empty; no quality exceptions
 2026-09-10,2026,1,travel,16,16,,0,,0.0,,current_snapshot,pass,paths=1/1; expected_basis=one travel row per scheduled game; duplicate_key=game_id; no quality exceptions
 2026-09-10,2026,1,weather,16,16,,0,,0.0,,current_snapshot,pass,paths=1/1; expected_basis=one weather row per scheduled game; duplicate_key=game_id; no quality exceptions
-2026-09-10,2026,1,weekly_roster,2396,2963,0.03374957813027337,0,0.0,,1.0,current,pass,paths=1/1; expected_basis=current universe player rows; duplicate_key=season+week+gsis_id; raw_missing_player_id_pct=0.0337_nonblocking;production_universe_player_ids_complete=true;production_universe_rows=2396
+2026-09-10,2026,1,weekly_roster,2396,2963,0.0337495781302733,0,0.0,,1.0,current,pass,paths=1/1; expected_basis=current universe player rows; duplicate_key=season+week+gsis_id; raw_missing_player_id_pct=0.0337_nonblocking;production_universe_player_ids_complete=true;production_universe_rows=2396
+2026-09-11,2026,1,current_espn_roster,2396,2482,0.0,0,0.0,,,current_snapshot,pass,paths=1/1; expected_basis=current universe player rows; duplicate_key=team_id+id; no quality exceptions
+2026-09-11,2026,1,depth_charts,2177,2177,0.0,0,0.0,,,current_snapshot,pass,paths=32/32; expected_basis=snapshot bootstrap; depth row volume is source-defined; duplicate_key=team+position_abb+player_id; no quality exceptions
+2026-09-11,2026,1,injuries,800,800,0.0,0,0.0,,,current_snapshot,pass,paths=1/1; expected_basis=sparse event feed; no fixed row expectation; duplicate_key=season+player_id; no quality exceptions
+2026-09-11,2026,1,participation,0,0,,0,,,,not_required_week1,pass,paths=0/1; expected_basis=Week 1 has no required current-season realized rows; duplicate_key=empty; source absence allowed before Week 1
+2026-09-11,2026,1,pbp,0,0,,0,,,1.0,not_required_week1,pass,paths=1/1; expected_basis=Week 1 has no required current-season realized rows; duplicate_key=empty; no quality exceptions
+2026-09-11,2026,1,player_stats,0,0,,0,,,1.0,not_required_week1,pass,paths=1/1; expected_basis=Week 1 has no required current-season realized rows; duplicate_key=empty; no quality exceptions
+2026-09-11,2026,1,schedule,16,16,,0,,0.0,18.0,current,pass,paths=1/1; expected_basis=current-universe unique game count; duplicate_key=game_id; no quality exceptions
+2026-09-11,2026,1,snap_counts,0,0,,0,,,1.0,not_required_week1,pass,paths=1/1; expected_basis=Week 1 has no required current-season realized rows; duplicate_key=empty; no quality exceptions
+2026-09-11,2026,1,team_stats,0,0,,0,,,1.0,not_required_week1,pass,paths=1/1; expected_basis=prior-week scheduled team-games; duplicate_key=empty; no quality exceptions
+2026-09-11,2026,1,travel,16,16,,0,,0.0,,current_snapshot,pass,paths=1/1; expected_basis=one travel row per scheduled game; duplicate_key=game_id; no quality exceptions
+2026-09-11,2026,1,weather,16,16,,0,,0.0,,current_snapshot,pass,paths=1/1; expected_basis=one weather row per scheduled game; duplicate_key=game_id; no quality exceptions
+2026-09-11,2026,1,weekly_roster,2396,2963,0.03374957813027337,0,0.0,,1.0,current,pass,paths=1/1; expected_basis=current universe player rows; duplicate_key=season+week+gsis_id; raw_missing_player_id_pct=0.0337_nonblocking;production_universe_player_ids_complete=true;production_universe_rows=2396
