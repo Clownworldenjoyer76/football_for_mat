@@ -316,7 +316,6 @@ def load_nflreadpy(
     )
 
 
-
 def nflverse_release_url(
     family: str,
     season: int,
@@ -417,6 +416,7 @@ def load_nflverse_release(
             and temp_path.exists()
         ):
             temp_path.unlink()
+
 
 def load_nfl_data_py(
     family: str,
@@ -639,6 +639,79 @@ def dataframe_metadata(
     }
 
 
+def apply_weekly_roster_identity_corrections(
+    df: pd.DataFrame,
+    *,
+    season: int,
+) -> tuple[pd.DataFrame, int]:
+    """
+    Correct documented upstream weekly-roster identity errors before the
+    current-source parquet is written.
+
+    2026 Tennessee Jaylon Jones:
+        ESPN 4685145
+        stale GSIS 00-0037106
+        correct GSIS 00-0038407
+    """
+    if season != 2026:
+        return df, 0
+
+    required = {
+        "team",
+        "gsis_id",
+        "espn_id",
+    }
+
+    missing = sorted(
+        required - set(df.columns)
+    )
+
+    if missing:
+        raise ValueError(
+            "2026 weekly roster identity correction "
+            f"requires columns: {missing}"
+        )
+
+    corrected = df.copy()
+
+    team = (
+        corrected["team"]
+        .astype("string")
+        .str.strip()
+        .str.upper()
+    )
+
+    espn_id = (
+        corrected["espn_id"]
+        .astype("string")
+        .str.strip()
+    )
+
+    gsis_id = (
+        corrected["gsis_id"]
+        .astype("string")
+        .str.strip()
+    )
+
+    stale_mask = (
+        team.eq("TEN")
+        & espn_id.eq("4685145")
+        & gsis_id.eq("00-0037106")
+    )
+
+    correction_count = int(
+        stale_mask.sum()
+    )
+
+    if correction_count:
+        corrected.loc[
+            stale_mask,
+            "gsis_id",
+        ] = "00-0038407"
+
+    return corrected, correction_count
+
+
 def safe_error(
     exc: Exception,
 ) -> dict[str, str]:
@@ -737,6 +810,7 @@ def refresh_family(
         "column_count": 0,
         "min_week": None,
         "max_week": None,
+        "identity_corrections_applied": 0,
         "refresh_timestamp": (
             utc_now()
         ),
@@ -776,6 +850,19 @@ def refresh_family(
                 season,
             )
 
+            identity_corrections_applied = 0
+
+            if family == "weekly_rosters":
+                (
+                    df,
+                    identity_corrections_applied,
+                ) = (
+                    apply_weekly_roster_identity_corrections(
+                        df,
+                        season=season,
+                    )
+                )
+
             metadata = (
                 dataframe_metadata(
                     df
@@ -791,6 +878,9 @@ def refresh_family(
                     ),
                     "source_version": (
                         version
+                    ),
+                    "identity_corrections_applied": (
+                        identity_corrections_applied
                     ),
                     **metadata,
                 }
@@ -810,9 +900,9 @@ def refresh_family(
                 config,
             )
 
-            # Preserve all source columns and native IDs exactly as
-            # returned. Only deterministic row ordering is applied by
-            # the shared atomic parquet writer.
+            # Preserve all source columns. A documented deterministic
+            # identity correction is applied above before the current
+            # weekly-roster parquet is written.
             common.write_parquet_atomic(
                 df,
                 output_path,
@@ -824,6 +914,9 @@ def refresh_family(
                     "source": source_name,
                     "source_version": (
                         version
+                    ),
+                    "identity_corrections_applied": (
+                        identity_corrections_applied
                     ),
                     **metadata,
                     "refresh_timestamp": (
@@ -969,6 +1062,9 @@ def main() -> int:
                 ]
             ),
             "native_gsis_ids_preserved": (
+                False
+            ),
+            "documented_identity_corrections": (
                 True
             ),
             "fabricate_missing_rows": (
