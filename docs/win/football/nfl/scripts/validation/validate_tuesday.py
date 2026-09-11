@@ -723,8 +723,9 @@ def main():
     )
 
     if completed_games_exist and not qbr_files:
-        fail(
-            f"No QBR files found for season {season}"
+        warning(
+            f"No QBR files found for season {season}. "
+            "Continuing because ESPN QBR data may not yet be available."
         )
 
     for path in qbr_files:
