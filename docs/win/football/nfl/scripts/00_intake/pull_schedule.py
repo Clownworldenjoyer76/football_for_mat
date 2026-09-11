@@ -4,10 +4,10 @@
 """
 docs/win/football/nfl/scripts/00_intake/pull_schedule.py
 
-Pulls 2026 NFL regular-season schedule from ESPN scoreboard API.
+Pulls 2026 NFL schedule from ESPN team schedule API.
 
 Source:
-  https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&seasontype=2&week={WEEK}
+  https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{TEAM_ID}/schedule?season=2026
 
 Inputs:
   docs/win/football/nfl/config/mapping/team_map_nfl.csv
@@ -38,8 +38,6 @@ from zoneinfo import ZoneInfo
 
 
 YEAR = 2026
-REGULAR_SEASON_TYPE = 2
-REGULAR_SEASON_WEEKS = range(1, 19)
 
 OUTPUT_COLUMNS = [
     "season",
@@ -231,11 +229,8 @@ def build_stadium_maps(stadium_rows: list[dict[str, str]]) -> tuple[dict[str, di
     return by_team, by_stadium
 
 
-def fetch_week_schedule(week: int) -> dict[str, Any] | None:
-    url = (
-        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
-        f"?dates={YEAR}&seasontype={REGULAR_SEASON_TYPE}&week={week}"
-    )
+def fetch_team_schedule(team_id: str) -> dict[str, Any] | None:
+    url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/schedule?season={YEAR}"
 
     request = urllib.request.Request(
         url=url,
@@ -252,15 +247,15 @@ def fetch_week_schedule(week: int) -> dict[str, Any] | None:
             return json.loads(body)
 
     except urllib.error.HTTPError as e:
-        log(f"WARNING: HTTP error for WEEK={week}: {e.code} {e.reason}")
+        log(f"WARNING: HTTP error for TEAM_ID={team_id}: {e.code} {e.reason}")
         return None
 
     except urllib.error.URLError as e:
-        log(f"WARNING: URL error for WEEK={week}: {e.reason}")
+        log(f"WARNING: URL error for TEAM_ID={team_id}: {e.reason}")
         return None
 
     except Exception as e:
-        log(f"WARNING: Fetch failed for WEEK={week}: {e}")
+        log(f"WARNING: Fetch failed for TEAM_ID={team_id}: {e}")
         return None
 
 
@@ -476,20 +471,6 @@ def build_row(
 
     game_timezone = clean(stadium_row.get("timezone"))
 
-    if (
-        not game_timezone
-        and neutral_site == "1"
-        and home_timezone
-        and away_timezone
-        and home_timezone == away_timezone
-    ):
-        game_timezone = home_timezone
-        log(
-            "INFO: neutral-site game_timezone fallback "
-            "from matching team timezones "
-            f"game_id={game_id} game_timezone={game_timezone}"
-        )
-
     if not game_timezone:
         log(f"WARNING: missing game_timezone game_id={game_id}")
 
@@ -602,10 +583,10 @@ def main() -> None:
         duplicate_events_seen = 0
         duplicate_events_rewritten = 0
 
-        for week in REGULAR_SEASON_WEEKS:
+        for team_id in team_ids:
             api_calls_attempted += 1
 
-            data = fetch_week_schedule(week)
+            data = fetch_team_schedule(team_id)
 
             if not data:
                 continue
@@ -615,14 +596,14 @@ def main() -> None:
             events = data.get("events")
 
             if not isinstance(events, list):
-                log(f"WARNING: WEEK={week} response missing events list")
+                log(f"WARNING: TEAM_ID={team_id} response missing events list")
                 continue
 
-            log(f"WEEK={week} events_returned={len(events)}")
+            log(f"TEAM_ID={team_id} events_returned={len(events)}")
 
             for event in events:
                 if not isinstance(event, dict):
-                    log(f"WARNING: WEEK={week} skipped non-dict event")
+                    log(f"WARNING: TEAM_ID={team_id} skipped non-dict event")
                     continue
 
                 events_seen += 1
@@ -630,7 +611,7 @@ def main() -> None:
                 game_id = clean(event.get("id"))
 
                 if not game_id:
-                    log(f"WARNING: WEEK={week} skipped event missing id")
+                    log(f"WARNING: TEAM_ID={team_id} skipped event missing id")
                     continue
 
                 row = build_row(
@@ -651,28 +632,13 @@ def main() -> None:
                         duplicate_events_rewritten += 1
                         log(
                             "WARNING: duplicate game_id pulled with changed row; latest row kept "
-                            f"game_id={game_id} WEEK={week} "
+                            f"game_id={game_id} TEAM_ID={team_id} "
                             f"changed_columns={changed_columns(previous_row, row)}"
                         )
                     else:
-                        log(
-                            "WARNING: duplicate game_id pulled with same row "
-                            f"game_id={game_id} WEEK={week}"
-                        )
+                        log(f"WARNING: duplicate game_id pulled with same row game_id={game_id} TEAM_ID={team_id}")
 
                 pulled_rows_by_game_id[game_id] = row
-
-        if api_calls_succeeded == 0:
-            fatal(
-                "All ESPN scoreboard schedule requests failed; "
-                "existing schedule was not modified"
-            )
-
-        if not pulled_rows_by_game_id:
-            fatal(
-                "ESPN scoreboard schedule requests succeeded but returned "
-                "no regular-season events; existing schedule was not modified"
-            )
 
         pulled_rows = list(pulled_rows_by_game_id.values())
         write_csv(updates_file, pulled_rows)
