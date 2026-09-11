@@ -22,6 +22,9 @@ WRITES:
 POLICY:
     - Canonical player_id is GSIS. Native current nflverse GSIS IDs may resolve a
       player when the historical crosswalk is stale; IDs are never fabricated.
+    - When nflverse still carries a player on a prior team, the identity
+      crosswalk current_team reconciles that stale team assignment. A conflict
+      without a unique crosswalk current_team still fails closed.
     - Only scheduled teams enter the universe.
     - Out and verified nonplaying roster states are ineligible.
     - Questionable remains eligible unless an independent nonplaying state wins.
@@ -296,7 +299,6 @@ def build_team_maps(team_master: pd.DataFrame) -> tuple[dict[str, str], dict[str
     return alias_map, id_map, abbreviations
 
 
-
 def materialize_required_current_roster_from_master(
     *,
     roster_master_path: Path,
@@ -363,6 +365,7 @@ def materialize_required_current_roster_from_master(
         "gsis_ids_fabricated": False,
         "gsis_resolution_deferred_to_crosswalk": True,
     }
+
 
 def resolve_team(value: Any, alias_map: dict[str, str], abbreviations: set[str]) -> str:
     text = clean(value)
@@ -944,6 +947,96 @@ def merge_resolved_records(records: list[dict[str, Any]]) -> dict[str, Any]:
     return merged
 
 
+def reconcile_multi_team_resolutions(
+    resolved_groups: dict[tuple[str, str], list[dict[str, Any]]],
+    resolution_methods: dict[tuple[str, str], set[str]],
+    *,
+    resolver: IdentityResolver,
+    abbreviations: set[str],
+) -> list[dict[str, Any]]:
+    player_teams: dict[str, set[str]] = defaultdict(set)
+    for team, gsis_id in resolved_groups:
+        player_teams[gsis_id].add(team)
+
+    conflicts = {
+        gsis_id: sorted(teams)
+        for gsis_id, teams in player_teams.items()
+        if len(teams) > 1
+    }
+
+    reconciled: list[dict[str, Any]] = []
+    unresolved: dict[str, dict[str, Any]] = {}
+
+    for gsis_id, teams in sorted(conflicts.items()):
+        crosswalk_row = resolver.metadata(gsis_id)
+
+        current_team = ""
+        if crosswalk_row is not None:
+            normalized = common.normalize_team(
+                crosswalk_row.get("current_team")
+            )
+            if normalized in abbreviations:
+                current_team = normalized
+
+        if not current_team or current_team not in teams:
+            unresolved[gsis_id] = {
+                "scheduled_teams": teams,
+                "crosswalk_current_team": current_team,
+            }
+            continue
+
+        removed_teams = [
+            team
+            for team in teams
+            if team != current_team
+        ]
+
+        for stale_team in removed_teams:
+            resolved_groups.pop(
+                (stale_team, gsis_id),
+                None,
+            )
+            resolution_methods.pop(
+                (stale_team, gsis_id),
+                None,
+            )
+
+        reconciled.append(
+            {
+                "player_id": gsis_id,
+                "kept_team": current_team,
+                "removed_teams": removed_teams,
+                "authority": "player_crosswalk_current_team",
+            }
+        )
+
+    if unresolved:
+        raise ValueError(
+            "Resolved current player maps to multiple scheduled teams "
+            "and crosswalk current_team cannot uniquely reconcile: "
+            f"{dict(list(unresolved.items())[:10])}"
+        )
+
+    post_teams: dict[str, set[str]] = defaultdict(set)
+    for team, gsis_id in resolved_groups:
+        post_teams[gsis_id].add(team)
+
+    remaining = {
+        gsis_id: sorted(teams)
+        for gsis_id, teams in post_teams.items()
+        if len(teams) > 1
+    }
+
+    if remaining:
+        raise ValueError(
+            "Resolved current player still maps to multiple scheduled "
+            f"teams after current-team reconciliation: "
+            f"{dict(list(remaining.items())[:10])}"
+        )
+
+    return reconciled
+
+
 def main() -> int:
     args = parse_args()
     config = common.load_config()
@@ -1078,12 +1171,12 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    player_teams: dict[str, set[str]] = defaultdict(set)
-    for team, gsis in resolved_groups:
-        player_teams[gsis].add(team)
-    multi_team = {gsis: sorted(teams) for gsis, teams in player_teams.items() if len(teams) > 1}
-    if multi_team:
-        raise ValueError(f"Resolved current player maps to multiple scheduled teams: {dict(list(multi_team.items())[:10])}")
+    multi_team_reconciliations = reconcile_multi_team_resolutions(
+        resolved_groups,
+        resolution_methods,
+        resolver=resolver,
+        abbreviations=abbreviations,
+    )
 
     rows: list[dict[str, Any]] = []
     native_ids_used: set[str] = set()
@@ -1282,6 +1375,8 @@ def main() -> int:
         "current_roster_source": current_roster_source,
         "recent_defensive_participant_keys": len(recent_defense),
         "native_current_gsis_ids_used": sorted(native_ids_used),
+        "multi_team_reconciliations": multi_team_reconciliations,
+        "multi_team_reconciliation_count": len(multi_team_reconciliations),
         "critical_unresolved_starters": critical_unresolved,
         "skipped_unresolved_nonstarters": unresolved_skipped,
         "skipped_unresolved_count": len(unresolved_skipped),
@@ -1302,6 +1397,8 @@ def main() -> int:
             "kicker_requires_k_or_pk_role": True,
             "canonical_player_id": "gsis_id",
             "native_gsis_ids_fabricated": False,
+            "multi_team_gsis_reconciled_to_crosswalk_current_team": True,
+            "multi_team_without_crosswalk_current_team_fails": True,
         },
         "market_exclusion_passed": True,
         "market_features_used": False,
@@ -1318,6 +1415,9 @@ def main() -> int:
             "skipped_unresolved": (
                 len(critical_unresolved) + len(unresolved_skipped)
             ),
+            "multi_team_reconciliations": len(
+                multi_team_reconciliations
+            ),
             "status": "passed",
         },
     )
@@ -1333,8 +1433,11 @@ def main() -> int:
                 "eligible_rows": int(output["eligibility_status"].eq("eligible").sum()),
                 "ineligible_rows": int(output["eligibility_status"].eq("ineligible").sum()),
                 "skipped_unresolved": (
-                len(critical_unresolved) + len(unresolved_skipped)
-            ),
+                    len(critical_unresolved) + len(unresolved_skipped)
+                ),
+                "multi_team_reconciliations": len(
+                    multi_team_reconciliations
+                ),
                 "native_current_gsis_ids_used": len(native_ids_used),
                 "output": output_path.relative_to(repo).as_posix(),
                 "log": log_path.relative_to(repo).as_posix(),
