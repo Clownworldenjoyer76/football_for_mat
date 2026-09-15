@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: nfl-prop-engine-${{ github.ref }}
+  group: repo-write-lock-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -56,43 +56,109 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
-          import sys
           import importlib.metadata as md
+          import os
+          import sys
+          from pathlib import Path
 
           expected_python = (3, 14, 5)
+
           if sys.version_info[:3] != expected_python:
               raise SystemExit(
-                  f"Python mismatch: expected={expected_python} actual={sys.version_info[:3]}"
+                  f"Python mismatch: expected={expected_python} "
+                  f"actual={sys.version_info[:3]}"
               )
 
-          expected = {
-              "numpy": "2.5.2",
-              "pandas": "3.0.5",
-              "PyYAML": "6.0.3",
-              "pyarrow": "25.0.1",
-              "lightgbm": "4.6.0",
-              "tzdata": "2026.3",
-              "nflreadpy": "0.1.5",
-          }
+          requirements_path = (
+              Path(os.environ["PROP_ENGINE_ROOT"])
+              / "requirements.txt"
+          )
 
-          for package, version in expected.items():
-              actual = md.version(package)
+          if not requirements_path.is_file():
+              raise SystemExit(
+                  f"Missing requirements file: {requirements_path}"
+              )
+
+          expected = {}
+
+          for raw_line in requirements_path.read_text(
+              encoding="utf-8"
+          ).splitlines():
+              line = raw_line.split("#", 1)[0].strip()
+
+              if not line:
+                  continue
+
+              if line.count("==") != 1:
+                  raise SystemExit(
+                      "Prop Engine production requirements must use "
+                      f"exact == pins: {raw_line!r}"
+                  )
+
+              package, version = (
+                  part.strip()
+                  for part in line.split("==", 1)
+              )
+
+              if not package or not version:
+                  raise SystemExit(
+                      f"Invalid pinned requirement: {raw_line!r}"
+                  )
+
+              normalized = (
+                  package.casefold()
+                  .replace("_", "-")
+              )
+
+              if normalized in expected:
+                  raise SystemExit(
+                      f"Duplicate requirement: {package}"
+                  )
+
+              expected[normalized] = (
+                  package,
+                  version,
+              )
+
+          if not expected:
+              raise SystemExit(
+                  "requirements.txt contains no pinned dependencies."
+              )
+
+          for package, version in expected.values():
+              try:
+                  actual = md.version(package)
+              except md.PackageNotFoundError as exc:
+                  raise SystemExit(
+                      f"Required package not installed: {package}"
+                  ) from exc
+
               if actual != version:
                   raise SystemExit(
-                      f"Package mismatch: {package} expected={version} actual={actual}"
+                      f"Package mismatch: {package} "
+                      f"expected={version} actual={actual}"
                   )
+
               print(f"{package}={actual}")
 
-          for excluded in ("nfl-data-py", "fastparquet"):
+          for excluded in (
+              "nfl-data-py",
+              "fastparquet",
+          ):
               try:
                   actual = md.version(excluded)
               except md.PackageNotFoundError:
                   print(f"{excluded}=NOT_INSTALLED")
               else:
                   raise SystemExit(
-                      f"Unexpected runtime package installed: {excluded}={actual}"
+                      "Unexpected runtime package installed: "
+                      f"{excluded}={actual}"
                   )
 
+          print(
+              "dependency_source_of_truth="
+              + str(requirements_path)
+          )
           print("reproducible_runtime=PASS")
           PY
 
@@ -358,6 +424,36 @@ jobs:
           print("deferred_targets=" + ",".join(deferred_targets))
           PY
 
+      - name: Run prop odds
+        run: python docs/win/football/nfl/prop_engine/scripts/prop_odds.py
+
+      - name: Build prop selections
+        run: python docs/win/football/nfl/prop_engine/scripts/build_prop_selections.py
+
+      - name: Run prop organizer
+        shell: bash
+        run: |
+          WEEK=$(find "$PROP_ENGINE_ROOT/output/$NFL_SEASON" -maxdepth 1 -type d -name 'week_*_props' | sed -E 's/.*week_([0-9]+)_props/\1/' | sort -n | tail -1)
+
+          if [[ -z "$WEEK" ]]; then
+            echo "::error::Unable to determine Prop Engine organizer week."
+            exit 1
+          fi
+
+          python docs/win/football/nfl/prop_engine/scripts/prop_organizer.py --week "$WEEK"
+
+      - name: Run prop organizer stage 2
+        run: python docs/win/football/nfl/prop_engine/scripts/prop_organizer_stage2.py
+
+      - name: Combine props
+        run: python docs/win/football/nfl/prop_engine/scripts/props_combined.py
+
+      - name: Grade props
+        run: python docs/win/football/nfl/prop_engine/scripts/grade_props.py
+
+      - name: Build prop dashboard reports
+        run: python docs/win/football/nfl/prop_engine/scripts/prop_reports.py
+
       - name: Verify protected Prop Engine paths were not modified
         shell: bash
         run: |
@@ -374,25 +470,28 @@ jobs:
           fi
 
           protected_untracked="$(git ls-files --others --exclude-standard -- "${protected_paths[@]}")"
+
           if [[ -n "$protected_untracked" ]]; then
             echo "::error::Prop Engine created files under protected paths."
             printf '%s\n' "$protected_untracked"
             exit 1
           fi
 
-      - name: Stage approved production artifacts
+      - name: Stage approved Prop Engine artifacts
         shell: bash
         run: |
-          git add -A \
+          git add -A -- \
             "$PROP_ENGINE_ROOT/data/current" \
             "$PROP_ENGINE_ROOT/evaluation" \
             "$PROP_ENGINE_ROOT/logs" \
-            "$PROP_ENGINE_ROOT/output"
+            "$PROP_ENGINE_ROOT/output" \
+            "$PROP_ENGINE_ROOT/prop_picks_final" \
+            "$PROP_ENGINE_ROOT/05_final"
 
           echo "Staged Prop Engine files:"
           git diff --cached --name-only
 
-      - name: Commit and push Prop Engine outputs
+      - name: Commit and push all Prop Engine outputs
         shell: bash
         run: |
           if git diff --cached --quiet; then
@@ -404,51 +503,3 @@ jobs:
             git commit -m "Update NFL Prop Engine ${NFL_SEASON} Week ${NFL_WEEK}"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
-
-      - name: Run prop odds
-        run: python docs/win/football/nfl/prop_engine/scripts/prop_odds.py
-
-      - name: Build prop selections
-        run: python docs/win/football/nfl/prop_engine/scripts/build_prop_selections.py
-
-      - name: Run prop organizer
-        run: |
-          WEEK=$(find docs/win/football/nfl/prop_engine/output/2026 -maxdepth 1 -type d -name 'week_*_props' | sed -E 's/.*week_([0-9]+)_props/\1/' | sort -n | tail -1)
-          python docs/win/football/nfl/prop_engine/scripts/prop_organizer.py --week "$WEEK"
-
-      - name: Run prop organizer stage 2
-        run: python docs/win/football/nfl/prop_engine/scripts/prop_organizer_stage2.py
-
-      - name: Combine props
-        run: python docs/win/football/nfl/prop_engine/scripts/props_combined.py
-
-      - name: Commit prop outputs
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/win/football/nfl/prop_engine/output/
-          git add docs/win/football/nfl/prop_engine/prop_picks_final/
-          git diff --cached --quiet || git commit -m "Update NFL prop odds and selections"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-
-      - name: Grade props
-        run: python docs/win/football/nfl/prop_engine/scripts/grade_props.py
-
-      - name: Commit graded outputs
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/win/football/nfl/prop_engine/05_final/
-          git diff --cached --quiet || git commit -m "Update NFL prop grades and reports"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-
-      - name: Build prop dashboard reports
-        run: python docs/win/football/nfl/prop_engine/scripts/prop_reports.py
-
-      - name: Commit prop dashboard reports
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/win/football/nfl/prop_engine/05_final/reports/dashboard/
-          git diff --cached --quiet || git commit -m "Update NFL prop dashboard reports"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
