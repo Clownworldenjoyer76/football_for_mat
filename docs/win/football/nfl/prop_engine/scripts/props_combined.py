@@ -3,17 +3,24 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import math
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yaml
 
 
 PROP_ENGINE_ROOT = Path("docs/win/football/nfl/prop_engine")
 FINAL_ROOT = PROP_ENGINE_ROOT / "prop_picks_final"
+LOCKED_ROOT = FINAL_ROOT / "locked"
 MARKETS_PATH = PROP_ENGINE_ROOT / "config" / "markets.yaml"
+
+EASTERN_TZ = ZoneInfo("America/New_York")
 
 PROP_LINE_COLUMNS = {
     "kicking_points": "actual_prop_total_kicking_points",
@@ -36,6 +43,33 @@ PICK_DIRECTIONS = {
     "over",
     "under",
 }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Combine filtered Stage 2 NFL prop CSV files "
+            "into Stage 3 final selections."
+        )
+    )
+    parser.add_argument(
+        "--season",
+        type=int,
+    )
+    parser.add_argument(
+        "--week",
+        type=int,
+    )
+
+    args = parser.parse_args()
+
+    if (args.season is None) != (args.week is None):
+        parser.error("--season and --week must be supplied together")
+
+    if args.week is not None and args.week < 1:
+        parser.error("--week must be >= 1")
+
+    return args
 
 
 def fail(message: str) -> None:
@@ -423,10 +457,71 @@ def write_csv(
             )
 
 
+def write_locked_snapshot(
+    source_path: Path,
+    season: str,
+    week_number: str,
+) -> Path:
+    if (
+        not source_path.is_file()
+        or source_path.stat().st_size == 0
+    ):
+        fail(
+            "Cannot lock missing/empty Stage 3 prop file: "
+            f"{source_path}"
+        )
+
+    LOCKED_ROOT.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    timestamp = datetime.now(
+        EASTERN_TZ
+    ).strftime("%Y%m%d_%H%M%S")
+
+    locked_path = (
+        LOCKED_ROOT
+        / (
+            f"{season}_{week_number}_all_props_"
+            f"{timestamp}.csv"
+        )
+    )
+
+    if locked_path.exists():
+        fail(
+            "Refusing to overwrite existing locked prop snapshot: "
+            f"{locked_path}"
+        )
+
+    shutil.copy2(
+        source_path,
+        locked_path,
+    )
+
+    if (
+        not locked_path.is_file()
+        or locked_path.stat().st_size
+        != source_path.stat().st_size
+    ):
+        fail(
+            "Locked prop snapshot verification failed: "
+            f"{locked_path}"
+        )
+
+    print(
+        f"locked_prop_snapshot={locked_path}"
+    )
+
+    return locked_path
+
+
 def process_week(
     season: str,
     week_path: Path,
     markets: dict[str, Any],
+    *,
+    lock_snapshot: bool,
 ) -> None:
     week_number = week_path.name.removeprefix("week_")
     csv_files = discover_csv_files(week_path)
@@ -457,8 +552,16 @@ def process_week(
         filtered_rows,
     )
 
+    if lock_snapshot:
+        write_locked_snapshot(
+            output_path,
+            season,
+            week_number,
+        )
+
 
 def main() -> None:
+    args = parse_args()
     markets = load_markets()
     stage_2_weeks = discover_stage_2_weeks()
 
@@ -467,11 +570,36 @@ def main() -> None:
             f"No Stage 2 week folders found under {FINAL_ROOT}"
         )
 
+    lock_snapshot = (
+        args.season is not None
+        and args.week is not None
+    )
+
+    if lock_snapshot:
+        target_season = str(args.season)
+        target_week = f"week_{args.week}"
+
+        stage_2_weeks = [
+            (season, week_path)
+            for season, week_path in stage_2_weeks
+            if (
+                season == target_season
+                and week_path.name == target_week
+            )
+        ]
+
+        if not stage_2_weeks:
+            raise FileNotFoundError(
+                "No Stage 2 folder found for "
+                f"season={args.season} week={args.week}"
+            )
+
     for season, week_path in stage_2_weeks:
         process_week(
             season,
             week_path,
             markets,
+            lock_snapshot=lock_snapshot,
         )
 
 

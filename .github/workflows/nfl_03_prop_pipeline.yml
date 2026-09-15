@@ -446,7 +446,7 @@ jobs:
         run: python docs/win/football/nfl/prop_engine/scripts/prop_organizer_stage2.py
 
       - name: Combine props
-        run: python docs/win/football/nfl/prop_engine/scripts/props_combined.py
+        run: python docs/win/football/nfl/prop_engine/scripts/props_combined.py --season "$NFL_SEASON" --week "$NFL_WEEK"
 
       - name: Grade props
         run: python docs/win/football/nfl/prop_engine/scripts/grade_props.py
