@@ -33,7 +33,7 @@ from catboost import CatBoostRegressor
 SEASON = 2026
 # ============================================================================
 
-SCRIPT_VERSION = "2026-09-10-inseason-fix3"
+SCRIPT_VERSION = "2026-09-15-inseason-fix4"
 EXPECTED_FEATURE_COUNT = 260
 
 NFL_REL = Path("docs/win/football/nfl")
@@ -3799,10 +3799,63 @@ def add_schedule_features(
         ] = np.nan
 
 
+def previous_game_kickoff(
+    full_schedule: pd.DataFrame,
+    team: str,
+    target_week: int,
+    team_lookup: dict[str, str],
+) -> pd.Timestamp | None:
+    candidates: list[pd.Timestamp] = []
+
+    for _, row in full_schedule.iterrows():
+        source_week = parse_int(
+            row.get("week")
+        )
+
+        if (
+            source_week is None
+            or source_week >= target_week
+        ):
+            continue
+
+        away = team_abbr(
+            row.get("away_team"),
+            team_lookup,
+        )
+        home = team_abbr(
+            row.get("home_team"),
+            team_lookup,
+        )
+
+        if team not in {away, home}:
+            continue
+
+        date = clean(
+            row.get("game_date")
+        )
+        game_time = clean(
+            row.get("game_time")
+        )
+
+        timestamp = parse_timestamp(
+            f"{date} {game_time}".strip()
+        )
+
+        if timestamp is not None:
+            candidates.append(timestamp)
+
+    if not candidates:
+        return None
+
+    return max(candidates)
+
+
 def add_injury_features(
     work: pd.DataFrame,
     season: int,
     week1_mode: bool,
+    full_schedule: pd.DataFrame,
+    team_lookup: dict[str, str],
     current_depth: dict[
         str,
         DepthSnapshot,
@@ -3863,6 +3916,15 @@ def add_injury_features(
                 )
             )
 
+            prior_kickoff = (
+                previous_game_kickoff(
+                    full_schedule,
+                    team,
+                    week,
+                    team_lookup,
+                )
+            )
+
             previous = (
                 None
                 if (
@@ -3872,7 +3934,11 @@ def add_injury_features(
                 else depth_history.previous(
                     team,
                     week,
-                    kickoff,
+                    (
+                        prior_kickoff
+                        if prior_kickoff is not None
+                        else kickoff
+                    ),
                 )
             )
 
@@ -4545,7 +4611,6 @@ def prepare_week(
 
         for required_path in [
             snap_path,
-            participation_path,
             depth_history_path,
         ]:
             if not required_path.exists():
@@ -4569,13 +4634,28 @@ def prepare_week(
             )
         )
 
-        participation = (
-            ParticipationProvider(
-                read_parquet(
-                    participation_path
+        if (
+            participation_path.exists()
+            and participation_path.stat().st_size > 0
+        ):
+            participation = (
+                ParticipationProvider(
+                    read_parquet(
+                        participation_path
+                    )
                 )
             )
-        )
+            print(
+                "INFO: current-season participation "
+                f"loaded: {participation_path}"
+            )
+        else:
+            participation = None
+            print(
+                "INFO: current-season participation "
+                "is unavailable; using snap-count "
+                "usage without participation fallback"
+            )
 
         depth_history = (
             HistoricalDepthProvider(
@@ -4593,6 +4673,8 @@ def prepare_week(
         base,
         season,
         week1_mode,
+        full_schedule,
+        team_lookup,
         current_depth,
         depth_history,
         current_injuries,

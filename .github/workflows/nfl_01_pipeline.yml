@@ -337,6 +337,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas numpy catboost pyarrow
 
+      - name: Refresh in-season projection sources
+        if: ${{ inputs.projection_mode == 'inseason' }}
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/refresh_projection_sources.py --season "$NFL_SEASON"
+
       - name: Run Week 1 projection
         if: ${{ inputs.projection_mode == 'week1' }}
         run: python docs/win/football/nfl/scripts/01_merge/projection_week1.py
