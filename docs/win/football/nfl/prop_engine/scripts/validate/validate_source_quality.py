@@ -178,23 +178,68 @@ def universe_counts(prop: Path, season: int, week: int) -> tuple[int, int, int]:
     return int(u["game_id"].astype(str).nunique()), int(u["team"].astype(str).nunique()), int(len(u))
 
 
-# WEEKLY_ROSTER_PRODUCTION_UNIVERSE_ID_GATE
+# WEEKLY_ROSTER_IDENTITY_GATE
 # Raw nflverse weekly rosters can contain developmental/unresolved backup rows
-# with no GSIS ID. Production identity is enforced separately by the current
-# universe builder. Raw weekly-roster ID incompleteness is nonblocking only
-# when the current production universe exists and every universe player_id is
-# canonical/nonblank.
-def production_universe_identity_status(
+# with no GSIS ID. build_player_identity.py runs before source-quality
+# validation and is the authoritative gate for unresolved current identity
+# records. This avoids requiring the current-week universe before that
+# universe has been built.
+def player_identity_gate_status(
     prop: Path,
-    season: int,
-    week: int,
-) -> tuple[int, int]:
-    p = prop / "data" / "current" / f"{season}_week_{week}_universe.parquet"
-    if not p.is_file():
-        return 0, 0
-    u = pd.read_parquet(p, columns=["player_id"])
-    missing = int(u["player_id"].map(clean).eq("").sum())
-    return int(len(u)), missing
+) -> tuple[bool, int | None, str]:
+    log_path = (
+        prop
+        / "logs"
+        / "build_player_identity.json"
+    )
+
+    if not log_path.is_file():
+        return False, None, "missing"
+
+    try:
+        payload = json.loads(
+            log_path.read_text(
+                encoding="utf-8-sig"
+            )
+        )
+    except (
+        OSError,
+        json.JSONDecodeError,
+    ):
+        return False, None, "invalid"
+
+    if not isinstance(payload, dict):
+        return False, None, "invalid"
+
+    counts = payload.get("counts", {})
+
+    if not isinstance(counts, dict):
+        return False, None, "invalid"
+
+    try:
+        critical_unresolved = int(
+            counts.get(
+                "critical_unresolved_records",
+                -1,
+            )
+        )
+    except (TypeError, ValueError):
+        critical_unresolved = -1
+
+    status = clean(
+        payload.get("status")
+    ).casefold()
+
+    passed = (
+        status == "passed"
+        and critical_unresolved == 0
+    )
+
+    return (
+        passed,
+        critical_unresolved,
+        status or "missing",
+    )
 
 
 def prior_schedule_team_games(schedule_df: pd.DataFrame, season: int, week: int) -> int:
@@ -295,11 +340,13 @@ def main() -> int:
     run_date = datetime.now(timezone.utc).date().isoformat(); market_ok = run_market_preflight()
     paths = source_paths(repo, prop, config, season, week)
     games, teams, universe_rows = universe_counts(prop, season, week)
-    universe_identity_rows, universe_missing_player_ids = (
-        production_universe_identity_status(prop, season, week)
+    identity_gate_ok, identity_critical_unresolved, identity_gate_status = (
+        player_identity_gate_status(prop)
     )
     schedule_raw, _ = load_source("schedule", paths["schedule"])
     rows: list[dict[str, Any]] = []
+    snap_counts_current = False
+
     for source in SOURCES:
         raw, existing_paths = load_source(source, paths[source]); relevant, latest = relevant_slice(source, raw, season, week)
         expected, basis = expected_rows_for(source, raw, relevant, week, games, teams, universe_rows, schedule_raw, season)
@@ -307,6 +354,23 @@ def main() -> int:
         if source == "depth_charts" and team is None and "_monitor_team" in relevant.columns: team = "_monitor_team"
         gid = best_col(relevant, GAME_ID_ALIASES); dupes, key_note = duplicate_key_count(source, relevant)
         fresh_status, fresh_ok = freshness(source, raw, bool(existing_paths), latest, week)
+
+        if source == "snap_counts":
+            snap_counts_current = bool(
+                fresh_ok
+                and not relevant.empty
+            )
+
+        if (
+            source == "participation"
+            and not existing_paths
+            and snap_counts_current
+        ):
+            fresh_status = (
+                "unavailable_snap_counts_fallback"
+            )
+            fresh_ok = True
+
         pid_pct, team_pct, gid_pct = pct_missing(relevant, pid), pct_missing(relevant, team), pct_missing(relevant, gid)
         quality, reasons = "pass", []
         if not fresh_ok: quality = "fail"; reasons.append(f"freshness={fresh_status}")
@@ -317,13 +381,12 @@ def main() -> int:
             if (
                 source == "weekly_roster"
                 and label == "player_id"
-                and universe_identity_rows > 0
-                and universe_missing_player_ids == 0
+                and identity_gate_ok
             ):
                 reasons.append(
                     f"raw_missing_player_id_pct={pct:.4f}_nonblocking;"
-                    f"production_universe_player_ids_complete=true;"
-                    f"production_universe_rows={universe_identity_rows}"
+                    f"build_player_identity_status={identity_gate_status};"
+                    f"critical_unresolved_records={identity_critical_unresolved}"
                 )
                 continue
             quality = "fail"
