@@ -1,0 +1,109 @@
+# NFL Prop Engine model acceptance thresholds.
+#
+# Thresholds were populated only after the first chronological backtest:
+# - model-selection training through 2023
+# - chronological validation on 2024
+# - 2025 held out for reporting only and not used to set these thresholds
+#
+# Derivation for target-level gates:
+# - minimum_training_rows = first-backtest model-selection training rows
+# - maximum_allowed_bias = 20% of selected validation MAE
+# - maximum_validation_mae = 105% of selected validation MAE
+# - minimum_improvement_vs_baseline_pct = 90% of observed validation improvement
+# - count metric ceilings = 105% of observed selected validation metric when recorded
+#
+# Kicking points is a derived count but was selected/evaluated as regression in the
+# first architecture backtest, so its Brier/Poisson gates are conservative numeric
+# gates that must be independently measured before production approval.
+#
+# This file defines gates only. It does not grant production approval.
+
+passing_yards:
+  minimum_training_rows: 7667
+  maximum_allowed_bias: 12.452564
+  maximum_validation_mae: 65.375960
+  minimum_improvement_vs_baseline_pct: 13.091981
+  production_approval: false
+
+passing_tds:
+  minimum_training_rows: 7667
+  maximum_allowed_bias: 0.166666
+  maximum_validation_mae: 0.874996
+  minimum_improvement_vs_baseline_pct: 6.880617
+  maximum_brier_1plus: 0.187552
+  maximum_poisson_deviance: 1.118114
+  production_approval: false
+
+rushing_yards:
+  minimum_training_rows: 78537
+  maximum_allowed_bias: 1.580395
+  maximum_validation_mae: 8.297073
+  minimum_improvement_vs_baseline_pct: 5.101007
+  production_approval: false
+
+rushing_tds:
+  minimum_training_rows: 78537
+  maximum_allowed_bias: 0.017295
+  maximum_validation_mae: 0.090797
+  minimum_improvement_vs_baseline_pct: 7.784147
+  maximum_brier_1plus: 0.051884
+  maximum_poisson_deviance: 0.445741
+  production_approval: false
+
+receiving_yards:
+  minimum_training_rows: 70870
+  maximum_allowed_bias: 2.884295
+  maximum_validation_mae: 15.142548
+  minimum_improvement_vs_baseline_pct: 16.279194
+  production_approval: false
+
+receiving_tds:
+  minimum_training_rows: 70870
+  maximum_allowed_bias: 0.033388
+  maximum_validation_mae: 0.175285
+  minimum_improvement_vs_baseline_pct: 12.591313
+  maximum_brier_1plus: 0.100933
+  maximum_poisson_deviance: 0.550039
+  production_approval: false
+
+kicking_points:
+  minimum_training_rows: 6245
+  maximum_allowed_bias: 0.607331
+  maximum_validation_mae: 3.188489
+  minimum_improvement_vs_baseline_pct: 11.254263
+  maximum_brier_1plus: 0.200000
+  maximum_poisson_deviance: 5.000000
+  production_approval: false
+
+tackles:
+  minimum_training_rows: 136478
+  maximum_allowed_bias: 0.286983
+  maximum_validation_mae: 1.506661
+  minimum_improvement_vs_baseline_pct: 16.131296
+  maximum_brier_1plus: 0.155992
+  maximum_poisson_deviance: 1.648604
+  production_approval: false
+
+sacks:
+  minimum_training_rows: 136478
+  maximum_allowed_bias: 0.029026
+  maximum_validation_mae: 0.152387
+  minimum_improvement_vs_baseline_pct: 14.566298
+  maximum_brier_1plus: 0.069976
+  maximum_poisson_deviance: 0.413967
+  production_approval: false
+
+source_quality:
+  minimum_sources_checked: 12
+  minimum_pass_rate: 1.0
+  maximum_warn_rows: 0
+  maximum_fail_rows: 0
+  production_approval: false
+
+interval_coverage:
+  minimum_targets_checked: 5
+  q10_q90_expected_coverage: 0.80
+  q10_q90_minimum_coverage: 0.78
+  q25_q75_expected_coverage: 0.50
+  q25_q75_minimum_coverage: 0.48
+  production_approval: false

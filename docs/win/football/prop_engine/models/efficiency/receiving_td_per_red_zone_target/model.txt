@@ -1,0 +1,170 @@
+tree
+version=v4
+num_class=1
+num_tree_per_iteration=1
+label_index=0
+max_feature_idx=14
+objective=regression
+feature_names=player_red_zone_targets_lag1 player_red_zone_targets_roll3_mean player_red_zone_targets_roll5_mean player_red_zone_targets_ewm5 player_red_zone_targets_season_to_date player_red_zone_targets_career_prior history_no_nfl_history_flag history_history_games eff_player_prior_rate eff_position_prior_rate eff_league_prior_rate eff_shrunk_rate eff_player_prior_exposure eff_prior_weight eff_rookie_position_prior_flag
+feature_infos=[0:6] [0:5] [0:5] [0:5] [0:5] [0:5] [0:1] [0:181] [0:1] [0:1] [0.22854439789160697:0.28723404255319152] [0:1] [0:105] none [0:1]
+tree_sizes=2748
+
+Tree=0
+num_leaves=31
+num_cat=0
+split_feature=11 3 8 8 10 10 5 3 3 4 8 9 11 9 1 4 10 11 4 10 4 11 5 2 11 2 7 9 3 0
+split_gain=3.57387 2.09356 1.68785 1.42678 1.40553 1.27354 0.898417 0.909351 1.96937 0.879435 0.819652 1.17818 0.773699 1.32695 0.757531 0.748549 1.2169 1.44485 0.940424 0.744893 0.685838 0.815229 0.678234 1.41611 0.927666 0.659256 0.62125 0.948161 1.76487 0.936715
+threshold=0.22608980045935059 0.32412359118461614 0.14400921658986179 0.46291208791208799 0.22948084004260774 0.23049975983710899 0.30662393569946295 0.40287563204765325 0.26803275942802435 0.4083333313465119 0.24085229808121375 0.21101739057258601 0.23776535400076784 0.24683536190641006 0.61651584506034862 0.93095237016677868 0.23381305741272604 0.1762775232101437 0.32291667163372045 0.23071800193058351 0.57224139571189891 0.27659187759929987 0.12372449040412904 1.0000000180025095e-35 0.20551739630687002 1.3666666746139529 26.500000000000004 0.2391537048736487 0.41986167430877691 0.53967982530593883
+decision_type=10 8 8 10 10 8 10 10 10 10 8 10 10 10 10 10 8 8 8 10 8 10 10 10 10 10 2 10 8 8
+left_child=1 9 4 5 -2 10 12 8 -8 19 11 14 -6 -14 -3 16 18 -18 -7 22 -9 -22 -1 -24 -25 -17 27 28 -4 -29
+right_child=2 3 26 -5 6 15 7 20 -10 -11 -12 -13 13 -15 -16 25 17 -19 -20 -21 21 -23 23 24 -26 -27 -28 29 -30 -31
+leaf_value=0.23514033039900312 0.24292969210262089 0.24480042380844785 0.23872528033546619 0.2439467652736797 0.23462572384664512 0.23574259532693723 0.23712969210299342 0.23588750460229493 0.24389635877574473 0.2332269143243878 0.24323346569025375 0.23757909686515319 0.2423439778154165 0.23609871865244073 0.23966540640400802 0.2349283032174159 0.24116457582552639 0.23497845753420685 0.23977146039840785 0.23602399138942656 0.23928284526076124 0.23467847259257008 0.24308423755567624 0.23364188721967472 0.23972969210113079 0.23856815363609626 0.23925823722881634 0.240519537197879 0.24524414994502333 0.23862461596868079
+leaf_weight=47 50 41 68 41 126 62 80 128 75 72 53 168 42 113 70 144 43 162 328 421 222 41 55 41 50 65 2715 581 83 394
+leaf_count=47 50 41 68 41 126 62 80 128 75 72 53 168 42 113 70 144 43 162 328 421 222 41 55 41 50 65 2715 581 83 394
+internal_value=0.238793 0.237681 0.239233 0.238449 0.238045 0.23825 0.23775 0.238459 0.240404 0.236364 0.239813 0.239164 0.236372 0.237791 0.241562 0.237605 0.238147 0.236276 0.239131 0.236731 0.237689 0.238565 0.238275 0.239284 0.236987 0.23606 0.239504 0.240096 0.242309 0.239754
+internal_weight=6581 1863 4718 1177 877 1136 827 546 155 686 332 279 281 155 111 804 595 205 390 614 391 263 193 146 91 209 3841 1126 151 975
+internal_count=6581 1863 4718 1177 877 1136 827 546 155 686 332 279 281 155 111 804 595 205 390 614 391 263 193 146 91 209 3841 1126 151 975
+is_linear=0
+shrinkage=1
+
+
+end of trees
+
+feature_importances:
+eff_shrunk_rate=5
+player_red_zone_targets_ewm5=4
+player_red_zone_targets_season_to_date=4
+eff_league_prior_rate=4
+eff_player_prior_rate=3
+eff_position_prior_rate=3
+player_red_zone_targets_roll5_mean=2
+player_red_zone_targets_career_prior=2
+player_red_zone_targets_lag1=1
+player_red_zone_targets_roll3_mean=1
+history_history_games=1
+
+parameters:
+[boosting: gbdt]
+[objective: regression]
+[metric: rmse]
+[tree_learner: serial]
+[device_type: cpu]
+[data_sample_strategy: bagging]
+[data: ]
+[valid: ]
+[num_iterations: 1]
+[learning_rate: 0.03]
+[num_leaves: 31]
+[num_threads: 1]
+[seed: 24024]
+[deterministic: 1]
+[force_col_wise: 1]
+[force_row_wise: 0]
+[histogram_pool_size: -1]
+[max_depth: -1]
+[min_data_in_leaf: 40]
+[min_sum_hessian_in_leaf: 0.001]
+[bagging_fraction: 1]
+[pos_bagging_fraction: 1]
+[neg_bagging_fraction: 1]
+[bagging_freq: 0]
+[bagging_seed: 24024]
+[bagging_by_query: 0]
+[feature_fraction: 1]
+[feature_fraction_bynode: 1]
+[feature_fraction_seed: 24024]
+[extra_trees: 0]
+[extra_seed: 8483]
+[early_stopping_round: 0]
+[early_stopping_min_delta: 0]
+[first_metric_only: 0]
+[max_delta_step: 0]
+[lambda_l1: 0]
+[lambda_l2: 0]
+[linear_lambda: 0]
+[min_gain_to_split: 0]
+[drop_rate: 0.1]
+[max_drop: 50]
+[skip_drop: 0.5]
+[xgboost_dart_mode: 0]
+[uniform_drop: 0]
+[drop_seed: 27597]
+[top_rate: 0.2]
+[other_rate: 0.1]
+[min_data_per_group: 100]
+[max_cat_threshold: 32]
+[cat_l2: 10]
+[cat_smooth: 10]
+[max_cat_to_onehot: 4]
+[top_k: 20]
+[monotone_constraints: ]
+[monotone_constraints_method: basic]
+[monotone_penalty: 0]
+[feature_contri: ]
+[forcedsplits_filename: ]
+[refit_decay_rate: 0.9]
+[cegb_tradeoff: 1]
+[cegb_penalty_split: 0]
+[cegb_penalty_feature_lazy: ]
+[cegb_penalty_feature_coupled: ]
+[path_smooth: 0]
+[interaction_constraints: ]
+[verbosity: -1]
+[saved_feature_importance_type: 0]
+[use_quantized_grad: 0]
+[num_grad_quant_bins: 4]
+[quant_train_renew_leaf: 0]
+[stochastic_rounding: 1]
+[linear_tree: 0]
+[max_bin: 255]
+[max_bin_by_feature: ]
+[min_data_in_bin: 3]
+[bin_construct_sample_cnt: 200000]
+[data_random_seed: 24024]
+[is_enable_sparse: 1]
+[enable_bundle: 1]
+[use_missing: 1]
+[zero_as_missing: 0]
+[feature_pre_filter: 1]
+[pre_partition: 0]
+[two_round: 0]
+[header: 0]
+[label_column: ]
+[weight_column: ]
+[group_column: ]
+[ignore_column: ]
+[categorical_feature: ]
+[forcedbins_filename: ]
+[precise_float_parser: 0]
+[parser_config_file: ]
+[objective_seed: 14575]
+[num_class: 1]
+[is_unbalance: 0]
+[scale_pos_weight: 1]
+[sigmoid: 1]
+[boost_from_average: 1]
+[reg_sqrt: 0]
+[alpha: 0.9]
+[fair_c: 1]
+[poisson_max_delta_step: 0.7]
+[tweedie_variance_power: 1.5]
+[lambdarank_truncation_level: 30]
+[lambdarank_norm: 1]
+[label_gain: ]
+[lambdarank_position_bias_regularization: 0]
+[eval_at: ]
+[multi_error_top_k: 1]
+[auc_mu_weights: ]
+[num_machines: 1]
+[local_listen_port: 12400]
+[time_out: 120]
+[machine_list_filename: ]
+[machines: ]
+[gpu_platform_id: -1]
+[gpu_device_id: -1]
+[gpu_use_dp: 0]
+[num_gpu: 1]
+
+end of parameters
+
+pandas_categorical:[]

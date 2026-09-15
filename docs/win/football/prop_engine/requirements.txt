@@ -1,0 +1,26 @@
+# NFL Prop Engine isolated Python dependencies.
+#
+# Scope:
+#   docs/win/football/prop_engine/
+#
+# Reproducibility contract:
+# - Versions below match the approved local production environment that
+#   reproduces historical schema hash:
+#   9a908e10d5b8c978bce91460a15897d1c66b7df458adf4846e56c4d9d08f7c2d
+# - nfl-data-py is intentionally excluded. Version 0.3.3 requires
+#   numpy<2.0 and pandas<2.0, which conflicts with the approved environment.
+#   The production refresh path uses nflreadpy; nfl_data_py remains an
+#   optional code fallback and is not required for the approved weekly run.
+# - fastparquet is intentionally excluded. pyarrow is the production parquet
+#   engine, and the audit code treats fastparquet as an optional fallback.
+#
+# No sportsbook, odds, market-projection, DRAT, EPRED, consensus-projection,
+# or other forbidden prediction-source packages are permitted.
+
+numpy==2.5.2
+pandas==3.0.5
+PyYAML==6.0.3
+pyarrow==25.0.1
+lightgbm==4.6.0
+tzdata==2026.3
+nflreadpy==0.1.5

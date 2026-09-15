@@ -1,0 +1,68 @@
+{
+  "context_columns_loaded": 35,
+  "generated_at": "2026-09-08T17:49:25+00:00",
+  "injury_status_source": "role_injury_status_pregame",
+  "market_exclusion_passed": true,
+  "market_features_used": false,
+  "metric_headers": [
+    "target",
+    "sample_size",
+    "mae",
+    "rmse",
+    "median_absolute_error",
+    "r2",
+    "poisson_deviance",
+    "brier_1plus",
+    "logloss_1plus",
+    "mean_actual",
+    "mean_projection",
+    "bias"
+  ],
+  "output_rows": {
+    "calibration": 90,
+    "position": 32,
+    "role": 72,
+    "target": 9,
+    "usage": 126,
+    "week": 180
+  },
+  "outputs": {
+    "calibration": "docs\\win\\football\\nfl\\prop_engine\\evaluation\\calibration_by_projection_range.csv",
+    "position": "docs\\win\\football\\nfl\\prop_engine\\evaluation\\metrics_by_position.csv",
+    "role": "docs\\win\\football\\nfl\\prop_engine\\evaluation\\metrics_by_role.csv",
+    "target": "docs\\win\\football\\nfl\\prop_engine\\evaluation\\metrics_by_target.csv",
+    "usage": "docs\\win\\football\\nfl\\prop_engine\\evaluation\\metrics_by_usage.csv",
+    "week": "docs\\win\\football\\nfl\\prop_engine\\evaluation\\metrics_by_week.csv"
+  },
+  "reporting_policy": "untouched test split by default; validation split diagnostic only",
+  "reporting_split": "test",
+  "rows_evaluated": 50547,
+  "script": "build_model_report.py",
+  "selected_architectures": {
+    "kicking_points": "component",
+    "passing_tds": "direct_component_blend",
+    "passing_yards": "direct_component_blend",
+    "receiving_tds": "component",
+    "receiving_yards": "direct_component_blend",
+    "rushing_tds": "component",
+    "rushing_yards": "direct_component_blend",
+    "sacks": "direct",
+    "tackles": "direct"
+  },
+  "status": "passed",
+  "targets": 9,
+  "test_seasons": [
+    2025
+  ],
+  "usage_sources": {
+    "kicking_points": "player_field_goal_attempts_roll3_mean+player_extra_point_attempts_roll3_mean",
+    "passing_tds": "player_pass_attempts_roll3_mean|player_pass_attempts_roll5_mean|player_pass_attempts_ewm5|player_pass_attempts_career_prior",
+    "passing_yards": "player_pass_attempts_roll3_mean|player_pass_attempts_roll5_mean|player_pass_attempts_ewm5|player_pass_attempts_career_prior",
+    "receiving_tds": "player_red_zone_targets_roll3_mean|player_red_zone_targets_roll5_mean|player_targets_roll3_mean|player_targets_career_prior",
+    "receiving_yards": "player_targets_roll3_mean|player_targets_roll5_mean|player_targets_ewm5|player_targets_career_prior",
+    "rushing_tds": "player_goal_line_carries_roll3_mean|player_goal_line_carries_roll5_mean|player_carries_roll3_mean|player_carries_career_prior",
+    "rushing_yards": "player_carries_roll3_mean|player_carries_roll5_mean|player_carries_ewm5|player_carries_career_prior",
+    "sacks": "player_defense_participation_roll3_mean|role_participation_roll3|player_defense_participation_career_prior",
+    "tackles": "player_defense_participation_roll3_mean|role_participation_roll3|player_defense_participation_career_prior"
+  }
+}

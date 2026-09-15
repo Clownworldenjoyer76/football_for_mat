@@ -1,0 +1,175 @@
+{
+  "best_iteration_selected_on_2024": 61,
+  "component": "opponent_dropbacks",
+  "feature_count": 21,
+  "feature_importance": [
+    {
+      "feature": "player_defensive_opponent_pass_rate_roll3",
+      "gain": 234833.66458129883,
+      "split": 249
+    },
+    {
+      "feature": "player_defensive_opponent_dropbacks_roll3",
+      "gain": 228694.52340698242,
+      "split": 102
+    },
+    {
+      "feature": "matchup_expected_opponent_dropbacks",
+      "gain": 139491.90704345703,
+      "split": 220
+    },
+    {
+      "feature": "player_defensive_team_def_sack_rate_roll3",
+      "gain": 83910.10464477539,
+      "split": 186
+    },
+    {
+      "feature": "environment_temperature",
+      "gain": 81128.92404174805,
+      "split": 181
+    },
+    {
+      "feature": "player_defensive_opponent_rush_rate_roll3",
+      "gain": 79005.20527648926,
+      "split": 180
+    },
+    {
+      "feature": "environment_team_miles_traveled",
+      "gain": 65338.5251159668,
+      "split": 140
+    },
+    {
+      "feature": "player_defensive_opponent_plays_roll3",
+      "gain": 63031.31820678711,
+      "split": 141
+    },
+    {
+      "feature": "matchup_expected_opponent_plays",
+      "gain": 54343.58102416992,
+      "split": 123
+    },
+    {
+      "feature": "environment_wind",
+      "gain": 47416.728942871094,
+      "split": 108
+    },
+    {
+      "feature": "environment_opponent_miles_traveled",
+      "gain": 43652.135009765625,
+      "split": 99
+    },
+    {
+      "feature": "environment_opponent_rest_days",
+      "gain": 17852.093963623047,
+      "split": 43
+    },
+    {
+      "feature": "environment_team_rest_days",
+      "gain": 10013.877044677734,
+      "split": 24
+    },
+    {
+      "feature": "environment_divisional_game_flag",
+      "gain": 5128.583068847656,
+      "split": 11
+    },
+    {
+      "feature": "environment_team_time_zones_crossed",
+      "gain": 4576.4620361328125,
+      "split": 10
+    },
+    {
+      "feature": "environment_opponent_time_zones_crossed",
+      "gain": 3121.127960205078,
+      "split": 8
+    },
+    {
+      "feature": "home_flag",
+      "gain": 2303.0070190429688,
+      "split": 5
+    },
+    {
+      "feature": "environment_international_flag",
+      "gain": 0.0,
+      "split": 0
+    },
+    {
+      "feature": "environment_neutral_site_flag",
+      "gain": 0.0,
+      "split": 0
+    },
+    {
+      "feature": "environment_travel_missing_flag",
+      "gain": 0.0,
+      "split": 0
+    },
+    {
+      "feature": "environment_weather_missing_flag",
+      "gain": 0.0,
+      "split": 0
+    }
+  ],
+  "feature_manifest_sha256": "547b991270ec97b3fc7a621f61c7733479d9bacf5832f99636c3deaaa5639724",
+  "label": {
+    "column": "dropbacks",
+    "first_training_season": 2012,
+    "last_training_season": 2024,
+    "maximum": 78.0,
+    "mean": 37.52344441167797,
+    "minimum": 3.0,
+    "source": "opponent_team_opportunity"
+  },
+  "lightgbm_version": "4.6.0",
+  "model_sha256": "d442d309a4742227911478d4e232ba00dd75ebead6c53accfed58f038e0819ce",
+  "model_type": "lightgbm_regression",
+  "params": {
+    "bagging_fraction": 1.0,
+    "bagging_freq": 0,
+    "bagging_seed": 24024,
+    "boosting_type": "gbdt",
+    "data_random_seed": 24024,
+    "deterministic": true,
+    "feature_fraction": 1.0,
+    "feature_fraction_seed": 24024,
+    "force_col_wise": true,
+    "lambda_l1": 0.0,
+    "lambda_l2": 0.0,
+    "learning_rate": 0.03,
+    "max_bin": 255,
+    "metric": "rmse",
+    "min_data_in_leaf": 40,
+    "num_leaves": 31,
+    "num_threads": 1,
+    "objective": "regression",
+    "seed": 24024,
+    "verbosity": -1
+  },
+  "prediction": {
+    "clip_max": null,
+    "clip_min": 0.0,
+    "reconcile_during_current_week_allocation": false,
+    "transform": "floor_zero"
+  },
+  "rows": {
+    "final_train_through_2024": 6782,
+    "model_selection_train": 6238,
+    "validation_2024": 544
+  },
+  "seed": 24024,
+  "status": "trained",
+  "training_policy": {
+    "development_validation_season": 2024,
+    "final_train_end_season": 2024,
+    "model_selection_train_end_season": 2023,
+    "random_split_used": false,
+    "untouched_test_season": 2025,
+    "untouched_test_used_for_fit": false,
+    "untouched_test_used_for_metrics": false,
+    "untouched_test_used_for_selection": false
+  },
+  "validation_2024_metrics": {
+    "mae": 6.4530112098149965,
+    "r2": 0.04140235829078509,
+    "rmse": 8.244862933196249
+  }
+}

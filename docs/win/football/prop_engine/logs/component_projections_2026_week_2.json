@@ -1,0 +1,264 @@
+{
+  "columns": 36,
+  "efficiency_models": {
+    "extra_point_conversion": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 19,
+      "rows": 34,
+      "strict_prior_history_through": 2025
+    },
+    "field_goal_conversion": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 19,
+      "rows": 34,
+      "strict_prior_history_through": 2025
+    },
+    "passing_td_rate": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 16,
+      "rows": 88,
+      "strict_prior_history_through": 2025
+    },
+    "passing_yards_per_attempt": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 16,
+      "rows": 88,
+      "strict_prior_history_through": 2025
+    },
+    "receiving_td_per_red_zone_target": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 15,
+      "rows": 443,
+      "strict_prior_history_through": 2025
+    },
+    "receiving_yards_per_target": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 16,
+      "rows": 443,
+      "strict_prior_history_through": 2025
+    },
+    "rushing_td_per_goal_line_carry": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 15,
+      "rows": 531,
+      "strict_prior_history_through": 2025
+    },
+    "rushing_yards_per_carry": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 16,
+      "rows": 531,
+      "strict_prior_history_through": 2025
+    },
+    "sack_rate_per_defensive_play": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 18,
+      "rows": 762,
+      "strict_prior_history_through": 2025
+    },
+    "tackle_rate_per_defensive_play": {
+      "derived_features": [
+        "eff_player_prior_rate",
+        "eff_position_prior_rate",
+        "eff_league_prior_rate",
+        "eff_shrunk_rate",
+        "eff_player_prior_exposure",
+        "eff_prior_weight",
+        "eff_rookie_position_prior_flag"
+      ],
+      "feature_count": 18,
+      "rows": 762,
+      "strict_prior_history_through": 2025
+    }
+  },
+  "efficiency_models_scored": 10,
+  "games": 16,
+  "inputs": {
+    "eligibility": "docs/win/football/prop_engine/config/target_eligibility.yaml",
+    "features": "docs/win/football/prop_engine/data/current/features/2026_week_2_features.parquet",
+    "historical_features": "docs/win/football/prop_engine/data/historical/features/player_game_features.parquet",
+    "roles": "docs/win/football/prop_engine/data/current/2026_week_2_roles.parquet"
+  },
+  "log": "docs/win/football/prop_engine/logs/component_projections_2026_week_2.json",
+  "market_exclusion_passed": true,
+  "market_features_used": false,
+  "opportunity_models": {
+    "extra_point_attempts": {
+      "feature_count": 38,
+      "rows": 32,
+      "scope": "team",
+      "transform": "floor_zero"
+    },
+    "field_goal_attempts": {
+      "feature_count": 38,
+      "rows": 32,
+      "scope": "team",
+      "transform": "floor_zero"
+    },
+    "opponent_dropbacks": {
+      "feature_count": 21,
+      "rows": 32,
+      "scope": "team_opponent",
+      "transform": "floor_zero"
+    },
+    "opponent_offensive_plays": {
+      "feature_count": 21,
+      "rows": 32,
+      "scope": "team_opponent",
+      "transform": "floor_zero"
+    },
+    "player_carry_share": {
+      "feature_count": 77,
+      "rows": 531,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "player_defensive_participation": {
+      "feature_count": 65,
+      "rows": 762,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "player_goal_line_carry_share": {
+      "feature_count": 77,
+      "rows": 531,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "player_red_zone_target_share": {
+      "feature_count": 81,
+      "rows": 443,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "player_target_share": {
+      "feature_count": 81,
+      "rows": 443,
+      "scope": "player",
+      "transform": "clip_0_1"
+    },
+    "qb_pass_attempts": {
+      "feature_count": 77,
+      "rows": 88,
+      "scope": "player",
+      "transform": "floor_zero"
+    },
+    "team_pass_attempts": {
+      "feature_count": 144,
+      "rows": 32,
+      "scope": "team",
+      "transform": "floor_zero"
+    },
+    "team_rush_attempts": {
+      "feature_count": 144,
+      "rows": 32,
+      "scope": "team",
+      "transform": "floor_zero"
+    }
+  },
+  "opportunity_models_scored": 12,
+  "output": "docs/win/football/prop_engine/data/current/2026_week_2_component_projections.parquet",
+  "policy": {
+    "canonical_target_component_formula_owner": "project_components.py",
+    "market_exclusion_preflight": true,
+    "no_share_reconciliation_before_allocation": true,
+    "primary_kicker_assignment": true,
+    "primary_qb_assignment": true,
+    "raw_share_components_only": true,
+    "sacks_denominator": "projected_opponent_plays"
+  },
+  "primary_kickers": 32,
+  "primary_qbs": 32,
+  "rows": 1328,
+  "script": "project_components.py",
+  "season": 2026,
+  "share_reconciliation_stage": "current_week_allocation",
+  "shares_reconciled": false,
+  "status": "passed",
+  "strict_prior_efficiency_history_end_season": 2025,
+  "target_component_columns": [
+    "component_passing_yards",
+    "component_passing_tds",
+    "component_rushing_yards",
+    "component_rushing_tds",
+    "component_receiving_yards",
+    "component_receiving_tds",
+    "component_kicking_points",
+    "component_tackles",
+    "component_sacks"
+  ],
+  "target_components_projected": 9,
+  "teams": 32,
+  "week": 2
+}
