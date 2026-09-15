@@ -88,6 +88,56 @@ def pct_missing(df: pd.DataFrame, column: str | None) -> float | None:
     return float(100.0 * df[column].map(clean).eq("").mean())
 
 
+def player_stats_identity_rows(
+    df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Return rows that represent identifiable player records.
+
+    nflverse player-stats files can contain team aggregate rows with
+    no player ID, player name, display name, position, or position
+    group. Those rows are valid source records but are not player
+    records and therefore must not count against player-ID
+    completeness.
+
+    A row with any player identity information remains subject to
+    the normal fail-closed player-ID requirement.
+    """
+    if df.empty:
+        return df.copy()
+
+    identity_columns = [
+        column
+        for column in (
+            "player_id",
+            "gsis_id",
+            "nflverse_player_id",
+            "pfr_player_id",
+            "pfr_id",
+            "espn_id",
+            "player_name",
+            "player_display_name",
+            "position",
+            "position_group",
+        )
+        if column in df.columns
+    ]
+
+    if not identity_columns:
+        return df.copy()
+
+    player_mask = pd.Series(
+        False,
+        index=df.index,
+        dtype=bool,
+    )
+
+    for column in identity_columns:
+        player_mask |= df[column].map(clean).ne("")
+
+    return df.loc[player_mask].copy()
+
+
 def read_tabular(path: Path) -> pd.DataFrame:
     suffixes = "".join(path.suffixes).lower()
     if suffixes.endswith(".parquet"):
@@ -350,10 +400,47 @@ def main() -> int:
     for source in SOURCES:
         raw, existing_paths = load_source(source, paths[source]); relevant, latest = relevant_slice(source, raw, season, week)
         expected, basis = expected_rows_for(source, raw, relevant, week, games, teams, universe_rows, schedule_raw, season)
-        pid = best_col(relevant, PLAYER_ID_ALIASES); team = best_col(relevant, TEAM_ALIASES)
-        if source == "depth_charts" and team is None and "_monitor_team" in relevant.columns: team = "_monitor_team"
-        gid = best_col(relevant, GAME_ID_ALIASES); dupes, key_note = duplicate_key_count(source, relevant)
-        fresh_status, fresh_ok = freshness(source, raw, bool(existing_paths), latest, week)
+        pid = best_col(relevant, PLAYER_ID_ALIASES)
+        team = best_col(relevant, TEAM_ALIASES)
+
+        if (
+            source == "depth_charts"
+            and team is None
+            and "_monitor_team" in relevant.columns
+        ):
+            team = "_monitor_team"
+
+        gid = best_col(relevant, GAME_ID_ALIASES)
+        play = (
+            best_col(relevant, PLAY_ID_ALIASES)
+            if source == "pbp"
+            else None
+        )
+
+        identity_relevant = (
+            player_stats_identity_rows(relevant)
+            if source == "player_stats"
+            else relevant
+        )
+
+        excluded_nonplayer_rows = (
+            int(len(relevant) - len(identity_relevant))
+            if source == "player_stats"
+            else 0
+        )
+
+        dupes, key_note = duplicate_key_count(
+            source,
+            relevant,
+        )
+
+        fresh_status, fresh_ok = freshness(
+            source,
+            raw,
+            bool(existing_paths),
+            latest,
+            week,
+        )
 
         if source == "snap_counts":
             snap_counts_current = bool(
@@ -371,13 +458,103 @@ def main() -> int:
             )
             fresh_ok = True
 
-        pid_pct, team_pct, gid_pct = pct_missing(relevant, pid), pct_missing(relevant, team), pct_missing(relevant, gid)
+        pid_pct = pct_missing(
+            identity_relevant,
+            pid,
+        )
+        team_pct = pct_missing(
+            relevant,
+            team,
+        )
+        gid_pct = pct_missing(
+            relevant,
+            gid,
+        )
+        play_pct = (
+            pct_missing(relevant, play)
+            if source == "pbp"
+            else None
+        )
+
         quality, reasons = "pass", []
-        if not fresh_ok: quality = "fail"; reasons.append(f"freshness={fresh_status}")
-        if dupes > 0: quality = "fail"; reasons.append(f"duplicate_key_rows={dupes}")
+
+        if (
+            source == "player_stats"
+            and excluded_nonplayer_rows > 0
+        ):
+            reasons.append(
+                "excluded_nonplayer_aggregate_rows="
+                f"{excluded_nonplayer_rows}"
+            )
+
+        if not fresh_ok:
+            quality = "fail"
+            reasons.append(
+                f"freshness={fresh_status}"
+            )
+
+        if dupes > 0:
+            quality = "fail"
+            reasons.append(
+                f"duplicate_key_rows={dupes}"
+            )
+
+        if source == "player_stats":
+            if pid is None:
+                quality = "fail"
+                reasons.append(
+                    "missing_player_id_column"
+                )
+            elif (
+                week > 1
+                and not relevant.empty
+                and identity_relevant.empty
+            ):
+                quality = "fail"
+                reasons.append(
+                    "no_identifiable_player_records"
+                )
+
+        if source == "pbp":
+            if relevant.empty and week > 1:
+                quality = "fail"
+                reasons.append(
+                    "empty_required_pbp_slice"
+                )
+
+            if gid is None:
+                quality = "fail"
+                reasons.append(
+                    "missing_game_id_column"
+                )
+
+            if play is None:
+                quality = "fail"
+                reasons.append(
+                    "missing_play_id_column"
+                )
+            elif (
+                play_pct is not None
+                and play_pct > 0
+            ):
+                quality = "fail"
+                reasons.append(
+                    f"missing_play_id_pct={play_pct:.4f}"
+                )
         for label, pct in (("player_id", pid_pct), ("team", team_pct), ("game_id", gid_pct)):
             if pct is None or pct <= 0:
                 continue
+
+            if (
+                source == "pbp"
+                and label in {"player_id", "team"}
+            ):
+                reasons.append(
+                    f"missing_{label}_pct={pct:.4f}"
+                    "_nonblocking_pbp_event_grain"
+                )
+                continue
+
             if (
                 source == "weekly_roster"
                 and label == "player_id"
