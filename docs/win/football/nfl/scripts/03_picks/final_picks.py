@@ -9,6 +9,9 @@ WRITES:
   docs/win/football/nfl/03_picks/selected/
       week_{week}_NFL_select_picks.csv
 
+  docs/win/football/nfl/03_picks/locked/
+      week_{week}_NFL_select_picks_{timestamp}.csv
+
   docs/win/football/nfl/03_picks/projection/
       week_{week}_NFL_projection.csv
 
@@ -17,6 +20,10 @@ Selected output:
     ml_selected
     spread_selected
     total_selected
+
+Locked output:
+- Timestamped immutable copy of the selected output.
+- Timestamp uses America/New_York time.
 
 Projection output:
 - Includes every game for the week.
@@ -29,6 +36,8 @@ edt_time:
 from __future__ import annotations
 
 import argparse
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -41,6 +50,7 @@ NFL_ROOT = SCRIPT_DIR.parents[1]
 
 DEFAULT_INPUT_DIR = NFL_ROOT / "03_picks"
 SELECTED_OUTPUT_DIR = NFL_ROOT / "03_picks" / "selected"
+LOCKED_OUTPUT_DIR = NFL_ROOT / "03_picks" / "locked"
 PROJECTION_OUTPUT_DIR = NFL_ROOT / "03_picks" / "projection"
 
 EASTERN_TZ = ZoneInfo("America/New_York")
@@ -302,6 +312,11 @@ def main() -> None:
         exist_ok=True,
     )
 
+    LOCKED_OUTPUT_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     PROJECTION_OUTPUT_DIR.mkdir(
         parents=True,
         exist_ok=True,
@@ -313,6 +328,20 @@ def main() -> None:
         lineterminator="\n",
     )
 
+    timestamp = datetime.now(
+        EASTERN_TZ
+    ).strftime("%Y%m%d_%H%M%S")
+
+    locked_output_path = (
+        LOCKED_OUTPUT_DIR
+        / f"week_{week}_NFL_select_picks_{timestamp}.csv"
+    )
+
+    shutil.copy2(
+        selected_output_path,
+        locked_output_path,
+    )
+
     projection_output.to_csv(
         projection_output_path,
         index=False,
@@ -321,6 +350,11 @@ def main() -> None:
 
     print(
         f"WROTE {selected_output_path} "
+        f"| rows={len(selected_output)}"
+    )
+
+    print(
+        f"WROTE {locked_output_path} "
         f"| rows={len(selected_output)}"
     )
 
