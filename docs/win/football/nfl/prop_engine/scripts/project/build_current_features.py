@@ -473,12 +473,39 @@ def current_realized_sources(
     frames: dict[str, pd.DataFrame] = {}
     audit: dict[str, Any] = {}
 
+    def snap_counts_current_for_fallback() -> bool:
+        if week <= 1:
+            return False
+
+        snap_frame = frames.get("snap_counts")
+        snap_audit = audit.get("snap_counts", {})
+
+        if (
+            snap_frame is None
+            or snap_frame.empty
+            or not isinstance(snap_audit, dict)
+        ):
+            return False
+
+        latest = snap_audit.get("max_source_week_used")
+
+        try:
+            return (
+                latest is not None
+                and int(latest) >= week - 1
+            )
+        except (TypeError, ValueError):
+            return False
+
     for name, path in paths.items():
         exists = path.is_file()
         item: dict[str, Any] = {
             "path": str(path.relative_to(repo)),
             "exists": exists,
-            "required_for_week": week > 1,
+            "required_for_week": (
+                week > 1
+                and name != "participation"
+            ),
             "rows_before_filter": 0,
             "rows_used": 0,
             "max_source_week_used": None,
@@ -486,9 +513,29 @@ def current_realized_sources(
         }
         if not exists:
             if week > 1:
+                if (
+                    name == "participation"
+                    and snap_counts_current_for_fallback()
+                ):
+                    frames[name] = pd.DataFrame()
+                    item["status"] = (
+                        "unavailable_snap_counts_fallback"
+                    )
+                    item["fallback_source"] = "snap_counts"
+                    audit[name] = item
+                    continue
+
+                if name == "participation":
+                    raise FileNotFoundError(
+                        f"Issue 31 week {week} participation is unavailable "
+                        "and current snap counts are not available for fallback: "
+                        f"{path}"
+                    )
+
                 raise FileNotFoundError(
                     f"Issue 31 week {week} requires completed-current-season source: {path}"
                 )
+
             frames[name] = pd.DataFrame()
             item["status"] = "not_applicable_no_completed_weeks"
             audit[name] = item
@@ -515,9 +562,29 @@ def current_realized_sources(
 
         if empty_source:
             if week > 1:
+                if (
+                    name == "participation"
+                    and snap_counts_current_for_fallback()
+                ):
+                    frames[name] = pd.DataFrame()
+                    item["status"] = (
+                        "unavailable_snap_counts_fallback"
+                    )
+                    item["fallback_source"] = "snap_counts"
+                    audit[name] = item
+                    continue
+
+                if name == "participation":
+                    raise RuntimeError(
+                        f"Issue 31 week {week} participation is empty "
+                        "and current snap counts are not available for fallback: "
+                        f"{path}"
+                    )
+
                 raise RuntimeError(
                     f"Issue 31 week {week} requires nonempty completed-current-season source: {path}"
                 )
+
             frames[name] = df
             item["status"] = "empty_source_no_completed_weeks"
             audit[name] = item
