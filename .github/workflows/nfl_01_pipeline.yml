@@ -120,20 +120,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r docs/win/football/nfl/requirements.txt
-          pip install nflreadpy
 
       - name: Pull NFL schedule
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_schedule.py
-
-      # Final-score pull will be enabled when the final-score pipeline is ready.
-      #
-      # During preseason/testing, validate_tuesday.py allows the final-score
-      # directory to be absent/empty and emits a WARNING instead of failing.
-      #
-      # - name: Pull final scores
-      #   run: |
-      #     python docs/win/football/nfl/scripts/00_intake/pull_final_scores.py
 
       - name: Pull play-by-play
         run: |
