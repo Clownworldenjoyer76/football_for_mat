@@ -116,7 +116,7 @@ jobs:
       - name: Install Daily dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r docs/win/football/nfl/requirements.txt
 
       - name: Pull current odds
         run: |
@@ -447,4 +447,3 @@ jobs:
 
           git commit -m "Update NFL NM bets"
           git push
-
