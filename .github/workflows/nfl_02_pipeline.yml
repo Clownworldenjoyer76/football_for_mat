@@ -15,6 +15,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: repo-write-lock-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   nfl-all:
     runs-on: ubuntu-latest
@@ -118,6 +122,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r docs/win/football/nfl/requirements.txt
 
+      - name: Load NFL season
+        run: |
+          NFL_SEASON="$(python -c "import yaml; from pathlib import Path; print(yaml.safe_load(Path('docs/win/football/nfl/config/settings.yaml').read_text(encoding='utf-8'))['season'])")"
+          echo "NFL_SEASON=$NFL_SEASON" >> "$GITHUB_ENV"
+
       - name: Pull current odds
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_odds.py
@@ -190,7 +199,9 @@ jobs:
           python-version: "3.x"
 
       - name: Install Prediction dependencies
-        run: python -m pip install pandas numpy
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs/win/football/nfl/requirements.txt
 
       - name: Run clean_e_pred.py
         run: python docs/win/football/nfl/scripts/00_intake/clean_e_pred.py
@@ -240,12 +251,13 @@ jobs:
       - name: Install Projection dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas numpy catboost pyarrow
+          pip install -r docs/win/football/nfl/requirements.txt
 
       - name: Refresh in-season projection sources
         if: ${{ inputs.projection_mode == 'inseason' }}
         run: |
-          python docs/win/football/nfl/scripts/00_intake/refresh_projection_sources.py --season 2026
+          python docs/win/football/nfl/scripts/00_intake/refresh_projection_sources.py \
+            --season "$NFL_SEASON"
 
       - name: Run Week 1 projection
         if: ${{ inputs.projection_mode == 'week1' }}
@@ -281,7 +293,7 @@ jobs:
       - name: Install Select dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas numpy pyyaml
+          pip install -r docs/win/football/nfl/requirements.txt
 
       - name: Run NFL selection engine for all weeks
         shell: bash
@@ -392,6 +404,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install Final Results dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs/win/football/nfl/requirements.txt
+
       - name: Run NFL final scores
         run: |
           python docs/win/football/nfl/scripts/04_final_results/pull_final_scores.py
@@ -428,6 +445,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+
+      - name: Install NM Bets dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs/win/football/nfl/requirements.txt
 
       - name: Generate NM NFL picks
         run: |
