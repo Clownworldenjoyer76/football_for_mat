@@ -124,20 +124,66 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/04_final_results/04_nfl_results_dashboard.py
 
+      - name: Commit and push failure reports
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -d ".git" ]; then
+            echo "Repository unavailable; no failure reports can be published."
+            exit 0
+          fi
+
+          REPORT_DIR="docs/win/football/nfl/errors"
+
+          if [ ! -d "$REPORT_DIR" ]; then
+            echo "No NFL report directory exists."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A "$REPORT_DIR/"
+
+          if git diff --cached --quiet; then
+            echo "No NFL failure report changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Record NFL grade workflow failure reports"
+
+          if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
       - name: Commit and push outputs
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -A docs/win/football/nfl/02_select/
           git add -A docs/win/football/nfl/03_picks/
           git add -A docs/win/football/nfl/04_final_results/
-          git add -A docs/win/football/nfl/errors/04_final_results/
+          git add -A docs/win/football/nfl/errors/
           git add -A frontend/nfl_dashboard.html
 
           if git diff --cached --quiet; then
             echo "No NFL output changes to commit."
-          else
-            git commit -m "Run NFL selections, picks, final results, and reports"
-            git push
+            exit 0
           fi
+
+          git commit -m "Run NFL selections, picks, final results, and reports"
+
+          if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+
+          git push origin "HEAD:$GITHUB_REF_NAME"
