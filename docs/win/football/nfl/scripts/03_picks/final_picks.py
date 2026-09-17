@@ -20,6 +20,8 @@ Selected output:
     ml_selected
     spread_selected
     total_selected
+- Preserves the selected-market probability, implied probability, edge, EV,
+  full Kelly, Kelly, and selection-reason fields required by graded reporting.
 
 Locked output:
 - Timestamped immutable copy of the selected output.
@@ -64,15 +66,34 @@ SELECTED_OUTPUT_COLUMNS = [
     "away_team",
     "home_team",
     "ml_selection",
+    "ml_selection_reason",
     "ml_odds_american",
     "ml_model_probability",
+    "ml_implied_probability",
+    "ml_edge",
+    "ml_ev",
+    "ml_full_kelly",
+    "ml_kelly",
     "spread_selection",
+    "spread_selection_reason",
     "spread_line",
     "spread_odds_american",
+    "spread_model_probability",
+    "spread_implied_probability",
+    "spread_edge",
+    "spread_ev",
+    "spread_full_kelly",
+    "spread_kelly",
     "total_selection",
+    "total_selection_reason",
     "total_line",
     "total_odds_american",
     "total_model_probability",
+    "total_implied_probability",
+    "total_edge",
+    "total_ev",
+    "total_full_kelly",
+    "total_kelly",
     "season",
     "season_type",
     "ml_selected",

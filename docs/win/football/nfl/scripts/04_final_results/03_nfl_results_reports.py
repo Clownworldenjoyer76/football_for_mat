@@ -241,7 +241,7 @@ def build_market_reports(df: pd.DataFrame) -> None:
             "sides": {"HOME", "AWAY"},
             "dimensions": {
                 "ev": "ev_bucket", "odds": "odds_bucket", "kelly": "kelly_bucket",
-                "win_prob": "win_prob_bucket", "week": "week_label",
+                "win_prob": "win_prob_bucket",
             },
         },
         "spread": {
@@ -251,7 +251,7 @@ def build_market_reports(df: pd.DataFrame) -> None:
             "dimensions": {
                 "ev": "ev_bucket", "odds": "odds_bucket", "kelly": "kelly_bucket",
                 "win_prob": "win_prob_bucket", "spread_range": "spread_range_bucket",
-                "line": "spread_line_bucket", "week": "week_label", "side": "side_group",
+                "line": "spread_line_bucket", "side": "side_group",
             },
         },
         "total": {
@@ -261,7 +261,7 @@ def build_market_reports(df: pd.DataFrame) -> None:
             "dimensions": {
                 "ev": "ev_bucket", "odds": "odds_bucket", "kelly": "kelly_bucket",
                 "win_prob": "win_prob_bucket", "total_range": "total_range_bucket",
-                "line": "total_line_bucket", "week": "week_label", "side": "side_group",
+                "line": "total_line_bucket", "side": "side_group",
             },
         },
     }
