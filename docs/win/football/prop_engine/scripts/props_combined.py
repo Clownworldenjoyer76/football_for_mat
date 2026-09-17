@@ -35,8 +35,6 @@ PROP_LINE_COLUMNS = {
 FILTER_KEYS = {
     "actual_prop_total_*",
     "pick_prob",
-    "over_prob",
-    "under_prob",
 }
 
 PICK_DIRECTIONS = {
@@ -399,8 +397,6 @@ def row_passes_filters(
     value_columns = {
         "actual_prop_total_*": line_column,
         "pick_prob": "pick_prob",
-        "over_prob": "over_prob",
-        "under_prob": "under_prob",
     }
 
     for filter_key, column in value_columns.items():
