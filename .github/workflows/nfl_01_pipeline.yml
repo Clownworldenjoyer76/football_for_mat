@@ -83,6 +83,7 @@ jobs:
           exit 0
 
       - name: Commit and push DRAT
+        if: steps.clean_drat.outputs.exit_code == '0'
         run: |
           set -e
 
@@ -92,13 +93,21 @@ jobs:
           git add -A \
             docs/win/football/nfl/00_intake/predictions/drat/raw \
             docs/win/football/nfl/00_intake/predictions/drat/clean \
-            docs/win/football/nfl/errors/00_intake/clean_drat.txt
+            docs/win/football/nfl/errors/
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
             git commit -m "Pull and clean weekly DRAT predictions"
-            git push
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+          git push origin "HEAD:$GITHUB_REF_NAME" origin "HEAD:$GITHUB_REF_NAME"
           fi
 
       - name: Fail workflow if DRAT cleaning failed
@@ -117,15 +126,28 @@ jobs:
 
           NFL_SEASON="$(awk -F': *' '$1 == "season" {print $2; exit}' "$SETTINGS")"
           NFL_WEEK="$(awk -F': *' '$1 == "week" {print $2; exit}' "$SETTINGS")"
+          NFL_SEASON_TYPE_NAME="$(awk -F': *' '$1 == "season_type" {print $2; exit}' "$SETTINGS")"
 
-          if [ -z "$NFL_SEASON" ] || [ -z "$NFL_WEEK" ]; then
-            echo "ERROR: season/week missing from $SETTINGS"
+          if [ -z "$NFL_SEASON" ] || [ -z "$NFL_WEEK" ] || [ -z "$NFL_SEASON_TYPE_NAME" ]; then
+            echo "ERROR: season/week/season_type missing from $SETTINGS"
             exit 1
           fi
 
+          case "$NFL_SEASON_TYPE_NAME" in
+            pre)  NFL_SEASON_TYPE=1 ;;
+            reg)  NFL_SEASON_TYPE=2 ;;
+            post) NFL_SEASON_TYPE=3 ;;
+            *)
+              echo "ERROR: unsupported season_type in $SETTINGS: $NFL_SEASON_TYPE_NAME"
+              exit 1
+              ;;
+          esac
+
           echo "NFL_SEASON=$NFL_SEASON" >> "$GITHUB_ENV"
           echo "NFL_WEEK=$NFL_WEEK" >> "$GITHUB_ENV"
-          echo "Configured NFL season=$NFL_SEASON week=$NFL_WEEK"
+          echo "NFL_SEASON_TYPE_NAME=$NFL_SEASON_TYPE_NAME" >> "$GITHUB_ENV"
+          echo "NFL_SEASON_TYPE=$NFL_SEASON_TYPE" >> "$GITHUB_ENV"
+          echo "Configured NFL season=$NFL_SEASON season_type=$NFL_SEASON_TYPE_NAME week=$NFL_WEEK"
 
       - name: Determine Tuesday mode
         shell: bash
@@ -246,12 +268,53 @@ jobs:
             exit 1
           fi
 
-          LATEST="$(find docs/win/football/nfl/00_intake/schedule/weekly -maxdepth 1 -type f -name 'week_*_NFL_weekly_schedule.csv' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          python - "$EXPECTED" "$NFL_SEASON" "$NFL_SEASON_TYPE_NAME" "$NFL_WEEK" <<'PY'
+          import csv
+          import sys
+          from pathlib import Path
 
-          if [ "$LATEST" != "$EXPECTED" ]; then
-            echo "ERROR: build_weekly_schedule.py produced $LATEST but settings.yaml requires $EXPECTED"
-            exit 1
-          fi
+          path = Path(sys.argv[1])
+          expected = (sys.argv[2], sys.argv[3], sys.argv[4])
+
+          with path.open("r", newline="", encoding="utf-8-sig") as handle:
+              reader = csv.DictReader(handle)
+              columns = set(reader.fieldnames or [])
+              required = {"season", "season_type", "week"}
+              missing = sorted(required - columns)
+
+              if missing:
+                  raise SystemExit(
+                      f"ERROR: {path} missing required columns: {missing}"
+                  )
+
+              rows = list(reader)
+
+          if not rows:
+              raise SystemExit(f"ERROR: {path} contains no data rows")
+
+          mismatches = []
+
+          for line_number, row in enumerate(rows, start=2):
+              actual = (
+                  str(row.get("season", "")).strip(),
+                  str(row.get("season_type", "")).strip(),
+                  str(row.get("week", "")).strip(),
+              )
+
+              if actual != expected:
+                  mismatches.append((line_number, actual))
+
+                  if len(mismatches) >= 5:
+                      break
+
+          if mismatches:
+              raise SystemExit(
+                  f"ERROR: {path} does not match configured target "
+                  f"{expected}; examples={mismatches}"
+              )
+
+          print(f"Verified configured weekly schedule: {path} rows={len(rows)}")
+          PY
 
       - name: Build travel data
         run: |
@@ -276,7 +339,15 @@ jobs:
             echo "No NFL Tuesday output changes to commit."
           else
             git commit -m "Update NFL Tuesday AM data"
-            git push
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+          git push origin "HEAD:$GITHUB_REF_NAME" origin "HEAD:$GITHUB_REF_NAME"
           fi
 
       - name: Build ESPN opening odds and movement
@@ -330,7 +401,15 @@ jobs:
             echo "No NFL daily output changes to commit."
           else
             git commit -m "Update NFL daily AM data"
-            git push
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+          git push origin "HEAD:$GITHUB_REF_NAME" origin "HEAD:$GITHUB_REF_NAME"
           fi
 
       # ============================================================
@@ -372,15 +451,22 @@ jobs:
 
           git add docs/win/football/nfl/00_intake/predictions/clean \
                   docs/win/football/nfl/00_intake/predictions/final \
-                  docs/win/football/nfl/00_intake/predictions/enriched/ \
-                  docs/win/football/nfl/errors/00_intake/clean_e_pred.txt \
-                  docs/win/football/nfl/errors/00_intake/finalize_pred.txt
+                  docs/win/football/nfl/00_intake/predictions/enriched/
+          git add -A docs/win/football/nfl/errors/
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
             git commit -m "Update NFL predictions and enrichment"
-            git push
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+          git push origin "HEAD:$GITHUB_REF_NAME" origin "HEAD:$GITHUB_REF_NAME"
           fi
 
       # ============================================================
@@ -417,12 +503,21 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add docs/win/football/nfl/01_merge/
+          git add -A docs/win/football/nfl/errors/
 
           if git diff --cached --quiet; then
             echo "No projection output changes to commit."
           else
             git commit -m "Update NFL projection output"
-            git push
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+          git push origin "HEAD:$GITHUB_REF_NAME" origin "HEAD:$GITHUB_REF_NAME"
           fi
 
       # ============================================================
@@ -531,12 +626,21 @@ jobs:
 
           git add docs/win/football/nfl/02_select/
           git add docs/win/football/nfl/03_picks/
+          git add -A docs/win/football/nfl/errors/
 
           if git diff --cached --quiet; then
             echo "No NFL selection or picks output changes to commit."
           else
             git commit -m "Run NFL selections and picks for all available weeks"
-            git push
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+          git push origin "HEAD:$GITHUB_REF_NAME" origin "HEAD:$GITHUB_REF_NAME"
           fi
 
       # ============================================================
@@ -583,7 +687,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -A docs/win/football/nfl/04_final_results/
-          git add -A docs/win/football/nfl/errors/04_final_results/
+          git add -A docs/win/football/nfl/errors/
           git add -A docs/win/football/nfl/03_picks/survivor/
           git add -A frontend/nfl_dashboard.html
 
@@ -591,7 +695,15 @@ jobs:
             echo "No final-results changes to commit."
           else
             git commit -m "Update NFL final results and graded-bet reports"
-            git push
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+          git push origin "HEAD:$GITHUB_REF_NAME" origin "HEAD:$GITHUB_REF_NAME"
           fi
 
       # ============================================================
@@ -613,6 +725,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add docs/win/football/nfl/03_picks/nmbets/
+          git add -A docs/win/football/nfl/errors/
 
           if git diff --cached --quiet; then
             echo "No NM NFL picks changes to commit."
@@ -620,4 +733,8 @@ jobs:
           fi
 
           git commit -m "Update NFL NM bets"
-          git push
+          if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+          git push origin "HEAD:$GITHUB_REF_NAME"
