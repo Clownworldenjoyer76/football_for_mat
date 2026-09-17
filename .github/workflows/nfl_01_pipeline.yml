@@ -1,4 +1,4 @@
-name: NFL 01 Pipeline
+name: NFL Pipeline
 
 on:
   workflow_dispatch:
@@ -108,35 +108,69 @@ jobs:
           echo "See docs/win/football/nfl/errors/00_intake/clean_drat.txt"
           exit 1
 
+      - name: Load NFL settings
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SETTINGS="docs/win/football/nfl/config/settings.yaml"
+
+          NFL_SEASON="$(awk -F': *' '$1 == "season" {print $2; exit}' "$SETTINGS")"
+          NFL_WEEK="$(awk -F': *' '$1 == "week" {print $2; exit}' "$SETTINGS")"
+
+          if [ -z "$NFL_SEASON" ] || [ -z "$NFL_WEEK" ]; then
+            echo "ERROR: season/week missing from $SETTINGS"
+            exit 1
+          fi
+
+          echo "NFL_SEASON=$NFL_SEASON" >> "$GITHUB_ENV"
+          echo "NFL_WEEK=$NFL_WEEK" >> "$GITHUB_ENV"
+          echo "Configured NFL season=$NFL_SEASON week=$NFL_WEEK"
+
+      - name: Determine Tuesday mode
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DAY="$(TZ=America/New_York date +%u)"
+
+          if [ "$DAY" = "2" ]; then
+            echo "IS_TUESDAY=true" >> "$GITHUB_ENV"
+            echo "Tuesday refresh enabled."
+          else
+            echo "IS_TUESDAY=false" >> "$GITHUB_ENV"
+            echo "Tuesday refresh disabled."
+          fi
+
       # ============================================================
-      # NFL 01 TUESDAY
+      # NFL 01 TUESDAY - TUESDAY ONLY
       # ============================================================
 
       - name: Set up Python for Tuesday
+        if: env.IS_TUESDAY == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       - name: Install Tuesday dependencies
+        if: env.IS_TUESDAY == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r docs/win/football/nfl/requirements.txt
 
-      - name: Load NFL season
-        run: |
-          NFL_SEASON="$(python -c "import yaml; from pathlib import Path; print(yaml.safe_load(Path('docs/win/football/nfl/config/settings.yaml').read_text(encoding='utf-8'))['season'])")"
-          echo "NFL_SEASON=$NFL_SEASON" >> "$GITHUB_ENV"
-
       - name: Pull NFL schedule
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_schedule.py
 
       - name: Pull play-by-play
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_pbp.py \
             --season "$NFL_SEASON"
 
       - name: Build team statistics
+        if: env.IS_TUESDAY == 'true'
         run: |
           set -o pipefail
           python docs/win/football/nfl/scripts/00_intake/pull_team_stats.py \
@@ -144,59 +178,42 @@ jobs:
             2>&1 | tee docs/win/football/nfl/errors/00_intake/pull_team_stats.txt
 
       - name: Build quarterback statistics
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_qb_stats.py
 
       - name: Update league master and standings
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/league_master.py
 
       - name: Update coaches
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/coaches.py
 
       - name: Pull QBR
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_qbr.py
 
       - name: Pull team power index
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/team_power_index.py
 
       - name: Pull league leaders
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_league_leaders.py
 
       - name: Pull market futures
+        if: env.IS_TUESDAY == 'true'
         run: |
           python docs/win/football/nfl/scripts/00_intake/pull_market_futures.py
 
-      - name: Build travel data
-        run: |
-          python docs/win/football/nfl/scripts/00_intake/build_travel.py
-
-      - name: Validate Tuesday outputs
-        run: |
-          set -o pipefail
-          python docs/win/football/nfl/scripts/validation/validate_tuesday.py \
-            --season "$NFL_SEASON"
-
-      - name: Commit and push all Tuesday outputs
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add -A docs/win/football/nfl/
-
-          if git diff --cached --quiet; then
-            echo "No NFL Tuesday output changes to commit."
-          else
-            git commit -m "Update NFL Tuesday AM data"
-            git push
-          fi
-
       # ============================================================
-      # NFL 02 DAILY
+      # NFL 02 DAILY - EVERY RUN
       # ============================================================
 
       - name: Set up Python for Daily
@@ -216,6 +233,51 @@ jobs:
       - name: Build weekly schedule
         run: |
           python docs/win/football/nfl/scripts/00_intake/build_weekly_schedule.py
+
+      - name: Verify weekly schedule matches settings
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EXPECTED="docs/win/football/nfl/00_intake/schedule/weekly/week_${NFL_WEEK}_NFL_weekly_schedule.csv"
+
+          if [ ! -f "$EXPECTED" ]; then
+            echo "ERROR: configured weekly schedule was not produced: $EXPECTED"
+            exit 1
+          fi
+
+          LATEST="$(find docs/win/football/nfl/00_intake/schedule/weekly -maxdepth 1 -type f -name 'week_*_NFL_weekly_schedule.csv' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+
+          if [ "$LATEST" != "$EXPECTED" ]; then
+            echo "ERROR: build_weekly_schedule.py produced $LATEST but settings.yaml requires $EXPECTED"
+            exit 1
+          fi
+
+      - name: Build travel data
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/build_travel.py
+
+      - name: Validate Tuesday outputs
+        if: env.IS_TUESDAY == 'true'
+        run: |
+          set -o pipefail
+          python docs/win/football/nfl/scripts/validation/validate_tuesday.py \
+            --season "$NFL_SEASON"
+
+      - name: Commit and push Tuesday outputs
+        if: env.IS_TUESDAY == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A docs/win/football/nfl/
+
+          if git diff --cached --quiet; then
+            echo "No NFL Tuesday output changes to commit."
+          else
+            git commit -m "Update NFL Tuesday AM data"
+            git push
+          fi
 
       - name: Build ESPN opening odds and movement
         run: |
@@ -278,7 +340,7 @@ jobs:
       - name: Set up Python for Predictions
         uses: actions/setup-python@v6
         with:
-          python-version: "3.x"
+          python-version: "3.11"
 
       - name: Install Prediction dependencies
         run: |
@@ -499,6 +561,18 @@ jobs:
         run: |
           python docs/win/football/nfl/scripts/04_final_results/grade_selected_picks.py
 
+      - name: Analyze graded NFL bets
+        run: |
+          python docs/win/football/nfl/scripts/04_final_results/02_nfl_results_analyze.py
+
+      - name: Build NFL graded-bet reports
+        run: |
+          python docs/win/football/nfl/scripts/04_final_results/03_nfl_results_reports.py
+
+      - name: Build NFL dashboard
+        run: |
+          python docs/win/football/nfl/scripts/04_final_results/04_nfl_results_dashboard.py
+
       - name: Run NFL survivor picks
         run: |
           python docs/win/football/nfl/scripts/03_picks/survivor.py
@@ -508,14 +582,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add docs/win/football/nfl/04_final_results/results/
-          git add docs/win/football/nfl/errors/04_final_results/pull_final_scores.txt
-          git add docs/win/football/nfl/03_picks/survivor/
+          git add -A docs/win/football/nfl/04_final_results/
+          git add -A docs/win/football/nfl/errors/04_final_results/
+          git add -A docs/win/football/nfl/03_picks/survivor/
+          git add -A frontend/nfl_dashboard.html
 
           if git diff --cached --quiet; then
             echo "No final-results changes to commit."
           else
-            git commit -m "Update NFL final results"
+            git commit -m "Update NFL final results and graded-bet reports"
             git push
           fi
 
