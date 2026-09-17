@@ -231,7 +231,8 @@ jobs:
       - name: Build quarterback statistics
         if: env.IS_TUESDAY == 'true'
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_qb_stats.py
+          python docs/win/football/nfl/scripts/00_intake/pull_qb_stats.py \
+            --season "$NFL_SEASON"
 
       - name: Update league master and standings
         if: env.IS_TUESDAY == 'true'
