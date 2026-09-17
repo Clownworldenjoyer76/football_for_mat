@@ -169,6 +169,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: docs/win/football/nfl/requirements.txt
 
       - name: Install Tuesday dependencies
         if: env.IS_TUESDAY == 'true'
@@ -238,6 +240,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: docs/win/football/nfl/requirements.txt
 
       - name: Install Daily dependencies
         run: |
@@ -408,6 +412,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: docs/win/football/nfl/requirements.txt
 
       - name: Install Prediction dependencies
         run: |
@@ -461,6 +467,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: docs/win/football/nfl/requirements.txt
 
       - name: Install Projection dependencies
         run: |
@@ -508,6 +516,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: docs/win/football/nfl/requirements.txt
 
       - name: Install Select dependencies
         run: |
@@ -627,6 +637,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: docs/win/football/nfl/requirements.txt
 
       - name: Install Final Results dependencies
         run: |
