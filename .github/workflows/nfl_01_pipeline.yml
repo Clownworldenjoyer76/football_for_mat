@@ -213,7 +213,8 @@ jobs:
       - name: Pull NFL schedule
         if: env.IS_TUESDAY == 'true'
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_schedule.py
+          python docs/win/football/nfl/scripts/00_intake/pull_schedule.py \
+            --season "$NFL_SEASON"
 
       - name: Pull play-by-play
         if: env.IS_TUESDAY == 'true'
@@ -753,4 +754,38 @@ jobs:
             git rebase --abort 2>/dev/null || true
             exit 1
           fi
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
+      - name: Publish NFL failure reports
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPORT_DIR="docs/win/football/nfl/errors"
+
+          if [ ! -d "$REPORT_DIR" ]; then
+            echo "No NFL error-report directory exists."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A -- "$REPORT_DIR"
+
+          if git diff --cached --quiet -- "$REPORT_DIR"; then
+            echo "No NFL failure-report changes to commit."
+            exit 0
+          fi
+
+          git commit --only \
+            -m "Record NFL pipeline failure reports" \
+            -- "$REPORT_DIR"
+
+          if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+
           git push origin "HEAD:$GITHUB_REF_NAME"
