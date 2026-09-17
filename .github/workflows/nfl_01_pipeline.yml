@@ -106,11 +106,43 @@ jobs:
             git push origin "HEAD:$GITHUB_REF_NAME"
           fi
 
+      - name: Commit and push DRAT failure report
+        if: steps.clean_drat.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPORT="docs/win/football/nfl/errors/00_intake/clean_drat.json"
+
+          if [ ! -f "$REPORT" ]; then
+            echo "ERROR: clean_drat.py failed without producing $REPORT"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A -- "$REPORT"
+
+          if git diff --cached --quiet; then
+            echo "No DRAT failure report changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Record DRAT cleaning failure report"
+
+          if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+            git rebase --abort 2>/dev/null || true
+            exit 1
+          fi
+
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
       - name: Fail workflow if DRAT cleaning failed
         if: steps.clean_drat.outputs.exit_code != '0'
         run: |
           echo "clean_drat.py reported errors."
-          echo "See docs/win/football/nfl/errors/00_intake/clean_drat.txt"
+          echo "See docs/win/football/nfl/errors/00_intake/clean_drat.json"
           exit 1
 
       - name: Load NFL settings

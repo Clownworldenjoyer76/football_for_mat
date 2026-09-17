@@ -3,23 +3,38 @@
 from __future__ import annotations
 
 import csv
+import os
 import re
+import shutil
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
 
 SCRIPT_PATH = Path(__file__).resolve()
+SCRIPTS_DIR = SCRIPT_PATH.parents[1]
 NFL_ROOT = SCRIPT_PATH.parents[2]
+
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from pipeline_reporter import PipelineReporter
+
 
 DRAT_RAW_DIR = NFL_ROOT / "00_intake" / "predictions" / "drat" / "raw"
 DRAT_CLEAN_DIR = NFL_ROOT / "00_intake" / "predictions" / "drat" / "clean"
 SCHEDULE_WEEKLY_DIR = NFL_ROOT / "00_intake" / "schedule" / "weekly"
-LOG_PATH = NFL_ROOT / "errors" / "00_intake" / "clean_drat.txt"
+REPORT_ROOT = NFL_ROOT / "errors"
+LEGACY_LOG_PATH = REPORT_ROOT / "00_intake" / "clean_drat.txt"
 
 HISTORICAL_FILENAME_RE = re.compile(
     r"^(?P<season>\d{4})_wk(?P<week>\d{2})_odds\.csv$",
+    re.IGNORECASE,
+)
+CLEAN_HISTORICAL_FILENAME_RE = re.compile(
+    r"^(?P<season>\d{4})_week_(?P<week>\d+)_drat\.csv$",
     re.IGNORECASE,
 )
 
@@ -94,7 +109,8 @@ ScheduleIndex = dict[MatchKey, set[str]]
 
 
 class RunLog:
-    def __init__(self) -> None:
+    def __init__(self, reporter: PipelineReporter) -> None:
+        self.reporter = reporter
         self.info_lines: list[str] = []
         self.warning_lines: list[str] = []
         self.error_lines: list[str] = []
@@ -103,19 +119,21 @@ class RunLog:
         self.info_lines.append(message)
         print(f"INFO: {message}")
 
-    def warning(self, message: str) -> None:
+    def warning(self, message: str, **details: object) -> None:
         self.warning_lines.append(message)
+        self.reporter.warning(message, **details)
         print(f"WARNING: {message}")
 
-    def error(self, message: str) -> None:
+    def error(self, message: str, **details: object) -> None:
         self.error_lines.append(message)
+        self.reporter.error(message, **details)
         print(f"ERROR: {message}", file=sys.stderr)
 
     @property
     def has_errors(self) -> bool:
         return bool(self.error_lines)
 
-    def write(
+    def write_legacy(
         self,
         *,
         schedule_files: int,
@@ -127,23 +145,27 @@ class RunLog:
         historical_failed: int,
         latest_succeeded: int,
         latest_failed: int,
+        rows_read: int,
         rows_written: int,
+        publication_completed: bool,
+        stale_managed_outputs_removed: int,
     ) -> None:
-        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LEGACY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-        started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        written_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         lines = [
             "clean_drat.py",
             "=" * 80,
-            f"Log written UTC: {started}",
+            f"Log written UTC: {written_at}",
             "",
             "Paths",
             "-" * 80,
             f"DRAT raw:       {DRAT_RAW_DIR}",
             f"DRAT clean:     {DRAT_CLEAN_DIR}",
             f"Schedule input: {SCHEDULE_WEEKLY_DIR}",
-            f"Log:            {LOG_PATH}",
+            f"JSON report:    {self.reporter.report_path}",
+            f"Legacy log:     {LEGACY_LOG_PATH}",
             "",
             "Summary",
             "-" * 80,
@@ -156,7 +178,10 @@ class RunLog:
             f"Historical files failed:       {historical_failed}",
             f"latest.csv succeeded:           {latest_succeeded}",
             f"latest.csv failed:              {latest_failed}",
+            f"DRAT rows read:                 {rows_read}",
             f"Rows written:                   {rows_written}",
+            f"Publication completed:          {publication_completed}",
+            f"Stale managed outputs removed:  {stale_managed_outputs_removed}",
             f"Warnings:                       {len(self.warning_lines)}",
             f"Errors:                         {len(self.error_lines)}",
             "",
@@ -192,16 +217,39 @@ class RunLog:
                 ]
             )
 
+        if self.has_errors:
+            result = "FAILED"
+        elif self.warning_lines:
+            result = "WARNING"
+        else:
+            result = "SUCCESS"
+
         lines.extend(
             [
                 "Result",
                 "-" * 80,
-                "FAILED" if self.has_errors else "SUCCESS",
+                result,
                 "",
             ]
         )
 
-        LOG_PATH.write_text("\n".join(lines), encoding="utf-8")
+        temporary_path = LEGACY_LOG_PATH.with_name(
+            f".{LEGACY_LOG_PATH.name}.tmp"
+        )
+
+        try:
+            with temporary_path.open(
+                "w",
+                encoding="utf-8",
+                newline="\n",
+            ) as handle:
+                handle.write("\n".join(lines))
+                handle.flush()
+                os.fsync(handle.fileno())
+
+            os.replace(temporary_path, LEGACY_LOG_PATH)
+        finally:
+            temporary_path.unlink(missing_ok=True)
 
 
 def clean_text(value: object) -> str:
@@ -252,6 +300,8 @@ def describe_match_key(key: MatchKey) -> str:
 def read_csv_rows(
     path: Path,
     required_headers: Iterable[str],
+    *,
+    require_rows: bool = False,
 ) -> tuple[list[str], list[dict[str, str]]]:
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -270,11 +320,15 @@ def read_csv_rows(
 
         rows = list(reader)
 
+    if require_rows and not rows:
+        raise ValueError("CSV contains no data rows.")
+
     return fieldnames, rows
 
 
 def build_schedule_index(
     log: RunLog,
+    reporter: PipelineReporter,
 ) -> tuple[ScheduleIndex | None, int, int]:
     if not SCHEDULE_WEEKLY_DIR.exists():
         log.error(
@@ -295,14 +349,19 @@ def build_schedule_index(
     load_failed = False
 
     for schedule_path in schedule_files:
+        reporter.add_input(schedule_path)
+
         try:
             _, rows = read_csv_rows(
                 schedule_path,
                 SCHEDULE_REQUIRED_HEADERS,
+                require_rows=True,
             )
         except Exception as exc:
             log.error(
-                f"Could not read schedule file {schedule_path}: {exc}"
+                f"Could not read schedule file {schedule_path}: {exc}",
+                source=str(schedule_path),
+                error_type=type(exc).__name__,
             )
             load_failed = True
             continue
@@ -318,19 +377,25 @@ def build_schedule_index(
             season, week, home_team, away_team = key
 
             if not season or not week or not home_team or not away_team:
-                log.warning(
-                    f"Skipping schedule row with incomplete match fields: "
+                log.error(
+                    f"Invalid schedule row with incomplete match fields: "
                     f"{schedule_path} row {row_number}; "
-                    f"{describe_match_key(key)}"
+                    f"{describe_match_key(key)}",
+                    source=str(schedule_path),
+                    row_number=row_number,
                 )
+                load_failed = True
                 continue
 
             if not game_id:
-                log.warning(
-                    f"Skipping schedule row with blank game_id: "
+                log.error(
+                    f"Invalid schedule row with blank game_id: "
                     f"{schedule_path} row {row_number}; "
-                    f"{describe_match_key(key)}"
+                    f"{describe_match_key(key)}",
+                    source=str(schedule_path),
+                    row_number=row_number,
                 )
+                load_failed = True
                 continue
 
             schedule_index.setdefault(key, set()).add(game_id)
@@ -362,7 +427,8 @@ def build_schedule_index(
         log.warning(
             f"Schedule data contains {len(ambiguous_keys)} match key(s) "
             "with multiple game_id values. A DRAT row using one of those "
-            "keys will fail rather than choosing a game_id arbitrarily."
+            "keys will fail rather than choosing a game_id arbitrarily.",
+            ambiguous_key_count=len(ambiguous_keys),
         )
 
     return schedule_index, len(schedule_files), schedule_rows_read
@@ -374,37 +440,29 @@ def write_clean_csv(
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    temporary_path = output_path.with_name(
-        f".{output_path.name}.tmp"
-    )
+    with output_path.open(
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OUTPUT_HEADERS,
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
+        writer.writeheader()
 
-    try:
-        with temporary_path.open(
-            "w",
-            encoding="utf-8",
-            newline="",
-        ) as handle:
-            writer = csv.DictWriter(
-                handle,
-                fieldnames=OUTPUT_HEADERS,
-                extrasaction="ignore",
-                lineterminator="\n",
+        for row in rows:
+            writer.writerow(
+                {
+                    header: clean_text(row.get(header))
+                    for header in OUTPUT_HEADERS
+                }
             )
-            writer.writeheader()
 
-            for row in rows:
-                writer.writerow(
-                    {
-                        header: clean_text(row.get(header))
-                        for header in OUTPUT_HEADERS
-                    }
-                )
-
-        temporary_path.replace(output_path)
-
-    finally:
-        if temporary_path.exists():
-            temporary_path.unlink()
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def transform_drat_rows(
@@ -418,6 +476,8 @@ def transform_drat_rows(
 ) -> list[dict[str, str]] | None:
     output_rows: list[dict[str, str]] = []
     file_errors: list[str] = []
+    seen_match_keys: dict[MatchKey, int] = {}
+    seen_game_ids: dict[str, int] = {}
 
     normalized_expected_season = (
         normalize_number(expected_season)
@@ -464,6 +524,17 @@ def transform_drat_rows(
             )
             continue
 
+        prior_match_row = seen_match_keys.get(key)
+        if prior_match_row is not None:
+            file_errors.append(
+                f"{source_path} row {row_number}: duplicate DRAT matchup; "
+                f"first seen at row {prior_match_row}; "
+                f"{describe_match_key(key)}."
+            )
+            continue
+
+        seen_match_keys[key] = row_number
+
         schedule_game_ids = schedule_index.get(key)
 
         if not schedule_game_ids:
@@ -485,6 +556,17 @@ def transform_drat_rows(
 
         schedule_game_id = next(iter(schedule_game_ids))
 
+        prior_game_row = seen_game_ids.get(schedule_game_id)
+        if prior_game_row is not None:
+            file_errors.append(
+                f"{source_path} row {row_number}: duplicate resulting "
+                f"schedule game_id={schedule_game_id!r}; first seen at "
+                f"row {prior_game_row}."
+            )
+            continue
+
+        seen_game_ids[schedule_game_id] = row_number
+
         clean_row = {
             header: clean_text(row.get(header))
             for header in OUTPUT_HEADERS
@@ -497,11 +579,16 @@ def transform_drat_rows(
 
     if file_errors:
         for message in file_errors:
-            log.error(message)
+            log.error(
+                message,
+                source=str(source_path),
+            )
 
         log.error(
-            f"{source_path.name}: clean output was not written because "
-            f"{len(file_errors)} row error(s) were found."
+            f"{source_path.name}: clean output was not staged because "
+            f"{len(file_errors)} row error(s) were found.",
+            source=str(source_path),
+            row_error_count=len(file_errors),
         )
         return None
 
@@ -511,8 +598,9 @@ def transform_drat_rows(
 def process_historical_file(
     source_path: Path,
     schedule_index: ScheduleIndex,
+    staging_dir: Path,
     log: RunLog,
-) -> tuple[bool, int]:
+) -> tuple[bool, int, int, Path | None]:
     match = HISTORICAL_FILENAME_RE.fullmatch(source_path.name)
 
     if match is None:
@@ -520,14 +608,14 @@ def process_historical_file(
             f"Historical filename does not match expected pattern: "
             f"{source_path.name}"
         )
-        return False, 0
+        return False, 0, 0, None
 
     season = match.group("season")
     week_text = match.group("week")
     week_number = int(week_text)
 
     output_path = (
-        DRAT_CLEAN_DIR
+        staging_dir
         / f"{season}_week_{week_number}_drat.csv"
     )
 
@@ -535,10 +623,15 @@ def process_historical_file(
         fieldnames, rows = read_csv_rows(
             source_path,
             EXPECTED_INPUT_HEADERS,
+            require_rows=True,
         )
     except Exception as exc:
-        log.error(f"Could not read {source_path}: {exc}")
-        return False, 0
+        log.error(
+            f"Could not read {source_path}: {exc}",
+            source=str(source_path),
+            error_type=type(exc).__name__,
+        )
+        return False, 0, 0, None
 
     extra_headers = [
         header
@@ -549,7 +642,9 @@ def process_historical_file(
     if extra_headers:
         log.warning(
             f"{source_path.name}: extra input header(s) will be ignored: "
-            + ", ".join(extra_headers)
+            + ", ".join(extra_headers),
+            source=str(source_path),
+            extra_headers=extra_headers,
         )
 
     clean_rows = transform_drat_rows(
@@ -562,39 +657,48 @@ def process_historical_file(
     )
 
     if clean_rows is None:
-        return False, 0
+        return False, len(rows), 0, None
 
     try:
         write_clean_csv(output_path, clean_rows)
     except Exception as exc:
         log.error(
-            f"Could not write clean output {output_path}: {exc}"
+            f"Could not stage clean output {output_path}: {exc}",
+            source=str(source_path),
+            output=str(output_path),
+            error_type=type(exc).__name__,
         )
-        return False, 0
+        return False, len(rows), 0, None
 
     log.info(
-        f"Historical DRAT cleaned: {source_path.name} -> "
+        f"Historical DRAT staged: {source_path.name} -> "
         f"{output_path.name} ({len(clean_rows)} rows)"
     )
 
-    return True, len(clean_rows)
+    return True, len(rows), len(clean_rows), output_path
 
 
 def process_latest_file(
     source_path: Path,
     schedule_index: ScheduleIndex,
+    staging_dir: Path,
     log: RunLog,
-) -> tuple[bool, int]:
-    output_path = DRAT_CLEAN_DIR / "latest.csv"
+) -> tuple[bool, int, int, Path | None, set[str]]:
+    output_path = staging_dir / "latest.csv"
 
     try:
         fieldnames, rows = read_csv_rows(
             source_path,
             EXPECTED_INPUT_HEADERS,
+            require_rows=True,
         )
     except Exception as exc:
-        log.error(f"Could not read {source_path}: {exc}")
-        return False, 0
+        log.error(
+            f"Could not read {source_path}: {exc}",
+            source=str(source_path),
+            error_type=type(exc).__name__,
+        )
+        return False, 0, 0, None, set()
 
     extra_headers = [
         header
@@ -605,7 +709,9 @@ def process_latest_file(
     if extra_headers:
         log.warning(
             f"{source_path.name}: extra input header(s) will be ignored: "
-            + ", ".join(extra_headers)
+            + ", ".join(extra_headers),
+            source=str(source_path),
+            extra_headers=extra_headers,
         )
 
     clean_rows = transform_drat_rows(
@@ -616,43 +722,164 @@ def process_latest_file(
     )
 
     if clean_rows is None:
-        return False, 0
+        return False, len(rows), 0, None, set()
+
+    active_seasons = {
+        normalize_number(row.get("season"))
+        for row in clean_rows
+        if normalize_number(row.get("season"))
+    }
 
     try:
         write_clean_csv(output_path, clean_rows)
     except Exception as exc:
         log.error(
-            f"Could not write clean output {output_path}: {exc}"
+            f"Could not stage clean output {output_path}: {exc}",
+            source=str(source_path),
+            output=str(output_path),
+            error_type=type(exc).__name__,
         )
-        return False, 0
+        return False, len(rows), 0, None, active_seasons
 
     log.info(
-        f"Latest DRAT cleaned: {source_path.name} -> "
+        f"Latest DRAT staged: {source_path.name} -> "
         f"{output_path.name} ({len(clean_rows)} rows)"
     )
 
-    return True, len(clean_rows)
+    return True, len(rows), len(clean_rows), output_path, active_seasons
+
+
+def existing_managed_outputs(active_seasons: set[str]) -> list[Path]:
+    if not DRAT_CLEAN_DIR.exists():
+        return []
+
+    managed: list[Path] = []
+
+    latest_path = DRAT_CLEAN_DIR / "latest.csv"
+    if latest_path.exists():
+        managed.append(latest_path)
+
+    for path in sorted(DRAT_CLEAN_DIR.glob("*_week_*_drat.csv")):
+        match = CLEAN_HISTORICAL_FILENAME_RE.fullmatch(path.name)
+        if match is None:
+            continue
+
+        season = normalize_number(match.group("season"))
+
+        # 2025 historical outputs are outside this cleaner's managed set,
+        # matching the existing behavior that ignores 2025 historical raw data.
+        if season == "2025":
+            continue
+
+        if season in active_seasons:
+            managed.append(path)
+
+    return managed
+
+
+def publish_staged_outputs(
+    staging_dir: Path,
+    active_seasons: set[str],
+    log: RunLog,
+) -> tuple[list[Path], int]:
+    DRAT_CLEAN_DIR.mkdir(parents=True, exist_ok=True)
+
+    staged_files = sorted(
+        path
+        for path in staging_dir.iterdir()
+        if path.is_file()
+    )
+
+    if not staged_files:
+        raise RuntimeError("No staged DRAT outputs are available to publish.")
+
+    staged_names = {path.name for path in staged_files}
+    current_managed = existing_managed_outputs(active_seasons)
+    stale_managed_outputs_removed = sum(
+        1
+        for path in current_managed
+        if path.name not in staged_names
+    )
+
+    backup_dir = Path(
+        tempfile.mkdtemp(
+            prefix=".clean_drat_backup_",
+            dir=DRAT_CLEAN_DIR.parent,
+        )
+    )
+    published_paths: list[Path] = []
+
+    try:
+        for existing_path in current_managed:
+            os.replace(
+                existing_path,
+                backup_dir / existing_path.name,
+            )
+
+        try:
+            for staged_path in staged_files:
+                final_path = DRAT_CLEAN_DIR / staged_path.name
+                os.replace(staged_path, final_path)
+                published_paths.append(final_path)
+
+        except Exception:
+            for final_path in published_paths:
+                final_path.unlink(missing_ok=True)
+
+            for backup_path in backup_dir.iterdir():
+                os.replace(
+                    backup_path,
+                    DRAT_CLEAN_DIR / backup_path.name,
+                )
+
+            raise
+
+    finally:
+        shutil.rmtree(backup_dir, ignore_errors=True)
+
+    log.info(
+        f"Published {len(published_paths)} DRAT clean output(s); "
+        f"removed {stale_managed_outputs_removed} stale managed output(s)."
+    )
+
+    return published_paths, stale_managed_outputs_removed
 
 
 def main() -> int:
-    log = RunLog()
+    with PipelineReporter(
+        script=SCRIPT_PATH,
+        stage="00_intake",
+        report_root=REPORT_ROOT,
+        pipeline="NFL",
+        league="NFL",
+        extra_context={
+            "component": "DRAT cleaner",
+        },
+    ) as reporter:
+        log = RunLog(reporter)
 
-    schedule_files = 0
-    schedule_rows = 0
-    schedule_keys = 0
+        reporter.add_input(DRAT_RAW_DIR)
+        reporter.add_input(SCHEDULE_WEEKLY_DIR)
+        reporter.add_output(LEGACY_LOG_PATH)
 
-    historical_found = 0
-    historical_ignored_2025 = 0
-    historical_succeeded = 0
-    historical_failed = 0
+        schedule_files = 0
+        schedule_rows = 0
+        schedule_keys = 0
 
-    latest_succeeded = 0
-    latest_failed = 0
-    rows_written = 0
+        historical_found = 0
+        historical_ignored_2025 = 0
+        historical_succeeded = 0
+        historical_failed = 0
 
-    try:
-        DRAT_CLEAN_DIR.mkdir(parents=True, exist_ok=True)
-        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        latest_succeeded = 0
+        latest_failed = 0
+        rows_read = 0
+        rows_written = 0
+
+        publication_completed = False
+        stale_managed_outputs_removed = 0
+        published_paths: list[Path] = []
+        active_seasons: set[str] = set()
 
         if not DRAT_RAW_DIR.exists():
             log.error(
@@ -660,7 +887,7 @@ def main() -> int:
             )
         else:
             schedule_index, schedule_files, schedule_rows = (
-                build_schedule_index(log)
+                build_schedule_index(log, reporter)
             )
 
             if schedule_index is not None:
@@ -672,6 +899,8 @@ def main() -> int:
                 latest_path: Path | None = None
 
                 for source_path in raw_csv_files:
+                    reporter.add_input(source_path)
+
                     filename_lower = source_path.name.lower()
 
                     if filename_lower == "latest.csv":
@@ -686,13 +915,21 @@ def main() -> int:
                         )
                         continue
 
-                    if HISTORICAL_FILENAME_RE.fullmatch(source_path.name):
+                    match = HISTORICAL_FILENAME_RE.fullmatch(
+                        source_path.name
+                    )
+
+                    if match:
                         historical_files.append(source_path)
+                        active_seasons.add(
+                            normalize_number(match.group("season"))
+                        )
                         continue
 
                     log.warning(
                         f"Ignored unrecognized CSV in DRAT raw directory: "
-                        f"{source_path.name}"
+                        f"{source_path.name}",
+                        source=str(source_path),
                     )
 
                 historical_found = len(historical_files)
@@ -703,46 +940,106 @@ def main() -> int:
                         "YYYY_wkNN_odds.csv were found."
                     )
 
-                for source_path in historical_files:
-                    success, row_count = process_historical_file(
-                        source_path,
-                        schedule_index,
-                        log,
-                    )
+                with tempfile.TemporaryDirectory(
+                    prefix=".clean_drat_stage_",
+                    dir=DRAT_CLEAN_DIR.parent,
+                ) as staging_name:
+                    staging_dir = Path(staging_name)
 
-                    if success:
-                        historical_succeeded += 1
-                        rows_written += row_count
-                    else:
-                        historical_failed += 1
+                    for source_path in historical_files:
+                        (
+                            success,
+                            input_count,
+                            output_count,
+                            _,
+                        ) = process_historical_file(
+                            source_path,
+                            schedule_index,
+                            staging_dir,
+                            log,
+                        )
 
-                if latest_path is None:
-                    latest_failed += 1
-                    log.error(
-                        f"Required latest.csv was not found at: "
-                        f"{DRAT_RAW_DIR / 'latest.csv'}"
-                    )
-                else:
-                    success, row_count = process_latest_file(
-                        latest_path,
-                        schedule_index,
-                        log,
-                    )
+                        rows_read += input_count
 
-                    if success:
-                        latest_succeeded += 1
-                        rows_written += row_count
-                    else:
+                        if success:
+                            historical_succeeded += 1
+                            rows_written += output_count
+                        else:
+                            historical_failed += 1
+
+                    if latest_path is None:
                         latest_failed += 1
+                        log.error(
+                            f"Required latest.csv was not found at: "
+                            f"{DRAT_RAW_DIR / 'latest.csv'}"
+                        )
+                    else:
+                        (
+                            success,
+                            input_count,
+                            output_count,
+                            _,
+                            latest_seasons,
+                        ) = process_latest_file(
+                            latest_path,
+                            schedule_index,
+                            staging_dir,
+                            log,
+                        )
 
-    except Exception as exc:
-        log.error(
-            f"Unexpected fatal error: "
-            f"{type(exc).__name__}: {exc}"
+                        rows_read += input_count
+                        active_seasons.update(latest_seasons)
+
+                        if success:
+                            latest_succeeded += 1
+                            rows_written += output_count
+                        else:
+                            latest_failed += 1
+
+                    if not log.has_errors:
+                        (
+                            published_paths,
+                            stale_managed_outputs_removed,
+                        ) = publish_staged_outputs(
+                            staging_dir,
+                            active_seasons,
+                            log,
+                        )
+                        publication_completed = True
+
+                        for path in published_paths:
+                            reporter.add_output(path)
+
+        reporter.set_rows(
+            rows_in=rows_read,
+            rows_out=rows_written if publication_completed else 0,
+        )
+        reporter.update_details(
+            {
+                "schedule_files_read": schedule_files,
+                "schedule_rows_read": schedule_rows,
+                "schedule_match_keys_loaded": schedule_keys,
+                "historical_drat_files_found": historical_found,
+                "historical_2025_files_ignored": (
+                    historical_ignored_2025
+                ),
+                "historical_files_succeeded": historical_succeeded,
+                "historical_files_failed": historical_failed,
+                "latest_succeeded": latest_succeeded,
+                "latest_failed": latest_failed,
+                "active_seasons": sorted(active_seasons),
+                "publication_completed": publication_completed,
+                "published_outputs": [
+                    str(path)
+                    for path in published_paths
+                ],
+                "stale_managed_outputs_removed": (
+                    stale_managed_outputs_removed
+                ),
+            }
         )
 
-    try:
-        log.write(
+        log.write_legacy(
             schedule_files=schedule_files,
             schedule_rows=schedule_rows,
             schedule_keys=schedule_keys,
@@ -752,16 +1049,15 @@ def main() -> int:
             historical_failed=historical_failed,
             latest_succeeded=latest_succeeded,
             latest_failed=latest_failed,
-            rows_written=rows_written,
+            rows_read=rows_read,
+            rows_written=(
+                rows_written if publication_completed else 0
+            ),
+            publication_completed=publication_completed,
+            stale_managed_outputs_removed=stale_managed_outputs_removed,
         )
-    except Exception as exc:
-        print(
-            f"ERROR: Could not write log file {LOG_PATH}: {exc}",
-            file=sys.stderr,
-        )
-        return 1
 
-    return 1 if log.has_errors else 0
+        return 1 if log.has_errors else 0
 
 
 if __name__ == "__main__":
