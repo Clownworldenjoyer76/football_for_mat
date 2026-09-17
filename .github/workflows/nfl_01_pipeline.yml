@@ -225,10 +225,8 @@ jobs:
       - name: Build team statistics
         if: env.IS_TUESDAY == 'true'
         run: |
-          set -o pipefail
           python docs/win/football/nfl/scripts/00_intake/pull_team_stats.py \
-            --season "$NFL_SEASON" \
-            2>&1 | tee docs/win/football/nfl/errors/00_intake/pull_team_stats.txt
+            --season "$NFL_SEASON"
 
       - name: Build quarterback statistics
         if: env.IS_TUESDAY == 'true'
