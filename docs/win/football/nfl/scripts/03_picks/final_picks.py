@@ -22,13 +22,15 @@ Selected output:
     total_selected
 - Preserves the selected-market probability, implied probability, edge, EV,
   full Kelly, Kelly, and selection-reason fields required by graded reporting.
+- If an existing selected file contains a game whose commence_time has passed,
+  that existing row is preserved exactly and cannot be replaced or removed.
 
 Locked output:
 - Timestamped immutable copy of the selected output.
 - Timestamp uses America/New_York time.
 
 Projection output:
-- Includes every game for the week.
+- Includes every game currently present in the weekly picks input.
 
 edt_time:
 - Converts commence_time from UTC to America/New_York.
@@ -39,7 +41,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -269,6 +271,67 @@ def build_projection_output(
     ].copy()
 
 
+def started_mask(df: pd.DataFrame) -> pd.Series:
+    kickoff = pd.to_datetime(
+        df["commence_time"],
+        utc=True,
+        errors="coerce",
+    )
+
+    now_utc = pd.Timestamp(datetime.now(timezone.utc))
+    return kickoff.notna() & kickoff.le(now_utc)
+
+
+def preserve_started_selected_rows(
+    selected_output: pd.DataFrame,
+    selected_output_path: Path,
+) -> pd.DataFrame:
+    if not selected_output_path.exists():
+        return selected_output
+
+    existing = pd.read_csv(
+        selected_output_path,
+        dtype=str,
+        keep_default_na=False,
+    )
+
+    require_columns(
+        existing,
+        SELECTED_OUTPUT_COLUMNS,
+        str(selected_output_path),
+    )
+
+    existing = existing[
+        SELECTED_OUTPUT_COLUMNS
+    ].copy()
+
+    existing_started = existing.loc[
+        started_mask(existing)
+    ].copy()
+
+    if existing_started.empty:
+        return selected_output
+
+    started_game_ids = {
+        clean(value)
+        for value in existing_started["game_id"]
+        if clean(value)
+    }
+
+    current_unstarted = selected_output.loc[
+        ~selected_output["game_id"].map(clean).isin(started_game_ids)
+    ].copy()
+
+    combined = pd.concat(
+        [existing_started, current_unstarted],
+        ignore_index=True,
+    )
+
+    return combined[
+        SELECTED_OUTPUT_COLUMNS
+    ].copy()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
@@ -341,6 +404,11 @@ def main() -> None:
     PROJECTION_OUTPUT_DIR.mkdir(
         parents=True,
         exist_ok=True,
+    )
+
+    selected_output = preserve_started_selected_rows(
+        selected_output,
+        selected_output_path,
     )
 
     selected_output.to_csv(
