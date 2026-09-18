@@ -237,7 +237,9 @@ jobs:
       - name: Update league master and standings
         if: env.IS_TUESDAY == 'true'
         run: |
-          python docs/win/football/nfl/scripts/00_intake/league_master.py
+          python docs/win/football/nfl/scripts/00_intake/league_master.py \
+            --season "$NFL_SEASON" \
+            --season-type "$NFL_SEASON_TYPE"
 
       - name: Update coaches
         if: env.IS_TUESDAY == 'true'
