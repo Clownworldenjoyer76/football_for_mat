@@ -244,7 +244,8 @@ jobs:
       - name: Update coaches
         if: env.IS_TUESDAY == 'true'
         run: |
-          python docs/win/football/nfl/scripts/00_intake/coaches.py
+          python docs/win/football/nfl/scripts/00_intake/coaches.py \
+            --season "$NFL_SEASON"
 
       - name: Pull QBR
         if: env.IS_TUESDAY == 'true'
