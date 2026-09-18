@@ -270,7 +270,8 @@ jobs:
       - name: Pull market futures
         if: env.IS_TUESDAY == 'true'
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_market_futures.py
+          python docs/win/football/nfl/scripts/00_intake/pull_market_futures.py \
+            --season "$NFL_SEASON"
 
       # ============================================================
       # NFL 02 DAILY - EVERY RUN
