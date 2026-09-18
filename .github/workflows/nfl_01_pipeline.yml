@@ -250,7 +250,8 @@ jobs:
       - name: Pull QBR
         if: env.IS_TUESDAY == 'true'
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_qbr.py
+          python docs/win/football/nfl/scripts/00_intake/pull_qbr.py \
+            --season "$NFL_SEASON"
 
       - name: Pull team power index
         if: env.IS_TUESDAY == 'true'
