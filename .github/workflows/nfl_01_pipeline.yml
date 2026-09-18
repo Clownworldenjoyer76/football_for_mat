@@ -262,7 +262,8 @@ jobs:
       - name: Pull league leaders
         if: env.IS_TUESDAY == 'true'
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_league_leaders.py
+          python docs/win/football/nfl/scripts/00_intake/pull_league_leaders.py \
+            --season "$NFL_SEASON"
 
       - name: Pull market futures
         if: env.IS_TUESDAY == 'true'
