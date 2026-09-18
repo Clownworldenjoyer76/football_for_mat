@@ -299,7 +299,10 @@ jobs:
 
       - name: Build weekly schedule
         run: |
-          python docs/win/football/nfl/scripts/00_intake/build_weekly_schedule.py
+          python docs/win/football/nfl/scripts/00_intake/build_weekly_schedule.py \
+            --season "$NFL_SEASON" \
+            --season-type "$NFL_SEASON_TYPE_NAME" \
+            --week "$NFL_WEEK"
 
       - name: Verify weekly schedule matches settings
         shell: bash
