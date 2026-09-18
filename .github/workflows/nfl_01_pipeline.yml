@@ -155,9 +155,10 @@ jobs:
           NFL_SEASON="$(awk -F': *' '$1 == "season" {print $2; exit}' "$SETTINGS")"
           NFL_WEEK="$(awk -F': *' '$1 == "week" {print $2; exit}' "$SETTINGS")"
           NFL_SEASON_TYPE_NAME="$(awk -F': *' '$1 == "season_type" {print $2; exit}' "$SETTINGS")"
+          NFL_SPORTSBOOK="$(awk -F': *' '$1 == "sportsbook" {print $2; exit}' "$SETTINGS")"
 
-          if [ -z "$NFL_SEASON" ] || [ -z "$NFL_WEEK" ] || [ -z "$NFL_SEASON_TYPE_NAME" ]; then
-            echo "ERROR: season/week/season_type missing from $SETTINGS"
+          if [ -z "$NFL_SEASON" ] || [ -z "$NFL_WEEK" ] || [ -z "$NFL_SEASON_TYPE_NAME" ] || [ -z "$NFL_SPORTSBOOK" ]; then
+            echo "ERROR: season/week/season_type/sportsbook missing from $SETTINGS"
             exit 1
           fi
 
@@ -175,7 +176,8 @@ jobs:
           echo "NFL_WEEK=$NFL_WEEK" >> "$GITHUB_ENV"
           echo "NFL_SEASON_TYPE_NAME=$NFL_SEASON_TYPE_NAME" >> "$GITHUB_ENV"
           echo "NFL_SEASON_TYPE=$NFL_SEASON_TYPE" >> "$GITHUB_ENV"
-          echo "Configured NFL season=$NFL_SEASON season_type=$NFL_SEASON_TYPE_NAME week=$NFL_WEEK"
+          echo "NFL_SPORTSBOOK=$NFL_SPORTSBOOK" >> "$GITHUB_ENV"
+          echo "Configured NFL season=$NFL_SEASON season_type=$NFL_SEASON_TYPE_NAME week=$NFL_WEEK sportsbook=$NFL_SPORTSBOOK"
 
       - name: Determine Tuesday mode
         shell: bash
@@ -288,7 +290,11 @@ jobs:
 
       - name: Pull current odds
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_odds.py
+          python docs/win/football/nfl/scripts/00_intake/pull_odds.py \
+            --season "$NFL_SEASON" \
+            --season-type "$NFL_SEASON_TYPE" \
+            --week "$NFL_WEEK" \
+            --sportsbook "$NFL_SPORTSBOOK"
 
       - name: Build weekly schedule
         run: |
