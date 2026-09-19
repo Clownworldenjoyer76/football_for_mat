@@ -366,7 +366,9 @@ jobs:
 
       - name: Build travel data
         run: |
-          python docs/win/football/nfl/scripts/00_intake/build_travel.py
+          python docs/win/football/nfl/scripts/00_intake/build_travel.py \
+            --season "$NFL_SEASON" \
+            --week "$NFL_WEEK"
 
       - name: Validate Tuesday outputs
         if: env.IS_TUESDAY == 'true'
