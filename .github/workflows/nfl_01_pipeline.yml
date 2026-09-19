@@ -398,7 +398,9 @@ jobs:
 
       - name: Build ESPN opening odds and movement
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_opening_odds.py
+          python docs/win/football/nfl/scripts/00_intake/pull_opening_odds.py \
+            --season "$NFL_SEASON" \
+            --week "$NFL_WEEK"
 
       - name: Pull raw roster
         run: |
