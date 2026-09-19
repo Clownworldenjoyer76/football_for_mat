@@ -404,7 +404,8 @@ jobs:
 
       - name: Pull raw roster
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_raw_roster.py
+          python docs/win/football/nfl/scripts/00_intake/pull_raw_roster.py \
+            --season "$NFL_SEASON"
 
       - name: Clean roster
         run: |
