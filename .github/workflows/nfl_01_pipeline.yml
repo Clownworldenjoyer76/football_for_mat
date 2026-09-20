@@ -437,7 +437,8 @@ jobs:
 
       - name: Pull ESPN predictions
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_e_predictions.py
+          python docs/win/football/nfl/scripts/00_intake/pull_e_predictions.py \
+            --season "$NFL_SEASON"
 
       - name: Validate daily outputs
         run: |
