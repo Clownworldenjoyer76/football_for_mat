@@ -442,7 +442,10 @@ jobs:
 
       - name: Validate daily outputs
         run: |
-          python docs/win/football/nfl/scripts/validation/validate_daily.py
+          python docs/win/football/nfl/scripts/validation/validate_daily.py \
+            --season "$NFL_SEASON" \
+            --season-type "$NFL_SEASON_TYPE_NAME" \
+            --week "$NFL_WEEK"
 
       - name: Commit and push all daily outputs
         run: |
