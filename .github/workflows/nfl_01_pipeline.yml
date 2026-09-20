@@ -431,7 +431,9 @@ jobs:
 
       - name: Fetch weather
         run: |
-          python docs/win/football/nfl/scripts/00_intake/fetch_weather.py
+          python docs/win/football/nfl/scripts/00_intake/fetch_weather.py \
+            --season "$NFL_SEASON" \
+            --week "$NFL_WEEK"
 
       - name: Pull ESPN predictions
         run: |
