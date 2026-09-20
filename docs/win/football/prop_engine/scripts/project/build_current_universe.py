@@ -563,6 +563,9 @@ class IdentityResolver:
         if len(direct) > 1:
             raise ValueError(f"Conflicting native GSIS IDs for candidate: {sorted(direct)}")
         direct_gsis = next(iter(direct), "")
+        if direct_gsis:
+            return direct_gsis, "native_current_roster_gsis"
+
         alias_resolutions: set[str] = set()
         for espn in record["espn_ids"]:
             if espn in self.by_espn:
@@ -573,10 +576,6 @@ class IdentityResolver:
         if len(alias_resolutions) > 1:
             raise ValueError(f"Conflicting crosswalk identities for candidate: {sorted(alias_resolutions)}")
         alias_gsis = next(iter(alias_resolutions), "")
-        if direct_gsis and alias_gsis and direct_gsis != alias_gsis:
-            raise ValueError(f"Native/current crosswalk GSIS conflict: native={direct_gsis}, crosswalk={alias_gsis}")
-        if direct_gsis:
-            return direct_gsis, "native_current_roster_gsis"
         if alias_gsis:
             return alias_gsis, "crosswalk_id_alias"
         normalized_names = [common.normalize_name(value) for value in record["names"] if common.normalize_name(value)]
@@ -777,7 +776,17 @@ def latest_current_roster_rows(
         gsis = common.normalize_player_id(row.get(gsis_col))
         espn = common.normalize_player_id(row.get(espn_col)) if espn_col else ""
         name = clean(row.get(name_col))
-        key = candidate_key(team, espn, gsis, name)
+        if espn:
+            key = ("", "espn", espn)
+        elif gsis:
+            key = ("", "gsis", gsis)
+        else:
+            normalized_name = common.normalize_name(name)
+            if not normalized_name:
+                raise ValueError(
+                    f"Cannot key current roster row for team={team}: no ID or name"
+                )
+            key = (team, "name", normalized_name)
         previous = rows.get(key)
         if previous is None or (source_week, index) >= (previous[0], previous[1]):
             rows[key] = (

@@ -27,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           ref: ${{ github.ref_name }}
           persist-credentials: true
 
@@ -445,7 +445,10 @@ jobs:
       - name: Run prop organizer stage 2
         run: python docs/win/football/prop_engine/scripts/prop_organizer_stage2.py
 
-      - name: Combine props
+      - name: Rebuild all prop selections
+        run: python docs/win/football/prop_engine/scripts/props_combined.py
+
+      - name: Rebuild and lock current-week prop selections
         run: python docs/win/football/prop_engine/scripts/props_combined.py --season "$NFL_SEASON" --week "$NFL_WEEK"
 
       - name: Grade props
@@ -482,6 +485,7 @@ jobs:
         run: |
           git add -A -- \
             "$PROP_ENGINE_ROOT/data/current" \
+            "$PROP_ENGINE_ROOT/data/identity" \
             "$PROP_ENGINE_ROOT/evaluation" \
             "$PROP_ENGINE_ROOT/logs" \
             "$PROP_ENGINE_ROOT/output" \
@@ -501,5 +505,58 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
             git commit -m "Update NFL Prop Engine ${NFL_SEASON} Week ${NFL_WEEK}"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+
+            if ! git diff --quiet; then
+              echo "::error::Tracked unstaged changes remain after the Prop Engine output commit."
+              git diff --name-only
+              exit 1
+            fi
+
+            rebase_onto_remote() {
+              remote_ref="refs/remotes/origin/${GITHUB_REF_NAME}"
+
+              if ! git fetch --no-tags origin \
+                "+refs/heads/${GITHUB_REF_NAME}:${remote_ref}"; then
+                echo "::error::Fetch failed before Prop Engine output rebase."
+                exit 1
+              fi
+
+              if ! git merge-base --is-ancestor "$GITHUB_SHA" "$remote_ref"; then
+                echo "::error::Remote branch history no longer contains workflow starting commit $GITHUB_SHA."
+                exit 1
+              fi
+
+              if ! git rebase "$remote_ref"; then
+                git rebase --abort || true
+                echo "::error::Rebase failed. Prop Engine output commit was not pushed."
+                exit 1
+              fi
+            }
+
+            rebase_onto_remote
+
+            push_output=""
+
+            if push_output="$(git push origin "HEAD:${GITHUB_REF_NAME}" 2>&1)"; then
+              printf '%s\n' "$push_output"
+            else
+              printf '%s\n' "$push_output"
+
+              if [[ "$push_output" != *"(fetch first)"* && "$push_output" != *"(non-fast-forward)"* ]]; then
+                echo "::error::Push failed for a reason other than a concurrent remote update."
+                exit 1
+              fi
+
+              echo "Remote advanced during push. Fetching and rebasing before one retry."
+
+              rebase_onto_remote
+
+              if push_output="$(git push origin "HEAD:${GITHUB_REF_NAME}" 2>&1)"; then
+                printf '%s\n' "$push_output"
+              else
+                printf '%s\n' "$push_output"
+                echo "::error::Push failed after concurrent-update retry."
+                exit 1
+              fi
+            fi
           fi

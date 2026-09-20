@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build NFL Prop Engine dashboard reports from the 2026 graded prop file."""
+"""Build NFL Prop Engine dashboard reports using the active markets configuration."""
 
 from __future__ import annotations
 
@@ -7,6 +7,12 @@ import csv
 import math
 from pathlib import Path
 from typing import Any
+
+from props_combined import (
+    PROP_LINE_COLUMNS,
+    filter_rows as apply_market_filters,
+    load_markets,
+)
 
 
 PROP_ENGINE_ROOT = Path("docs/win/football/prop_engine")
@@ -24,15 +30,7 @@ DASHBOARD_ROOT = (
     / "dashboard"
 )
 
-MARKETS = {
-    "kicking_points": "actual_prop_total_kicking_points",
-    "passing_rushing_yards": "actual_prop_total_passing_plus_rushing_yards",
-    "passing_yards": "actual_prop_total_passing_yards",
-    "receiving_yards": "actual_prop_total_receiving_yards",
-    "rushing_receiving_yards": "actual_prop_total_rushing_plus_receiving_yards",
-    "rushing_yards": "actual_prop_total_rushing_yards",
-    "tackles": "actual_prop_total_tackles",
-}
+MARKETS = dict(PROP_LINE_COLUMNS)
 
 VARIABLES = {
     "actual_prop_total_*": {
@@ -408,7 +406,12 @@ def write_report(
 
 
 def main() -> None:
-    rows = read_graded_rows()
+    markets = load_markets()
+
+    rows = apply_market_filters(
+        read_graded_rows(),
+        markets,
+    )
 
     for market_name, market_line_column in MARKETS.items():
         market_rows = [

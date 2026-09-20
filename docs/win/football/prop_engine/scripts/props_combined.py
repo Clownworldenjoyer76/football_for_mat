@@ -453,6 +453,34 @@ def write_csv(
             )
 
 
+def validate_stage3_output(
+    path: Path,
+    expected_row_count: int,
+    markets: dict[str, Any],
+) -> None:
+    _, written_rows = read_csv(path)
+
+    if len(written_rows) != expected_row_count:
+        fail(
+            "Stage 3 output row-count mismatch: "
+            f"path={path} "
+            f"expected={expected_row_count} "
+            f"actual={len(written_rows)}"
+        )
+
+    for row in written_rows:
+        if row_passes_filters(row, markets):
+            continue
+
+        fail(
+            "Stage 3 output contains a selection that violates "
+            "the active markets.yaml: "
+            f"path={path} "
+            f"game_id={clean(row.get('game_id'))} "
+            f"player_name={clean(row.get('player_name'))}"
+        )
+
+
 def write_locked_snapshot(
     source_path: Path,
     season: str,
@@ -546,6 +574,12 @@ def process_week(
         output_path,
         fieldnames,
         filtered_rows,
+    )
+
+    validate_stage3_output(
+        output_path,
+        len(filtered_rows),
+        markets,
     )
 
     if lock_snapshot:
