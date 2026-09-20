@@ -426,7 +426,8 @@ jobs:
 
       - name: Pull injuries
         run: |
-          python docs/win/football/nfl/scripts/00_intake/pull_injuries.py
+          python docs/win/football/nfl/scripts/00_intake/pull_injuries.py \
+            --season "$NFL_SEASON"
 
       - name: Fetch weather
         run: |
