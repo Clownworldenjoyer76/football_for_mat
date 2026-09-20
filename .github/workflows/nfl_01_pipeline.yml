@@ -482,7 +482,9 @@ jobs:
           pip install -r docs/win/football/nfl/requirements.txt
 
       - name: Run clean_e_pred.py
-        run: python docs/win/football/nfl/scripts/00_intake/clean_e_pred.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/clean_e_pred.py \
+            --season "$NFL_SEASON"
 
       - name: Run finalize_pred.py
         run: python docs/win/football/nfl/scripts/00_intake/finalize_pred.py
