@@ -413,7 +413,8 @@ jobs:
 
       - name: Pull depth charts
         run: |
-          python docs/win/football/nfl/scripts/00_intake/depth_chart.py
+          python docs/win/football/nfl/scripts/00_intake/depth_chart.py \
+            --season "$NFL_SEASON"
 
       - name: Clean depth charts
         run: |
