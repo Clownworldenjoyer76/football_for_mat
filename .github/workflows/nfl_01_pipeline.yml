@@ -487,7 +487,9 @@ jobs:
             --season "$NFL_SEASON"
 
       - name: Run finalize_pred.py
-        run: python docs/win/football/nfl/scripts/00_intake/finalize_pred.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/finalize_pred.py \
+            --season "$NFL_SEASON"
 
       - name: Run enrich_moneyline.py
         run: python docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py
