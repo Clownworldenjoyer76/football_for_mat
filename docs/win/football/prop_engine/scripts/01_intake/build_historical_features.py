@@ -18,6 +18,7 @@ READS:
 WRITES:
     docs/win/football/prop_engine/01_intake/player_game_features.parquet
     docs/win/football/prop_engine/01_intake/feature_manifest.json
+    docs/win/football/prop_engine/errors/01_intake/build_historical_features.json
 
 POLICY:
     - Canonical grain is season + week + game_id + player_id.
@@ -40,6 +41,7 @@ import json
 import os
 import sys
 import tempfile
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -71,10 +73,6 @@ LEADING_COLUMNS = [
     "home_flag",
 ]
 
-REQUIRED_TARGET_ORDER = list(common.load_config()["targets"].keys())
-
-TARGET_COLUMNS = [f"target_{name}" for name in REQUIRED_TARGET_ORDER]
-
 REQUIRED_MATCHUP_COLUMNS = [
     "matchup_expected_team_plays",
     "matchup_expected_team_dropbacks",
@@ -105,15 +103,6 @@ PLAYER_FORM_KEYS = set(
     GRAIN + ["team", "position", "position_group"]
 )
 TEAM_FORM_KEYS = {"season", "week", "team"}
-ENVIRONMENT_KEYS = {
-    "season",
-    "week",
-    "game_id",
-    "gameday",
-    "home_team",
-    "away_team",
-}
-
 PLAYER_HISTORY_COLUMNS = [
     "no_nfl_history_flag",
     "new_team_flag",
@@ -160,6 +149,257 @@ TEAM_FORM_SAFE_SUFFIXES = (
     "_season_to_date",
 )
 
+VALID_TARGET_TYPES = {
+    "continuous_signed",
+    "count_nonnegative",
+    "derived_count",
+}
+
+PLAYER_FORM_METRICS = [
+    "pass_attempts",
+    "dropbacks",
+    "completions",
+    "passing_yards",
+    "passing_tds",
+    "yards_per_attempt",
+    "passing_td_rate",
+    "passing_air_yards",
+    "carries",
+    "rushing_yards",
+    "rushing_tds",
+    "yards_per_carry",
+    "carry_share",
+    "red_zone_carries",
+    "goal_line_carries",
+    "targets",
+    "receptions",
+    "receiving_yards",
+    "receiving_tds",
+    "yards_per_target",
+    "catch_rate",
+    "target_share",
+    "air_yards_share",
+    "red_zone_targets",
+    "red_zone_target_share",
+    "field_goal_attempts",
+    "field_goals_made",
+    "extra_point_attempts",
+    "extra_points_made",
+    "tackles",
+    "sacks",
+    "qb_hits",
+    "tackle_rate_per_def_play",
+    "sack_rate_per_def_play",
+    "qb_hit_rate_per_def_play",
+    "offense_snap_pct",
+    "defense_snap_pct",
+    "offense_participation",
+    "defense_participation",
+]
+
+PLAYER_FORM_SUFFIXES = [
+    "lag1",
+    "roll3_mean",
+    "roll5_mean",
+    "roll8_mean",
+    "roll3_median",
+    "roll5_std",
+    "ewm3",
+    "ewm5",
+    "season_to_date",
+    "career_prior",
+]
+
+TEAM_FORM_METRICS = [
+    "offensive_plays",
+    "drives",
+    "dropbacks",
+    "pass_attempts",
+    "rush_attempts",
+    "pass_rate",
+    "rush_rate",
+    "points_per_drive",
+    "red_zone_drives",
+    "red_zone_pass_attempts",
+    "red_zone_rush_attempts",
+    "goal_line_rush_attempts",
+    "field_goal_attempts",
+    "extra_point_attempts",
+    "off_epa_per_play",
+    "off_success_rate",
+    "yards_per_play",
+    "red_zone_td_rate",
+    "early_down_epa",
+    "third_down_conversion_rate",
+]
+
+OPPONENT_FORM_METRICS = [
+    "defensive_plays",
+    "opponent_dropbacks",
+    "opponent_pass_attempts",
+    "opponent_rush_attempts",
+    "passing_yards_allowed",
+    "rushing_yards_allowed",
+    "passing_tds_allowed",
+    "rushing_tds_allowed",
+    "sacks",
+    "qb_hits",
+    "red_zone_pass_attempts_allowed",
+    "red_zone_rush_attempts_allowed",
+    "goal_line_rush_attempts_allowed",
+    "def_epa_per_play",
+    "def_success_rate",
+    "yards_per_play_allowed",
+    "points_per_drive_allowed",
+    "red_zone_td_rate_allowed",
+]
+
+ROLE_SOURCE_COLUMNS = GRAIN + [
+    "team",
+    "position",
+    "depth_rank_pregame",
+    "depth_starter_flag_pregame",
+    "injury_status_pregame",
+    "injury_out_flag",
+    "injury_doubtful_flag",
+    "injury_questionable_flag",
+    "prior_offense_snap_pct",
+    "prior_defense_snap_pct",
+    "snap_pct_roll3",
+    "snap_pct_roll5",
+    "snap_pct_ewm3",
+    "snap_pct_ewm5",
+    "prior_offense_participation",
+    "prior_defense_participation",
+    "participation_roll3",
+    "participation_roll5",
+    "depth_rank_change",
+    "snap_share_change",
+    "participation_change",
+    "team_change_flag",
+    "games_with_current_team_before_game",
+    "starter_promotion_flag",
+    "starter_demotion_flag",
+    "teammate_out_count_position",
+    "teammate_unavailable_snap_share_position",
+    "role_history_games",
+    "role_missing_flag",
+]
+
+PLAYER_FORM_SOURCE_COLUMNS = (
+    GRAIN
+    + ["team", "position", "position_group"]
+    + [
+        f"{metric}_{suffix}"
+        for metric in PLAYER_FORM_METRICS
+        for suffix in PLAYER_FORM_SUFFIXES
+    ]
+    + PLAYER_HISTORY_COLUMNS
+)
+
+TEAM_FORM_SOURCE_COLUMNS = (
+    ["season", "week", "team"]
+    + [
+        f"{metric}{suffix}"
+        for metric in TEAM_FORM_METRICS
+        for suffix in TEAM_FORM_SAFE_SUFFIXES
+    ]
+)
+
+OPPONENT_FORM_SOURCE_COLUMNS = (
+    ["season", "week", "team"]
+    + [
+        f"{metric}{suffix}"
+        for metric in OPPONENT_FORM_METRICS
+        for suffix in TEAM_FORM_SAFE_SUFFIXES
+    ]
+)
+
+DEFENSIVE_SOURCE_COLUMNS = GRAIN + [
+    "position",
+    "def_snap_pct_lag1",
+    "def_snap_pct_roll3",
+    "def_participation_lag1",
+    "def_participation_roll3",
+    "tackles_lag1",
+    "tackles_roll3",
+    "tackles_roll5",
+    "tackle_rate_roll3",
+    "tackle_rate_roll5",
+    "sacks_lag1",
+    "sacks_roll3",
+    "sacks_roll5",
+    "sack_rate_roll5",
+    "qb_hits_roll3",
+    "qb_hits_roll5",
+    "opponent_plays_roll3",
+    "opponent_dropbacks_roll3",
+    "opponent_rush_rate_roll3",
+    "opponent_pass_rate_roll3",
+    "team_def_sack_rate_roll3",
+    "starter_flag",
+    "front7_flag",
+    "secondary_flag",
+]
+
+KICKING_SOURCE_COLUMNS = GRAIN + [
+    "team",
+    "fg_attempts_lag1",
+    "fg_attempts_roll3",
+    "fg_attempts_roll5",
+    "fg_make_pct_career_prior",
+    "fg_make_pct_season_prior",
+    "pat_attempts_roll3",
+    "pat_make_pct_career_prior",
+    "team_drives_roll3",
+    "team_points_per_drive_roll3",
+    "team_red_zone_td_rate_roll3",
+    "opponent_points_per_drive_allowed_roll3",
+    "opponent_red_zone_td_rate_allowed_roll3",
+    "temperature",
+    "wind",
+    "roof",
+    "surface",
+    "primary_kicker_flag",
+]
+
+POSITION_ALLOWED_VALUE_COLUMNS = [
+    "players_faced",
+    "targets_allowed",
+    "receptions_allowed",
+    "receiving_yards_allowed",
+    "receiving_tds_allowed",
+    "carries_allowed",
+    "rushing_yards_allowed",
+    "rushing_tds_allowed",
+    "passing_yards_allowed",
+    "passing_tds_allowed",
+    "tackles_generated",
+    "raw_rate_sample_size",
+    "league_rate",
+    "shrunk_rate",
+]
+
+POSITION_ALLOWED_SOURCE_COLUMNS = (
+    POSITION_ALLOWED_KEYS
+    + POSITION_ALLOWED_VALUE_COLUMNS
+)
+
+ENVIRONMENT_NUMERIC_COLUMNS = [
+    "divisional_game_flag",
+    "neutral_site_flag",
+    "temperature",
+    "wind",
+    "home_rest_days",
+    "away_rest_days",
+    "miles_traveled_away",
+    "time_zones_crossed_away",
+    "east_to_west_flag",
+    "west_to_east_flag",
+    "international_flag",
+    "weather_missing_flag",
+    "travel_missing_flag",
+]
 FINAL_SCORE_FORBIDDEN_NAMES = {
     "score",
     "home_score",
@@ -233,8 +473,340 @@ def canonical_franchise(value: Any) -> str:
     return HISTORICAL_FRANCHISE_ALIASES.get(team, team)
 
 
+
 def normalize_position_group(value: Any) -> str:
     return clean_text(value).upper()
+
+
+def normalize_position(value: Any) -> str:
+    return clean_text(value).upper().replace(" ", "")
+
+
+def validate_target_config(
+    config: dict,
+) -> tuple[list[str], list[str]]:
+    targets = config.get("targets")
+
+    if not isinstance(targets, dict) or not targets:
+        raise ValueError(
+            "Config section 'targets' must be a non-empty mapping."
+        )
+
+    order: list[str] = []
+
+    for raw_name, spec in targets.items():
+        name = clean_text(raw_name)
+
+        if not name or name != str(raw_name):
+            raise ValueError(
+                f"Invalid configured target name: {raw_name!r}"
+            )
+
+        if not isinstance(spec, dict):
+            raise ValueError(
+                f"Configured target {name!r} must be a mapping."
+            )
+
+        target_type = clean_text(spec.get("type"))
+
+        if target_type not in VALID_TARGET_TYPES:
+            raise ValueError(
+                f"Configured target {name!r} has invalid type "
+                f"{target_type!r}; expected one of "
+                f"{sorted(VALID_TARGET_TYPES)}."
+            )
+
+        order.append(name)
+
+    target_columns = [
+        f"target_{name}"
+        for name in order
+    ]
+
+    if len(target_columns) != len(set(target_columns)):
+        raise ValueError(
+            "Configured target names produce duplicate output columns."
+        )
+
+    return order, target_columns
+
+
+def validate_exact_columns(
+    frame: pd.DataFrame,
+    expected: list[str],
+    label: str,
+) -> None:
+    duplicate_columns = (
+        frame.columns[
+            frame.columns.duplicated()
+        ]
+        .astype(str)
+        .tolist()
+    )
+
+    if duplicate_columns:
+        raise ValueError(
+            f"{label}: duplicate source columns: "
+            f"{duplicate_columns[:20]}"
+        )
+
+    expected_set = set(expected)
+    actual_set = set(frame.columns)
+
+    missing = sorted(expected_set - actual_set)
+    unexpected = sorted(actual_set - expected_set)
+
+    if missing or unexpected:
+        raise ValueError(
+            f"{label}: source schema mismatch. "
+            f"missing={missing[:30]} "
+            f"unexpected={unexpected[:30]}"
+        )
+
+
+def strict_numeric(
+    series: pd.Series,
+    *,
+    label: str | None = None,
+) -> pd.Series:
+    converted = pd.to_numeric(
+        series,
+        errors="coerce",
+    ).astype("float64")
+
+    invalid = (
+        series.map(clean_text).ne("")
+        & converted.isna()
+    )
+
+    if invalid.any():
+        sample = (
+            series.loc[invalid]
+            .head(10)
+            .tolist()
+        )
+        raise ValueError(
+            f"{label or clean_text(series.name) or 'numeric source'} "
+            f"contains nonnumeric value(s); sample={sample}"
+        )
+
+    infinite = pd.Series(
+        np.isinf(
+            converted.to_numpy(
+                dtype="float64",
+                copy=False,
+            )
+        ),
+        index=converted.index,
+    )
+
+    if infinite.any():
+        sample = (
+            series.loc[infinite]
+            .head(10)
+            .tolist()
+        )
+        raise ValueError(
+            f"{label or clean_text(series.name) or 'numeric source'} "
+            f"contains infinite value(s); sample={sample}"
+        )
+
+    return converted
+
+
+def validate_numeric_columns(
+    frame: pd.DataFrame,
+    columns: list[str],
+    *,
+    label: str,
+) -> None:
+    common.require_columns(
+        frame,
+        columns,
+        label,
+    )
+
+    for column in columns:
+        frame[column] = strict_numeric(
+            frame[column],
+            label=f"{label}.{column}",
+        )
+
+
+def validate_source_metadata(
+    universe: pd.DataFrame,
+    source: pd.DataFrame,
+    *,
+    label: str,
+    mappings: list[tuple[str, str, str]],
+) -> None:
+    source_columns = [
+        source_column
+        for source_column, _, _ in mappings
+    ]
+    universe_columns = list(
+        dict.fromkeys(
+            universe_column
+            for _, universe_column, _ in mappings
+        )
+    )
+
+    common.require_columns(
+        source,
+        GRAIN + source_columns,
+        label,
+    )
+    common.require_columns(
+        universe,
+        GRAIN + universe_columns,
+        "historical universe metadata",
+    )
+
+    left = source[GRAIN + source_columns].copy()
+    right = universe[GRAIN + universe_columns].copy()
+
+    for index, (
+        source_column,
+        universe_column,
+        _,
+    ) in enumerate(mappings):
+        left = left.rename(
+            columns={
+                source_column: f"__source_{index}",
+            }
+        )
+        right = right.rename(
+            columns={
+                universe_column: f"__universe_{index}",
+            }
+        )
+
+    probe = left.merge(
+        right,
+        on=GRAIN,
+        how="left",
+        indicator=True,
+        validate="one_to_one",
+    )
+
+    missing = probe["_merge"].ne("both")
+
+    if missing.any():
+        sample = (
+            probe.loc[missing, GRAIN]
+            .head(10)
+            .to_dict("records")
+        )
+        raise ValueError(
+            f"{label}: metadata row absent from historical universe; "
+            f"sample={sample}"
+        )
+
+    for index, (
+        source_column,
+        universe_column,
+        kind,
+    ) in enumerate(mappings):
+        source_values = probe[f"__source_{index}"]
+        universe_values = probe[f"__universe_{index}"]
+
+        if kind == "team":
+            source_values = source_values.map(
+                canonical_franchise
+            )
+            universe_values = universe_values.map(
+                canonical_franchise
+            )
+        elif kind == "position":
+            source_values = source_values.map(
+                normalize_position
+            )
+            universe_values = universe_values.map(
+                normalize_position
+            )
+        elif kind == "position_group":
+            source_values = source_values.map(
+                normalize_position_group
+            )
+            universe_values = universe_values.map(
+                normalize_position_group
+            )
+        else:
+            raise ValueError(
+                f"Unsupported metadata comparison kind: {kind}"
+            )
+
+        mismatch = source_values.ne(universe_values)
+
+        if mismatch.any():
+            sample = (
+                probe.loc[mismatch, GRAIN]
+                .head(10)
+                .to_dict("records")
+            )
+            raise ValueError(
+                f"{label}: {source_column} disagrees with "
+                f"historical universe {universe_column}; "
+                f"sample={sample}"
+            )
+
+
+def validate_key_coverage(
+    required: pd.DataFrame,
+    source: pd.DataFrame,
+    *,
+    required_columns: list[str],
+    source_columns: list[str],
+    label: str,
+) -> None:
+    if len(required_columns) != len(source_columns):
+        raise ValueError(
+            f"{label}: coverage-key definition length mismatch."
+        )
+
+    common.require_columns(
+        required,
+        required_columns,
+        f"{label} required keys",
+    )
+    common.require_columns(
+        source,
+        source_columns,
+        f"{label} source keys",
+    )
+
+    left = (
+        required[required_columns]
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+    right = (
+        source[source_columns]
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+    right.columns = required_columns
+
+    probe = left.merge(
+        right,
+        on=required_columns,
+        how="left",
+        indicator=True,
+        validate="one_to_one",
+    )
+
+    missing = probe["_merge"].ne("both")
+
+    if missing.any():
+        sample = (
+            probe.loc[missing, required_columns]
+            .head(20)
+            .to_dict("records")
+        )
+        raise ValueError(
+            f"{label}: missing required historical-universe "
+            f"coverage; sample={sample}"
+        )
 
 
 def require_config_path(config: dict, key: str) -> str:
@@ -254,35 +826,81 @@ def stable_schema_hash(df: pd.DataFrame) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+
 def safe_mean_pair(
     left: pd.Series,
     right: pd.Series,
 ) -> pd.Series:
-    a = pd.to_numeric(left, errors="coerce").astype("float64")
-    b = pd.to_numeric(right, errors="coerce").astype("float64")
-    return pd.concat([a, b], axis=1).mean(axis=1, skipna=True)
+    a = strict_numeric(
+        left,
+        label=clean_text(left.name) or "mean-left",
+    )
+    b = strict_numeric(
+        right,
+        label=clean_text(right.name) or "mean-right",
+    )
+    return pd.concat(
+        [a, b],
+        axis=1,
+    ).mean(
+        axis=1,
+        skipna=True,
+    )
+
 
 
 def safe_divide(
     numerator: pd.Series,
     denominator: pd.Series,
 ) -> pd.Series:
-    num = pd.to_numeric(numerator, errors="coerce").astype("float64")
-    den = pd.to_numeric(denominator, errors="coerce").astype("float64")
-    result = pd.Series(np.nan, index=num.index, dtype="float64")
-    valid = num.notna() & den.notna() & den.ne(0.0)
-    result.loc[valid] = num.loc[valid] / den.loc[valid]
+    num = strict_numeric(
+        numerator,
+        label=clean_text(numerator.name) or "numerator",
+    )
+    den = strict_numeric(
+        denominator,
+        label=clean_text(denominator.name) or "denominator",
+    )
+
+    result = pd.Series(
+        np.nan,
+        index=num.index,
+        dtype="float64",
+    )
+
+    valid = (
+        num.notna()
+        & den.notna()
+        & den.ne(0.0)
+    )
+
+    result.loc[valid] = (
+        num.loc[valid]
+        / den.loc[valid]
+    )
+
     return result
+
 
 
 def safe_product(
     left: pd.Series,
     right: pd.Series,
 ) -> pd.Series:
-    a = pd.to_numeric(left, errors="coerce").astype("float64")
-    b = pd.to_numeric(right, errors="coerce").astype("float64")
+    a = strict_numeric(
+        left,
+        label=clean_text(left.name) or "product-left",
+    )
+    b = strict_numeric(
+        right,
+        label=clean_text(right.name) or "product-right",
+    )
+
     result = a * b
-    result.loc[a.isna() | b.isna()] = np.nan
+    result.loc[
+        a.isna() | b.isna()
+    ] = np.nan
+
     return result.astype("float64")
 
 
@@ -331,29 +949,17 @@ def validate_sparse_grain_subset(
         )
 
 
-def prefix_columns(
-    source: pd.DataFrame,
-    source_columns: list[str],
-    prefix: str,
-) -> pd.DataFrame:
-    return source[source_columns].rename(
-        columns={column: f"{prefix}{column}" for column in source_columns}
-    )
 
 
 def build_position_allowed_lag(
     source: pd.DataFrame,
 ) -> tuple[pd.DataFrame, list[str]]:
-    common.require_columns(
+    validate_exact_columns(
         source,
-        POSITION_ALLOWED_KEYS + [
-            "targets_allowed",
-            "carries_allowed",
-            "league_rate",
-            "shrunk_rate",
-        ],
+        POSITION_ALLOWED_SOURCE_COLUMNS,
         "position allowed",
     )
+
     common.ensure_unique(
         source,
         POSITION_ALLOWED_KEYS,
@@ -361,22 +967,43 @@ def build_position_allowed_lag(
     )
 
     data = source.copy()
-    data["season"] = pd.to_numeric(data["season"], errors="raise").astype(int)
-    data["week"] = pd.to_numeric(data["week"], errors="raise").astype(int)
-    data["_join_defense"] = data["defense_team"].map(canonical_franchise)
+
+    data["season"] = pd.to_numeric(
+        data["season"],
+        errors="raise",
+    ).astype(int)
+
+    data["week"] = pd.to_numeric(
+        data["week"],
+        errors="raise",
+    ).astype(int)
+
+    data["_join_defense"] = data[
+        "defense_team"
+    ].map(canonical_franchise)
+
     data["_join_position_group"] = data[
         "offense_position_group"
     ].map(normalize_position_group)
 
-    value_columns = [
-        column
-        for column in data.columns
-        if column not in set(POSITION_ALLOWED_KEYS)
-        and column not in {"_join_defense", "_join_position_group"}
-    ]
+    if (
+        data["_join_defense"].eq("").any()
+        or data["_join_position_group"].eq("").any()
+    ):
+        raise ValueError(
+            "position allowed contains blank canonical "
+            "defense/position group."
+        )
 
-    for column in value_columns:
-        data[column] = common.safe_numeric(data[column])
+    value_columns = list(
+        POSITION_ALLOWED_VALUE_COLUMNS
+    )
+
+    validate_numeric_columns(
+        data,
+        value_columns,
+        label="position allowed",
+    )
 
     data = data.sort_values(
         [
@@ -389,7 +1016,10 @@ def build_position_allowed_lag(
     ).reset_index(drop=True)
 
     grouped = data.groupby(
-        ["_join_defense", "_join_position_group"],
+        [
+            "_join_defense",
+            "_join_position_group",
+        ],
         sort=False,
         dropna=False,
     )
@@ -404,9 +1034,14 @@ def build_position_allowed_lag(
     ].copy()
 
     matchup_columns: list[str] = []
+
     for column in value_columns:
-        output_name = f"matchup_position_allowed_{column}_lag1"
-        output[output_name] = grouped[column].shift(1)
+        output_name = (
+            f"matchup_position_allowed_{column}_lag1"
+        )
+        output[output_name] = (
+            grouped[column].shift(1)
+        )
         matchup_columns.append(output_name)
 
     common.ensure_unique(
@@ -419,18 +1054,30 @@ def build_position_allowed_lag(
         ],
         "lagged position allowed join grain",
     )
+
     return output, matchup_columns
 
 
-def build_player_audit(universe: pd.DataFrame) -> pd.DataFrame:
+
+def build_player_audit(
+    universe: pd.DataFrame,
+) -> pd.DataFrame:
     common.require_columns(
         universe,
-        GRAIN + ["kickoff_timestamp", "played_game_flag"],
+        GRAIN
+        + [
+            "kickoff_timestamp",
+            "played_game_flag",
+        ],
         "historical universe player audit",
     )
 
     audit = universe[
-        GRAIN + ["kickoff_timestamp", "played_game_flag"]
+        GRAIN
+        + [
+            "kickoff_timestamp",
+            "played_game_flag",
+        ]
     ].copy()
 
     audit["_kickoff_sort"] = pd.to_datetime(
@@ -438,31 +1085,60 @@ def build_player_audit(universe: pd.DataFrame) -> pd.DataFrame:
         errors="raise",
         utc=True,
     )
-    played = pd.to_numeric(
-        audit["played_game_flag"],
-        errors="coerce",
-    ).fillna(0).eq(1)
 
     audit = audit.sort_values(
-        ["player_id", "_kickoff_sort", "game_id"],
+        [
+            "player_id",
+            "_kickoff_sort",
+            "game_id",
+        ],
         kind="mergesort",
     ).reset_index(drop=True)
 
-    played = pd.to_numeric(
+    played_numeric = strict_numeric(
         audit["played_game_flag"],
-        errors="coerce",
-    ).fillna(0).eq(1)
+        label="historical universe.played_game_flag",
+    )
+
+    invalid_played = (
+        played_numeric.notna()
+        & ~played_numeric.isin([0.0, 1.0])
+    )
+
+    if invalid_played.any():
+        raise ValueError(
+            "historical universe.played_game_flag "
+            "must contain only 0/1/null."
+        )
+
+    played = (
+        played_numeric
+        .fillna(0.0)
+        .eq(1.0)
+    )
 
     audit["_played_source_game"] = (
-        audit["game_id"].astype("string").where(played)
+        audit["game_id"]
+        .astype("string")
+        .where(played)
     )
+
     audit["audit_max_player_source_game"] = (
-        audit.groupby("player_id", sort=False)["_played_source_game"]
-        .transform(lambda series: series.ffill().shift(1))
+        audit.groupby(
+            "player_id",
+            sort=False,
+        )["_played_source_game"]
+        .transform(
+            lambda series:
+            series.ffill().shift(1)
+        )
     )
 
     return audit[
-        GRAIN + ["audit_max_player_source_game"]
+        GRAIN
+        + [
+            "audit_max_player_source_game",
+        ]
     ]
 
 
@@ -511,48 +1187,216 @@ def build_team_source_audit(
     ]
 
 
-def write_json_atomic(
-    payload: dict,
-    relative_path: str,
-) -> None:
-    destination = (common.repo_root() / relative_path).resolve()
+
+def _resolve_prop_destination(
+    value: str,
+) -> Path:
+    destination = Path(value)
+
+    if not destination.is_absolute():
+        destination = (
+            common.repo_root()
+            / destination
+        )
+
+    destination = destination.resolve()
     root = common.prop_root().resolve()
 
     try:
         destination.relative_to(root)
     except ValueError as exc:
         raise ValueError(
-            f"Manifest write outside Prop Engine is forbidden: {destination}"
+            "Output write outside Prop Engine is forbidden: "
+            f"{destination}"
         ) from exc
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    return destination
 
-    handle = tempfile.NamedTemporaryFile(
+
+def write_output_bundle_atomic(
+    frame: pd.DataFrame,
+    parquet_path: str,
+    manifest: dict,
+    manifest_path: str,
+) -> None:
+    parquet_destination = _resolve_prop_destination(
+        parquet_path
+    )
+    manifest_destination = _resolve_prop_destination(
+        manifest_path
+    )
+
+    if parquet_destination == manifest_destination:
+        raise ValueError(
+            "Parquet and manifest destinations must differ."
+        )
+
+    for destination in (
+        parquet_destination,
+        manifest_destination,
+    ):
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+    parquet_handle = tempfile.NamedTemporaryFile(
+        mode="wb",
+        prefix=f".{parquet_destination.name}.",
+        suffix=".tmp",
+        dir=parquet_destination.parent,
+        delete=False,
+    )
+    parquet_temp = Path(parquet_handle.name)
+    parquet_handle.close()
+
+    manifest_handle = tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
         newline="\n",
-        prefix=f".{destination.name}.",
+        prefix=f".{manifest_destination.name}.",
         suffix=".tmp",
-        dir=destination.parent,
+        dir=manifest_destination.parent,
         delete=False,
     )
-    temp_path = Path(handle.name)
+    manifest_temp = Path(manifest_handle.name)
+
+    backups: dict[Path, Path] = {}
+    committed: list[Path] = []
 
     try:
-        with handle:
+        ordered = common.season_week_sort(
+            frame
+        )
+        ordered.to_parquet(
+            parquet_temp,
+            index=False,
+        )
+
+        if (
+            not parquet_temp.is_file()
+            or parquet_temp.stat().st_size == 0
+        ):
+            raise RuntimeError(
+                "Staged historical feature parquet is empty."
+            )
+
+        with manifest_handle:
             json.dump(
-                payload,
-                handle,
+                manifest,
+                manifest_handle,
                 indent=2,
                 sort_keys=False,
                 ensure_ascii=False,
+                allow_nan=False,
             )
-            handle.write("\n")
-        os.replace(temp_path, destination)
-    except Exception:
-        if temp_path.exists():
-            temp_path.unlink()
+            manifest_handle.write("\n")
+            manifest_handle.flush()
+            os.fsync(
+                manifest_handle.fileno()
+            )
+
+        staged_manifest = json.loads(
+            manifest_temp.read_text(
+                encoding="utf-8",
+            )
+        )
+
+        if staged_manifest != manifest:
+            raise RuntimeError(
+                "Staged feature manifest failed "
+                "round-trip validation."
+            )
+
+        destinations = (
+            parquet_destination,
+            manifest_destination,
+        )
+
+        for destination in destinations:
+            if destination.exists():
+                backup = destination.with_name(
+                    f".{destination.name}."
+                    f"{uuid.uuid4().hex}.bak"
+                )
+                os.replace(
+                    destination,
+                    backup,
+                )
+                backups[destination] = backup
+
+        os.replace(
+            parquet_temp,
+            parquet_destination,
+        )
+        committed.append(
+            parquet_destination
+        )
+
+        os.replace(
+            manifest_temp,
+            manifest_destination,
+        )
+        committed.append(
+            manifest_destination
+        )
+
+    except Exception as exc:
+        rollback_errors: list[str] = []
+
+        for destination in reversed(committed):
+            try:
+                destination.unlink(
+                    missing_ok=True
+                )
+            except Exception as rollback_exc:
+                rollback_errors.append(
+                    f"remove {destination}: "
+                    f"{rollback_exc}"
+                )
+
+        for destination, backup in backups.items():
+            try:
+                if backup.exists():
+                    os.replace(
+                        backup,
+                        destination,
+                    )
+            except Exception as rollback_exc:
+                rollback_errors.append(
+                    f"restore {destination}: "
+                    f"{rollback_exc}"
+                )
+
+        if rollback_errors:
+            raise RuntimeError(
+                "Historical output bundle write failed "
+                "and rollback was incomplete: "
+                + "; ".join(rollback_errors)
+            ) from exc
+
         raise
+
+    else:
+        for backup in backups.values():
+            try:
+                backup.unlink(
+                    missing_ok=True
+                )
+            except Exception:
+                pass
+
+    finally:
+        for temporary in (
+            parquet_temp,
+            manifest_temp,
+        ):
+            try:
+                temporary.unlink(
+                    missing_ok=True
+                )
+            except Exception:
+                pass
 
 
 def validate_form_column_names(
@@ -645,17 +1489,9 @@ def classify_feature_columns(
 def run(reporter: PipelineReporter) -> int:
     config = common.load_config()
 
-    required_config_targets = list(config.get("targets", {}).keys())
-    missing_targets = [
-        name
-        for name in REQUIRED_TARGET_ORDER
-        if name not in required_config_targets
-    ]
-    if missing_targets:
-        raise ValueError(
-            "Issue 17 missing configured target(s): "
-            + ", ".join(missing_targets)
-        )
+    required_target_order, target_columns = (
+        validate_target_config(config)
+    )
 
     paths = {
         "universe": require_config_path(config, "historical_universe"),
@@ -693,6 +1529,22 @@ def run(reporter: PipelineReporter) -> int:
         LEADING_COLUMNS + ["played_game_flag"],
     )
     common.ensure_unique(universe, GRAIN, "historical universe")
+
+    validate_numeric_columns(
+        universe,
+        ["home_flag"],
+        label="historical universe",
+    )
+
+    invalid_home_flag = (
+        universe["home_flag"].notna()
+        & ~universe["home_flag"].isin([0.0, 1.0])
+    )
+    if invalid_home_flag.any():
+        raise ValueError(
+            "historical universe.home_flag must contain only 0/1/null."
+        )
+
     universe_keys = universe[GRAIN].copy()
 
     universe_row_count = len(universe)
@@ -716,13 +1568,42 @@ def run(reporter: PipelineReporter) -> int:
 
     # Role history: full-universe one-to-one join.
     role = common.read_parquet_required(paths["role"], GRAIN)
-    validate_exact_full_grain(universe_keys, role, "role history")
+
+    validate_exact_columns(
+        role,
+        ROLE_SOURCE_COLUMNS,
+        "role history",
+    )
+    validate_exact_full_grain(
+        universe_keys,
+        role,
+        "role history",
+    )
+    validate_source_metadata(
+        out,
+        role,
+        label="role history",
+        mappings=[
+            ("team", "team", "team"),
+            ("position", "position", "position"),
+        ],
+    )
 
     role_source_columns = [
         column
         for column in role.columns
         if column not in ROLE_KEYS
     ]
+    validate_numeric_columns(
+        role,
+        [
+            column
+            for column in role_source_columns
+            if column != "injury_status_pregame"
+        ],
+        label="role history",
+    )
+
     role_renamed = {
         column: f"role_{column}"
         for column in role_source_columns
@@ -742,7 +1623,31 @@ def run(reporter: PipelineReporter) -> int:
     # Player form: full-universe one-to-one join. History flags get their
     # own family; all rolling/form values get player_*.
     player = common.read_parquet_required(paths["player"], GRAIN)
-    validate_exact_full_grain(universe_keys, player, "player form")
+
+    validate_exact_columns(
+        player,
+        PLAYER_FORM_SOURCE_COLUMNS,
+        "player form",
+    )
+    validate_exact_full_grain(
+        universe_keys,
+        player,
+        "player form",
+    )
+    validate_source_metadata(
+        out,
+        player,
+        label="player form",
+        mappings=[
+            ("team", "team", "team"),
+            ("position", "position", "position"),
+            (
+                "position_group",
+                "position_group",
+                "position_group",
+            ),
+        ],
+    )
 
     for required_history in PLAYER_HISTORY_COLUMNS:
         if required_history not in player.columns:
@@ -756,6 +1661,13 @@ def run(reporter: PipelineReporter) -> int:
         if column not in PLAYER_FORM_KEYS
         and column not in PLAYER_HISTORY_COLUMNS
     ]
+    validate_numeric_columns(
+        player,
+        player_source_columns
+        + PLAYER_HISTORY_COLUMNS,
+        label="player form",
+    )
+
     player_renamed = {
         column: f"player_{column}"
         for column in player_source_columns
@@ -785,19 +1697,57 @@ def run(reporter: PipelineReporter) -> int:
         paths["team"],
         ["season", "week", "team"],
     )
-    common.ensure_unique(team, ["season", "week", "team"], "team form")
+    validate_exact_columns(
+        team,
+        TEAM_FORM_SOURCE_COLUMNS,
+        "team form",
+    )
+    common.ensure_unique(
+        team,
+        ["season", "week", "team"],
+        "team form",
+    )
     team_feature_source = [
         column
         for column in team.columns
         if column not in TEAM_FORM_KEYS
     ]
-    validate_form_column_names(team_feature_source, "team form")
+    validate_form_column_names(
+        team_feature_source,
+        "team form",
+    )
+    validate_numeric_columns(
+        team,
+        team_feature_source,
+        label="team form",
+    )
 
     team["_join_team"] = team["team"].map(canonical_franchise)
+    if team["_join_team"].eq("").any():
+        raise ValueError(
+            "team form contains blank canonical team."
+        )
+
     common.ensure_unique(
         team,
         ["season", "week", "_join_team"],
         "team form canonical join grain",
+    )
+
+    validate_key_coverage(
+        out,
+        team,
+        required_columns=[
+            "season",
+            "week",
+            "_join_team",
+        ],
+        source_columns=[
+            "season",
+            "week",
+            "_join_team",
+        ],
+        label="team form",
     )
 
     team_renamed = {
@@ -859,6 +1809,11 @@ def run(reporter: PipelineReporter) -> int:
         paths["opponent"],
         ["season", "week", "team"],
     )
+    validate_exact_columns(
+        opponent,
+        OPPONENT_FORM_SOURCE_COLUMNS,
+        "opponent form",
+    )
     common.ensure_unique(
         opponent,
         ["season", "week", "team"],
@@ -869,15 +1824,44 @@ def run(reporter: PipelineReporter) -> int:
         for column in opponent.columns
         if column not in TEAM_FORM_KEYS
     ]
-    validate_form_column_names(opponent_feature_source, "opponent form")
+    validate_form_column_names(
+        opponent_feature_source,
+        "opponent form",
+    )
+    validate_numeric_columns(
+        opponent,
+        opponent_feature_source,
+        label="opponent form",
+    )
 
     opponent["_join_defense"] = opponent["team"].map(
         canonical_franchise
     )
+    if opponent["_join_defense"].eq("").any():
+        raise ValueError(
+            "opponent form contains blank canonical team."
+        )
+
     common.ensure_unique(
         opponent,
         ["season", "week", "_join_defense"],
         "opponent form canonical join grain",
+    )
+
+    validate_key_coverage(
+        out,
+        opponent,
+        required_columns=[
+            "season",
+            "week",
+            "_join_opponent",
+        ],
+        source_columns=[
+            "season",
+            "week",
+            "_join_defense",
+        ],
+        label="opponent form",
     )
 
     opponent_renamed = {
@@ -930,6 +1914,11 @@ def run(reporter: PipelineReporter) -> int:
     environment = common.read_parquet_required(
         paths["environment"],
         ENVIRONMENT_REQUIRED_COLUMNS,
+    )
+    validate_numeric_columns(
+        environment,
+        ENVIRONMENT_NUMERIC_COLUMNS,
+        label="environment",
     )
     common.ensure_unique(
         environment,
@@ -1066,14 +2055,40 @@ def run(reporter: PipelineReporter) -> int:
     gc.collect()
 
     # Defensive-specific full-universe features.
-    defensive = common.read_parquet_required(paths["defensive"], GRAIN)
-    validate_exact_full_grain(universe_keys, defensive, "defensive features")
+    defensive = common.read_parquet_required(
+        paths["defensive"],
+        GRAIN,
+    )
+    validate_exact_columns(
+        defensive,
+        DEFENSIVE_SOURCE_COLUMNS,
+        "defensive features",
+    )
+    validate_exact_full_grain(
+        universe_keys,
+        defensive,
+        "defensive features",
+    )
+    validate_source_metadata(
+        out,
+        defensive,
+        label="defensive features",
+        mappings=[
+            ("position", "position", "position"),
+        ],
+    )
 
     defensive_source = [
         column
         for column in defensive.columns
         if column not in set(GRAIN + ["position"])
     ]
+
+    validate_numeric_columns(
+        defensive,
+        defensive_source,
+        label="defensive features",
+    )
 
     defensive_rename: dict[str, str] = {}
     for column in defensive_source:
@@ -1098,8 +2113,28 @@ def run(reporter: PipelineReporter) -> int:
     gc.collect()
 
     # Sparse kicking-specific features; non-kickers remain null.
-    kicking = common.read_parquet_required(paths["kicking"], GRAIN)
-    validate_sparse_grain_subset(universe_keys, kicking, "kicking features")
+    kicking = common.read_parquet_required(
+        paths["kicking"],
+        GRAIN,
+    )
+    validate_exact_columns(
+        kicking,
+        KICKING_SOURCE_COLUMNS,
+        "kicking features",
+    )
+    validate_sparse_grain_subset(
+        universe_keys,
+        kicking,
+        "kicking features",
+    )
+    validate_source_metadata(
+        out,
+        kicking,
+        label="kicking features",
+        mappings=[
+            ("team", "team", "team"),
+        ],
+    )
 
     kicking_source = [
         column
@@ -1107,6 +2142,12 @@ def run(reporter: PipelineReporter) -> int:
         if column not in set(GRAIN + ["team"])
         and column not in KICKING_REDUNDANT_ENVIRONMENT
     ]
+
+    validate_numeric_columns(
+        kicking,
+        kicking_source,
+        label="kicking features",
+    )
 
     kicking_rename: dict[str, str] = {}
     for column in kicking_source:
@@ -1203,13 +2244,13 @@ def run(reporter: PipelineReporter) -> int:
         out["matchup_expected_opponent_plays"],
     )
     out["matchup_off_epa_vs_def_epa"] = (
-        pd.to_numeric(
+        strict_numeric(
             out["team_off_epa_per_play_roll3_mean"],
-            errors="coerce",
+            label="team_off_epa_per_play_roll3_mean",
         )
-        - pd.to_numeric(
+        - strict_numeric(
             out["opponent_def_epa_per_play_roll3_mean"],
-            errors="coerce",
+            label="opponent_def_epa_per_play_roll3_mean",
         )
     )
 
@@ -1223,16 +2264,16 @@ def run(reporter: PipelineReporter) -> int:
     )
 
     out["matchup_pass_rate_vs_opponent"] = (
-        pd.to_numeric(
+        strict_numeric(
             out["team_pass_rate_roll3_mean"],
-            errors="coerce",
+            label="team_pass_rate_roll3_mean",
         )
         - opponent_pass_rate
     )
     out["matchup_rush_rate_vs_opponent"] = (
-        pd.to_numeric(
+        strict_numeric(
             out["team_rush_rate_roll3_mean"],
-            errors="coerce",
+            label="team_rush_rate_roll3_mean",
         )
         - opponent_rush_rate
     )
@@ -1249,16 +2290,16 @@ def run(reporter: PipelineReporter) -> int:
     # Targets: canonical output target names derive from configured target keys.
     targets = common.read_parquet_required(
         paths["targets"],
-        GRAIN + REQUIRED_TARGET_ORDER,
+        GRAIN + required_target_order,
     )
     validate_exact_full_grain(universe_keys, targets, "historical targets")
 
     target_rename = {
         name: f"target_{name}"
-        for name in REQUIRED_TARGET_ORDER
+        for name in required_target_order
     }
     out = out.merge(
-        targets[GRAIN + REQUIRED_TARGET_ORDER].rename(
+        targets[GRAIN + required_target_order].rename(
             columns=target_rename
         ),
         on=GRAIN,
@@ -1306,7 +2347,7 @@ def run(reporter: PipelineReporter) -> int:
         matchup_columns,
         environment_columns,
         history_columns,
-        TARGET_COLUMNS,
+        target_columns,
         AUDIT_COLUMNS,
     ]
 
@@ -1330,7 +2371,7 @@ def run(reporter: PipelineReporter) -> int:
         + matchup_columns
         + environment_columns
         + history_columns
-        + TARGET_COLUMNS
+        + target_columns
         + AUDIT_COLUMNS
     )
 
@@ -1377,7 +2418,7 @@ def run(reporter: PipelineReporter) -> int:
     if list(out.columns[: len(LEADING_COLUMNS)]) != LEADING_COLUMNS:
         raise ValueError("Leading header order mismatch.")
 
-    if [column for column in out.columns if column.startswith("target_")] != TARGET_COLUMNS:
+    if [column for column in out.columns if column.startswith("target_")] != target_columns:
         raise ValueError("Target header order mismatch.")
 
     if [column for column in out.columns if column.startswith("audit_")] != AUDIT_COLUMNS:
@@ -1402,8 +2443,16 @@ def run(reporter: PipelineReporter) -> int:
     if any(column.startswith("audit_") for column in candidate_features):
         raise ValueError("Audit columns entered candidate features.")
 
-    if "played_game_flag" in candidate_features or "played_game_flag" in out.columns:
-        raise ValueError("played_game_flag must not enter assembled schema.")
+    if (
+        any(
+            "played_game_flag" in column.casefold()
+            for column in candidate_features
+        )
+        or "played_game_flag" in out.columns
+    ):
+        raise ValueError(
+            "played_game_flag must not enter assembled schema."
+        )
 
     common.reject_forbidden_feature_columns(candidate_features, config)
     validate_no_same_game_usage_features(candidate_features)
@@ -1449,7 +2498,7 @@ def run(reporter: PipelineReporter) -> int:
             "matchup": matchup_columns,
             "environment": environment_columns,
             "history": history_columns,
-            "target": TARGET_COLUMNS,
+            "target": target_columns,
             "audit": AUDIT_COLUMNS,
         },
         "numeric_features": numeric_features,
@@ -1466,11 +2515,11 @@ def run(reporter: PipelineReporter) -> int:
                 "player_id",
                 "player_name",
             ],
-            "targets": TARGET_COLUMNS,
+            "targets": target_columns,
             "audit": AUDIT_COLUMNS,
             "outcome_metadata": ["played_game_flag"],
         },
-        "target_columns": TARGET_COLUMNS,
+        "target_columns": target_columns,
         "required_matchup_columns": REQUIRED_MATCHUP_COLUMNS,
         "matchup_formulas": {
             "matchup_expected_team_plays": "mean(team offensive_plays roll3, opponent defensive_plays roll3)",
@@ -1513,8 +2562,12 @@ def run(reporter: PipelineReporter) -> int:
         "target_columns_in_feature_manifest": False,
     }
 
-    common.write_parquet_atomic(out, paths["output"])
-    write_json_atomic(manifest, manifest_path)
+    write_output_bundle_atomic(
+        out,
+        paths["output"],
+        manifest,
+        manifest_path,
+    )
 
     payload = {
         "status": "passed",
