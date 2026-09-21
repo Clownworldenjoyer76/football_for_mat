@@ -1,0 +1,171 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35656626539-attempt-1",
+  "status": "WARNING",
+  "exit_code": 0,
+  "pipeline": "NFL",
+  "league": "NFL",
+  "stage": "00_intake",
+  "script": "build_qb_map.py",
+  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/build_qb_map.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/build_qb_map.json",
+  "started_at_utc": "2026-09-21T21:28:25.610539+00:00",
+  "finished_at_utc": "2026-09-21T21:28:25.655258+00:00",
+  "duration_seconds": 0.045,
+  "environment": {
+    "hostname": "runnervmlun5p",
+    "python_version": "3.11.16",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2453,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35656626539",
+    "github_run_attempt": "1",
+    "github_workflow": "NFL 01 Pipeline",
+    "github_job": "nfl-all",
+    "github_ref_name": "main",
+    "github_sha": "fa8b41384ef26f1752981f5047114f4852ebc0f0",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": null,
+    "week": null,
+    "component": "QB map builder"
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/roster_master.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/team_master.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/ARI/ARI_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/ATL/ATL_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/BAL/BAL_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/BUF/BUF_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/CAR/CAR_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/CHI/CHI_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/CIN/CIN_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/CLE/CLE_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/DAL/DAL_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/DEN/DEN_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/DET/DET_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/GB/GB_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/HOU/HOU_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/IND/IND_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/JAX/JAX_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/KC/KC_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/LAC/LAC_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/LAR/LAR_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/LV/LV_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/MIA/MIA_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/MIN/MIN_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/NE/NE_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/NO/NO_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/NYG/NYG_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/NYJ/NYJ_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/PHI/PHI_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/PIT/PIT_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/SEA/SEA_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/SF/SF_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/TB/TB_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/TEN/TEN_depth.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts/WSH/WSH_depth.csv"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/qb_map_nfl.csv"
+  ],
+  "rows_in": 105,
+  "rows_out": 105,
+  "warning_count": 1,
+  "error_count": 0,
+  "warnings": [
+    {
+      "timestamp_utc": "2026-09-21T21:28:25.645380+00:00",
+      "message": "Roster QBs absent from their team's QB depth rows; depth-derived fields left blank",
+      "details": {
+        "count": 14,
+        "examples": [
+          {
+            "player_id": "4039034",
+            "qb_name": "Shane Buechele",
+            "team_abbr": "BUF",
+            "team_id": "2"
+          },
+          {
+            "player_id": "4431580",
+            "qb_name": "Miller Moss",
+            "team_abbr": "CHI",
+            "team_id": "3"
+          },
+          {
+            "player_id": "4259592",
+            "qb_name": "Sean Clifford",
+            "team_abbr": "CIN",
+            "team_id": "4"
+          },
+          {
+            "player_id": "4360698",
+            "qb_name": "Joe Milton III",
+            "team_abbr": "DAL",
+            "team_id": "6"
+          },
+          {
+            "player_id": "4597679",
+            "qb_name": "Luke Altmyer",
+            "team_abbr": "DET",
+            "team_id": "8"
+          },
+          {
+            "player_id": "4428512",
+            "qb_name": "Kedon Slovis",
+            "team_abbr": "GB",
+            "team_id": "9"
+          },
+          {
+            "player_id": "5151948",
+            "qb_name": "Joey Aguilar",
+            "team_abbr": "JAX",
+            "team_id": "30"
+          },
+          {
+            "player_id": "4429020",
+            "qb_name": "DJ Uiagalelei",
+            "team_abbr": "LAC",
+            "team_id": "24"
+          },
+          {
+            "player_id": "4573398",
+            "qb_name": "Max Brosmer",
+            "team_abbr": "MIN",
+            "team_id": "16"
+          },
+          {
+            "player_id": "4243322",
+            "qb_name": "Jake Haener",
+            "team_abbr": "NYG",
+            "team_id": "19"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [],
+  "details": {
+    "roster_master": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/roster_master.csv",
+    "team_master": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/team_master.csv",
+    "depth_chart_root": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/depth_charts",
+    "output_file": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/qb_map_nfl.csv",
+    "expected_output_columns": 12,
+    "publication_mode": "staged_atomic_replace",
+    "publication_completed": true,
+    "staged_roundtrip_verified": true,
+    "roster_rows": 2488,
+    "roster_qb_rows": 105,
+    "team_count": 32,
+    "depth_team_count": 32,
+    "depth_rows": 2256,
+    "depth_season": "2026",
+    "matched_qbs": 91,
+    "unmatched_qbs": 14,
+    "rows_published": 105,
+    "output_columns": 12
+  }
+}
