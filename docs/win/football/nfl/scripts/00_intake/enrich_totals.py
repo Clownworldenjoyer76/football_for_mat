@@ -1,114 +1,397 @@
 #!/usr/bin/env python3
 """
-GitHub Actions NFL weekly historical totals-prediction enrichment.
+NFL weekly historical totals-prediction enrichment.
 
-READS ONLY:
-  docs/win/football/nfl/00_intake/schedule/weekly/week_{WEEK}_NFL_weekly_schedule.csv
-  docs/win/football/nfl/00_intake/predictions/final/*_clean_predictions.csv
-  docs/win/football/nfl/00_intake/predictions/drat/clean/{SEASON}_week_{WEEK}_drat.csv
-  docs/win/football/nfl/00_intake/odds/{MOST_RECENT_DATE}_NFL_odds.csv
-  docs/win/football/nfl/config/prediction_enrichment/totals_enrichment.csv
-
-WRITES ONLY:
-  docs/win/football/nfl/00_intake/predictions/enriched/totals/week_{WEEK}_NFL_enriched.csv
-
-The historical bucket boundaries and rule conditions are read from
-totals_enrichment.csv. They are not hard-coded here.
+The rule definitions, bucket boundaries, historical rates, and action
+directions remain data-driven from totals_enrichment.csv.
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
+import math
 import os
+import re
+import shutil
 import sys
+import tempfile
+import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Any
+
+SCRIPT_PATH = Path(__file__).resolve()
+SCRIPTS_DIR = SCRIPT_PATH.parents[1]
+NFL_ROOT = SCRIPT_PATH.parents[2]
+
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from pipeline_reporter import PipelineReporter
+
+MASTER_PATH = (
+    NFL_ROOT
+    / "config"
+    / "prediction_enrichment"
+    / "totals_enrichment.csv"
+)
+SCHEDULE_DIR = (
+    NFL_ROOT
+    / "00_intake"
+    / "schedule"
+    / "weekly"
+)
+EPRED_DIR = (
+    NFL_ROOT
+    / "00_intake"
+    / "predictions"
+    / "final"
+)
+DRAT_DIR = (
+    NFL_ROOT
+    / "00_intake"
+    / "predictions"
+    / "drat"
+    / "clean"
+)
+ODDS_DIR = NFL_ROOT / "00_intake" / "odds"
+OUTPUT_DIR = (
+    NFL_ROOT
+    / "00_intake"
+    / "predictions"
+    / "enriched"
+    / "totals"
+)
+REPORT_ROOT = NFL_ROOT / "errors"
+
+WEEKLY_FILENAME_RE = re.compile(
+    r"week_(\d+)_NFL_weekly_schedule\.csv"
+)
+
+WEEKLY_COLUMNS = [
+    "season",
+    "season_type",
+    "week",
+    "game_id",
+    "odds_provider_game_id",
+    "game_date",
+    "game_time",
+    "commence_time",
+    "away_team",
+    "home_team",
+    "odds_away_team",
+    "odds_home_team",
+    "neutral_site",
+    "stadium",
+    "roof",
+    "surface",
+    "home_timezone",
+    "away_timezone",
+    "game_timezone",
+    "bookmaker",
+    "home_moneyline_american",
+    "away_moneyline_american",
+    "home_spread",
+    "away_spread",
+    "home_spread_american",
+    "away_spread_american",
+    "total",
+    "over_american",
+    "under_american",
+    "odds_last_update",
+    "odds_available",
+    "odds_missing_reason",
+]
+
+DRAT_HEADERS = [
+    "season",
+    "week",
+    "game_id",
+    "commence_time_utc",
+    "home_team",
+    "away_team",
+    "spread_home",
+    "spread_away",
+    "total",
+    "moneyline_home",
+    "moneyline_away",
+    "updated_at_utc",
+    "game_date",
+    "game_time",
+    "home_prob",
+    "away_prob",
+    "spread_home_odds",
+    "spread_away_odds",
+    "total_over",
+    "total_under",
+    "total_odds_over",
+    "total_odds_under",
+    "away_projected_score",
+    "home_projected_score",
+    "total_projected_score",
+]
+
+EPRED_HEADERS = [
+    "game_id",
+    "game_date",
+    "game_time",
+    "home_team",
+    "away_team",
+    "matchupQuality",
+    "home_prob",
+    "away_prob",
+    "tie_prob",
+    "away_projected_pts",
+    "home_projected_pts",
+    "total_projected_pts",
+    "home_PtDiff",
+    "away_PtDiff",
+    "home_rating",
+    "away_rating",
+    "game_name",
+    "season",
+    "season_type",
+    "week",
+    "sport",
+    "league",
+]
+
+ODDS_HEADERS = [
+    "snapshot_id",
+    "snapshot_fetched_at",
+    "game_id",
+    "commence_time",
+    "home_team",
+    "away_team",
+    "bookmaker",
+    "market_type",
+    "bet_side",
+    "line",
+    "odds_american",
+    "odds_decimal",
+    "last_update",
+    "home_moneyline_american",
+    "away_moneyline_american",
+    "home_spread",
+    "away_spread",
+    "home_spread_american",
+    "away_spread_american",
+    "total",
+    "over_american",
+    "under_american",
+]
+
+EXPECTED_MARKET_SIDES = {
+    ("h2h", "home"),
+    ("h2h", "away"),
+    ("spreads", "home"),
+    ("spreads", "away"),
+    ("totals", "over"),
+    ("totals", "under"),
+}
+
+MASTER_REQUIRED_HEADERS = ['rule_id', 'active', 'pipeline_supported', 'family', 'source_condition', 'condition_count', 'condition_1_test_feature', 'condition_1_formula_code', 'condition_1_match_type', 'condition_1_min_inclusive', 'condition_1_max_exclusive', 'condition_1_equals_value', 'condition_2_test_feature', 'condition_2_formula_code', 'condition_2_match_type', 'condition_2_min_inclusive', 'condition_2_max_exclusive', 'condition_2_equals_value', 'games', 'historical_hit_rate_pct', 'lift_vs_family_pct_points', 'action_direction', 'totals_direction']
+
+SUPPORTED_FAMILIES = {
+    "DRAT",
+    "EPRED",
+    "MARKET",
+    "DRAT_EPRED_CONSENSUS",
+    "ALL3_CONSENSUS",
+}
+
+SUPPORTED_FORMULAS = {
+    "USE_FAMILY_SELECTED_PROB",
+    "MARKET_ROLE_FOR_FAMILY_SELECTED_SIDE",
+    "SPREAD_FOR_FAMILY_SELECTED_SIDE",
+    "EPRED_RATING_SELECTED_MINUS_OPPONENT",
+    "RAW_EPRED_MATCHUP_QUALITY",
+    "RAW_WEEK",
+    "RAW_MARKET_TOTAL",
+    "COMPARE_DRAT_PICK_TO_EPRED_PICK",
+    "COMPARE_FAMILY_PICK_TO_MARKET_PICK",
+    "ABS_DRAT_HOME_PROB_MINUS_EPRED_NORMALIZED_HOME_PROB_X100",
+    "FAMILY_SELECTED_PROB_MINUS_MARKET_SELECTED_PROB_X100",
+    "UNAVAILABLE",
+}
+
+SUPPORTED_MATCH_TYPES = {'', 'IS_NULL', 'TEXT_EQUALS', 'NUMERIC_RANGE'}
+
+APPENDED_FIELDS = ['drat_home_prob', 'drat_away_prob', 'epred_home_prob_raw', 'epred_away_prob_raw', 'epred_home_prob', 'epred_away_prob', 'epred_home_rating', 'epred_away_rating', 'epred_matchupQuality', 'market_bookmaker', 'market_last_update', 'market_home_moneyline_american', 'market_away_moneyline_american', 'market_home_spread', 'market_away_spread', 'market_total', 'market_home_prob_novig', 'market_away_prob_novig', 'drat_pick', 'epred_pick', 'market_pick', 'drat_epred_agree', 'drat_market_agree', 'epred_market_agree', 'all_three_agree', 'epred_rating_gap_home', 'drat_epred_prob_diff_pp', 'drat_market_edge_home_pp', 'epred_market_edge_home_pp', 'matched_rule_count', 'matched_positive_rule_count', 'matched_negative_rule_count', 'matched_rule_ids', 'matched_rule_conditions', 'over_matched_rule_count', 'over_matched_positive_rule_count', 'over_matched_negative_rule_count', 'over_matched_rule_ids', 'over_strongest_positive_rule_id', 'over_strongest_positive_hist_hit_rate_pct', 'over_strongest_positive_lift_pp', 'over_strongest_positive_games', 'over_strongest_negative_rule_id', 'over_strongest_negative_hist_hit_rate_pct', 'over_strongest_negative_lift_pp', 'over_strongest_negative_games', 'under_matched_rule_count', 'under_matched_positive_rule_count', 'under_matched_negative_rule_count', 'under_matched_rule_ids', 'under_strongest_positive_rule_id', 'under_strongest_positive_hist_hit_rate_pct', 'under_strongest_positive_lift_pp', 'under_strongest_positive_games', 'under_strongest_negative_rule_id', 'under_strongest_negative_hist_hit_rate_pct', 'under_strongest_negative_lift_pp', 'under_strongest_negative_games', 'drat_matched_rule_count', 'drat_matched_rule_ids', 'epred_matched_rule_count', 'epred_matched_rule_ids', 'market_matched_rule_count', 'market_matched_rule_ids', 'drat_epred_consensus_matched_rule_count', 'drat_epred_consensus_matched_rule_ids', 'all3_consensus_matched_rule_count', 'all3_consensus_matched_rule_ids']
+
+OUTPUT_HEADERS = WEEKLY_COLUMNS + [
+    column
+    for column in APPENDED_FIELDS
+    if column not in WEEKLY_COLUMNS
+]
 
 
-MASTER_REL = Path(
-    "docs/win/football/nfl/config/prediction_enrichment/totals_enrichment.csv"
-)
-SCHEDULE_REL = Path(
-    "docs/win/football/nfl/00_intake/schedule/weekly"
-)
-EPRED_REL = Path(
-    "docs/win/football/nfl/00_intake/predictions/final"
-)
-DRAT_REL = Path(
-    "docs/win/football/nfl/00_intake/predictions/drat/clean"
-)
-ODDS_REL = Path(
-    "docs/win/football/nfl/00_intake/odds"
-)
-OUTPUT_REL = Path(
-    "docs/win/football/nfl/00_intake/predictions/enriched/totals"
-)
+class TotalsEnrichmentError(RuntimeError):
+    pass
 
 
-def list_weekly_schedule_files(schedule_dir: Path) -> list[Path]:
-    files = sorted(
-        schedule_dir.glob("week_*_NFL_weekly_schedule.csv")
-    )
+def fail(message: str) -> None:
+    raise TotalsEnrichmentError(message)
 
-    if not files:
-        raise FileNotFoundError(
-            f"No week_*_NFL_weekly_schedule.csv files found in "
-            f"{schedule_dir}"
+
+def s(value: Any) -> str:
+    return "" if value is None else str(value).strip()
+
+
+def num(value: Any):
+    text = s(value)
+    if text == "":
+        return None
+    try:
+        parsed = float(text)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
+def require_finite_number(
+    value: Any,
+    *,
+    label: str,
+) -> float:
+    parsed = num(value)
+    if parsed is None:
+        fail(
+            f"{label} must be a finite numeric value; "
+            f"received={s(value)!r}"
+        )
+    return parsed
+
+
+def parse_int_text(
+    value: Any,
+    *,
+    label: str,
+) -> int:
+    text = s(value)
+    if not text:
+        fail(f"{label} is blank")
+
+    try:
+        parsed = float(text)
+    except ValueError:
+        fail(
+            f"{label} must be an integer; received={text!r}"
         )
 
-    return files
+    if (
+        not math.isfinite(parsed)
+        or not parsed.is_integer()
+    ):
+        fail(
+            f"{label} must be an integer; received={text!r}"
+        )
+
+    return int(parsed)
 
 
-def schedule_identity(
-    rows: list[dict[str, str]],
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Build NFL historical totals enrichment for "
+            "the requested season's available weekly schedules."
+        )
+    )
+    parser.add_argument(
+        "--season",
+        type=int,
+        required=True,
+    )
+    args = parser.parse_args()
+
+    if args.season < 2000 or args.season > 2100:
+        parser.error(
+            "--season must be between 2000 and 2100"
+        )
+
+    return args
+
+
+def read_csv_table(
     path: Path,
-):
-    require_columns(
-        rows,
-        ["season", "season_type", "week"],
-        f"weekly schedule {path.name}",
-    )
+) -> tuple[
+    list[str],
+    list[dict[str, str]],
+]:
+    if not path.is_file():
+        fail(f"Input file not found: {path}")
 
-    values = {
-        (
-            s(r.get("season")),
-            s(r.get("season_type")),
-            s(r.get("week")),
-        )
-        for r in rows
-        if (
-            s(r.get("season"))
-            and s(r.get("season_type"))
-            and s(r.get("week"))
-        )
-    }
+    if path.stat().st_size == 0:
+        fail(f"Input file is zero bytes: {path}")
 
-    if len(values) != 1:
-        raise RuntimeError(
-            f"{path.name}: expected exactly one "
-            f"season/season_type/week combination, "
-            f"found {sorted(values)}"
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            headers = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {path}: "
+            f"{type(exc).__name__}: {exc}"
         )
 
-    season_text, season_type, week_text = next(iter(values))
+    if not headers:
+        fail(f"CSV has no header: {path}")
 
-    return (
-        int(float(season_text)),
-        season_type,
-        int(float(week_text)),
-    )
+    if len(headers) != len(set(headers)):
+        duplicates = sorted(
+            {
+                column
+                for column in headers
+                if headers.count(column) > 1
+            }
+        )
+        fail(
+            f"CSV contains duplicate columns {duplicates}: "
+            f"{path}"
+        )
+
+    return headers, rows
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
-    if not path.exists():
-        raise FileNotFoundError(str(path))
+    return read_csv_table(path)[1]
 
-    with path.open(
-        "r",
-        encoding="utf-8-sig",
-        newline="",
-    ) as f:
-        return list(csv.DictReader(f))
+
+def require_exact_headers(
+    headers: list[str],
+    expected: list[str],
+    *,
+    label: str,
+) -> None:
+    if headers != expected:
+        fail(
+            f"{label} schema/order mismatch. "
+            f"Expected={expected} actual={headers}"
+        )
+
+
+def require_columns(
+    headers: list[str],
+    required: list[str],
+    *,
+    label: str,
+) -> None:
+    missing = [
+        column
+        for column in required
+        if column not in headers
+    ]
+    if missing:
+        fail(
+            f"{label} is missing required columns: "
+            + ", ".join(missing)
+        )
 
 
 def write_csv(
@@ -125,98 +408,88 @@ def write_csv(
         "w",
         encoding="utf-8-sig",
         newline="",
-    ) as f:
+    ) as handle:
         writer = csv.DictWriter(
-            f,
+            handle,
             fieldnames=fieldnames,
             extrasaction="ignore",
         )
         writer.writeheader()
         writer.writerows(rows)
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
-def require_columns(
-    rows: list[dict[str, str]],
-    required: list[str],
-    label: str,
-) -> None:
-    if not rows:
-        raise ValueError(
-            f"{label}: file contains no data rows"
-        )
-
-    missing = [
-        column
-        for column in required
-        if column not in rows[0]
-    ]
-
-    if missing:
-        raise ValueError(
-            f"{label}: missing columns: "
-            + ", ".join(missing)
-        )
-
-
-def s(value) -> str:
-    if value is None:
-        return ""
-
-    return str(value).strip()
-
-
-def num(value):
-    try:
-        text = s(value)
-
-        if text == "":
-            return None
-
-        return float(text)
-
-    except (TypeError, ValueError):
-        return None
-
-
-def same_text(a, b) -> bool:
+def same_text(a: Any, b: Any) -> bool:
     return s(a).casefold() == s(b).casefold()
 
 
-def team_key(value) -> str:
+def team_key(value: Any) -> str:
     return " ".join(
         s(value).casefold().split()
     )
 
 
 def game_team_key(
-    season,
-    week,
-    home,
-    away,
+    season: Any,
+    week: Any,
+    home: Any,
+    away: Any,
 ):
     return (
-        str(int(float(season))),
-        str(int(float(week))),
+        str(
+            parse_int_text(
+                season,
+                label="game-team-key season",
+            )
+        ),
+        str(
+            parse_int_text(
+                week,
+                label="game-team-key week",
+            )
+        ),
         team_key(home),
         team_key(away),
     )
 
 
-def american_implied(odds):
-    value = num(odds)
-
-    if value is None or value == 0:
+def parse_iso_dt(
+    value: Any,
+) -> datetime | None:
+    text = s(value)
+    if not text:
         return None
 
+    try:
+        return datetime.fromisoformat(
+            text.replace("Z", "+00:00")
+        ).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def iso_dt(value: Any) -> datetime:
+    parsed = parse_iso_dt(value)
+    return (
+        parsed
+        if parsed is not None
+        else datetime.min
+    )
+
+
+def american_implied(odds: Any):
+    value = num(odds)
+    if value is None or value == 0:
+        return None
     if value > 0:
         return 100.0 / (value + 100.0)
-
     return (-value) / ((-value) + 100.0)
 
 
 def no_vig_probs(
-    home_ml,
-    away_ml,
+    home_ml: Any,
+    away_ml: Any,
 ):
     home = american_implied(home_ml)
     away = american_implied(away_ml)
@@ -225,176 +498,1039 @@ def no_vig_probs(
         return None, None
 
     total = home + away
-
     if total <= 0:
         return None, None
 
-    return (
-        home / total,
-        away / total,
-    )
+    return home / total, away / total
 
 
-def iso_dt(value):
-    text = s(value)
+def schedule_identity(
+    rows: list[dict[str, str]],
+    path: Path,
+) -> tuple[int, str, int]:
+    if not rows:
+        fail(
+            f"Weekly schedule contains no data rows: {path}"
+        )
 
-    if not text:
-        return datetime.min
+    values: set[tuple[str, str, str]] = set()
 
-    try:
-        return datetime.fromisoformat(
-            text.replace("Z", "+00:00")
-        ).replace(tzinfo=None)
+    for line_number, row in enumerate(
+        rows,
+        start=2,
+    ):
+        season = s(row.get("season"))
+        season_type = s(row.get("season_type"))
+        week = s(row.get("week"))
 
-    except ValueError:
-        return datetime.min
-
-
-def find_latest_odds_file(
-    odds_dir: Path,
-) -> Path:
-    """
-    Select the direct-child *_NFL_odds.csv file
-    containing the most recent actual odds update.
-
-    Filename format is irrelevant.
-    """
-
-    candidates = []
-
-    for path in odds_dir.glob("*_NFL_odds.csv"):
-        try:
-            rows = read_csv(path)
-        except Exception:
-            continue
-
-        latest_update = datetime.min
-        found_update = False
-
-        for row in rows:
-            dt = iso_dt(
-                row.get("last_update")
+        if not season or not season_type or not week:
+            fail(
+                f"{path} line {line_number} has blank "
+                "season/season_type/week"
             )
 
-            if dt != datetime.min:
-                found_update = True
+        values.add(
+            (
+                season,
+                season_type,
+                week,
+            )
+        )
 
-                if dt > latest_update:
-                    latest_update = dt
+    if len(values) != 1:
+        fail(
+            f"{path.name}: expected exactly one "
+            "season/season_type/week combination, "
+            f"found {sorted(values)}"
+        )
 
-        if found_update:
-            candidates.append(
-                (
-                    latest_update,
-                    path.name,
-                    path,
+    season_text, season_type, week_text = next(
+        iter(values)
+    )
+
+    season = parse_int_text(
+        season_text,
+        label=f"{path.name} season",
+    )
+    week = parse_int_text(
+        week_text,
+        label=f"{path.name} week",
+    )
+
+    if season_type not in {
+        "pre",
+        "reg",
+        "post",
+    }:
+        fail(
+            f"{path.name}: unsupported "
+            f"season_type={season_type!r}"
+        )
+
+    if week < 1 or week > 25:
+        fail(
+            f"{path.name}: week outside 1..25: {week}"
+        )
+
+    return season, season_type, week
+
+
+def validate_weekly_schedule(
+    rows: list[dict[str, str]],
+    *,
+    path: Path,
+    season: int,
+    season_type: str,
+    week: int,
+) -> None:
+    match = WEEKLY_FILENAME_RE.fullmatch(
+        path.name
+    )
+    if match is None:
+        fail(
+            f"Unexpected weekly schedule filename: {path}"
+        )
+
+    filename_week = int(match.group(1))
+    if filename_week != week:
+        fail(
+            f"{path.name}: filename week={filename_week} "
+            f"but row week={week}"
+        )
+
+    seen_ids: set[str] = set()
+
+    for line_number, row in enumerate(
+        rows,
+        start=2,
+    ):
+        target = (
+            parse_int_text(
+                row.get("season"),
+                label=(
+                    f"{path.name} line {line_number} season"
+                ),
+            ),
+            s(row.get("season_type")),
+            parse_int_text(
+                row.get("week"),
+                label=(
+                    f"{path.name} line {line_number} week"
+                ),
+            ),
+        )
+
+        if target != (
+            season,
+            season_type,
+            week,
+        ):
+            fail(
+                f"{path.name} line {line_number} "
+                f"target={target}; expected="
+                f"{(season, season_type, week)}"
+            )
+
+        game_id = s(row.get("game_id"))
+        home_team = s(row.get("home_team"))
+        away_team = s(row.get("away_team"))
+
+        if not game_id:
+            fail(
+                f"{path.name} line {line_number} "
+                "has blank game_id"
+            )
+
+        if game_id in seen_ids:
+            fail(
+                f"{path.name} contains duplicate "
+                f"game_id={game_id}"
+            )
+        seen_ids.add(game_id)
+
+        if (
+            not home_team
+            or not away_team
+            or same_text(
+                home_team,
+                away_team,
+            )
+        ):
+            fail(
+                f"{path.name} game_id={game_id} has "
+                "invalid home/away team identity"
+            )
+
+        odds_available = s(
+            row.get("odds_available")
+        )
+
+        if odds_available not in {"0", "1"}:
+            fail(
+                f"{path.name} game_id={game_id} has "
+                f"invalid odds_available={odds_available!r}"
+            )
+
+
+def load_target_schedules(
+    *,
+    season: int,
+    reporter: PipelineReporter,
+) -> dict[
+    int,
+    tuple[
+        Path,
+        str,
+        list[dict[str, str]],
+    ],
+]:
+    if not SCHEDULE_DIR.is_dir():
+        fail(
+            f"Weekly schedule directory not found: "
+            f"{SCHEDULE_DIR}"
+        )
+
+    schedule_paths = sorted(
+        SCHEDULE_DIR.glob(
+            "week_*_NFL_weekly_schedule.csv"
+        )
+    )
+
+    if not schedule_paths:
+        fail(
+            "No weekly schedule files found in "
+            f"{SCHEDULE_DIR}"
+        )
+
+    target: dict[
+        int,
+        tuple[
+            Path,
+            str,
+            list[dict[str, str]],
+        ],
+    ] = {}
+
+    for path in schedule_paths:
+        headers, rows = read_csv_table(path)
+        require_exact_headers(
+            headers,
+            WEEKLY_COLUMNS,
+            label=f"weekly schedule {path.name}",
+        )
+
+        row_season, season_type, week = (
+            schedule_identity(
+                rows,
+                path,
+            )
+        )
+
+        if row_season != season:
+            continue
+
+        validate_weekly_schedule(
+            rows,
+            path=path,
+            season=season,
+            season_type=season_type,
+            week=week,
+        )
+
+        if week in target:
+            fail(
+                f"More than one target-season weekly "
+                f"schedule exists for week={week}"
+            )
+
+        target[week] = (
+            path,
+            season_type,
+            rows,
+        )
+        reporter.add_input(path)
+
+    if not target:
+        fail(
+            f"No weekly schedules found for season={season}"
+        )
+
+    return target
+
+
+def load_drat(
+    *,
+    season: int,
+    week: int,
+    schedule_rows: list[dict[str, str]],
+    reporter: PipelineReporter,
+) -> tuple[
+    Path,
+    list[dict[str, str]],
+    dict[
+        tuple[str, str, str, str],
+        dict[str, str],
+    ],
+]:
+    path = (
+        DRAT_DIR
+        / f"{season}_week_{week}_drat.csv"
+    )
+    headers, rows = read_csv_table(path)
+    require_exact_headers(
+        headers,
+        DRAT_HEADERS,
+        label=f"DRAT {path.name}",
+    )
+    reporter.add_input(path)
+
+    schedule_by_id = {
+        s(row.get("game_id")): row
+        for row in schedule_rows
+    }
+
+    seen_ids: set[str] = set()
+    by_teams: dict[
+        tuple[str, str, str, str],
+        dict[str, str],
+    ] = {}
+
+    for line_number, row in enumerate(
+        rows,
+        start=2,
+    ):
+        row_season = parse_int_text(
+            row.get("season"),
+            label=(
+                f"{path.name} line {line_number} season"
+            ),
+        )
+        row_week = parse_int_text(
+            row.get("week"),
+            label=(
+                f"{path.name} line {line_number} week"
+            ),
+        )
+
+        if (
+            row_season != season
+            or row_week != week
+        ):
+            fail(
+                f"{path.name} line {line_number} "
+                f"target={(row_season, row_week)}; "
+                f"expected={(season, week)}"
+            )
+
+        game_id = s(row.get("game_id"))
+        if not game_id:
+            fail(
+                f"{path.name} line {line_number} "
+                "has blank game_id"
+            )
+
+        if game_id in seen_ids:
+            fail(
+                f"{path.name} contains duplicate "
+                f"game_id={game_id}"
+            )
+        seen_ids.add(game_id)
+
+        schedule_row = schedule_by_id.get(
+            game_id
+        )
+        if schedule_row is None:
+            fail(
+                f"{path.name} contains unexpected "
+                f"game_id={game_id}"
+            )
+
+        for field in (
+            "home_team",
+            "away_team",
+        ):
+            if not same_text(
+                row.get(field),
+                schedule_row.get(field),
+            ):
+                fail(
+                    f"{path.name} game_id={game_id} "
+                    f"{field} does not match weekly schedule"
+                )
+
+        home_prob = require_finite_number(
+            row.get("home_prob"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "home_prob"
+            ),
+        )
+        away_prob = require_finite_number(
+            row.get("away_prob"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "away_prob"
+            ),
+        )
+
+        if (
+            home_prob < 0
+            or home_prob > 1
+            or away_prob < 0
+            or away_prob > 1
+            or home_prob + away_prob <= 0
+        ):
+            fail(
+                f"{path.name} game_id={game_id} "
+                "has invalid DRAT probabilities"
+            )
+
+        key = game_team_key(
+            row.get("season"),
+            row.get("week"),
+            row.get("home_team"),
+            row.get("away_team"),
+        )
+
+        if key in by_teams:
+            fail(
+                f"{path.name} contains duplicate "
+                f"DRAT team key={key}"
+            )
+
+        by_teams[key] = row
+
+    expected_ids = set(schedule_by_id)
+    if seen_ids != expected_ids:
+        fail(
+            f"{path.name} DRAT/schedule game universe "
+            f"mismatch missing="
+            f"{sorted(expected_ids - seen_ids)} "
+            f"extra={sorted(seen_ids - expected_ids)}"
+        )
+
+    return path, rows, by_teams
+
+
+def load_epred(
+    *,
+    season: int,
+    season_type: str,
+    week: int,
+    schedule_rows: list[dict[str, str]],
+    reporter: PipelineReporter,
+) -> tuple[
+    Path,
+    list[dict[str, str]],
+    dict[str, dict[str, str]],
+]:
+    path = (
+        EPRED_DIR
+        / (
+            f"{season}_{season_type}_{week}"
+            "_clean_predictions.csv"
+        )
+    )
+    headers, rows = read_csv_table(path)
+    require_exact_headers(
+        headers,
+        EPRED_HEADERS,
+        label=f"EPRED {path.name}",
+    )
+    reporter.add_input(path)
+
+    schedule_by_id = {
+        s(row.get("game_id")): row
+        for row in schedule_rows
+    }
+
+    by_game: dict[
+        str,
+        dict[str, str],
+    ] = {}
+
+    for line_number, row in enumerate(
+        rows,
+        start=2,
+    ):
+        target = (
+            parse_int_text(
+                row.get("season"),
+                label=(
+                    f"{path.name} line {line_number} season"
+                ),
+            ),
+            s(row.get("season_type")),
+            parse_int_text(
+                row.get("week"),
+                label=(
+                    f"{path.name} line {line_number} week"
+                ),
+            ),
+        )
+
+        if target != (
+            season,
+            season_type,
+            week,
+        ):
+            fail(
+                f"{path.name} line {line_number} "
+                f"target={target}; expected="
+                f"{(season, season_type, week)}"
+            )
+
+        game_id = s(row.get("game_id"))
+        if not game_id:
+            fail(
+                f"{path.name} line {line_number} "
+                "has blank game_id"
+            )
+
+        if game_id in by_game:
+            fail(
+                f"{path.name} contains duplicate "
+                f"game_id={game_id}"
+            )
+
+        schedule_row = schedule_by_id.get(
+            game_id
+        )
+        if schedule_row is None:
+            fail(
+                f"{path.name} contains unexpected "
+                f"game_id={game_id}"
+            )
+
+        for field in (
+            "home_team",
+            "away_team",
+        ):
+            if not same_text(
+                row.get(field),
+                schedule_row.get(field),
+            ):
+                fail(
+                    f"{path.name} game_id={game_id} "
+                    f"{field} does not match weekly schedule"
+                )
+
+        home_prob = require_finite_number(
+            row.get("home_prob"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "home_prob"
+            ),
+        )
+        away_prob = require_finite_number(
+            row.get("away_prob"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "away_prob"
+            ),
+        )
+
+        if (
+            home_prob < 0
+            or home_prob > 1
+            or away_prob < 0
+            or away_prob > 1
+            or home_prob + away_prob <= 0
+        ):
+            fail(
+                f"{path.name} game_id={game_id} "
+                "has invalid EPRED probabilities"
+            )
+
+        for field in (
+            "home_rating",
+            "away_rating",
+            "matchupQuality",
+        ):
+            require_finite_number(
+                row.get(field),
+                label=(
+                    f"{path.name} game_id={game_id} "
+                    f"{field}"
+                ),
+            )
+
+        by_game[game_id] = row
+
+    expected_ids = set(schedule_by_id)
+    actual_ids = set(by_game)
+
+    if actual_ids != expected_ids:
+        fail(
+            f"{path.name} EPRED/schedule game universe "
+            f"mismatch missing="
+            f"{sorted(expected_ids - actual_ids)} "
+            f"extra={sorted(actual_ids - expected_ids)}"
+        )
+
+    return path, rows, by_game
+
+
+def validate_master(
+    headers: list[str],
+    rows: list[dict[str, str]],
+) -> set[str]:
+    require_columns(
+        headers,
+        MASTER_REQUIRED_HEADERS,
+        label="totals enrichment master",
+    )
+
+    if not rows:
+        fail(
+            "Totals enrichment master contains no rows"
+        )
+
+    seen_ids: set[str] = set()
+    active_supported_ids: set[str] = set()
+
+    for line_number, rule in enumerate(
+        rows,
+        start=2,
+    ):
+        rule_id = s(rule.get("rule_id"))
+        if not rule_id:
+            fail(
+                f"Totals master line {line_number} "
+                "has blank rule_id"
+            )
+
+        if rule_id in seen_ids:
+            fail(
+                f"Totals master contains duplicate "
+                f"rule_id={rule_id}"
+            )
+        seen_ids.add(rule_id)
+
+        active = s(rule.get("active"))
+        supported = s(
+            rule.get("pipeline_supported")
+        )
+
+        if active not in {"0", "1"}:
+            fail(
+                f"Totals master rule_id={rule_id} "
+                f"has invalid active={active!r}"
+            )
+
+        if supported not in {"0", "1"}:
+            fail(
+                f"Totals master rule_id={rule_id} "
+                "has invalid pipeline_supported="
+                f"{supported!r}"
+            )
+
+        if active != "1" or supported != "1":
+            continue
+
+        active_supported_ids.add(rule_id)
+
+        family = s(rule.get("family"))
+        if family not in SUPPORTED_FAMILIES:
+            fail(
+                f"Totals master rule_id={rule_id} "
+                f"has unsupported family={family!r}"
+            )
+
+        totals_direction = s(
+            rule.get("totals_direction")
+        )
+        if totals_direction not in {
+            "Over",
+            "Under",
+        }:
+            fail(
+                f"Totals master rule_id={rule_id} "
+                "has invalid totals_direction="
+                f"{totals_direction!r}"
+            )
+
+        condition_count = parse_int_text(
+            rule.get("condition_count"),
+            label=(
+                f"Totals master rule_id={rule_id} "
+                "condition_count"
+            ),
+        )
+
+        if condition_count not in {1, 2}:
+            fail(
+                f"Totals master rule_id={rule_id} "
+                "condition_count must be 1 or 2"
+            )
+
+        direction = s(
+            rule.get("action_direction")
+        )
+        if direction not in {
+            "POSITIVE",
+            "NEGATIVE",
+        }:
+            fail(
+                f"Totals master rule_id={rule_id} "
+                f"has invalid action_direction={direction!r}"
+            )
+
+        if not s(rule.get("source_condition")):
+            fail(
+                f"Totals master rule_id={rule_id} "
+                "has blank source_condition"
+            )
+
+        for metric in (
+            "historical_hit_rate_pct",
+            "lift_vs_family_pct_points",
+            "games",
+        ):
+            require_finite_number(
+                rule.get(metric),
+                label=(
+                    f"Totals master rule_id={rule_id} "
+                    f"{metric}"
+                ),
+            )
+
+        for number in range(
+            1,
+            condition_count + 1,
+        ):
+            prefix = f"condition_{number}_"
+            formula = s(
+                rule.get(
+                    prefix + "formula_code"
+                )
+            )
+            match_type = s(
+                rule.get(
+                    prefix + "match_type"
                 )
             )
 
+            if formula not in SUPPORTED_FORMULAS:
+                fail(
+                    f"Totals master rule_id={rule_id} "
+                    f"has unsupported formula_code={formula!r}"
+                )
+
+            if (
+                match_type
+                not in SUPPORTED_MATCH_TYPES
+            ):
+                fail(
+                    f"Totals master rule_id={rule_id} "
+                    f"has unsupported match_type={match_type!r}"
+                )
+
+            if match_type == "NUMERIC_RANGE":
+                lower = s(
+                    rule.get(
+                        prefix + "min_inclusive"
+                    )
+                )
+                upper = s(
+                    rule.get(
+                        prefix + "max_exclusive"
+                    )
+                )
+
+                if not lower and not upper:
+                    fail(
+                        f"Totals master rule_id={rule_id} "
+                        f"condition {number} numeric range "
+                        "has no bound"
+                    )
+
+                if lower:
+                    require_finite_number(
+                        lower,
+                        label=(
+                            f"Totals master rule_id={rule_id} "
+                            f"condition {number} lower bound"
+                        ),
+                    )
+
+                if upper:
+                    require_finite_number(
+                        upper,
+                        label=(
+                            f"Totals master rule_id={rule_id} "
+                            f"condition {number} upper bound"
+                        ),
+                    )
+
+            if (
+                match_type == "TEXT_EQUALS"
+                and not s(
+                    rule.get(
+                        prefix + "equals_value"
+                    )
+                )
+            ):
+                fail(
+                    f"Totals master rule_id={rule_id} "
+                    f"condition {number} has blank equals_value"
+                )
+
+    if not active_supported_ids:
+        fail(
+            "Totals enrichment master has no active "
+            "pipeline-supported rules"
+        )
+
+    return active_supported_ids
+
+
+def select_latest_odds_file(
+    *,
+    reporter: PipelineReporter,
+) -> tuple[Path, int]:
+    if not ODDS_DIR.is_dir():
+        fail(
+            f"Odds directory not found: {ODDS_DIR}"
+        )
+
+    paths = sorted(
+        ODDS_DIR.glob("*_NFL_odds.csv")
+    )
+
+    if not paths:
+        fail(
+            f"No *_NFL_odds.csv files found in "
+            f"{ODDS_DIR}"
+        )
+
+    candidates: list[
+        tuple[datetime, str, Path]
+    ] = []
+    skipped = 0
+
+    for path in paths:
+        try:
+            headers, rows = read_csv_table(path)
+        except Exception as exc:
+            skipped += 1
+            reporter.warning(
+                "Skipped unreadable odds compatibility file "
+                "while selecting the latest capture",
+                path=str(path),
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+            continue
+
+        if "last_update" not in headers:
+            skipped += 1
+            reporter.warning(
+                "Skipped odds compatibility file without "
+                "last_update while selecting latest capture",
+                path=str(path),
+            )
+            continue
+
+        valid_updates = [
+            parsed
+            for parsed in (
+                parse_iso_dt(
+                    row.get("last_update")
+                )
+                for row in rows
+            )
+            if parsed is not None
+        ]
+
+        if not valid_updates:
+            skipped += 1
+            reporter.warning(
+                "Skipped odds compatibility file with no "
+                "valid last_update while selecting latest capture",
+                path=str(path),
+            )
+            continue
+
+        candidates.append(
+            (
+                max(valid_updates),
+                path.name,
+                path,
+            )
+        )
+
     if not candidates:
-        raise FileNotFoundError(
-            f"No *_NFL_odds.csv file with a valid "
-            f"last_update value found in {odds_dir}"
+        fail(
+            "No direct-child *_NFL_odds.csv file contains "
+            "a valid last_update value"
         )
 
     candidates.sort()
-
-    return candidates[-1][2]
-
-
-def find_drat_file(
-    drat_dir: Path,
-    season: int,
-    week: int,
-) -> Path:
-    filename = f"{season}_week_{week}_drat.csv"
-    path = drat_dir / filename
-
-    if path.exists():
-        return path
-
-    raise FileNotFoundError(
-        f"DRAT file not found: {path}"
-    )
+    return candidates[-1][2], skipped
 
 
-def epred_content_matches(
+def validate_selected_odds(
+    *,
     path: Path,
-    season: int,
-    week: int,
-    season_type: str,
-) -> bool:
-    try:
-        rows = read_csv(path)
-    except Exception:
-        return False
+    headers: list[str],
+    rows: list[dict[str, str]],
+) -> None:
+    require_exact_headers(
+        headers,
+        ODDS_HEADERS,
+        label=f"selected current odds {path.name}",
+    )
 
     if not rows:
-        return False
-
-    for row in rows[:50]:
-        if (
-            s(row.get("season")) == str(season)
-            and s(row.get("week")) == str(week)
-            and same_text(
-                row.get("season_type"),
-                season_type,
-            )
-        ):
-            return True
-
-    return False
-
-
-def find_epred_file(
-    epred_dir: Path,
-    season: int,
-    week: int,
-    season_type: str,
-) -> Path:
-    candidates = [
-        path
-        for path in epred_dir.glob(
-            "*_clean_predictions.csv"
-        )
-        if epred_content_matches(
-            path,
-            season,
-            week,
-            season_type,
-        )
-    ]
-
-    if len(candidates) == 1:
-        return candidates[0]
-
-    if not candidates:
-        raise FileNotFoundError(
-            f"No *_clean_predictions.csv containing "
-            f"season={season}, "
-            f"season_type={season_type}, "
-            f"week={week} found in {epred_dir}"
+        fail(
+            f"Selected current odds file has no rows: "
+            f"{path}"
         )
 
-    raise RuntimeError(
-        "More than one EPRED file matches "
-        "this season/week: "
-        + ", ".join(
-            path.name
-            for path in candidates
+    snapshot_ids = {
+        s(row.get("snapshot_id"))
+        for row in rows
+    }
+    fetched_values = {
+        s(row.get("snapshot_fetched_at"))
+        for row in rows
+    }
+
+    if (
+        "" in snapshot_ids
+        or len(snapshot_ids) != 1
+    ):
+        fail(
+            f"{path.name} must contain exactly one "
+            "nonblank snapshot_id"
         )
+
+    if (
+        "" in fetched_values
+        or len(fetched_values) != 1
+    ):
+        fail(
+            f"{path.name} must contain exactly one "
+            "nonblank snapshot_fetched_at"
+        )
+
+    fetched = next(iter(fetched_values))
+    if parse_iso_dt(fetched) is None:
+        fail(
+            f"{path.name} has invalid "
+            f"snapshot_fetched_at={fetched!r}"
+        )
+
+    seen_keys: set[
+        tuple[str, str, str, str]
+    ] = set()
+    market_pairs_by_group: dict[
+        tuple[str, str],
+        set[tuple[str, str]],
+    ] = {}
+
+    numeric_fields = (
+        "home_moneyline_american",
+        "away_moneyline_american",
+        "home_spread",
+        "away_spread",
+        "home_spread_american",
+        "away_spread_american",
+        "total",
+        "over_american",
+        "under_american",
     )
 
+    for line_number, row in enumerate(
+        rows,
+        start=2,
+    ):
+        game_id = s(row.get("game_id"))
+        bookmaker = s(row.get("bookmaker"))
+        market_type = s(row.get("market_type"))
+        bet_side = s(row.get("bet_side"))
+        home_team = s(row.get("home_team"))
+        away_team = s(row.get("away_team"))
+        last_update = s(row.get("last_update"))
 
-def aggregate_latest_odds(rows):
-    """
-    Aggregate duplicated market/side rows into one
-    current market record per provider game + bookmaker.
+        if (
+            not game_id
+            or not bookmaker
+            or not market_type
+            or not bet_side
+            or not home_team
+            or not away_team
+        ):
+            fail(
+                f"{path.name} line {line_number} has "
+                "blank required odds identity field"
+            )
 
-    Each populated market field is taken from the most
-    recent last_update carrying that field.
-    """
+        pair = (
+            market_type,
+            bet_side,
+        )
+        if pair not in EXPECTED_MARKET_SIDES:
+            fail(
+                f"{path.name} game_id={game_id} "
+                f"has invalid market pair={pair}"
+            )
 
+        if parse_iso_dt(last_update) is None:
+            fail(
+                f"{path.name} game_id={game_id} "
+                f"has invalid last_update={last_update!r}"
+            )
+
+        key = (
+            game_id,
+            bookmaker.casefold(),
+            market_type,
+            bet_side,
+        )
+
+        if key in seen_keys:
+            fail(
+                f"{path.name} contains duplicate "
+                f"market row key={key}"
+            )
+        seen_keys.add(key)
+
+        group = (
+            game_id,
+            bookmaker.casefold(),
+        )
+        market_pairs_by_group.setdefault(
+            group,
+            set(),
+        ).add(pair)
+
+        for field in numeric_fields:
+            text = s(row.get(field))
+            if text:
+                require_finite_number(
+                    text,
+                    label=(
+                        f"{path.name} game_id={game_id} "
+                        f"{field}"
+                    ),
+                )
+
+    for group, pairs in (
+        market_pairs_by_group.items()
+    ):
+        if pairs != EXPECTED_MARKET_SIDES:
+            fail(
+                f"{path.name} group={group} has "
+                f"market pairs={sorted(pairs)}; expected="
+                f"{sorted(EXPECTED_MARKET_SIDES)}"
+            )
+
+
+def aggregate_latest_odds(
+    rows: list[dict[str, str]],
+):
     fields = [
         "home_moneyline_american",
         "away_moneyline_american",
@@ -406,16 +1542,11 @@ def aggregate_latest_odds(rows):
         "over_american",
         "under_american",
     ]
-
     groups = {}
 
     for row in rows:
-        game_id = s(
-            row.get("game_id")
-        )
-        bookmaker = s(
-            row.get("bookmaker")
-        )
+        game_id = s(row.get("game_id"))
+        bookmaker = s(row.get("bookmaker"))
 
         if not game_id:
             continue
@@ -424,7 +1555,6 @@ def aggregate_latest_odds(rows):
             game_id,
             bookmaker.casefold(),
         )
-
         group = groups.setdefault(
             key,
             {
@@ -439,41 +1569,37 @@ def aggregate_latest_odds(rows):
             },
         )
 
-        dt = iso_dt(
+        updated = iso_dt(
             row.get("last_update")
         )
 
-        if dt >= group["__last_dt"]:
-            group["__last_dt"] = dt
+        if updated >= group["__last_dt"]:
+            group["__last_dt"] = updated
             group["last_update"] = s(
                 row.get("last_update")
             )
 
         for field in fields:
-            value = s(
-                row.get(field)
-            )
-
+            value = s(row.get(field))
             if (
                 value != ""
-                and dt
+                and updated
                 >= group["__field_dt"][field]
             ):
                 group[field] = value
-                group["__field_dt"][field] = dt
+                group["__field_dt"][field] = (
+                    updated
+                )
 
     return groups
 
 
 def choose_odds_record(
     groups,
-    provider_game_id,
-    preferred_bookmaker,
+    provider_game_id: Any,
+    preferred_bookmaker: Any,
 ):
-    game_id = s(
-        provider_game_id
-    )
-
+    game_id = s(provider_game_id)
     if not game_id:
         return None
 
@@ -483,18 +1609,26 @@ def choose_odds_record(
 
     if (
         preferred
-        and (game_id, preferred)
+        and (
+            game_id,
+            preferred,
+        )
         in groups
     ):
         return groups[
-            (game_id, preferred)
+            (
+                game_id,
+                preferred,
+            )
         ]
 
     matches = [
         group
-        for (group_game_id, _), group
-        in groups.items()
-        if group_game_id == game_id
+        for (
+            candidate_game_id,
+            _,
+        ), group in groups.items()
+        if candidate_game_id == game_id
     ]
 
     if not matches:
@@ -509,133 +1643,94 @@ def choose_odds_record(
 def build_family_contexts(g):
     contexts = {}
 
-    drat_home = num(
-        g.get("drat_home_prob")
-    )
-    drat_away = num(
-        g.get("drat_away_prob")
-    )
-
-    epred_home = num(
-        g.get("epred_home_prob")
-    )
-    epred_away = num(
-        g.get("epred_away_prob")
-    )
-
-    market_home = num(
-        g.get("market_home_prob_novig")
-    )
-    market_away = num(
-        g.get("market_away_prob_novig")
-    )
-
-    home_spread = num(
-        g.get("market_home_spread")
-    )
-    away_spread = num(
-        g.get("market_away_spread")
-    )
+    dh = num(g.get("drat_home_prob"))
+    da = num(g.get("drat_away_prob"))
+    eh = num(g.get("epred_home_prob"))
+    ea = num(g.get("epred_away_prob"))
+    mh = num(g.get("market_home_prob_novig"))
+    ma = num(g.get("market_away_prob_novig"))
+    hs = num(g.get("market_home_spread"))
+    aws = num(g.get("market_away_spread"))
 
     drat_side = None
     drat_prob = None
-
-    if (
-        drat_home is not None
-        and drat_away is not None
-    ):
-        if drat_home >= drat_away:
-            drat_side = "Home"
-            drat_prob = drat_home
-        else:
-            drat_side = "Away"
-            drat_prob = drat_away
+    if dh is not None and da is not None:
+        drat_side = (
+            "Home"
+            if dh >= da
+            else "Away"
+        )
+        drat_prob = (
+            dh
+            if drat_side == "Home"
+            else da
+        )
 
     epred_side = None
     epred_prob = None
-
-    if (
-        epred_home is not None
-        and epred_away is not None
-    ):
-        if epred_home >= epred_away:
-            epred_side = "Home"
-            epred_prob = epred_home
-        else:
-            epred_side = "Away"
-            epred_prob = epred_away
+    if eh is not None and ea is not None:
+        epred_side = (
+            "Home"
+            if eh >= ea
+            else "Away"
+        )
+        epred_prob = (
+            eh
+            if epred_side == "Home"
+            else ea
+        )
 
     market_side = None
     market_prob = None
-
-    if (
-        market_home is not None
-        and market_away is not None
-    ):
-        if market_home >= market_away:
+    if mh is not None and ma is not None:
+        market_side = (
+            "Home"
+            if mh >= ma
+            else "Away"
+        )
+        market_prob = (
+            mh
+            if market_side == "Home"
+            else ma
+        )
+    elif hs is not None and aws is not None:
+        if hs < 0:
             market_side = "Home"
-            market_prob = market_home
-        else:
-            market_side = "Away"
-            market_prob = market_away
-
-    elif (
-        home_spread is not None
-        and away_spread is not None
-    ):
-        if home_spread < 0:
-            market_side = "Home"
-
-        elif away_spread < 0:
+        elif aws < 0:
             market_side = "Away"
 
     contexts["DRAT"] = {
-        "eligible": (
-            drat_side is not None
-        ),
+        "eligible": drat_side is not None,
         "side": drat_side,
         "prob": drat_prob,
     }
-
     contexts["EPRED"] = {
-        "eligible": (
-            epred_side is not None
-        ),
+        "eligible": epred_side is not None,
         "side": epred_side,
         "prob": epred_prob,
     }
-
     contexts["MARKET"] = {
-        "eligible": (
-            market_side is not None
-        ),
+        "eligible": market_side is not None,
         "side": market_side,
         "prob": market_prob,
     }
 
-    drat_epred_ok = (
+    de_ok = (
         drat_side is not None
         and epred_side is not None
         and drat_side == epred_side
     )
-
-    contexts[
-        "DRAT_EPRED_CONSENSUS"
-    ] = {
-        "eligible": drat_epred_ok,
+    contexts["DRAT_EPRED_CONSENSUS"] = {
+        "eligible": de_ok,
         "side": (
             drat_side
-            if drat_epred_ok
+            if de_ok
             else None
         ),
         "prob": (
-            (
-                drat_prob
-                + epred_prob
-            )
-            / 2.0
+            (drat_prob + epred_prob) / 2.0
             if (
-                drat_epred_ok
+                de_ok
                 and drat_prob is not None
                 and epred_prob is not None
             )
@@ -643,19 +1738,16 @@ def build_family_contexts(g):
         ),
     }
 
-    all_three_ok = (
-        drat_epred_ok
+    all_ok = (
+        de_ok
         and market_side is not None
         and drat_side == market_side
     )
-
-    contexts[
-        "ALL3_CONSENSUS"
-    ] = {
-        "eligible": all_three_ok,
+    contexts["ALL3_CONSENSUS"] = {
+        "eligible": all_ok,
         "side": (
             drat_side
-            if all_three_ok
+            if all_ok
             else None
         ),
         "prob": (
@@ -666,7 +1758,7 @@ def build_family_contexts(g):
             )
             / 3.0
             if (
-                all_three_ok
+                all_ok
                 and market_prob is not None
             )
             else None
@@ -692,7 +1784,6 @@ def build_family_contexts(g):
             else ""
         )
     )
-
     g["epred_pick"] = (
         g["home_team"]
         if epred_side == "Home"
@@ -702,7 +1793,6 @@ def build_family_contexts(g):
             else ""
         )
     )
-
     g["market_pick"] = (
         g["home_team"]
         if market_side == "Home"
@@ -716,54 +1806,46 @@ def build_family_contexts(g):
     def agreement(a, b):
         if a is None or b is None:
             return "Unknown"
-
-        if a == b:
-            return "Agree"
-
-        return "Disagree"
+        return (
+            "Agree"
+            if a == b
+            else "Disagree"
+        )
 
     g["drat_epred_agree"] = agreement(
         drat_side,
         epred_side,
     )
-
     g["drat_market_agree"] = agreement(
         drat_side,
         market_side,
     )
-
     g["epred_market_agree"] = agreement(
         epred_side,
         market_side,
     )
-
-    if all_three_ok:
-        g["all_three_agree"] = "Yes"
-
-    elif (
-        drat_side
-        and epred_side
-        and market_side
-    ):
-        g["all_three_agree"] = "No"
-
-    else:
-        g["all_three_agree"] = "Unknown"
+    g["all_three_agree"] = (
+        "Yes"
+        if all_ok
+        else (
+            "No"
+            if (
+                drat_side
+                and epred_side
+                and market_side
+            )
+            else "Unknown"
+        )
+    )
 
     return contexts
 
 
-def market_role_for_side(
-    g,
-    side,
-):
-    if side not in (
-        "Home",
-        "Away",
-    ):
+def market_role_for_side(g, side):
+    if side not in ("Home", "Away"):
         return None
 
-    market_prob = num(
+    probability = num(
         g.get(
             "market_home_prob_novig"
             if side == "Home"
@@ -771,13 +1853,11 @@ def market_role_for_side(
         )
     )
 
-    if market_prob is not None:
-        if market_prob > 0.5:
+    if probability is not None:
+        if probability > 0.5:
             return "Market Favorite"
-
-        if market_prob < 0.5:
+        if probability < 0.5:
             return "Market Underdog"
-
         return "Market Even"
 
     spread = num(
@@ -790,13 +1870,10 @@ def market_role_for_side(
 
     if spread is None:
         return None
-
     if spread < 0:
         return "Market Favorite"
-
     if spread > 0:
         return "Market Underdog"
-
     return "Market Even"
 
 
@@ -807,10 +1884,7 @@ def feature_value(
 ):
     side = family_ctx["side"]
 
-    if (
-        formula_code
-        == "USE_FAMILY_SELECTED_PROB"
-    ):
+    if formula_code == "USE_FAMILY_SELECTED_PROB":
         return family_ctx["prob"]
 
     if (
@@ -830,12 +1904,10 @@ def feature_value(
             return num(
                 g.get("market_home_spread")
             )
-
         if side == "Away":
             return num(
                 g.get("market_away_spread")
             )
-
         return None
 
     if (
@@ -856,15 +1928,10 @@ def feature_value(
         ):
             return None
 
-        if side == "Home":
-            return (
-                home_rating
-                - away_rating
-            )
-
         return (
-            away_rating
-            - home_rating
+            home_rating - away_rating
+            if side == "Home"
+            else away_rating - home_rating
         )
 
     if (
@@ -875,137 +1942,108 @@ def feature_value(
             g.get("epred_matchupQuality")
         )
 
-    if (
-        formula_code
-        == "RAW_WEEK"
-    ):
-        return num(
-            g.get("week")
-        )
+    if formula_code == "RAW_WEEK":
+        return num(g.get("week"))
 
-    if (
-        formula_code
-        == "RAW_MARKET_TOTAL"
-    ):
-        return num(
-            g.get("market_total")
-        )
+    if formula_code == "RAW_MARKET_TOTAL":
+        return num(g.get("market_total"))
 
     if (
         formula_code
         == "COMPARE_DRAT_PICK_TO_EPRED_PICK"
     ):
-        drat_side = g.get(
-            "drat_pick_side"
-        )
-        epred_side = g.get(
-            "epred_pick_side"
-        )
+        drat = g.get("drat_pick_side")
+        epred = g.get("epred_pick_side")
 
-        if (
-            not drat_side
-            or not epred_side
-        ):
+        if not drat or not epred:
             return None
 
-        if drat_side == epred_side:
-            return "Agree"
-
-        return "Disagree"
+        return (
+            "Agree"
+            if drat == epred
+            else "Disagree"
+        )
 
     if (
         formula_code
         == "COMPARE_FAMILY_PICK_TO_MARKET_PICK"
     ):
-        market_side = g.get(
-            "market_pick_side"
-        )
+        market = g.get("market_pick_side")
 
-        if (
-            not side
-            or not market_side
-        ):
+        if not side or not market:
             return None
 
-        if side == market_side:
-            return "Agree"
-
-        return "Disagree"
+        return (
+            "Agree"
+            if side == market
+            else "Disagree"
+        )
 
     if (
         formula_code
         == "ABS_DRAT_HOME_PROB_MINUS_EPRED_NORMALIZED_HOME_PROB_X100"
     ):
-        drat_home = num(
+        drat = num(
             g.get("drat_home_prob")
         )
-        epred_home = num(
+        epred = num(
             g.get("epred_home_prob")
         )
 
-        if (
-            drat_home is None
-            or epred_home is None
-        ):
+        if drat is None or epred is None:
             return None
 
-        return abs(
-            drat_home
-            - epred_home
-        ) * 100.0
+        return abs(drat - epred) * 100.0
 
     if (
         formula_code
         == "FAMILY_SELECTED_PROB_MINUS_MARKET_SELECTED_PROB_X100"
     ):
-        family_prob = family_ctx[
-            "prob"
-        ]
+        family_probability = (
+            family_ctx["prob"]
+        )
 
         if side == "Home":
-            market_prob = num(
+            market_probability = num(
                 g.get(
                     "market_home_prob_novig"
                 )
             )
-
         elif side == "Away":
-            market_prob = num(
+            market_probability = num(
                 g.get(
                     "market_away_prob_novig"
                 )
             )
-
         else:
-            market_prob = None
+            market_probability = None
 
         if (
-            family_prob is None
-            or market_prob is None
+            family_probability is None
+            or market_probability is None
         ):
             return None
 
         return (
-            family_prob
-            - market_prob
+            family_probability
+            - market_probability
         ) * 100.0
 
     if formula_code == "UNAVAILABLE":
         return None
 
-    raise ValueError(
-        f"Unsupported formula_code in master: "
+    fail(
+        "Unsupported formula_code in master: "
         f"{formula_code}"
     )
 
 
 def condition_matches(
     rule,
-    n,
+    number,
     value,
 ):
-    prefix = f"condition_{n}_"
-
+    prefix = f"condition_{number}_"
     match_type = s(
         rule.get(
             prefix + "match_type"
@@ -1026,48 +2064,43 @@ def condition_matches(
             s(value)
             == s(
                 rule.get(
-                    prefix
-                    + "equals_value"
+                    prefix + "equals_value"
                 )
             )
         )
 
     if match_type == "NUMERIC_RANGE":
-        numeric_value = num(value)
-
-        if numeric_value is None:
+        numeric = num(value)
+        if numeric is None:
             return False
 
-        minimum = num(
+        lower = num(
             rule.get(
-                prefix
-                + "min_inclusive"
+                prefix + "min_inclusive"
             )
         )
-
-        maximum = num(
+        upper = num(
             rule.get(
-                prefix
-                + "max_exclusive"
+                prefix + "max_exclusive"
             )
         )
 
         if (
-            minimum is not None
-            and numeric_value < minimum
+            lower is not None
+            and numeric < lower
         ):
             return False
 
         if (
-            maximum is not None
-            and numeric_value >= maximum
+            upper is not None
+            and numeric >= upper
         ):
             return False
 
         return True
 
-    raise ValueError(
-        f"Unsupported match_type in master: "
+    fail(
+        "Unsupported match_type in master: "
         f"{match_type}"
     )
 
@@ -1080,29 +2113,17 @@ def match_rules(
     matches = []
 
     for rule in master_rows:
+        if s(rule.get("active")) != "1":
+            continue
+
         if (
-            s(rule.get("active"))
+            s(rule.get("pipeline_supported"))
             != "1"
         ):
             continue
 
-        if (
-            s(
-                rule.get(
-                    "pipeline_supported"
-                )
-            )
-            != "1"
-        ):
-            continue
-
-        family = s(
-            rule.get("family")
-        )
-
-        family_ctx = contexts.get(
-            family
-        )
+        family = s(rule.get("family"))
+        family_ctx = contexts.get(family)
 
         if (
             not family_ctx
@@ -1110,87 +2131,72 @@ def match_rules(
         ):
             continue
 
-        condition_count = int(
-            float(
-                s(
-                    rule.get(
-                        "condition_count"
-                    )
-                )
-                or "0"
-            )
+        condition_count = parse_int_text(
+            rule.get("condition_count"),
+            label=(
+                "totals master rule "
+                f"{s(rule.get('rule_id'))} "
+                "condition_count"
+            ),
         )
 
         matched = True
 
-        for condition_number in range(
+        for number in range(
             1,
             condition_count + 1,
         ):
-            formula_code = s(
+            formula = s(
                 rule.get(
-                    f"condition_"
-                    f"{condition_number}_"
-                    f"formula_code"
+                    f"condition_{number}_formula_code"
                 )
             )
-
             value = feature_value(
-                formula_code,
+                formula,
                 g,
                 family_ctx,
             )
 
             if not condition_matches(
                 rule,
-                condition_number,
+                number,
                 value,
             ):
                 matched = False
                 break
 
-        if not matched:
-            continue
-
-        matches.append(
-            {
-                "rule_id": s(
-                    rule.get("rule_id")
-                ),
-                "family": family,
-                "side": family_ctx[
-                    "side"
-                ],
-                "totals_direction": s(
-                    rule.get(
-                        "totals_direction"
-                    )
-                ),
-                "condition": s(
-                    rule.get(
-                        "source_condition"
-                    )
-                ),
-                "historical_hit_rate_pct": num(
-                    rule.get(
-                        "historical_hit_rate_pct"
-                    )
-                ),
-                "lift_pp": num(
-                    rule.get(
-                        "lift_vs_family_pct_points"
-                    )
-                ),
-                "direction": s(
-                    rule.get(
-                        "action_direction"
-                    )
-                ),
-                "games": num(
-                    rule.get("games")
-                ),
-            }
-        )
+        if matched:
+            matches.append(
+                {
+                    "rule_id": s(
+                        rule.get("rule_id")
+                    ),
+                    "family": family,
+                    "side": family_ctx["side"],
+                    "totals_direction": s(
+                        rule.get("totals_direction")
+                    ),
+                    "condition": s(
+                        rule.get("source_condition")
+                    ),
+                    "historical_hit_rate_pct": num(
+                        rule.get(
+                            "historical_hit_rate_pct"
+                        )
+                    ),
+                    "lift_pp": num(
+                        rule.get(
+                            "lift_vs_family_pct_points"
+                        )
+                    ),
+                    "direction": s(
+                        rule.get("action_direction")
+                    ),
+                    "games": num(
+                        rule.get("games")
+                    ),
+                }
+            )
 
     return matches
 
@@ -1208,8 +2214,7 @@ def strongest(
             == totals_direction
             and match["direction"]
             == action_direction
-            and match["lift_pp"]
-            is not None
+            and match["lift_pp"] is not None
         )
     ]
 
@@ -1247,48 +2252,25 @@ def build_summary_fields(
     g,
     matches,
 ):
-    positive_matches = [
+    positive = [
         match
         for match in matches
-        if (
-            match["direction"]
-            == "POSITIVE"
-        )
+        if match["direction"] == "POSITIVE"
     ]
-
-    negative_matches = [
+    negative = [
         match
         for match in matches
-        if (
-            match["direction"]
-            == "NEGATIVE"
-        )
+        if match["direction"] == "NEGATIVE"
     ]
 
-    g["matched_rule_count"] = len(
-        matches
-    )
-
-    g[
-        "matched_positive_rule_count"
-    ] = len(
-        positive_matches
-    )
-
-    g[
-        "matched_negative_rule_count"
-    ] = len(
-        negative_matches
-    )
-
+    g["matched_rule_count"] = len(matches)
+    g["matched_positive_rule_count"] = len(positive)
+    g["matched_negative_rule_count"] = len(negative)
     g["matched_rule_ids"] = join_text(
         match["rule_id"]
         for match in matches
     )
-
-    g[
-        "matched_rule_conditions"
-    ] = join_text(
+    g["matched_rule_conditions"] = join_text(
         (
             f'{match["rule_id"]}:'
             f'{match["family"]}:'
@@ -1298,10 +2280,7 @@ def build_summary_fields(
         for match in matches
     )
 
-    for (
-        prefix,
-        totals_direction,
-    ) in [
+    for prefix, totals_direction in [
         ("over", "Over"),
         ("under", "Under"),
     ]:
@@ -1309,141 +2288,89 @@ def build_summary_fields(
             match
             for match in matches
             if (
-                match[
-                    "totals_direction"
-                ]
+                match["totals_direction"]
                 == totals_direction
             )
         ]
-
         direction_positive = [
             match
-            for match
-            in direction_matches
-            if (
-                match["direction"]
-                == "POSITIVE"
-            )
+            for match in direction_matches
+            if match["direction"] == "POSITIVE"
         ]
-
         direction_negative = [
             match
-            for match
-            in direction_matches
-            if (
-                match["direction"]
-                == "NEGATIVE"
-            )
+            for match in direction_matches
+            if match["direction"] == "NEGATIVE"
         ]
 
-        g[
-            f"{prefix}_"
-            f"matched_rule_count"
-        ] = len(
-            direction_matches
+        g[f"{prefix}_matched_rule_count"] = (
+            len(direction_matches)
         )
-
         g[
-            f"{prefix}_"
-            f"matched_positive_"
-            f"rule_count"
-        ] = len(
-            direction_positive
-        )
-
+            f"{prefix}_matched_positive_rule_count"
+        ] = len(direction_positive)
         g[
-            f"{prefix}_"
-            f"matched_negative_"
-            f"rule_count"
-        ] = len(
-            direction_negative
-        )
-
-        g[
-            f"{prefix}_"
-            f"matched_rule_ids"
-        ] = join_text(
+            f"{prefix}_matched_negative_rule_count"
+        ] = len(direction_negative)
+        g[f"{prefix}_matched_rule_ids"] = join_text(
             match["rule_id"]
-            for match
-            in direction_matches
+            for match in direction_matches
         )
 
-        strongest_positive = strongest(
+        positive_item = strongest(
             matches,
             totals_direction,
             "POSITIVE",
         )
-
-        strongest_negative = strongest(
+        negative_item = strongest(
             matches,
             totals_direction,
             "NEGATIVE",
         )
 
-        for (
-            label,
-            item,
-        ) in [
+        for label, item in [
             (
                 "strongest_positive",
-                strongest_positive,
+                positive_item,
             ),
             (
                 "strongest_negative",
-                strongest_negative,
+                negative_item,
             ),
         ]:
             g[
-                f"{prefix}_{label}_"
-                f"rule_id"
+                f"{prefix}_{label}_rule_id"
             ] = (
                 item["rule_id"]
                 if item
                 else ""
             )
-
             g[
-                f"{prefix}_{label}_"
-                f"hist_hit_rate_pct"
+                f"{prefix}_{label}_hist_hit_rate_pct"
             ] = (
-                item[
-                    "historical_hit_rate_pct"
-                ]
+                item["historical_hit_rate_pct"]
                 if item
                 else ""
             )
-
             g[
-                f"{prefix}_{label}_"
-                f"lift_pp"
+                f"{prefix}_{label}_lift_pp"
             ] = (
                 item["lift_pp"]
                 if item
                 else ""
             )
-
             g[
-                f"{prefix}_{label}_"
-                f"games"
+                f"{prefix}_{label}_games"
             ] = (
                 item["games"]
                 if item
                 else ""
             )
 
-    family_prefixes = [
-        (
-            "DRAT",
-            "drat",
-        ),
-        (
-            "EPRED",
-            "epred",
-        ),
-        (
-            "MARKET",
-            "market",
-        ),
+    for family, prefix in [
+        ("DRAT", "drat"),
+        ("EPRED", "epred"),
+        ("MARKET", "market"),
         (
             "DRAT_EPRED_CONSENSUS",
             "drat_epred_consensus",
@@ -1452,195 +2379,68 @@ def build_summary_fields(
             "ALL3_CONSENSUS",
             "all3_consensus",
         ),
-    ]
-
-    for (
-        family,
-        prefix,
-    ) in family_prefixes:
-        matches_for_family = (
-            family_matches(
-                matches,
-                family,
-            )
+    ]:
+        family_items = family_matches(
+            matches,
+            family,
         )
-
         g[
-            f"{prefix}_"
-            f"matched_rule_count"
-        ] = len(
-            matches_for_family
-        )
-
+            f"{prefix}_matched_rule_count"
+        ] = len(family_items)
         g[
-            f"{prefix}_"
-            f"matched_rule_ids"
+            f"{prefix}_matched_rule_ids"
         ] = join_text(
             match["rule_id"]
-            for match
-            in matches_for_family
+            for match in family_items
         )
 
     return g
 
 
 def process_week(
-    root: Path,
-    schedule_path: Path,
-    odds_rows: list[dict[str, str]],
-    master: list[dict[str, str]],
-):
-    schedule = read_csv(
-        schedule_path
-    )
-
-    (
-        season,
-        season_type,
-        week,
-    ) = schedule_identity(
-        schedule,
-        schedule_path,
-    )
-
-    drat_path = find_drat_file(
-        root / DRAT_REL,
-        season,
-        week,
-    )
-
-    epred_path = find_epred_file(
-        root / EPRED_REL,
-        season,
-        week,
-        season_type,
-    )
-
-    output_path = (
-        root
-        / OUTPUT_REL
-        / f"week_{week}_NFL_enriched.csv"
-    )
-
-    drat = read_csv(
-        drat_path
-    )
-
-    epred = read_csv(
-        epred_path
-    )
-
-    require_columns(
-        schedule,
-        [
-            "season",
-            "season_type",
-            "week",
-            "game_id",
-            "odds_provider_game_id",
-            "away_team",
-            "home_team",
-            "bookmaker",
-            "home_moneyline_american",
-            "away_moneyline_american",
-            "home_spread",
-            "away_spread",
-            "total",
-        ],
-        (
-            f"weekly schedule "
-            f"{schedule_path.name}"
-        ),
-    )
-
-    require_columns(
-        drat,
-        [
-            "season",
-            "week",
-            "home_team",
-            "away_team",
-            "home_prob",
-            "away_prob",
-        ],
-        f"DRAT {drat_path.name}",
-    )
-
-    require_columns(
-        epred,
-        [
-            "game_id",
-            "home_team",
-            "away_team",
-            "home_prob",
-            "away_prob",
-            "home_rating",
-            "away_rating",
-            "matchupQuality",
-        ],
-        f"EPRED {epred_path.name}",
-    )
-
-    epred_by_game = {
-        s(row["game_id"]): row
-        for row in epred
-        if s(row.get("game_id"))
+    *,
+    season: int,
+    season_type: str,
+    week: int,
+    schedule_rows: list[dict[str, str]],
+    drat_by_teams,
+    epred_by_game,
+    current_odds,
+    master_rows,
+) -> tuple[
+    list[dict[str, object]],
+    dict[str, int],
+]:
+    output_rows: list[
+        dict[str, object]
+    ] = []
+    metrics = {
+        "current_odds_matches": 0,
+        "weekly_schedule_market_fallbacks": 0,
     }
 
-    drat_by_teams = {}
-
-    for row in drat:
-        try:
-            key = game_team_key(
-                row.get("season"),
-                row.get("week"),
-                row.get("home_team"),
-                row.get("away_team"),
-            )
-
-            drat_by_teams[key] = row
-
-        except Exception:
-            continue
-
-    current_odds = aggregate_latest_odds(
-        odds_rows
-    )
-
-    output_rows = []
-    missing_epred = []
-    missing_drat = []
-
-    for base in schedule:
+    for base in schedule_rows:
+        game_id = s(base.get("game_id"))
         g = dict(base)
 
-        epred_row = epred_by_game.get(
-            s(base.get("game_id"))
+        epred = epred_by_game.get(game_id)
+        if epred is None:
+            fail(
+                f"Missing EPRED join for game_id={game_id}"
+            )
+
+        drat_key = game_team_key(
+            base.get("season"),
+            base.get("week"),
+            base.get("home_team"),
+            base.get("away_team"),
         )
-
-        if epred_row is None:
-            missing_epred.append(
-                s(base.get("game_id"))
-            )
-
-        try:
-            drat_key = game_team_key(
-                base.get("season"),
-                base.get("week"),
-                base.get("home_team"),
-                base.get("away_team"),
-            )
-
-            drat_row = drat_by_teams.get(
-                drat_key
-            )
-
-        except Exception:
-            drat_row = None
-
-        if drat_row is None:
-            missing_drat.append(
-                s(base.get("game_id"))
+        drat = drat_by_teams.get(
+            drat_key
+        )
+        if drat is None:
+            fail(
+                f"Missing DRAT join for game_id={game_id}"
             )
 
         odds_record = choose_odds_record(
@@ -1651,321 +2451,204 @@ def process_week(
             base.get("bookmaker"),
         )
 
-        g["drat_home_prob"] = (
-            num(
-                drat_row.get(
-                    "home_prob"
-                )
-            )
-            if drat_row
-            else ""
+        if odds_record is None:
+            metrics[
+                "weekly_schedule_market_fallbacks"
+            ] += 1
+        else:
+            metrics[
+                "current_odds_matches"
+            ] += 1
+
+        g["drat_home_prob"] = num(
+            drat.get("home_prob")
+        )
+        g["drat_away_prob"] = num(
+            drat.get("away_prob")
         )
 
-        g["drat_away_prob"] = (
-            num(
-                drat_row.get(
-                    "away_prob"
-                )
-            )
-            if drat_row
-            else ""
+        epred_home_raw = num(
+            epred.get("home_prob")
         )
-
-        epred_home_raw = (
-            num(
-                epred_row.get(
-                    "home_prob"
-                )
-            )
-            if epred_row
-            else None
-        )
-
-        epred_away_raw = (
-            num(
-                epred_row.get(
-                    "away_prob"
-                )
-            )
-            if epred_row
-            else None
+        epred_away_raw = num(
+            epred.get("away_prob")
         )
 
         g["epred_home_prob_raw"] = (
             epred_home_raw
-            if epred_home_raw
-            is not None
+            if epred_home_raw is not None
             else ""
         )
-
         g["epred_away_prob_raw"] = (
             epred_away_raw
-            if epred_away_raw
-            is not None
+            if epred_away_raw is not None
             else ""
         )
 
-        epred_probability_sum = (
+        epred_sum = (
             epred_home_raw
             + epred_away_raw
             if (
-                epred_home_raw
-                is not None
-                and epred_away_raw
-                is not None
+                epred_home_raw is not None
+                and epred_away_raw is not None
             )
             else None
         )
 
         g["epred_home_prob"] = (
-            epred_home_raw
-            / epred_probability_sum
+            epred_home_raw / epred_sum
             if (
-                epred_probability_sum
-                is not None
-                and epred_probability_sum > 0
+                epred_sum is not None
+                and epred_sum > 0
             )
             else ""
         )
-
         g["epred_away_prob"] = (
-            epred_away_raw
-            / epred_probability_sum
+            epred_away_raw / epred_sum
             if (
-                epred_probability_sum
-                is not None
-                and epred_probability_sum > 0
+                epred_sum is not None
+                and epred_sum > 0
             )
             else ""
         )
-
-        g["epred_home_rating"] = (
-            num(
-                epred_row.get(
-                    "home_rating"
-                )
-            )
-            if epred_row
-            else ""
+        g["epred_home_rating"] = num(
+            epred.get("home_rating")
         )
-
-        g["epred_away_rating"] = (
-            num(
-                epred_row.get(
-                    "away_rating"
-                )
-            )
-            if epred_row
-            else ""
+        g["epred_away_rating"] = num(
+            epred.get("away_rating")
         )
-
-        g["epred_matchupQuality"] = (
-            num(
-                epred_row.get(
-                    "matchupQuality"
-                )
-            )
-            if epred_row
-            else ""
+        g["epred_matchupQuality"] = num(
+            epred.get("matchupQuality")
         )
 
         def market_value(field):
             if (
                 odds_record
                 and s(
-                    odds_record.get(
-                        field
-                    )
+                    odds_record.get(field)
                 )
                 != ""
             ):
-                return odds_record.get(
-                    field
-                )
-
-            return base.get(
-                field,
-                "",
-            )
+                return odds_record.get(field)
+            return base.get(field, "")
 
         g["market_bookmaker"] = (
-            odds_record.get(
-                "bookmaker"
-            )
+            odds_record.get("bookmaker")
             if odds_record
-            else base.get(
-                "bookmaker",
-                "",
-            )
+            else base.get("bookmaker", "")
         )
-
         g["market_last_update"] = (
-            odds_record.get(
-                "last_update"
-            )
+            odds_record.get("last_update")
             if odds_record
             else ""
         )
-
         g[
             "market_home_moneyline_american"
         ] = market_value(
             "home_moneyline_american"
         )
-
         g[
             "market_away_moneyline_american"
         ] = market_value(
             "away_moneyline_american"
         )
-
         g["market_home_spread"] = (
-            market_value(
-                "home_spread"
-            )
+            market_value("home_spread")
         )
-
         g["market_away_spread"] = (
-            market_value(
-                "away_spread"
+            market_value("away_spread")
+        )
+        g["market_total"] = market_value(
+            "total"
+        )
+
+        market_home, market_away = (
+            no_vig_probs(
+                g[
+                    "market_home_moneyline_american"
+                ],
+                g[
+                    "market_away_moneyline_american"
+                ],
             )
         )
 
-        g["market_total"] = (
-            market_value(
-                "total"
-            )
+        g["market_home_prob_novig"] = (
+            market_home
+            if market_home is not None
+            else ""
         )
-
-        (
-            market_home_prob,
-            market_away_prob,
-        ) = no_vig_probs(
-            g[
-                "market_home_moneyline_american"
-            ],
-            g[
-                "market_away_moneyline_american"
-            ],
-        )
-
-        g[
-            "market_home_prob_novig"
-        ] = (
-            market_home_prob
-            if market_home_prob
-            is not None
+        g["market_away_prob_novig"] = (
+            market_away
+            if market_away is not None
             else ""
         )
 
-        g[
-            "market_away_prob_novig"
-        ] = (
-            market_away_prob
-            if market_away_prob
-            is not None
-            else ""
-        )
+        contexts = build_family_contexts(g)
 
-        contexts = build_family_contexts(
-            g
+        home_rating = num(
+            g.get("epred_home_rating")
         )
-
-        epred_home_rating = num(
-            g.get(
-                "epred_home_rating"
-            )
+        away_rating = num(
+            g.get("epred_away_rating")
         )
-
-        epred_away_rating = num(
-            g.get(
-                "epred_away_rating"
-            )
-        )
-
-        g[
-            "epred_rating_gap_home"
-        ] = (
-            epred_home_rating
-            - epred_away_rating
+        g["epred_rating_gap_home"] = (
+            home_rating - away_rating
             if (
-                epred_home_rating
-                is not None
-                and epred_away_rating
-                is not None
+                home_rating is not None
+                and away_rating is not None
             )
             else ""
         )
 
-        drat_home_prob = num(
-            g.get(
-                "drat_home_prob"
-            )
+        drat_home = num(
+            g.get("drat_home_prob")
+        )
+        epred_home = num(
+            g.get("epred_home_prob")
         )
 
-        epred_home_prob = num(
-            g.get(
-                "epred_home_prob"
-            )
-        )
-
-        g[
-            "drat_epred_prob_diff_pp"
-        ] = (
+        g["drat_epred_prob_diff_pp"] = (
             abs(
-                drat_home_prob
-                - epred_home_prob
+                drat_home - epred_home
             )
             * 100.0
             if (
-                drat_home_prob
-                is not None
-                and epred_home_prob
-                is not None
+                drat_home is not None
+                and epred_home is not None
             )
             else ""
         )
-
-        g[
-            "drat_market_edge_home_pp"
-        ] = (
+        g["drat_market_edge_home_pp"] = (
             (
-                drat_home_prob
-                - market_home_prob
+                drat_home
+                - market_home
             )
             * 100.0
             if (
-                drat_home_prob
-                is not None
-                and market_home_prob
-                is not None
+                drat_home is not None
+                and market_home is not None
             )
             else ""
         )
-
-        g[
-            "epred_market_edge_home_pp"
-        ] = (
+        g["epred_market_edge_home_pp"] = (
             (
-                epred_home_prob
-                - market_home_prob
+                epred_home
+                - market_home
             )
             * 100.0
             if (
-                epred_home_prob
-                is not None
-                and market_home_prob
-                is not None
+                epred_home is not None
+                and market_home is not None
             )
             else ""
         )
 
         matches = match_rules(
             g,
-            master,
+            master_rows,
             contexts,
         )
-
         build_summary_fields(
             g,
             matches,
@@ -1974,439 +2657,815 @@ def process_week(
         output_rows.append(g)
 
     if not output_rows:
-        raise RuntimeError(
-            f"{schedule_path.name}: "
-            f"no rows to write"
+        fail(
+            f"No rows generated for "
+            f"season={season} "
+            f"season_type={season_type} "
+            f"week={week}"
         )
 
-    base_fields = list(
-        schedule[0].keys()
-    )
+    return output_rows, metrics
 
-    appended_fields = [
-        "drat_home_prob",
-        "drat_away_prob",
-        "epred_home_prob_raw",
-        "epred_away_prob_raw",
-        "epred_home_prob",
-        "epred_away_prob",
-        "epred_home_rating",
-        "epred_away_rating",
-        "epred_matchupQuality",
-        "market_bookmaker",
-        "market_last_update",
-        "market_home_moneyline_american",
-        "market_away_moneyline_american",
-        "market_home_spread",
-        "market_away_spread",
-        "market_total",
-        "market_home_prob_novig",
-        "market_away_prob_novig",
-        "drat_pick",
-        "epred_pick",
-        "market_pick",
-        "drat_epred_agree",
-        "drat_market_agree",
-        "epred_market_agree",
-        "all_three_agree",
-        "epred_rating_gap_home",
-        "drat_epred_prob_diff_pp",
-        "drat_market_edge_home_pp",
-        "epred_market_edge_home_pp",
-        "matched_rule_count",
-        "matched_positive_rule_count",
-        "matched_negative_rule_count",
-        "matched_rule_ids",
-        "matched_rule_conditions",
-        "over_matched_rule_count",
-        "over_matched_positive_rule_count",
-        "over_matched_negative_rule_count",
-        "over_matched_rule_ids",
-        "over_strongest_positive_rule_id",
-        "over_strongest_positive_hist_hit_rate_pct",
-        "over_strongest_positive_lift_pp",
-        "over_strongest_positive_games",
-        "over_strongest_negative_rule_id",
-        "over_strongest_negative_hist_hit_rate_pct",
-        "over_strongest_negative_lift_pp",
-        "over_strongest_negative_games",
-        "under_matched_rule_count",
-        "under_matched_positive_rule_count",
-        "under_matched_negative_rule_count",
-        "under_matched_rule_ids",
-        "under_strongest_positive_rule_id",
-        "under_strongest_positive_hist_hit_rate_pct",
-        "under_strongest_positive_lift_pp",
-        "under_strongest_positive_games",
-        "under_strongest_negative_rule_id",
-        "under_strongest_negative_hist_hit_rate_pct",
-        "under_strongest_negative_lift_pp",
-        "under_strongest_negative_games",
-        "drat_matched_rule_count",
-        "drat_matched_rule_ids",
-        "epred_matched_rule_count",
-        "epred_matched_rule_ids",
-        "market_matched_rule_count",
-        "market_matched_rule_ids",
-        "drat_epred_consensus_matched_rule_count",
-        "drat_epred_consensus_matched_rule_ids",
-        "all3_consensus_matched_rule_count",
-        "all3_consensus_matched_rule_ids",
+
+def split_rule_ids(
+    value: Any,
+) -> list[str]:
+    text = s(value)
+    if not text:
+        return []
+    return [
+        item
+        for item in text.split(";")
+        if item
     ]
 
-    fieldnames = (
-        base_fields
-        + [
-            field
-            for field in appended_fields
-            if field not in base_fields
-        ]
+
+def validate_rule_count(
+    row: dict[str, str],
+    *,
+    count_field: str,
+    ids_field: str,
+    active_rule_ids: set[str],
+    label: str,
+) -> None:
+    count = parse_int_text(
+        row.get(count_field),
+        label=f"{label} {count_field}",
     )
 
-    write_csv(
-        output_path,
-        output_rows,
-        fieldnames,
+    if count < 0:
+        fail(
+            f"{label} {count_field} cannot be negative"
+        )
+
+    ids = split_rule_ids(
+        row.get(ids_field)
     )
 
-    return {
-        "season": season,
-        "season_type": season_type,
-        "week": week,
-        "schedule": schedule_path.name,
-        "drat": drat_path.name,
-        "epred": epred_path.name,
-        "output": str(
-            output_path
+    if len(ids) != count:
+        fail(
+            f"{label} {count_field}={count} but "
+            f"{ids_field} contains {len(ids)} IDs"
+        )
+
+    if len(ids) != len(set(ids)):
+        fail(
+            f"{label} {ids_field} contains duplicate rule IDs"
+        )
+
+    unknown = sorted(
+        set(ids) - active_rule_ids
+    )
+    if unknown:
+        fail(
+            f"{label} {ids_field} contains unknown or "
+            f"inactive rule IDs: {unknown}"
+        )
+
+
+def validate_output_rows(
+    rows: list[dict[str, str]],
+    *,
+    schedule_rows: list[dict[str, str]],
+    active_rule_ids: set[str],
+    path: Path,
+) -> None:
+    if len(rows) != len(schedule_rows):
+        fail(
+            f"{path.name} row count mismatch "
+            f"expected={len(schedule_rows)} "
+            f"actual={len(rows)}"
+        )
+
+    schedule_by_id = {
+        s(row.get("game_id")): row
+        for row in schedule_rows
+    }
+    output_by_id: dict[
+        str,
+        dict[str, str],
+    ] = {}
+
+    count_pairs = [
+        (
+            "matched_rule_count",
+            "matched_rule_ids",
         ),
-        "games": len(
-            output_rows
+        (
+            "over_matched_rule_count",
+            "over_matched_rule_ids",
         ),
-        "missing_epred": len(
-            missing_epred
+        (
+            "under_matched_rule_count",
+            "under_matched_rule_ids",
         ),
-        "missing_drat": len(
-            missing_drat
+        (
+            "drat_matched_rule_count",
+            "drat_matched_rule_ids",
         ),
-    }
+        (
+            "epred_matched_rule_count",
+            "epred_matched_rule_ids",
+        ),
+        (
+            "market_matched_rule_count",
+            "market_matched_rule_ids",
+        ),
+        (
+            "drat_epred_consensus_matched_rule_count",
+            "drat_epred_consensus_matched_rule_ids",
+        ),
+        (
+            "all3_consensus_matched_rule_count",
+            "all3_consensus_matched_rule_ids",
+        ),
+    ]
 
-
-def validate_master(
-    master,
-):
-    supported_families = {
-        "DRAT",
-        "EPRED",
-        "MARKET",
-        "DRAT_EPRED_CONSENSUS",
-        "ALL3_CONSENSUS",
-    }
-
-    supported_totals_directions = {
-        "Over",
-        "Under",
-    }
-
-    supported_action_directions = {
-        "POSITIVE",
-        "NEGATIVE",
-    }
-
-    supported_match_types = {
-        "",
-        "IS_NULL",
-        "TEXT_EQUALS",
-        "NUMERIC_RANGE",
-    }
-
-    supported_formula_codes = {
-        "USE_FAMILY_SELECTED_PROB",
-        "MARKET_ROLE_FOR_FAMILY_SELECTED_SIDE",
-        "SPREAD_FOR_FAMILY_SELECTED_SIDE",
-        "EPRED_RATING_SELECTED_MINUS_OPPONENT",
-        "RAW_EPRED_MATCHUP_QUALITY",
-        "RAW_WEEK",
-        "RAW_MARKET_TOTAL",
-        "COMPARE_DRAT_PICK_TO_EPRED_PICK",
-        "COMPARE_FAMILY_PICK_TO_MARKET_PICK",
-        "ABS_DRAT_HOME_PROB_MINUS_EPRED_NORMALIZED_HOME_PROB_X100",
-        "FAMILY_SELECTED_PROB_MINUS_MARKET_SELECTED_PROB_X100",
-        "UNAVAILABLE",
-    }
-
-    seen_rule_ids = set()
-
-    for row_number, rule in enumerate(
-        master,
+    for line_number, row in enumerate(
+        rows,
         start=2,
     ):
-        rule_id = s(
-            rule.get("rule_id")
+        game_id = s(row.get("game_id"))
+        if not game_id:
+            fail(
+                f"{path.name} line {line_number} "
+                "has blank game_id"
+            )
+
+        if game_id in output_by_id:
+            fail(
+                f"{path.name} contains duplicate "
+                f"game_id={game_id}"
+            )
+
+        schedule_row = schedule_by_id.get(
+            game_id
+        )
+        if schedule_row is None:
+            fail(
+                f"{path.name} contains unexpected "
+                f"game_id={game_id}"
+            )
+
+        for field in WEEKLY_COLUMNS:
+            if s(row.get(field)) != s(
+                schedule_row.get(field)
+            ):
+                fail(
+                    f"{path.name} game_id={game_id} "
+                    f"changed weekly schedule field={field}"
+                )
+
+        for field in (
+            "drat_home_prob",
+            "drat_away_prob",
+            "epred_home_prob_raw",
+            "epred_away_prob_raw",
+            "epred_home_prob",
+            "epred_away_prob",
+            "epred_home_rating",
+            "epred_away_rating",
+            "epred_matchupQuality",
+            "epred_rating_gap_home",
+            "drat_epred_prob_diff_pp",
+        ):
+            require_finite_number(
+                row.get(field),
+                label=(
+                    f"{path.name} game_id={game_id} "
+                    f"{field}"
+                ),
+            )
+
+        for field in (
+            "drat_home_prob",
+            "drat_away_prob",
+            "epred_home_prob_raw",
+            "epred_away_prob_raw",
+            "epred_home_prob",
+            "epred_away_prob",
+        ):
+            value = require_finite_number(
+                row.get(field),
+                label=(
+                    f"{path.name} game_id={game_id} "
+                    f"{field}"
+                ),
+            )
+            if value < 0 or value > 1:
+                fail(
+                    f"{path.name} game_id={game_id} "
+                    f"{field} outside 0..1"
+                )
+
+        epred_home = require_finite_number(
+            row.get("epred_home_prob"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "epred_home_prob"
+            ),
+        )
+        epred_away = require_finite_number(
+            row.get("epred_away_prob"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "epred_away_prob"
+            ),
         )
 
-        if not rule_id:
-            raise ValueError(
-                f"totals enrichment master row "
-                f"{row_number}: blank rule_id"
+        if abs(
+            (
+                epred_home
+                + epred_away
+            )
+            - 1.0
+        ) > 1e-12:
+            fail(
+                f"{path.name} game_id={game_id} "
+                "normalized EPRED probabilities "
+                "do not sum to 1"
             )
 
-        if rule_id in seen_rule_ids:
-            raise ValueError(
-                f"totals enrichment master: "
-                f"duplicate rule_id {rule_id}"
+        for count_field, ids_field in (
+            count_pairs
+        ):
+            validate_rule_count(
+                row,
+                count_field=count_field,
+                ids_field=ids_field,
+                active_rule_ids=active_rule_ids,
+                label=(
+                    f"{path.name} game_id={game_id}"
+                ),
             )
 
-        seen_rule_ids.add(
-            rule_id
+        total_count = parse_int_text(
+            row.get("matched_rule_count"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "matched_rule_count"
+            ),
         )
-
-        if s(
-            rule.get("active")
-        ) != "1":
-            continue
-
-        if s(
-            rule.get(
-                "pipeline_supported"
-            )
-        ) != "1":
-            continue
-
-        family = s(
-            rule.get("family")
+        positive_count = parse_int_text(
+            row.get(
+                "matched_positive_rule_count"
+            ),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "matched_positive_rule_count"
+            ),
         )
-
-        if family not in supported_families:
-            raise ValueError(
-                f"{rule_id}: unsupported family "
-                f"{family}"
-            )
-
-        totals_direction = s(
-            rule.get(
-                "totals_direction"
-            )
+        negative_count = parse_int_text(
+            row.get(
+                "matched_negative_rule_count"
+            ),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "matched_negative_rule_count"
+            ),
         )
 
         if (
-            totals_direction
-            not in supported_totals_directions
+            positive_count
+            + negative_count
+            != total_count
         ):
-            raise ValueError(
-                f"{rule_id}: unsupported "
-                f"totals_direction "
-                f"{totals_direction}"
+            fail(
+                f"{path.name} game_id={game_id} "
+                "positive+negative matched counts "
+                "do not equal total"
             )
 
-        action_direction = s(
-            rule.get(
-                "action_direction"
+        over_count = parse_int_text(
+            row.get("over_matched_rule_count"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "over_matched_rule_count"
+            ),
+        )
+        under_count = parse_int_text(
+            row.get("under_matched_rule_count"),
+            label=(
+                f"{path.name} game_id={game_id} "
+                "under_matched_rule_count"
+            ),
+        )
+
+        if over_count + under_count != total_count:
+            fail(
+                f"{path.name} game_id={game_id} "
+                "over+under matched counts do not "
+                "equal total"
+            )
+
+        all_ids = set(
+            split_rule_ids(
+                row.get("matched_rule_ids")
+            )
+        )
+        over_ids = set(
+            split_rule_ids(
+                row.get("over_matched_rule_ids")
+            )
+        )
+        under_ids = set(
+            split_rule_ids(
+                row.get("under_matched_rule_ids")
             )
         )
 
-        if (
-            action_direction
-            not in supported_action_directions
-        ):
-            raise ValueError(
-                f"{rule_id}: unsupported "
-                f"action_direction "
-                f"{action_direction}"
+        if over_ids | under_ids != all_ids:
+            fail(
+                f"{path.name} game_id={game_id} "
+                "over/under rule ID union does not "
+                "equal all matched rule IDs"
             )
 
-        condition_count = int(
-            float(
-                s(
-                    rule.get(
-                        "condition_count"
+        if over_ids & under_ids:
+            fail(
+                f"{path.name} game_id={game_id} "
+                "same rule ID appears in both "
+                "Over and Under matches"
+            )
+
+        for prefix, direction_ids in (
+            ("over", over_ids),
+            ("under", under_ids),
+        ):
+            direction_total = parse_int_text(
+                row.get(
+                    f"{prefix}_matched_rule_count"
+                ),
+                label=(
+                    f"{path.name} game_id={game_id} "
+                    f"{prefix}_matched_rule_count"
+                ),
+            )
+            direction_positive = parse_int_text(
+                row.get(
+                    f"{prefix}_matched_positive_rule_count"
+                ),
+                label=(
+                    f"{path.name} game_id={game_id} "
+                    f"{prefix}_matched_positive_rule_count"
+                ),
+            )
+            direction_negative = parse_int_text(
+                row.get(
+                    f"{prefix}_matched_negative_rule_count"
+                ),
+                label=(
+                    f"{path.name} game_id={game_id} "
+                    f"{prefix}_matched_negative_rule_count"
+                ),
+            )
+
+            if (
+                direction_positive
+                + direction_negative
+                != direction_total
+            ):
+                fail(
+                    f"{path.name} game_id={game_id} "
+                    f"{prefix} positive+negative counts "
+                    "do not equal direction total"
+                )
+
+            for polarity in (
+                "positive",
+                "negative",
+            ):
+                strongest_id = s(
+                    row.get(
+                        f"{prefix}_strongest_"
+                        f"{polarity}_rule_id"
                     )
                 )
-                or "0"
-            )
+
+                if (
+                    strongest_id
+                    and strongest_id
+                    not in direction_ids
+                ):
+                    fail(
+                        f"{path.name} game_id={game_id} "
+                        f"{prefix} strongest {polarity} "
+                        "rule is absent from direction matches"
+                    )
+
+        output_by_id[game_id] = row
+
+    if set(output_by_id) != set(
+        schedule_by_id
+    ):
+        fail(
+            f"{path.name} output/schedule game "
+            "universe mismatch"
         )
 
-        if condition_count not in (
-            1,
-            2,
-        ):
-            raise ValueError(
-                f"{rule_id}: unsupported "
-                f"condition_count "
-                f"{condition_count}"
+
+def normalize_rows(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    return [
+        {
+            header: s(row.get(header))
+            for header in OUTPUT_HEADERS
+        }
+        for row in rows
+    ]
+
+
+def build_staged_root(
+    *,
+    week_outputs: dict[
+        int,
+        tuple[
+            list[dict[str, object]],
+            list[dict[str, str]],
+        ],
+    ],
+    active_rule_ids: set[str],
+) -> Path:
+    OUTPUT_DIR.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    stage_root = Path(
+        tempfile.mkdtemp(
+            prefix=".totals_enrichment_stage_",
+            dir=OUTPUT_DIR.parent,
+        )
+    )
+
+    try:
+        if OUTPUT_DIR.exists():
+            shutil.copytree(
+                OUTPUT_DIR,
+                stage_root,
+                dirs_exist_ok=True,
             )
 
-        for condition_number in range(
-            1,
-            condition_count + 1,
+        for stale in stage_root.glob(
+            "week_*_NFL_enriched.csv"
         ):
-            formula_code = s(
-                rule.get(
-                    f"condition_"
-                    f"{condition_number}_"
-                    f"formula_code"
-                )
+            stale.unlink()
+
+        expected_names: set[str] = set()
+
+        for week, (
+            output_rows,
+            schedule_rows,
+        ) in sorted(
+            week_outputs.items()
+        ):
+            name = (
+                f"week_{week}_NFL_enriched.csv"
+            )
+            expected_names.add(name)
+            path = stage_root / name
+
+            write_csv(
+                path,
+                output_rows,
+                OUTPUT_HEADERS,
+            )
+
+            headers, staged_rows = (
+                read_csv_table(path)
+            )
+            require_exact_headers(
+                headers,
+                OUTPUT_HEADERS,
+                label=(
+                    "staged totals enrichment "
+                    f"{name}"
+                ),
+            )
+
+            validate_output_rows(
+                staged_rows,
+                schedule_rows=schedule_rows,
+                active_rule_ids=active_rule_ids,
+                path=path,
             )
 
             if (
-                formula_code
-                not in supported_formula_codes
+                normalize_rows(staged_rows)
+                != normalize_rows(
+                    output_rows
+                )
             ):
-                raise ValueError(
-                    f"{rule_id}: unsupported "
-                    f"formula_code "
-                    f"{formula_code}"
+                fail(
+                    "Staged totals enrichment differs "
+                    f"from validated in-memory output: {path}"
                 )
 
-            match_type = s(
-                rule.get(
-                    f"condition_"
-                    f"{condition_number}_"
-                    f"match_type"
-                )
+        actual_names = {
+            path.name
+            for path in stage_root.glob(
+                "week_*_NFL_enriched.csv"
+            )
+        }
+
+        if actual_names != expected_names:
+            fail(
+                "Staged totals managed file set mismatch "
+                f"expected={sorted(expected_names)} "
+                f"actual={sorted(actual_names)}"
             )
 
-            if (
-                match_type
-                not in supported_match_types
-            ):
-                raise ValueError(
-                    f"{rule_id}: unsupported "
-                    f"match_type "
-                    f"{match_type}"
-                )
+        return stage_root
 
-
-def main():
-    workspace = os.environ.get(
-        "GITHUB_WORKSPACE",
-        "",
-    ).strip()
-
-    if not workspace:
-        raise RuntimeError(
-            "GITHUB_WORKSPACE is not set. "
-            "This script is intended to run "
-            "inside GitHub Actions."
+    except Exception:
+        shutil.rmtree(
+            stage_root,
+            ignore_errors=True,
         )
+        raise
 
-    root = Path(
-        workspace
-    ).resolve()
 
-    master_path = (
-        root
-        / MASTER_REL
-    )
-
-    master = read_csv(
-        master_path
-    )
-
-    require_columns(
-        master,
-        [
-            "rule_id",
-            "active",
-            "pipeline_supported",
-            "family",
-            "condition_count",
-            "condition_1_formula_code",
-            "condition_1_match_type",
-            "totals_direction",
-            "historical_hit_rate_pct",
-            "lift_vs_family_pct_points",
-            "action_direction",
-        ],
-        (
-            "historical totals "
-            "enrichment master"
-        ),
-    )
-
-    validate_master(
-        master
-    )
-
-    odds_path = (
-        find_latest_odds_file(
-            root / ODDS_REL
+def publish_staged_root(
+    stage_root: Path,
+    *,
+    reporter: PipelineReporter,
+) -> None:
+    backup_root = (
+        OUTPUT_DIR.parent
+        / (
+            f".{OUTPUT_DIR.name}_backup_"
+            f"{uuid.uuid4().hex}"
         )
     )
 
-    odds = read_csv(
-        odds_path
-    )
+    try:
+        if OUTPUT_DIR.exists():
+            os.replace(
+                OUTPUT_DIR,
+                backup_root,
+            )
 
-    require_columns(
-        odds,
-        [
-            "game_id",
-            "bookmaker",
-            "last_update",
-            "home_moneyline_american",
-            "away_moneyline_american",
-            "home_spread",
-            "away_spread",
-            "total",
-        ],
-        f"latest odds {odds_path.name}",
-    )
-
-    schedule_files = (
-        list_weekly_schedule_files(
-            root / SCHEDULE_REL
+        os.replace(
+            stage_root,
+            OUTPUT_DIR,
         )
-    )
 
-    completed = []
-    failures = []
+    except Exception:
+        if OUTPUT_DIR.exists():
+            shutil.rmtree(
+                OUTPUT_DIR,
+                ignore_errors=True,
+            )
 
-    for schedule_path in schedule_files:
+        if backup_root.exists():
+            os.replace(
+                backup_root,
+                OUTPUT_DIR,
+            )
+
+        raise
+
+    if backup_root.exists():
         try:
-            result = process_week(
-                root,
-                schedule_path,
-                odds,
-                master,
+            shutil.rmtree(
+                backup_root
             )
-
-            completed.append(
-                result
-            )
-
         except Exception as exc:
-            failures.append(
-                f"{schedule_path.name}: "
-                f"{exc}"
+            reporter.warning(
+                "Totals enrichment published but "
+                "temporary backup cleanup failed",
+                backup_path=str(backup_root),
+                error_type=type(exc).__name__,
+                error=str(exc),
             )
 
-    if failures:
-        raise RuntimeError(
-            " | ".join(
-                failures
-            )
+
+def run(
+    reporter: PipelineReporter,
+    *,
+    season: int,
+) -> None:
+    master_headers, master_rows = (
+        read_csv_table(MASTER_PATH)
+    )
+    reporter.add_input(MASTER_PATH)
+    active_rule_ids = validate_master(
+        master_headers,
+        master_rows,
+    )
+
+    odds_path, skipped_odds_candidates = (
+        select_latest_odds_file(
+            reporter=reporter,
+        )
+    )
+    odds_headers, odds_rows = (
+        read_csv_table(odds_path)
+    )
+    validate_selected_odds(
+        path=odds_path,
+        headers=odds_headers,
+        rows=odds_rows,
+    )
+    reporter.add_input(odds_path)
+
+    current_odds = aggregate_latest_odds(
+        odds_rows
+    )
+
+    schedules = load_target_schedules(
+        season=season,
+        reporter=reporter,
+    )
+
+    week_outputs: dict[
+        int,
+        tuple[
+            list[dict[str, object]],
+            list[dict[str, str]],
+        ],
+    ] = {}
+    completed = []
+    total_rows = 0
+    current_odds_matches = 0
+    weekly_fallbacks = 0
+
+    for week, (
+        schedule_path,
+        season_type,
+        schedule_rows,
+    ) in sorted(
+        schedules.items()
+    ):
+        (
+            drat_path,
+            _,
+            drat_by_teams,
+        ) = load_drat(
+            season=season,
+            week=week,
+            schedule_rows=schedule_rows,
+            reporter=reporter,
         )
 
-    if not completed:
-        raise RuntimeError(
-            "No weekly schedule had "
-            "all required matching "
-            "DRAT and EPRED inputs."
+        (
+            epred_path,
+            _,
+            epred_by_game,
+        ) = load_epred(
+            season=season,
+            season_type=season_type,
+            week=week,
+            schedule_rows=schedule_rows,
+            reporter=reporter,
         )
+
+        output_rows, metrics = process_week(
+            season=season,
+            season_type=season_type,
+            week=week,
+            schedule_rows=schedule_rows,
+            drat_by_teams=drat_by_teams,
+            epred_by_game=epred_by_game,
+            current_odds=current_odds,
+            master_rows=master_rows,
+        )
+
+        output_path = (
+            OUTPUT_DIR
+            / f"week_{week}_NFL_enriched.csv"
+        )
+
+        validate_output_rows(
+            normalize_rows(output_rows),
+            schedule_rows=schedule_rows,
+            active_rule_ids=active_rule_ids,
+            path=output_path,
+        )
+
+        week_outputs[week] = (
+            output_rows,
+            schedule_rows,
+        )
+
+        total_rows += len(output_rows)
+        current_odds_matches += metrics[
+            "current_odds_matches"
+        ]
+        weekly_fallbacks += metrics[
+            "weekly_schedule_market_fallbacks"
+        ]
+
+        completed.append(
+            {
+                "season": season,
+                "season_type": season_type,
+                "week": week,
+                "schedule": schedule_path.name,
+                "drat": drat_path.name,
+                "epred": epred_path.name,
+                "output": str(output_path),
+                "games": len(output_rows),
+                "missing_epred": 0,
+                "missing_drat": 0,
+            }
+        )
+
+    reporter.set_rows(
+        rows_in=total_rows,
+        rows_out=0,
+    )
+    reporter.update_details(
+        {
+            "season": season,
+            "weeks_enriched": len(completed),
+            "games_enriched": total_rows,
+            "active_supported_rules": len(
+                active_rule_ids
+            ),
+            "master_rows": len(master_rows),
+            "latest_odds_file": str(
+                odds_path
+            ),
+            "latest_odds_rows": len(
+                odds_rows
+            ),
+            "odds_candidates_skipped": (
+                skipped_odds_candidates
+            ),
+            "current_odds_matches": (
+                current_odds_matches
+            ),
+            "weekly_schedule_market_fallbacks": (
+                weekly_fallbacks
+            ),
+            "output_columns": len(
+                OUTPUT_HEADERS
+            ),
+            "publication_mode": (
+                "validated_directory_swap_with_rollback"
+            ),
+            "publication_completed": False,
+            "staged_roundtrip_verified": False,
+        }
+    )
+
+    stage_root: Path | None = None
+
+    try:
+        stage_root = build_staged_root(
+            week_outputs=week_outputs,
+            active_rule_ids=active_rule_ids,
+        )
+
+        reporter.set_detail(
+            "staged_roundtrip_verified",
+            True,
+        )
+
+        publish_staged_root(
+            stage_root,
+            reporter=reporter,
+        )
+        stage_root = None
+
+    finally:
+        if (
+            stage_root is not None
+            and stage_root.exists()
+        ):
+            shutil.rmtree(
+                stage_root,
+                ignore_errors=True,
+            )
+
+    for result in completed:
+        reporter.add_output(
+            Path(result["output"])
+        )
+
+    reporter.set_rows(
+        rows_in=total_rows,
+        rows_out=total_rows,
+    )
+    reporter.update_details(
+        {
+            "files_published": len(completed),
+            "rows_published": total_rows,
+            "publication_completed": True,
+        }
+    )
 
     print(
         f"Historical totals master: "
-        f"{master_path}"
+        f"{MASTER_PATH}"
     )
-
     print(
-        f"Latest odds file: "
-        f"{odds_path}"
+        f"Latest odds file: {odds_path}"
     )
-
     print(
-        f"Weeks enriched: "
-        f"{len(completed)}"
+        f"Weeks enriched: {len(completed)}"
     )
 
     for result in completed:
@@ -2414,20 +3473,45 @@ def main():
             f"week {result['week']} -> "
             f"{result['output']} "
             f"(games={result['games']}, "
-            f"missing_epred="
-            f"{result['missing_epred']}, "
-            f"missing_drat="
-            f"{result['missing_drat']})"
+            "missing_epred=0, missing_drat=0)"
         )
 
 
-if __name__ == "__main__":
+def main() -> int:
+    args = parse_args()
+
     try:
-        main()
+        with PipelineReporter(
+            script=SCRIPT_PATH,
+            stage="00_intake",
+            report_root=REPORT_ROOT,
+            pipeline="NFL",
+            league="NFL",
+            season=args.season,
+            extra_context={
+                "component": (
+                    "historical totals enrichment"
+                ),
+                "refresh_scope": (
+                    "requested season available weeks"
+                ),
+            },
+        ) as reporter:
+            run(
+                reporter,
+                season=args.season,
+            )
+
+        return 0
 
     except Exception as exc:
         print(
-            f"ERROR: {exc}",
+            f"ERROR: {type(exc).__name__}: {exc}",
             file=sys.stderr,
+            flush=True,
         )
-        sys.exit(1)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
