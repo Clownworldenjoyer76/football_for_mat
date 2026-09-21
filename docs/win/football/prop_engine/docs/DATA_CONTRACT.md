@@ -155,7 +155,7 @@ The canonical Prop Engine derived datasets are:
 | Opponent opportunity | `docs/win/football/prop_engine/data/historical/opportunity/opponent_week_opportunity.parquet` |
 | Position allowed | `docs/win/football/prop_engine/data/historical/opportunity/position_allowed_week.parquet` |
 | Role history | `docs/win/football/prop_engine/data/historical/features/player_role_history.parquet` |
-| Player form | `docs/win/football/prop_engine/data/historical/features/player_form.parquet` |
+| Player form | `docs/win/football/prop_engine/01_intake/player_form.parquet` |
 | Team form | `docs/win/football/prop_engine/data/historical/features/team_form.parquet` |
 | Opponent form | `docs/win/football/prop_engine/data/historical/features/opponent_form.parquet` |
 | Environment | `docs/win/football/prop_engine/data/historical/features/environment.parquet` |

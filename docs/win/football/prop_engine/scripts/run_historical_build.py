@@ -52,7 +52,7 @@ PIPELINE: tuple[str, ...] = (
     "build/build_team_opportunity.py",
     "build/build_position_allowed.py",
     "build/build_role_history.py",
-    "build/build_player_form.py",
+    "01_intake/build_player_form.py",
     "build/build_team_form.py",
     "build/build_environment_history.py",
     "build/build_defensive_features.py",

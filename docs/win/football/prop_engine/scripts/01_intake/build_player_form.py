@@ -9,7 +9,8 @@ READS:
     2010-2011 historical player-stat parquet files for pre-2012 prior seeding
 
 WRITES:
-    docs/win/football/prop_engine/data/historical/features/player_form.parquet
+    docs/win/football/prop_engine/01_intake/player_form.parquet
+    docs/win/football/prop_engine/errors/01_intake/build_player_form.json
 
 CONTRACT:
     - Target grain is the historical universe: season + week + game_id + player_id.
@@ -42,6 +43,7 @@ if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 
 import common
+from pipeline_reporter import PipelineReporter
 
 
 GRAIN = ["season", "week", "game_id", "player_id"]
@@ -776,9 +778,22 @@ def write_output_atomic(
     common.write_parquet_atomic(output, destination)
 
 
-def main() -> None:
+def run(reporter: PipelineReporter) -> None:
     config = common.load_config()
     validate_config(config)
+
+    reporter.add_input(
+        "docs/win/football/prop_engine/config/prop_engine.yaml"
+    )
+    reporter.add_input(config["paths"]["historical_universe"])
+    reporter.add_input(config["paths"]["player_opportunity"])
+
+    for season in PREHISTORY_SEASONS:
+        reporter.add_input(
+            config["paths"]["historical_player_stats_pattern"].format(
+                season=season
+            )
+        )
 
     target = load_targets(config)
     source = prepare_source(config, target)
@@ -805,8 +820,14 @@ def main() -> None:
     else:
         output_path = (
             common.prop_root()
-            / "data/historical/features/player_form.parquet"
+            / "01_intake/player_form.parquet"
         )
+
+    reporter.add_output(output_path)
+    reporter.set_rows(
+        rows_in=int(len(target)),
+        rows_out=int(len(target)),
+    )
 
     write_output_atomic(target, matrix, names, output_path)
 
@@ -817,10 +838,8 @@ def main() -> None:
         for i, metric in enumerate(BASE_METRICS)
     }
 
-    common.log_run(
-        "build_player_form.py",
+    reporter.update_details(
         {
-            "status": "passed",
             "output": str(output_path.relative_to(common.repo_root())),
             "rows": int(len(target)),
             "players": int(target["player_id"].nunique()),
@@ -858,6 +877,16 @@ def main() -> None:
         },
     )
 
+
+def main() -> None:
+    with PipelineReporter(
+        script=__file__,
+        stage="01_intake",
+        report_root=common.prop_root() / "errors",
+        pipeline="nfl_prop_engine",
+        league="NFL",
+    ) as reporter:
+        run(reporter)
 
 if __name__ == "__main__":
     main()

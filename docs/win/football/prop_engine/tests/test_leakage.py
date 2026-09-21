@@ -25,7 +25,7 @@ def load_module(name: str, relative: str):
     return module
 
 
-player_form = load_module("issue47_player_form", "build/build_player_form.py")
+player_form = load_module("issue47_player_form", "01_intake/build_player_form.py")
 role_history = load_module("issue47_role_history", "build/build_role_history.py")
 team_form = load_module("issue47_team_form", "build/build_team_form.py")
 universe = load_module("issue47_universe", "build/build_historical_universe.py")
