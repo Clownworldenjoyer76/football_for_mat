@@ -1,30 +1,30 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-35654197752-attempt-1",
-  "status": "FAILED",
-  "exit_code": 1,
+  "run_id": "github-35655568990-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
   "pipeline": "NFL",
   "league": "NFL",
   "stage": "00_intake",
   "script": "roster_cleanup.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/roster_cleanup.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/roster_cleanup.json",
-  "started_at_utc": "2026-09-21T20:58:55.910961+00:00",
-  "finished_at_utc": "2026-09-21T20:58:55.922342+00:00",
-  "duration_seconds": 0.011,
+  "started_at_utc": "2026-09-21T21:11:49.848690+00:00",
+  "finished_at_utc": "2026-09-21T21:11:50.125950+00:00",
+  "duration_seconds": 0.277,
   "environment": {
     "hostname": "runnervmlun5p",
     "python_version": "3.11.16",
     "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
     "platform": "linux",
-    "process_id": 2584,
+    "process_id": 2576,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "35654197752",
+    "github_run_id": "35655568990",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "8a3ccf8777b508988f429939ca733523f3e780d4",
+    "github_sha": "6c8520fdac97f314c92f5c9bc68b7d7bba13a985",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -37,26 +37,26 @@
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/raw/raw_roster.csv",
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/team_map.csv"
   ],
-  "outputs": [],
-  "rows_in": null,
-  "rows_out": null,
-  "warning_count": 0,
-  "error_count": 1,
-  "warnings": [],
-  "errors": [
-    {
-      "timestamp_utc": "2026-09-21T20:58:55.922330+00:00",
-      "type": "RosterCleanupError",
-      "message": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/team_map.csv line 3 duplicates team_id=22",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/roster_cleanup.py\", line 457, in main\n    run(reporter)\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/roster_cleanup.py\", line 382, in run\n    canonical_team_ids = load_canonical_team_ids()\n                         ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/roster_cleanup.py\", line 195, in load_canonical_team_ids\n    fail(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/roster_cleanup.py\", line 111, in fail\n    raise RosterCleanupError(message)\nRosterCleanupError: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/team_map.csv line 3 duplicates team_id=22\n",
-      "details": null
-    }
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/roster_master.csv"
   ],
+  "rows_in": 2488,
+  "rows_out": 2488,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
   "details": {
     "input_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/raw/raw_roster.csv",
     "output_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/roster_master.csv",
     "expected_output_columns": 58,
-    "publication_completed": false,
-    "staged_roundtrip_verified": false
+    "publication_completed": true,
+    "staged_roundtrip_verified": true,
+    "raw_rows": 2488,
+    "raw_columns": 234,
+    "canonical_team_count": 32,
+    "projected_rows": 2488,
+    "rows_published": 2488,
+    "output_columns": 58
   }
 }
