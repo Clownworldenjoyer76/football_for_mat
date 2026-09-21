@@ -166,8 +166,8 @@ jobs:
         id: historical_features_cache
         uses: actions/cache@v6
         with:
-          path: ${{ env.PROP_ENGINE_ROOT }}/01_intake/player_game_features.parquet
-          key: prop-01-player-game-features-v1-${{ runner.os }}-${{ hashFiles('docs/win/football/prop_engine/requirements.txt', 'docs/win/football/prop_engine/config/prop_engine.yaml', 'docs/win/football/prop_engine/scripts/01_intake/build_player_form.py', 'docs/win/football/prop_engine/scripts/01_intake/build_historical_features.py', 'docs/win/football/prop_engine/data/historical/**/*.parquet', 'docs/win/football/prop_engine/01_intake/feature_manifest.json', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2010.parquet', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2011.parquet') }}
+          path: ${{ env.PROP_ENGINE_ROOT }}/data/historical/features/player_game_features.parquet
+          key: prop-01-player-game-features-v1-${{ runner.os }}-${{ hashFiles('docs/win/football/prop_engine/requirements.txt', 'docs/win/football/prop_engine/config/prop_engine.yaml', 'docs/win/football/prop_engine/scripts/build/build_player_form.py', 'docs/win/football/prop_engine/scripts/build/build_historical_features.py', 'docs/win/football/prop_engine/data/historical/**/*.parquet', 'docs/win/football/prop_engine/data/historical/features/feature_manifest.json', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2010.parquet', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2011.parquet') }}
 
       - name: Rebuild ignored historical runtime feature table on cache miss
         if: steps.historical_features_cache.outputs.cache-hit != 'true'
@@ -176,11 +176,11 @@ jobs:
           echo "Historical feature cache miss."
           echo "Rebuilding ignored runtime artifacts from tracked historical inputs."
 
-          python "$PROP_ENGINE_ROOT/scripts/01_intake/build_player_form.py"
-          python "$PROP_ENGINE_ROOT/scripts/01_intake/build_historical_features.py"
+          python "$PROP_ENGINE_ROOT/scripts/build/build_player_form.py"
+          python "$PROP_ENGINE_ROOT/scripts/build/build_historical_features.py"
 
-          historical_features="$PROP_ENGINE_ROOT/01_intake/player_game_features.parquet"
-          historical_manifest="$PROP_ENGINE_ROOT/01_intake/feature_manifest.json"
+          historical_features="$PROP_ENGINE_ROOT/data/historical/features/player_game_features.parquet"
+          historical_manifest="$PROP_ENGINE_ROOT/data/historical/features/feature_manifest.json"
 
           if [[ ! -s "$historical_features" ]]; then
             echo "::error::Historical feature rebuild did not create $historical_features"
@@ -203,8 +203,8 @@ jobs:
           import pyarrow.parquet as pq
 
           prop = Path(os.environ["PROP_ENGINE_ROOT"])
-          parquet_path = prop / "01_intake/player_game_features.parquet"
-          manifest_path = prop / "01_intake/feature_manifest.json"
+          parquet_path = prop / "data/historical/features/player_game_features.parquet"
+          manifest_path = prop / "data/historical/features/feature_manifest.json"
 
           if not parquet_path.is_file() or parquet_path.stat().st_size == 0:
               raise SystemExit(f"Missing/empty canonical historical feature table: {parquet_path}")
@@ -484,10 +484,8 @@ jobs:
         shell: bash
         run: |
           git add -A -- \
-            "$PROP_ENGINE_ROOT/01_intake" \
             "$PROP_ENGINE_ROOT/data/current" \
             "$PROP_ENGINE_ROOT/data/identity" \
-            "$PROP_ENGINE_ROOT/errors" \
             "$PROP_ENGINE_ROOT/evaluation" \
             "$PROP_ENGINE_ROOT/logs" \
             "$PROP_ENGINE_ROOT/output" \

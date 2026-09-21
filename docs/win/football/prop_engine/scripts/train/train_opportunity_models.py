@@ -21,8 +21,8 @@ READS
 -----
 - config/prop_engine.yaml
 - config/target_eligibility.yaml
-- 01_intake/player_game_features.parquet
-- 01_intake/feature_manifest.json
+- data/historical/features/player_game_features.parquet
+- data/historical/features/feature_manifest.json
 - data/historical/opportunity/player_week_opportunity.parquet
 - data/historical/opportunity/team_week_opportunity.parquet
 - evaluation/backtest_folds.parquet

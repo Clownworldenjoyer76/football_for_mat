@@ -7,7 +7,7 @@ READS:
     docs/win/football/prop_engine/data/historical/universe/player_game_universe.parquet
     docs/win/football/prop_engine/data/historical/targets/player_game_targets.parquet
     docs/win/football/prop_engine/data/historical/features/player_role_history.parquet
-    docs/win/football/prop_engine/01_intake/player_form.parquet
+    docs/win/football/prop_engine/data/historical/features/player_form.parquet
     docs/win/football/prop_engine/data/historical/features/team_form.parquet
     docs/win/football/prop_engine/data/historical/features/opponent_form.parquet
     docs/win/football/prop_engine/data/historical/features/environment.parquet

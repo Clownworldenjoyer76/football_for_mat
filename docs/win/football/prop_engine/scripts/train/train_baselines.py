@@ -6,7 +6,7 @@ READS
 -----
 - config/prop_engine.yaml
 - config/target_eligibility.yaml
-- 01_intake/player_game_features.parquet
+- data/historical/features/player_game_features.parquet
 - evaluation/backtest_folds.parquet
 
 WRITES

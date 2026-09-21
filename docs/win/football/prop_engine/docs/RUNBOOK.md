@@ -61,8 +61,8 @@ Primary historical outputs:
 - `docs/win/football/prop_engine/data/identity/player_crosswalk.parquet`
 - `docs/win/football/prop_engine/data/historical/universe/player_game_universe.parquet`
 - `docs/win/football/prop_engine/data/historical/targets/player_game_targets.parquet`
-- `docs/win/football/prop_engine/01_intake/player_game_features.parquet`
-- `docs/win/football/prop_engine/01_intake/feature_manifest.json`
+- `docs/win/football/prop_engine/data/historical/features/player_game_features.parquet`
+- `docs/win/football/prop_engine/data/historical/features/feature_manifest.json`
 
 A failed historical build blocks training.
 
