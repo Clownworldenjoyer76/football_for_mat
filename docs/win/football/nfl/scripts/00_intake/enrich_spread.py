@@ -3160,7 +3160,7 @@ def build_staged_root(
                 headers,
                 OUTPUT_HEADERS,
                 label=(
-                    "staged moneyline enrichment "
+                    "staged spread enrichment "
                     f"{name}"
                 ),
             )
@@ -3192,7 +3192,7 @@ def build_staged_root(
 
         if actual_names != expected_names:
             fail(
-                "Staged moneyline managed file set mismatch "
+                "Staged spread managed file set mismatch "
                 f"expected={sorted(expected_names)} "
                 f"actual={sorted(actual_names)}"
             )
@@ -3254,7 +3254,7 @@ def publish_staged_root(
             )
         except Exception as exc:
             reporter.warning(
-                "Moneyline enrichment published but "
+                "Spread enrichment published but "
                 "temporary backup cleanup failed",
                 backup_path=str(backup_root),
                 error_type=type(exc).__name__,
