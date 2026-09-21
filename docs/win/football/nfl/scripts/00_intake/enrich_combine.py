@@ -504,8 +504,50 @@ def validate_identity(frame, *, path: Path, season: int, week: int, label: str) 
     if season_type not in {"pre","reg","post"}:
         fail(f"{label} {path.name} invalid season_type={season_type!r}")
     for column in SHARED_COLUMNS:
+        if column == "commence_time":
+            continue
         if frame[column].map(clean).eq("").any():
             fail(f"{label} {path.name} contains blank {column}")
+
+    commence_time = frame["commence_time"].map(clean)
+
+    if "odds_available" in frame.columns:
+        odds_available = frame["odds_available"].map(clean)
+        invalid_odds_available = ~odds_available.isin({"0", "1"})
+
+        if invalid_odds_available.any():
+            values = sorted(
+                set(
+                    odds_available[
+                        invalid_odds_available
+                    ].tolist()
+                )
+            )
+            fail(
+                f"{label} {path.name} has invalid "
+                f"odds_available values={values}"
+            )
+
+        missing_required_commence = (
+            commence_time.eq("")
+            & odds_available.eq("1")
+        )
+
+        if missing_required_commence.any():
+            game_ids = sorted(
+                set(
+                    frame.loc[
+                        missing_required_commence,
+                        "game_id",
+                    ].map(clean).tolist()
+                )
+            )
+            fail(
+                f"{label} {path.name} contains blank "
+                "commence_time for odds_available=1 "
+                f"game_id values={game_ids}"
+            )
+
     return season_type
 
 def normalized(series):
