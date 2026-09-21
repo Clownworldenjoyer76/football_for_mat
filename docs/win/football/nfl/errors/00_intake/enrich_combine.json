@@ -1,0 +1,58 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35656626539-attempt-1",
+  "status": "FAILED",
+  "exit_code": 1,
+  "pipeline": "NFL",
+  "league": "NFL",
+  "stage": "00_intake",
+  "script": "enrich_combine.py",
+  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_combine.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/enrich_combine.json",
+  "started_at_utc": "2026-09-21T21:29:45.988711+00:00",
+  "finished_at_utc": "2026-09-21T21:29:46.291069+00:00",
+  "duration_seconds": 0.302,
+  "environment": {
+    "hostname": "runnervmlun5p",
+    "python_version": "3.11.16",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2605,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35656626539",
+    "github_run_attempt": "1",
+    "github_workflow": "NFL 01 Pipeline",
+    "github_job": "nfl-all",
+    "github_ref_name": "main",
+    "github_sha": "fa8b41384ef26f1752981f5047114f4852ebc0f0",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": 2026,
+    "week": null,
+    "component": "combined prediction enrichment",
+    "refresh_scope": "requested season available weeks"
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/enriched/moneyline/week_1_NFL_enriched.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/enriched/spread/week_1_NFL_enriched.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/enriched/totals/week_1_NFL_enriched.csv"
+  ],
+  "outputs": [],
+  "rows_in": null,
+  "rows_out": null,
+  "warning_count": 0,
+  "error_count": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "timestamp_utc": "2026-09-21T21:29:46.291057+00:00",
+      "type": "CombineEnrichmentError",
+      "message": "moneyline enrichment week_1_NFL_enriched.csv contains blank commence_time",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_combine.py\", line 761, in main\n    run(reporter, season=args.season)\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_combine.py\", line 688, in run\n    ml_type = validate_identity(moneyline,path=ml_path,season=season,week=week,label=\"moneyline enrichment\")\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_combine.py\", line 508, in validate_identity\n    fail(f\"{label} {path.name} contains blank {column}\")\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_combine.py\", line 392, in fail\n    raise CombineEnrichmentError(message)\nCombineEnrichmentError: moneyline enrichment week_1_NFL_enriched.csv contains blank commence_time\n",
+      "details": null
+    }
+  ],
+  "details": {}
+}
