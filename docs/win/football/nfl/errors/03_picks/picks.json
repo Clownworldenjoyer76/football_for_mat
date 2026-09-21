@@ -1,0 +1,93 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35661014491-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
+  "pipeline": "NFL",
+  "league": "NFL",
+  "stage": "03_picks",
+  "script": "picks.py",
+  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/03_picks/picks.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/03_picks/picks.json",
+  "started_at_utc": "2026-09-21T22:17:47.182028+00:00",
+  "finished_at_utc": "2026-09-21T22:17:47.476772+00:00",
+  "duration_seconds": 0.295,
+  "environment": {
+    "hostname": "runnervmlun5p",
+    "python_version": "3.11.16",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "platform": "linux",
+    "process_id": 3018,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35661014491",
+    "github_run_attempt": "1",
+    "github_workflow": "NFL 01 Pipeline",
+    "github_job": "nfl-all",
+    "github_ref_name": "main",
+    "github_sha": "5c1a26402c523c7f8a540c49e80d364d909ed73b",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": null,
+    "week": null,
+    "component": "markets.yaml selection layer"
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/markets.yaml",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/02_select/week_1_NFL_selected.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/02_select/week_2_NFL_selected.csv"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/03_picks/week_1_NFL_picks.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/03_picks/week_2_NFL_picks.csv"
+  ],
+  "rows_in": 15,
+  "rows_out": 15,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
+  "details": {
+    "dependency_imports_ok": true,
+    "input_dir": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/02_select",
+    "output_dir": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/03_picks",
+    "pattern": "*NFL_selected.csv",
+    "markets_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/markets.yaml",
+    "managed_set_sync": true,
+    "all_outputs_staged": true,
+    "staged_roundtrip_verified": true,
+    "publication_completed": true,
+    "post_publish_validation": true,
+    "rollback_performed": false,
+    "files_processed": 2,
+    "per_file": [
+      {
+        "input": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/02_select/week_1_NFL_selected.csv",
+        "output": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/03_picks/week_1_NFL_picks.csv",
+        "games": 14,
+        "ml_picks": 4,
+        "spread_picks": 4,
+        "total_picks": 5
+      },
+      {
+        "input": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/02_select/week_2_NFL_selected.csv",
+        "output": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/03_picks/week_2_NFL_picks.csv",
+        "games": 1,
+        "ml_picks": 0,
+        "spread_picks": 1,
+        "total_picks": 0
+      }
+    ],
+    "total_games": 15,
+    "total_ml_picks": 4,
+    "total_spread_picks": 5,
+    "total_total_picks": 5,
+    "expected_root_pick_files": [
+      "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/03_picks/week_1_NFL_picks.csv",
+      "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/03_picks/week_2_NFL_picks.csv"
+    ],
+    "stale_root_pick_files": [],
+    "publication_mode": "transactional_multi_file_atomic_replace_with_rollback"
+  }
+}
