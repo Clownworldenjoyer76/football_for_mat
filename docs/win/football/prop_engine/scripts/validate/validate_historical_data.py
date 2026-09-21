@@ -28,7 +28,7 @@ REPORT_RELATIVE = Path(
     "docs/win/football/prop_engine/evaluation/historical_validation.json"
 )
 MANIFEST_RELATIVE = Path(
-    "docs/win/football/prop_engine/data/historical/features/feature_manifest.json"
+    "docs/win/football/prop_engine/01_intake/feature_manifest.json"
 )
 ELIGIBILITY_RELATIVE = Path(
     "docs/win/football/prop_engine/config/target_eligibility.yaml"

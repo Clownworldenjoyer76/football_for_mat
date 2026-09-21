@@ -57,7 +57,7 @@ PIPELINE: tuple[str, ...] = (
     "build/build_environment_history.py",
     "build/build_defensive_features.py",
     "build/build_kicking_features.py",
-    "build/build_historical_features.py",
+    "01_intake/build_historical_features.py",
     "validate/audit_market_exclusion.py",
     "validate/validate_historical_data.py",
 )

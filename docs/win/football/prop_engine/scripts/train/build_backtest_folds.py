@@ -4,7 +4,7 @@ Build chronological expanding-window backtest folds for the NFL Prop Engine.
 
 READS:
     docs/win/football/prop_engine/config/prop_engine.yaml
-    docs/win/football/prop_engine/data/historical/features/player_game_features.parquet
+    docs/win/football/prop_engine/01_intake/player_game_features.parquet
 
 WRITES:
     docs/win/football/prop_engine/evaluation/backtest_folds.parquet

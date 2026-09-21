@@ -16,8 +16,8 @@ READS:
     docs/win/football/prop_engine/data/historical/opportunity/position_allowed_week.parquet
 
 WRITES:
-    docs/win/football/prop_engine/data/historical/features/player_game_features.parquet
-    docs/win/football/prop_engine/data/historical/features/feature_manifest.json
+    docs/win/football/prop_engine/01_intake/player_game_features.parquet
+    docs/win/football/prop_engine/01_intake/feature_manifest.json
 
 POLICY:
     - Canonical grain is season + week + game_id + player_id.
@@ -50,6 +50,7 @@ if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 
 import common
+from pipeline_reporter import PipelineReporter
 
 
 GRAIN = ["season", "week", "game_id", "player_id"]
@@ -641,7 +642,7 @@ def classify_feature_columns(
     return numeric, categorical
 
 
-def main() -> int:
+def run(reporter: PipelineReporter) -> int:
     config = common.load_config()
 
     required_config_targets = list(config.get("targets", {}).keys())
@@ -671,9 +672,21 @@ def main() -> int:
     }
 
     manifest_path = (
-        "docs/win/football/prop_engine/data/historical/"
-        "features/feature_manifest.json"
+        "docs/win/football/prop_engine/01_intake/"
+        "feature_manifest.json"
     )
+
+    reporter.add_input(
+        "docs/win/football/prop_engine/config/prop_engine.yaml"
+    )
+
+    for key, value in paths.items():
+        if key == "output":
+            reporter.add_output(value)
+        else:
+            reporter.add_input(value)
+
+    reporter.add_output(manifest_path)
 
     universe = common.read_parquet_required(
         paths["universe"],
@@ -1517,7 +1530,17 @@ def main() -> int:
         "output": paths["output"],
         "manifest": manifest_path,
     }
-    common.log_run("build_historical_features.py", payload)
+    reporter.set_rows(
+        rows_in=int(universe_row_count),
+        rows_out=int(len(out)),
+    )
+    reporter.update_details(
+        {
+            key: value
+            for key, value in payload.items()
+            if key != "status"
+        }
+    )
 
     print(
         json.dumps(
@@ -1531,6 +1554,16 @@ def main() -> int:
     )
     return 0
 
+
+def main() -> int:
+    with PipelineReporter(
+        script=__file__,
+        stage="01_intake",
+        report_root=common.prop_root() / "errors",
+        pipeline="nfl_prop_engine",
+        league="NFL",
+    ) as reporter:
+        return run(reporter)
 
 if __name__ == "__main__":
     raise SystemExit(main())

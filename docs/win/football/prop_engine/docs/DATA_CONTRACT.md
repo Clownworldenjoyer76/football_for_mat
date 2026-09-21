@@ -161,7 +161,7 @@ The canonical Prop Engine derived datasets are:
 | Environment | `docs/win/football/prop_engine/data/historical/features/environment.parquet` |
 | Defensive features | `docs/win/football/prop_engine/data/historical/features/defensive_features.parquet` |
 | Kicking features | `docs/win/football/prop_engine/data/historical/features/kicking_features.parquet` |
-| Final historical model features | `docs/win/football/prop_engine/data/historical/features/player_game_features.parquet` |
+| Final historical model features | `docs/win/football/prop_engine/01_intake/player_game_features.parquet` |
 
 Current feature artifacts are rooted at:
 

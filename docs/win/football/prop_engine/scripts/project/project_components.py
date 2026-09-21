@@ -7,7 +7,7 @@ READS:
   data/current/features/{season}_week_{week}_features.parquet
   data/current/{season}_week_{week}_roles.parquet
   data/current/{season}_week_1_priors.parquet (Week 1 sequence gate)
-  data/historical/features/player_game_features.parquet
+  01_intake/player_game_features.parquet
   models/components/*/{model.txt,feature_manifest.json}
   models/efficiency/*/{model.txt,feature_manifest.json}
   config/target_eligibility.yaml

@@ -14,7 +14,7 @@ READS:
     00_intake/team_stats/{season}_team_stats.csv
     data/weather/week_{week}_NFL_weekly_weather.csv
     data/travel/{season}_week_{week}_travel.csv
-    data/historical/features/player_game_features.parquet
+    01_intake/player_game_features.parquet
     data/historical/opportunity/position_allowed_week.parquet
 
 WRITES:
