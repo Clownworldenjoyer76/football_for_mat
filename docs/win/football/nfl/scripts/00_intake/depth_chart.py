@@ -29,7 +29,6 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from pipeline_reporter import PipelineReporter
 
-TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
 DEPTHCHART_URL_TEMPLATE = (
     "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/"
     "seasons/{season}/teams/{team_id}/depthcharts"
@@ -267,101 +266,6 @@ def load_canonical_teams() -> dict[str, str]:
 
     return by_id
 
-
-def get_team_ids_and_abbrs(
-    canonical_teams: dict[str, str],
-) -> list[tuple[str, str]]:
-    data = fetch_json(TEAMS_URL)
-
-    sports = data.get("sports")
-    if not isinstance(sports, list) or not sports:
-        fail("ESPN teams response has no sports list")
-
-    leagues = sports[0].get("leagues")
-    if not isinstance(leagues, list) or not leagues:
-        fail("ESPN teams response has no leagues list")
-
-    teams: list[tuple[str, str]] = []
-    seen_ids: set[str] = set()
-    seen_abbrs: set[str] = set()
-
-    for league in leagues:
-        if not isinstance(league, dict):
-            fail("ESPN teams response contains invalid league object")
-
-        league_teams = league.get("teams", [])
-        if not isinstance(league_teams, list):
-            fail("ESPN teams response contains invalid teams list")
-
-        for team_entry in league_teams:
-            if not isinstance(team_entry, dict):
-                fail("ESPN teams response contains invalid team entry")
-
-            team = team_entry.get("team")
-            if not isinstance(team, dict):
-                fail("ESPN team entry missing team object")
-
-            team_id = clean(team.get("id"))
-            team_abbr = clean(
-                team.get("abbreviation")
-            ).upper()
-
-            if not team_id or not team_abbr:
-                fail(
-                    "ESPN teams response contains blank "
-                    "team id or abbreviation"
-                )
-
-            if team_id in seen_ids:
-                fail(
-                    f"Duplicate ESPN team_id={team_id}"
-                )
-
-            if team_abbr in seen_abbrs:
-                fail(
-                    f"Duplicate ESPN team_abbr={team_abbr}"
-                )
-
-            expected_abbr = canonical_teams.get(team_id)
-            if expected_abbr is None:
-                fail(
-                    "ESPN returned unknown NFL team "
-                    f"team_id={team_id} "
-                    f"team_abbr={team_abbr}"
-                )
-
-            if team_abbr != expected_abbr:
-                fail(
-                    "ESPN team abbreviation mismatch "
-                    f"team_id={team_id} "
-                    f"expected={expected_abbr} "
-                    f"received={team_abbr}"
-                )
-
-            seen_ids.add(team_id)
-            seen_abbrs.add(team_abbr)
-            teams.append((team_id, team_abbr))
-
-    if seen_ids != set(canonical_teams):
-        missing_ids = sorted(
-            set(canonical_teams) - seen_ids
-        )
-        extra_ids = sorted(
-            seen_ids - set(canonical_teams)
-        )
-        fail(
-            "ESPN team universe does not match canonical "
-            f"NFL teams missing={missing_ids} "
-            f"extra={extra_ids}"
-        )
-
-    if len(teams) != 32:
-        fail(
-            "Expected exactly 32 ESPN NFL teams; "
-            f"received={len(teams)}"
-        )
-
-    return teams
 
 
 def resolve_injuries(
@@ -1019,7 +923,7 @@ def main() -> None:
         reporter.add_output(OUTPUT_PATH)
         reporter.update_details(
             {
-                "teams_url": TEAMS_URL,
+                "team_source": str(TEAM_MAP_PATH),
                 "depthchart_url_template": DEPTHCHART_URL_TEMPLATE,
                 "requested_season": args.season,
                 "publication_mode": "staged_atomic_replace",
@@ -1027,16 +931,14 @@ def main() -> None:
         )
 
         canonical_teams = load_canonical_teams()
-        teams = get_team_ids_and_abbrs(
-            canonical_teams
-        )
+        teams = list(canonical_teams.items())
 
         reporter.set_detail(
             "canonical_team_count",
             len(canonical_teams),
         )
         reporter.set_detail(
-            "espn_team_count",
+            "team_count",
             len(teams),
         )
 
