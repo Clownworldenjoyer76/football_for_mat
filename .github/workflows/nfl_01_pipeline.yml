@@ -507,7 +507,9 @@ jobs:
             --season "$NFL_SEASON"
 
       - name: Run enrich_combine.py
-        run: python docs/win/football/nfl/scripts/00_intake/enrich_combine.py
+        run: |
+          python docs/win/football/nfl/scripts/00_intake/enrich_combine.py \
+            --season "$NFL_SEASON"
 
       - name: Commit and push Predictions
         run: |
