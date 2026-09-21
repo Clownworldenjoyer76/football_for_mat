@@ -24,23 +24,57 @@ Behavior:
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import os
+import shutil
+import sys
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-import pandas as pd
-import yaml
 
-
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_PATH = Path(__file__).resolve()
+SCRIPT_DIR = SCRIPT_PATH.parent
+SCRIPTS_DIR = SCRIPT_DIR.parent
 NFL_ROOT = SCRIPT_DIR.parents[1]
+REPORT_ROOT = NFL_ROOT / "errors"
+
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from pipeline_reporter import PipelineReporter
 
 DEFAULT_INPUT_DIR = NFL_ROOT / "02_select"
 DEFAULT_MARKETS_PATH = NFL_ROOT / "config/markets.yaml"
 DEFAULT_OUTPUT_DIR = NFL_ROOT / "03_picks"
 DEFAULT_PATTERN = "*NFL_selected.csv"
+
+def load_runtime_dependencies(
+    reporter: PipelineReporter,
+) -> None:
+    global np, pd, yaml
+
+    try:
+        import numpy as np_module
+        import pandas as pd_module
+        import yaml as yaml_module
+    except Exception:
+        reporter.set_detail(
+            "dependency_imports_ok",
+            False,
+        )
+        raise
+
+    np = np_module
+    pd = pd_module
+    yaml = yaml_module
+
+    reporter.set_detail(
+        "dependency_imports_ok",
+        True,
+    )
 
 THRESHOLD_KEYS = {
     "min_ev",
@@ -251,6 +285,7 @@ def reject_unknown(
         )
 
 
+
 def load_yaml(
     path: Path,
 ) -> dict[str, Any]:
@@ -259,16 +294,127 @@ def load_yaml(
             f"Missing markets config: {path}"
         )
 
+    class UniqueKeyLoader(
+        yaml.SafeLoader
+    ):
+        pass
+
+    def construct_mapping(
+        loader: Any,
+        node: Any,
+        deep: bool = False,
+    ) -> dict[Any, Any]:
+        if not isinstance(
+            node,
+            yaml.MappingNode,
+        ):
+            fail(
+                f"markets.yaml expected a "
+                f"mapping node: {path}"
+            )
+
+        mapping: dict[Any, Any] = {}
+
+        for key_node, value_node in node.value:
+            key = loader.construct_object(
+                key_node,
+                deep=deep,
+            )
+
+            try:
+                duplicate = key in mapping
+            except TypeError:
+                fail(
+                    "markets.yaml contains "
+                    "an unhashable mapping key"
+                )
+
+            if duplicate:
+                fail(
+                    "markets.yaml contains "
+                    f"duplicate key {key!r} "
+                    f"at line {key_node.start_mark.line + 1}"
+                )
+
+            mapping[key] = (
+                loader.construct_object(
+                    value_node,
+                    deep=deep,
+                )
+            )
+
+        return mapping
+
+    UniqueKeyLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        construct_mapping,
+    )
+
     with path.open(
         "r",
         encoding="utf-8",
     ) as handle:
-        data = yaml.safe_load(handle)
+        data = yaml.load(
+            handle,
+            Loader=UniqueKeyLoader,
+        )
 
     return require_mapping(
         data,
         "markets.yaml",
     )
+
+
+
+def validate_csv_header(
+    path: Path,
+) -> None:
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as handle:
+            reader = csv.reader(handle)
+            header = next(reader, None)
+    except UnicodeDecodeError as exc:
+        fail(
+            f"Input is not valid UTF-8 CSV: "
+            f"{path}: {exc}"
+        )
+
+    if not header:
+        fail(
+            f"Input has no CSV header: {path}"
+        )
+
+    normalized = [
+        clean(column)
+        for column in header
+    ]
+
+    if any(
+        not column
+        for column in normalized
+    ):
+        fail(
+            f"Input contains blank column "
+            f"names: {path}"
+        )
+
+    duplicates = sorted(
+        {
+            column
+            for column in normalized
+            if normalized.count(column) > 1
+        }
+    )
+
+    if duplicates:
+        fail(
+            f"Input contains duplicate "
+            f"column names: {duplicates}"
+        )
 
 
 def load_csv(
@@ -278,6 +424,10 @@ def load_csv(
         fail(
             f"Missing input file: {path}"
         )
+
+    validate_csv_header(
+        path
+    )
 
     df = pd.read_csv(
         path,
@@ -477,6 +627,39 @@ def bands(
         )
 
     return result
+
+
+
+
+def validate_band_domain(
+    band_name: str,
+    configured: list[
+        tuple[float, float]
+    ],
+    label: str,
+) -> None:
+    if band_name == "prob_bands":
+        for low, high in configured:
+            if (
+                low < 0.0
+                or high > 1.0
+            ):
+                fail(
+                    f"{label}: probability "
+                    "bands must stay within "
+                    "[0,1]"
+                )
+
+    if band_name == "kelly_bands":
+        for low, high in configured:
+            if (
+                low < 0.0
+                or high < 0.0
+            ):
+                fail(
+                    f"{label}: Kelly bands "
+                    "cannot be negative"
+                )
 
 
 def matches_band(
@@ -714,10 +897,16 @@ def normalize_config(
                 "side_bands"
             ]:
                 if key in side_raw:
-                    side_bands[key] = bands(
+                    configured_bands = bands(
                         side_raw[key],
                         f"{side_label}.{key}",
                     )
+                    validate_band_domain(
+                        key,
+                        configured_bands,
+                        f"{side_label}.{key}",
+                    )
+                    side_bands[key] = configured_bands
 
             normalized[
                 "sides"
@@ -856,6 +1045,540 @@ def validate_input(
             f"{path} contains duplicate "
             f"game_id values: {examples}"
         )
+
+
+
+
+def american_to_decimal(
+    odds: float,
+) -> float:
+    if odds == 0:
+        fail(
+            "American odds cannot be 0"
+        )
+
+    if odds > 0:
+        return (
+            1.0
+            + odds / 100.0
+        )
+
+    return (
+        1.0
+        + 100.0 / abs(odds)
+    )
+
+
+def american_implied_probability(
+    odds: float,
+) -> float:
+    return (
+        1.0
+        / american_to_decimal(
+            odds
+        )
+    )
+
+
+def no_vig_probabilities(
+    first_odds: float,
+    second_odds: float,
+) -> tuple[float, float]:
+    first_raw = (
+        american_implied_probability(
+            first_odds
+        )
+    )
+    second_raw = (
+        american_implied_probability(
+            second_odds
+        )
+    )
+
+    total_raw = (
+        first_raw
+        + second_raw
+    )
+
+    if (
+        not math.isfinite(
+            total_raw
+        )
+        or total_raw <= 0
+    ):
+        fail(
+            "Unable to calculate no-vig "
+            "probabilities from odds "
+            f"{first_odds!r}, "
+            f"{second_odds!r}"
+        )
+
+    return (
+        first_raw / total_raw,
+        second_raw / total_raw,
+    )
+
+
+def candidate_metrics(
+    model_probability: float,
+    odds_american: float,
+    fair_market_probability: float,
+) -> dict[str, float]:
+    decimal_odds = (
+        american_to_decimal(
+            odds_american
+        )
+    )
+
+    net_win = (
+        decimal_odds
+        - 1.0
+    )
+
+    loss_probability = (
+        1.0
+        - model_probability
+    )
+
+    edge = (
+        model_probability
+        - fair_market_probability
+    )
+
+    ev = (
+        model_probability
+        * net_win
+        - loss_probability
+    )
+
+    raw_kelly = (
+        (
+            net_win
+            * model_probability
+            - loss_probability
+        )
+        / net_win
+    )
+
+    return {
+        "implied_probability": (
+            fair_market_probability
+        ),
+        "edge": edge,
+        "ev": ev,
+        "full_kelly": max(
+            0.0,
+            raw_kelly,
+        ),
+    }
+
+
+def require_close(
+    actual: float,
+    expected: float,
+    *,
+    label: str,
+    atol: float = 1e-12,
+) -> None:
+    if not math.isclose(
+        actual,
+        expected,
+        rel_tol=1e-12,
+        abs_tol=atol,
+    ):
+        fail(
+            f"{label}: expected "
+            f"{expected!r}; "
+            f"found {actual!r}"
+        )
+
+
+def validate_candidate_contract(
+    df: pd.DataFrame,
+    path: Path,
+) -> None:
+    for _, row in df.iterrows():
+        game_id = clean(
+            row["game_id"]
+        )
+
+        for (
+            market_name,
+            first_prefix,
+            second_prefix,
+            include_line,
+        ) in (
+            (
+                "moneyline",
+                "ml_home",
+                "ml_away",
+                False,
+            ),
+            (
+                "spread",
+                "spread_home",
+                "spread_away",
+                True,
+            ),
+            (
+                "total",
+                "total_over",
+                "total_under",
+                True,
+            ),
+        ):
+            first_available = (
+                optional_number(
+                    row.get(
+                        f"{first_prefix}_available",
+                        "",
+                    )
+                )
+            )
+            second_available = (
+                optional_number(
+                    row.get(
+                        f"{second_prefix}_available",
+                        "",
+                    )
+                )
+            )
+
+            if first_available not in {
+                0.0,
+                1.0,
+            }:
+                fail(
+                    f"{path}: game_id={game_id}: "
+                    f"{first_prefix}_available "
+                    "must be 0 or 1"
+                )
+
+            if second_available not in {
+                0.0,
+                1.0,
+            }:
+                fail(
+                    f"{path}: game_id={game_id}: "
+                    f"{second_prefix}_available "
+                    "must be 0 or 1"
+                )
+
+            if (
+                first_available
+                != second_available
+            ):
+                fail(
+                    f"{path}: game_id={game_id}: "
+                    f"{market_name} candidate "
+                    "availability must be paired"
+                )
+
+            if first_available == 0.0:
+                for prefix in (
+                    first_prefix,
+                    second_prefix,
+                ):
+                    for metric in (
+                        "odds_american",
+                        "model_probability",
+                        "implied_probability",
+                        "edge",
+                        "ev",
+                        "full_kelly",
+                        "kelly",
+                    ):
+                        if clean(
+                            row.get(
+                                f"{prefix}_{metric}",
+                                "",
+                            )
+                        ):
+                            fail(
+                                f"{path}: "
+                                f"game_id={game_id}: "
+                                f"unavailable "
+                                f"{prefix}_{metric} "
+                                "must be blank"
+                            )
+
+                    if include_line:
+                        line_text = clean(
+                            row.get(
+                                f"{prefix}_line",
+                                "",
+                            )
+                        )
+                        if (
+                            line_text
+                            and optional_number(
+                                line_text
+                            )
+                            is None
+                        ):
+                            fail(
+                                f"{path}: "
+                                f"game_id={game_id}: "
+                                f"{prefix}_line "
+                                "must be finite "
+                                "when present"
+                            )
+
+                continue
+
+            first_odds = (
+                optional_number(
+                    row[
+                        f"{first_prefix}_odds_american"
+                    ]
+                )
+            )
+            second_odds = (
+                optional_number(
+                    row[
+                        f"{second_prefix}_odds_american"
+                    ]
+                )
+            )
+
+            if (
+                first_odds is None
+                or second_odds is None
+                or first_odds == 0
+                or second_odds == 0
+            ):
+                fail(
+                    f"{path}: game_id={game_id}: "
+                    f"{market_name} odds must "
+                    "be finite and nonzero"
+                )
+
+            first_fair, second_fair = (
+                no_vig_probabilities(
+                    first_odds,
+                    second_odds,
+                )
+            )
+
+            model_values: list[
+                float
+            ] = []
+
+            for (
+                prefix,
+                fair_probability,
+            ) in (
+                (
+                    first_prefix,
+                    first_fair,
+                ),
+                (
+                    second_prefix,
+                    second_fair,
+                ),
+            ):
+                values: dict[
+                    str,
+                    float,
+                ] = {}
+
+                for metric in (
+                    "odds_american",
+                    "model_probability",
+                    "implied_probability",
+                    "edge",
+                    "ev",
+                    "full_kelly",
+                    "kelly",
+                ):
+                    parsed = (
+                        optional_number(
+                            row.get(
+                                f"{prefix}_{metric}",
+                                "",
+                            )
+                        )
+                    )
+
+                    if parsed is None:
+                        fail(
+                            f"{path}: "
+                            f"game_id={game_id}: "
+                            f"{prefix}_{metric} "
+                            "must be finite"
+                        )
+
+                    values[
+                        metric
+                    ] = parsed
+
+                if (
+                    values[
+                        "odds_american"
+                    ]
+                    == 0
+                ):
+                    fail(
+                        f"{path}: "
+                        f"game_id={game_id}: "
+                        f"{prefix}_odds_american "
+                        "cannot be 0"
+                    )
+
+                if not (
+                    0.0
+                    <= values[
+                        "model_probability"
+                    ]
+                    <= 1.0
+                ):
+                    fail(
+                        f"{path}: "
+                        f"game_id={game_id}: "
+                        f"{prefix}_model_probability "
+                        "outside [0,1]"
+                    )
+
+                if not (
+                    0.0
+                    <= values[
+                        "implied_probability"
+                    ]
+                    <= 1.0
+                ):
+                    fail(
+                        f"{path}: "
+                        f"game_id={game_id}: "
+                        f"{prefix}_implied_probability "
+                        "outside [0,1]"
+                    )
+
+                if (
+                    values[
+                        "full_kelly"
+                    ]
+                    < 0
+                    or values["kelly"] < 0
+                ):
+                    fail(
+                        f"{path}: "
+                        f"game_id={game_id}: "
+                        f"{prefix} Kelly values "
+                        "cannot be negative"
+                    )
+
+                if (
+                    values["kelly"]
+                    > values[
+                        "full_kelly"
+                    ]
+                    + 1e-12
+                ):
+                    fail(
+                        f"{path}: "
+                        f"game_id={game_id}: "
+                        f"{prefix}_kelly cannot "
+                        "exceed full_kelly"
+                    )
+
+                expected = (
+                    candidate_metrics(
+                        values[
+                            "model_probability"
+                        ],
+                        values[
+                            "odds_american"
+                        ],
+                        fair_probability,
+                    )
+                )
+
+                for metric in (
+                    "implied_probability",
+                    "edge",
+                    "ev",
+                    "full_kelly",
+                ):
+                    require_close(
+                        values[metric],
+                        expected[metric],
+                        label=(
+                            f"{path}: "
+                            f"game_id={game_id}: "
+                            f"{prefix}_{metric}"
+                        ),
+                    )
+
+                model_values.append(
+                    values[
+                        "model_probability"
+                    ]
+                )
+
+            require_close(
+                sum(
+                    model_values
+                ),
+                1.0,
+                label=(
+                    f"{path}: "
+                    f"game_id={game_id}: "
+                    f"{market_name} model "
+                    "probabilities"
+                ),
+                atol=1e-9,
+            )
+
+            if include_line:
+                first_line = (
+                    optional_number(
+                        row[
+                            f"{first_prefix}_line"
+                        ]
+                    )
+                )
+                second_line = (
+                    optional_number(
+                        row[
+                            f"{second_prefix}_line"
+                        ]
+                    )
+                )
+
+                if (
+                    first_line is None
+                    or second_line is None
+                ):
+                    fail(
+                        f"{path}: "
+                        f"game_id={game_id}: "
+                        f"{market_name} lines "
+                        "must be finite"
+                    )
+
+                if market_name == "spread":
+                    require_close(
+                        first_line
+                        + second_line,
+                        0.0,
+                        label=(
+                            f"{path}: "
+                            f"game_id={game_id}: "
+                            "spread lines"
+                        ),
+                        atol=1e-9,
+                    )
+                else:
+                    require_close(
+                        first_line,
+                        second_line,
+                        label=(
+                            f"{path}: "
+                            f"game_id={game_id}: "
+                            "total lines"
+                        ),
+                        atol=1e-9,
+                    )
 
 
 def is_available(
@@ -1316,11 +2039,228 @@ def evaluate_market(
     )
 
 
+
+def compare_selection_value(
+    actual: Any,
+    expected: Any,
+    *,
+    label: str,
+) -> None:
+    expected_text = clean(
+        expected
+    )
+    actual_text = clean(
+        actual
+    )
+
+    if not expected_text:
+        if actual_text:
+            fail(
+                f"{label}: expected blank; "
+                f"found {actual!r}"
+            )
+        return
+
+    if isinstance(
+        expected,
+        (
+            int,
+            float,
+            np.integer,
+            np.floating,
+        ),
+    ):
+        expected_number = (
+            optional_number(
+                expected
+            )
+        )
+        actual_number = (
+            optional_number(
+                actual
+            )
+        )
+
+        if (
+            expected_number is None
+            or actual_number is None
+        ):
+            fail(
+                f"{label}: expected numeric "
+                f"value {expected!r}; "
+                f"found {actual!r}"
+            )
+
+        require_close(
+            actual_number,
+            expected_number,
+            label=label,
+            atol=1e-12,
+        )
+        return
+
+    if actual_text != expected_text:
+        fail(
+            f"{label}: expected "
+            f"{expected_text!r}; "
+            f"found {actual_text!r}"
+        )
+
+
+def validate_processed_output(
+    source: pd.DataFrame,
+    output: pd.DataFrame,
+    config: dict[str, Any],
+    label: str,
+) -> None:
+    if (
+        list(output.columns)
+        != list(source.columns)
+    ):
+        fail(
+            f"{label}: column order changed"
+        )
+
+    if len(output) != len(source):
+        fail(
+            f"{label}: row count changed; "
+            f"expected={len(source)} "
+            f"actual={len(output)}"
+        )
+
+    source_ids = (
+        source["game_id"]
+        .map(clean)
+        .tolist()
+    )
+    output_ids = (
+        output["game_id"]
+        .map(clean)
+        .tolist()
+    )
+
+    if output_ids != source_ids:
+        fail(
+            f"{label}: game_id order changed"
+        )
+
+    if (
+        pd.Series(
+            output_ids
+        )
+        .duplicated()
+        .any()
+    ):
+        fail(
+            f"{label}: duplicate game_id "
+            "values"
+        )
+
+    non_selection = [
+        column
+        for column
+        in source.columns
+        if column
+        not in selection_columns()
+    ]
+
+    for column in non_selection:
+        source_values = [
+            clean(value)
+            for value in source[
+                column
+            ].tolist()
+        ]
+        output_values = [
+            clean(value)
+            for value in output[
+                column
+            ].tolist()
+        ]
+
+        if (
+            output_values
+            != source_values
+        ):
+            fail(
+                f"{label}: non-selection "
+                f"column {column!r} changed"
+            )
+
+    validate_candidate_contract(
+        output,
+        Path(label),
+    )
+
+    selection_set = set(
+        selection_columns()
+    )
+
+    for position in range(
+        len(source)
+    ):
+        source_row = (
+            source.iloc[
+                position
+            ]
+        )
+        output_row = (
+            output.iloc[
+                position
+            ]
+        )
+
+        expected_updates: dict[
+            str,
+            Any,
+        ] = {}
+
+        for market_name in MARKETS:
+            expected_updates.update(
+                evaluate_market(
+                    source_row,
+                    market_name,
+                    config,
+                )
+            )
+
+        if set(
+            expected_updates
+        ) != selection_set:
+            fail(
+                f"{label}: internal "
+                "selection-column contract "
+                "mismatch"
+            )
+
+        game_id = clean(
+            source_row["game_id"]
+        )
+
+        for (
+            column,
+            expected,
+        ) in expected_updates.items():
+            compare_selection_value(
+                output_row[
+                    column
+                ],
+                expected,
+                label=(
+                    f"{label}: "
+                    f"game_id={game_id}: "
+                    f"{column}"
+                ),
+            )
+
+
 def process_file(
     input_path: Path,
-    output_path: Path,
     config: dict[str, Any],
-) -> pd.DataFrame:
+) -> tuple[
+    pd.DataFrame,
+    pd.DataFrame,
+]:
     df = load_csv(
         input_path
     )
@@ -1329,10 +2269,17 @@ def process_file(
         df,
         input_path,
     )
+    validate_candidate_contract(
+        df,
+        input_path,
+    )
 
     output = df.copy()
     for column in selection_columns():
-        output[column] = output[column].astype(object)
+        output[column] = (
+            output[column]
+            .astype(object)
+        )
 
     original_columns = list(
         df.columns
@@ -1371,60 +2318,17 @@ def process_file(
             f"processing {input_path}"
         )
 
-    if (
-        output[
-            "game_id"
-        ].tolist()
-        != df[
-            "game_id"
-        ].tolist()
-    ):
-        fail(
-            "game_id order changed while "
-            f"processing {input_path}"
-        )
-
-    non_selection = [
-        column
-        for column
-        in original_columns
-        if column
-        not in selection_columns()
-    ]
-
-    if not output[
-        non_selection
-    ].equals(
-        df[non_selection]
-    ):
-        fail(
-            "Non-selection columns changed "
-            f"while processing {input_path}"
-        )
-
-    output_path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
+    validate_processed_output(
+        df,
+        output,
+        config,
+        f"in-memory output {input_path}",
     )
 
-    temporary = (
-        output_path.with_suffix(
-            output_path.suffix
-            + ".tmp"
-        )
+    return (
+        df,
+        output,
     )
-
-    output.to_csv(
-        temporary,
-        index=False,
-    )
-
-    os.replace(
-        temporary,
-        output_path,
-    )
-
-    return output
 
 
 def output_name(
@@ -1450,7 +2354,326 @@ def output_name(
     )
 
 
-def main() -> int:
+
+
+def stage_output(
+    output: pd.DataFrame,
+    output_path: Path,
+) -> Path:
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    descriptor, raw_path = (
+        tempfile.mkstemp(
+            prefix=(
+                f".{output_path.name}."
+                "stage."
+            ),
+            suffix=".csv",
+            dir=str(
+                output_path.parent
+            ),
+        )
+    )
+    os.close(descriptor)
+
+    staged_path = Path(
+        raw_path
+    )
+
+    try:
+        output.to_csv(
+            staged_path,
+            index=False,
+            encoding="utf-8",
+        )
+
+        if (
+            not staged_path.is_file()
+            or staged_path.stat().st_size
+            == 0
+        ):
+            fail(
+                f"Staged picks output "
+                f"was not written: "
+                f"{staged_path}"
+            )
+
+        return staged_path
+    except Exception:
+        staged_path.unlink(
+            missing_ok=True
+        )
+        raise
+
+
+def validate_serialized_output(
+    path: Path,
+    *,
+    source: pd.DataFrame,
+    config: dict[str, Any],
+    label: str,
+) -> pd.DataFrame:
+    serialized = load_csv(
+        path
+    )
+
+    validate_processed_output(
+        source,
+        serialized,
+        config,
+        label,
+    )
+
+    return serialized
+
+
+def selection_counts(
+    output: pd.DataFrame,
+) -> dict[str, int]:
+    return {
+        "ml": int(
+            pd.to_numeric(
+                output[
+                    "ml_selected"
+                ],
+                errors="coerce",
+            )
+            .fillna(0)
+            .sum()
+        ),
+        "spread": int(
+            pd.to_numeric(
+                output[
+                    "spread_selected"
+                ],
+                errors="coerce",
+            )
+            .fillna(0)
+            .sum()
+        ),
+        "total": int(
+            pd.to_numeric(
+                output[
+                    "total_selected"
+                ],
+                errors="coerce",
+            )
+            .fillna(0)
+            .sum()
+        ),
+    }
+
+
+def publish_output_set(
+    entries: list[
+        dict[str, Any]
+    ],
+    stale_paths: list[Path],
+    *,
+    config: dict[str, Any],
+    reporter: PipelineReporter,
+) -> None:
+    backups: dict[
+        Path,
+        Path,
+    ] = {}
+    live_modified = False
+    rollback_failed = False
+
+    managed_paths = [
+        entry["output_path"]
+        for entry in entries
+    ] + list(
+        stale_paths
+    )
+
+    reporter.update_details(
+        {
+            "publication_mode": (
+                "transactional_multi_file_"
+                "atomic_replace_with_rollback"
+            ),
+            "publication_completed": False,
+            "post_publish_validation": False,
+            "rollback_performed": False,
+        }
+    )
+
+    try:
+        for path in managed_paths:
+            if path.exists():
+                backup = (
+                    path.parent
+                    / (
+                        f".{path.name}."
+                        f"backup."
+                        f"{uuid.uuid4().hex}"
+                    )
+                )
+                shutil.copy2(
+                    path,
+                    backup,
+                )
+                backups[path] = (
+                    backup
+                )
+
+        for entry in entries:
+            os.replace(
+                entry["staged_path"],
+                entry["output_path"],
+            )
+            live_modified = True
+
+        for stale_path in stale_paths:
+            if stale_path.exists():
+                stale_path.unlink()
+                live_modified = True
+
+        for entry in entries:
+            validate_serialized_output(
+                entry["output_path"],
+                source=entry["source"],
+                config=config,
+                label=(
+                    "published picks output "
+                    f"{entry['output_path']}"
+                ),
+            )
+
+        remaining_stale = [
+            str(path)
+            for path in stale_paths
+            if path.exists()
+        ]
+
+        if remaining_stale:
+            fail(
+                "Stale root picks files "
+                "remain after publication: "
+                f"{remaining_stale}"
+            )
+
+        reporter.update_details(
+            {
+                "publication_completed": True,
+                "post_publish_validation": True,
+            }
+        )
+    except Exception as publish_exc:
+        if live_modified:
+            try:
+                expected_paths = {
+                    entry[
+                        "output_path"
+                    ]
+                    for entry in entries
+                }
+
+                for path in expected_paths:
+                    backup = backups.get(
+                        path
+                    )
+
+                    if (
+                        backup is not None
+                        and backup.exists()
+                    ):
+                        os.replace(
+                            backup,
+                            path,
+                        )
+                    elif path.exists():
+                        path.unlink()
+
+                for path in stale_paths:
+                    backup = backups.get(
+                        path
+                    )
+
+                    if (
+                        backup is not None
+                        and backup.exists()
+                    ):
+                        os.replace(
+                            backup,
+                            path,
+                        )
+                    elif path.exists():
+                        path.unlink()
+
+                reporter.update_details(
+                    {
+                        "publication_completed": False,
+                        "post_publish_validation": False,
+                        "rollback_performed": True,
+                    }
+                )
+            except Exception as rollback_exc:
+                rollback_failed = True
+
+                reporter.update_details(
+                    {
+                        "publication_completed": False,
+                        "post_publish_validation": False,
+                        "rollback_performed": False,
+                        "rollback_error_type": (
+                            type(
+                                rollback_exc
+                            ).__name__
+                        ),
+                        "rollback_error": str(
+                            rollback_exc
+                        ),
+                    }
+                )
+
+                raise RuntimeError(
+                    "Picks publication failed "
+                    "and rollback also failed: "
+                    f"publication_error="
+                    f"{publish_exc}; "
+                    f"rollback_error="
+                    f"{rollback_exc}"
+                ) from rollback_exc
+
+        raise
+    finally:
+        for entry in entries:
+            Path(
+                entry[
+                    "staged_path"
+                ]
+            ).unlink(
+                missing_ok=True
+            )
+
+        if not rollback_failed:
+            for backup in backups.values():
+                if backup.exists():
+                    try:
+                        backup.unlink()
+                    except Exception as exc:
+                        reporter.warning(
+                            "Temporary picks backup "
+                            "cleanup failed",
+                            backup_path=str(
+                                backup
+                            ),
+                            error_type=(
+                                type(exc).__name__
+                            ),
+                            error=str(
+                                exc
+                            ),
+                        )
+
+
+
+def parse_args() -> argparse.Namespace:
     parser = (
         argparse.ArgumentParser()
     )
@@ -1478,18 +2701,54 @@ def main() -> int:
         default=DEFAULT_PATTERN,
     )
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def run(
+    args: argparse.Namespace,
+    reporter: PipelineReporter,
+) -> None:
+    load_runtime_dependencies(
+        reporter
+    )
 
     input_dir = (
         args.input_dir.resolve()
     )
-
     markets_path = (
         args.markets.resolve()
     )
-
     output_dir = (
         args.output_dir.resolve()
+    )
+
+    reporter.add_input(
+        markets_path
+    )
+
+    reporter.update_details(
+        {
+            "input_dir": str(
+                input_dir
+            ),
+            "output_dir": str(
+                output_dir
+            ),
+            "pattern": args.pattern,
+            "markets_path": str(
+                markets_path
+            ),
+            "managed_set_sync": (
+                args.pattern
+                == DEFAULT_PATTERN
+            ),
+            "dependency_imports_ok": True,
+            "all_outputs_staged": False,
+            "staged_roundtrip_verified": False,
+            "publication_completed": False,
+            "post_publish_validation": False,
+            "rollback_performed": False,
+        }
     )
 
     if not input_dir.is_dir():
@@ -1520,6 +2779,15 @@ def main() -> int:
             f"in {input_dir}"
         )
 
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    entries: list[
+        dict[str, Any]
+    ] = []
+
     totals = {
         "games": 0,
         "ml": 0,
@@ -1527,75 +2795,231 @@ def main() -> int:
         "total": 0,
     }
 
-    for input_path in input_files:
-        output_path = (
-            output_dir
-            / output_name(
+    per_file: list[
+        dict[str, Any]
+    ] = []
+
+    try:
+        for input_path in input_files:
+            output_path = (
+                output_dir
+                / output_name(
+                    input_path
+                )
+            )
+
+            reporter.add_input(
                 input_path
             )
+            reporter.add_output(
+                output_path
+            )
+
+            (
+                source,
+                output,
+            ) = process_file(
+                input_path,
+                config,
+            )
+
+            counts = (
+                selection_counts(
+                    output
+                )
+            )
+
+            totals["games"] += len(
+                output
+            )
+
+            for market in (
+                "ml",
+                "spread",
+                "total",
+            ):
+                totals[market] += (
+                    counts[
+                        market
+                    ]
+                )
+
+            staged_path = (
+                stage_output(
+                    output,
+                    output_path,
+                )
+            )
+
+            validate_serialized_output(
+                staged_path,
+                source=source,
+                config=config,
+                label=(
+                    "staged picks output "
+                    f"{output_path}"
+                ),
+            )
+
+            entries.append(
+                {
+                    "input_path": (
+                        input_path
+                    ),
+                    "output_path": (
+                        output_path
+                    ),
+                    "source": source,
+                    "output": output,
+                    "staged_path": (
+                        staged_path
+                    ),
+                    "counts": counts,
+                }
+            )
+
+            per_file.append(
+                {
+                    "input": str(
+                        input_path
+                    ),
+                    "output": str(
+                        output_path
+                    ),
+                    "games": len(
+                        output
+                    ),
+                    "ml_picks": (
+                        counts["ml"]
+                    ),
+                    "spread_picks": (
+                        counts[
+                            "spread"
+                        ]
+                    ),
+                    "total_picks": (
+                        counts[
+                            "total"
+                        ]
+                    ),
+                }
+            )
+
+        reporter.update_details(
+            {
+                "files_processed": len(
+                    entries
+                ),
+                "per_file": per_file,
+                "total_games": (
+                    totals[
+                        "games"
+                    ]
+                ),
+                "total_ml_picks": (
+                    totals["ml"]
+                ),
+                "total_spread_picks": (
+                    totals[
+                        "spread"
+                    ]
+                ),
+                "total_total_picks": (
+                    totals[
+                        "total"
+                    ]
+                ),
+                "all_outputs_staged": True,
+                "staged_roundtrip_verified": True,
+            }
         )
 
-        output = process_file(
-            input_path,
-            output_path,
-            config,
-        )
-
-        counts = {
-            "ml": int(
-                pd.to_numeric(
-                    output[
-                        "ml_selected"
-                    ],
-                    errors="coerce",
-                )
-                .fillna(0)
-                .sum()
-            ),
-            "spread": int(
-                pd.to_numeric(
-                    output[
-                        "spread_selected"
-                    ],
-                    errors="coerce",
-                )
-                .fillna(0)
-                .sum()
-            ),
-            "total": int(
-                pd.to_numeric(
-                    output[
-                        "total_selected"
-                    ],
-                    errors="coerce",
-                )
-                .fillna(0)
-                .sum()
-            ),
+        expected_paths = {
+            entry[
+                "output_path"
+            ].resolve()
+            for entry in entries
         }
 
-        totals[
+        stale_paths: list[
+            Path
+        ] = []
+
+        if (
+            args.pattern
+            == DEFAULT_PATTERN
+        ):
+            existing_root_picks = {
+                path.resolve()
+                for path
+                in output_dir.glob(
+                    "*NFL_picks.csv"
+                )
+                if path.is_file()
+            }
+
+            stale_paths = sorted(
+                existing_root_picks
+                - expected_paths
+            )
+
+        reporter.update_details(
+            {
+                "expected_root_pick_files": [
+                    str(path)
+                    for path in sorted(
+                        expected_paths
+                    )
+                ],
+                "stale_root_pick_files": [
+                    str(path)
+                    for path in stale_paths
+                ],
+            }
+        )
+
+        publish_output_set(
+            entries,
+            stale_paths,
+            config=config,
+            reporter=reporter,
+        )
+    except Exception:
+        for entry in entries:
+            staged = entry.get(
+                "staged_path"
+            )
+            if staged is not None:
+                Path(
+                    staged
+                ).unlink(
+                    missing_ok=True
+                )
+        raise
+
+    reporter.set_rows(
+        rows_in=totals[
             "games"
-        ] += len(output)
+        ],
+        rows_out=totals[
+            "games"
+        ],
+    )
 
-        totals[
-            "ml"
-        ] += counts["ml"]
-
-        totals[
-            "spread"
-        ] += counts["spread"]
-
-        totals[
-            "total"
-        ] += counts["total"]
+    for entry in entries:
+        counts = entry[
+            "counts"
+        ]
 
         print(
             f"Processed: "
-            f"{input_path.name} -> "
-            f"{output_path.name} "
-            f"games={len(output)} "
-            f"ml_picks={counts['ml']} "
+            f"{entry['input_path'].name} "
+            f"-> "
+            f"{entry['output_path'].name} "
+            f"games="
+            f"{len(entry['output'])} "
+            f"ml_picks="
+            f"{counts['ml']} "
             f"spread_picks="
             f"{counts['spread']} "
             f"total_picks="
@@ -1604,7 +3028,7 @@ def main() -> int:
 
     print(
         "NFL selection layer complete: "
-        f"files={len(input_files)} "
+        f"files={len(entries)} "
         f"games={totals['games']} "
         f"ml_picks={totals['ml']} "
         f"spread_picks="
@@ -1613,7 +3037,38 @@ def main() -> int:
         f"{totals['total']}"
     )
 
-    return 0
+
+def main() -> int:
+    args = parse_args()
+
+    try:
+        with PipelineReporter(
+            script=SCRIPT_PATH,
+            stage="03_picks",
+            report_root=REPORT_ROOT,
+            pipeline="NFL",
+            league="NFL",
+            extra_context={
+                "component": (
+                    "markets.yaml "
+                    "selection layer"
+                ),
+            },
+        ) as reporter:
+            run(
+                args,
+                reporter,
+            )
+
+        return 0
+    except Exception as exc:
+        print(
+            f"ERROR: {type(exc).__name__}: "
+            f"{exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 1
 
 
 if __name__ == "__main__":
