@@ -27,10 +27,7 @@ CONTRACT:
 
 from __future__ import annotations
 
-import math
-import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -113,8 +110,8 @@ TEAM_SHARE_METRICS = {
     "red_zone_target_share",
 }
 
-# Preserve historical output/team labels, but treat relocated franchises as the
-# same franchise for team-history/stint logic.
+# common.normalize_team() canonicalizes relocated franchise labels. Keep the
+# same canonical franchise identity for team-history/stint logic.
 TEAM_HISTORY_ALIASES = {
     "SD": "LAC",
     "OAK": "LV",
@@ -200,12 +197,75 @@ def normalize_position_group(value: Any, position: Any = "") -> str:
     return normalize_position(position)
 
 
-def numeric(series: pd.Series, *, fill_zero: bool = False) -> pd.Series:
-    result = pd.to_numeric(series, errors="coerce").astype("float64")
-    result = result.replace([np.inf, -np.inf], np.nan)
+
+def numeric(
+    series: pd.Series,
+    *,
+    fill_zero: bool = False,
+    label: str | None = None,
+) -> pd.Series:
+    source = series.copy()
+    result = pd.to_numeric(source, errors="coerce").astype("float64")
+
+    invalid = source.map(clean).ne("") & result.isna()
+    if invalid.any():
+        sample = source.loc[invalid].head(10).tolist()
+        name = label or clean(source.name) or "numeric source"
+        raise ValueError(
+            f"{name} contains nonnumeric value(s). Sample={sample}"
+        )
+
+    infinite = pd.Series(
+        np.isinf(result.to_numpy(dtype="float64", copy=False)),
+        index=result.index,
+    )
+    if infinite.any():
+        sample = source.loc[infinite].head(10).tolist()
+        name = label or clean(source.name) or "numeric source"
+        raise ValueError(
+            f"{name} contains infinite value(s). Sample={sample}"
+        )
+
     if fill_zero:
         result = result.fillna(0.0)
+
     return result
+
+
+def reject_negative_counts(
+    frame: pd.DataFrame,
+    metrics: Iterable[str],
+    *,
+    label: str,
+) -> None:
+    for metric in sorted(set(metrics)):
+        if metric not in frame.columns:
+            continue
+
+        values = pd.to_numeric(
+            frame[metric],
+            errors="raise",
+        ).astype("float64")
+
+        negative = values.notna() & values.lt(0.0)
+        if not negative.any():
+            continue
+
+        sample_columns = [
+            column
+            for column in GRAIN
+            if column in frame.columns
+        ] + [metric]
+
+        sample = (
+            frame.loc[negative, sample_columns]
+            .head(10)
+            .to_dict(orient="records")
+        )
+        raise ValueError(
+            f"{label} contains negative count-like metric {metric}. "
+            f"Sample={sample}"
+        )
 
 
 def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
@@ -246,70 +306,167 @@ def validate_config(config: dict) -> None:
         raise ValueError("ewm.adjust must be false for Issue 12.")
 
 
-def load_targets(config: dict) -> pd.DataFrame:
+
+def load_targets(
+    config: dict,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     path = config["paths"]["historical_universe"]
     required = BASE_ID_COLUMNS + ["kickoff_timestamp"]
-    target = common.read_parquet_required(path, required)
+    universe = common.read_parquet_required(path, required).copy()
+
+    universe["season"] = pd.to_numeric(
+        universe["season"],
+        errors="raise",
+    ).astype(int)
+    universe["week"] = pd.to_numeric(
+        universe["week"],
+        errors="raise",
+    ).astype(int)
+    universe["game_id"] = universe["game_id"].map(clean)
+    universe["_kickoff"] = pd.to_datetime(
+        universe["kickoff_timestamp"],
+        utc=True,
+        errors="raise",
+    )
+
+    if universe["game_id"].eq("").any():
+        raise ValueError(
+            "Historical universe contains blank game_id."
+        )
+    if universe["_kickoff"].isna().any():
+        raise ValueError(
+            "Historical universe contains invalid kickoff_timestamp."
+        )
+
+    kickoff = (
+        universe[
+            ["season", "week", "game_id", "_kickoff"]
+        ]
+        .drop_duplicates()
+        .copy()
+    )
+
+    duplicate_game = kickoff.duplicated(
+        ["season", "week", "game_id"],
+        keep=False,
+    )
+    if duplicate_game.any():
+        sample = kickoff.loc[
+            duplicate_game,
+            ["season", "week", "game_id", "_kickoff"],
+        ].head(20)
+        raise ValueError(
+            "Historical universe contains conflicting kickoff timestamps. "
+            f"Sample={sample.to_dict(orient='records')}"
+        )
 
     start = int(config["seasons"]["historical_start"])
     end = int(config["seasons"]["historical_end"])
 
-    target = target.loc[
-        pd.to_numeric(target["season"], errors="coerce").between(start, end)
+    target = universe.loc[
+        universe["season"].between(start, end)
     ].copy()
 
-    target["season"] = pd.to_numeric(target["season"], errors="raise").astype(int)
-    target["week"] = pd.to_numeric(target["week"], errors="raise").astype(int)
-    target["game_id"] = target["game_id"].map(clean)
-    target["player_id"] = target["player_id"].map(common.normalize_player_id)
+    if target.empty:
+        raise RuntimeError(
+            f"Historical universe has no target rows for {start}-{end}."
+        )
+
+    target["player_id"] = target["player_id"].map(
+        common.normalize_player_id
+    )
     target["team"] = target["team"].map(normalize_team)
-    target["position"] = target["position"].map(normalize_position)
+    target["position"] = target["position"].map(
+        normalize_position
+    )
     target["position_group"] = [
         normalize_position_group(g, p)
-        for g, p in zip(target["position_group"], target["position"])
+        for g, p in zip(
+            target["position_group"],
+            target["position"],
+        )
     ]
-    target["_history_team"] = target["team"].map(history_team)
-    target["_kickoff"] = pd.to_datetime(
-        target["kickoff_timestamp"], utc=True, errors="raise"
+    target["_history_team"] = target["team"].map(
+        history_team
     )
 
     if target["player_id"].eq("").any():
-        raise ValueError("Historical universe contains blank player_id.")
-    if target["game_id"].eq("").any():
-        raise ValueError("Historical universe contains blank game_id.")
-    if target["_kickoff"].isna().any():
-        raise ValueError("Historical universe contains invalid kickoff_timestamp.")
+        raise ValueError(
+            "Historical universe contains blank player_id."
+        )
+    if target["team"].eq("").any():
+        raise ValueError(
+            "Historical universe contains blank team."
+        )
 
-    common.ensure_unique(target, GRAIN, "Issue 12 historical universe")
+    common.ensure_unique(
+        target,
+        GRAIN,
+        "Issue 12 historical universe",
+    )
 
     target = target.sort_values(
-        ["season", "week", "game_id", "player_id", "team", "position"],
+        [
+            "season",
+            "week",
+            "game_id",
+            "player_id",
+            "team",
+            "position",
+        ],
         kind="mergesort",
     ).reset_index(drop=True)
-    target["_row_id"] = np.arange(len(target), dtype=np.int64)
-    return target
+
+    target["_row_id"] = np.arange(
+        len(target),
+        dtype=np.int64,
+    )
+
+    return target, kickoff
 
 
-def load_opportunity_source(config: dict, target: pd.DataFrame) -> pd.DataFrame:
+
+def load_opportunity_source(
+    config: dict,
+    target: pd.DataFrame,
+    kickoff: pd.DataFrame,
+) -> pd.DataFrame:
     path = config["paths"]["player_opportunity"]
     required = BASE_ID_COLUMNS + BASE_METRICS
-    source = common.read_parquet_required(path, required).copy()
+    source = common.read_parquet_required(
+        path,
+        required,
+    ).copy()
 
-    source["season"] = pd.to_numeric(source["season"], errors="raise").astype(int)
-    source["week"] = pd.to_numeric(source["week"], errors="raise").astype(int)
+    source["season"] = pd.to_numeric(
+        source["season"],
+        errors="raise",
+    ).astype(int)
+    source["week"] = pd.to_numeric(
+        source["week"],
+        errors="raise",
+    ).astype(int)
     source["game_id"] = source["game_id"].map(clean)
-    source["player_id"] = source["player_id"].map(common.normalize_player_id)
+    source["player_id"] = source["player_id"].map(
+        common.normalize_player_id
+    )
     source["team"] = source["team"].map(normalize_team)
-    source["position"] = source["position"].map(normalize_position)
+    source["position"] = source["position"].map(
+        normalize_position
+    )
     source["position_group"] = [
         normalize_position_group(g, p)
-        for g, p in zip(source["position_group"], source["position"])
+        for g, p in zip(
+            source["position_group"],
+            source["position"],
+        )
     ]
 
-    kickoff = (
-        target[["season", "week", "game_id", "_kickoff"]]
-        .drop_duplicates(["season", "week", "game_id"])
-    )
+    if source["team"].eq("").any():
+        raise ValueError(
+            "player_opportunity contains blank team."
+        )
+
     source = source.merge(
         kickoff,
         on=["season", "week", "game_id"],
@@ -318,16 +475,52 @@ def load_opportunity_source(config: dict, target: pd.DataFrame) -> pd.DataFrame:
     )
 
     if source["_kickoff"].isna().any():
-        sample = source.loc[source["_kickoff"].isna(), GRAIN].head(10)
+        sample = source.loc[
+            source["_kickoff"].isna(),
+            GRAIN,
+        ].head(10)
         raise ValueError(
-            "player_opportunity contains game(s) without universe kickoff. Sample="
-            f"{sample.to_dict(orient='records')}"
+            "player_opportunity contains game(s) without universe kickoff. "
+            f"Sample={sample.to_dict(orient='records')}"
         )
 
     for metric in BASE_METRICS:
-        source[metric] = numeric(source[metric])
+        source[metric] = numeric(
+            source[metric],
+            label=f"player_opportunity.{metric}",
+        )
 
-    source["_history_team"] = source["team"].map(history_team)
+    reject_negative_counts(
+        source,
+        NUMERIC_COUNT_LIKE,
+        label="player_opportunity",
+    )
+
+    canonical_history_start = max(PREHISTORY_SEASONS) + 1
+    target_end = int(target["season"].max())
+
+    required_seasons = set(
+        range(canonical_history_start, target_end + 1)
+    )
+    available_seasons = set(
+        source["season"].dropna().astype(int).unique().tolist()
+    )
+    missing_seasons = sorted(
+        required_seasons - available_seasons
+    )
+
+    if missing_seasons:
+        raise RuntimeError(
+            "player_opportunity is missing required prior-history "
+            f"season(s): {missing_seasons}. "
+            "Partial target builds must retain complete canonical "
+            "history beginning in "
+            f"{canonical_history_start}."
+        )
+
+    source["_history_team"] = source["team"].map(
+        history_team
+    )
     source["_prehistory"] = 0
     return source
 
@@ -365,12 +558,36 @@ def load_prehistory_source(config: dict) -> pd.DataFrame:
             for g, p in zip(raw["position_group"], raw["position"])
         ]
 
+        if raw["team"].eq("").any():
+            raise ValueError(
+                f"Prehistory source contains blank team for season {season}."
+            )
+
         # Team denominators are built before blank player IDs are removed so that
         # unresolved player rows remain part of the team opportunity total.
         for c in set(PREHISTORY_DIRECT_MAP.values()) | {
             "receiving_air_yards", "def_tackles_solo", "def_tackle_assists"
         }:
-            raw[c] = numeric(raw[c], fill_zero=True)
+            raw[c] = numeric(
+                raw[c],
+                fill_zero=True,
+                label=f"prehistory.{season}.{c}",
+            )
+
+        raw_count_columns = {
+            source_column
+            for metric, source_column in PREHISTORY_DIRECT_MAP.items()
+            if metric in NUMERIC_COUNT_LIKE
+        } | {
+            "def_tackles_solo",
+            "def_tackle_assists",
+        }
+
+        reject_negative_counts(
+            raw,
+            raw_count_columns,
+            label=f"prehistory season {season}",
+        )
 
         team_grain = ["season", "week", "game_id", "team"]
         denominators = (
@@ -413,6 +630,12 @@ def load_prehistory_source(config: dict) -> pd.DataFrame:
             raw["receiving_air_yards"], raw["_team_receiving_air_yards"]
         )
 
+        reject_negative_counts(
+            frame,
+            NUMERIC_COUNT_LIKE,
+            label=f"prehistory derived season {season}",
+        )
+
         # Synthetic ordering is sufficient because every prehistory row precedes
         # the 2012 target universe. Season/week ordering preserves player rolling
         # sequence without inventing target-time information.
@@ -430,42 +653,86 @@ def load_prehistory_source(config: dict) -> pd.DataFrame:
     return pre
 
 
-def prepare_source(config: dict, target: pd.DataFrame) -> pd.DataFrame:
-    opportunity = load_opportunity_source(config, target)
+
+def prepare_source(
+    config: dict,
+    target: pd.DataFrame,
+    kickoff: pd.DataFrame,
+) -> pd.DataFrame:
+    opportunity = load_opportunity_source(
+        config,
+        target,
+        kickoff,
+    )
     prehistory = load_prehistory_source(config)
 
     columns = BASE_ID_COLUMNS + BASE_METRICS + [
-        "_kickoff", "_history_team", "_prehistory"
+        "_kickoff",
+        "_history_team",
+        "_prehistory",
     ]
     source = pd.concat(
-        [prehistory[columns], opportunity[columns]],
+        [
+            prehistory[columns],
+            opportunity[columns],
+        ],
         ignore_index=True,
         sort=False,
     )
 
-    source = source.loc[source["player_id"].ne("")].copy()
+    source = source.loc[
+        source["player_id"].ne("")
+    ].copy()
+
     source = source.sort_values(
-        ["player_id", "_kickoff", "season", "week", "game_id"],
+        [
+            "player_id",
+            "_kickoff",
+            "season",
+            "week",
+            "game_id",
+        ],
         kind="mergesort",
     ).reset_index(drop=True)
 
     if source.duplicated(GRAIN).any():
-        sample = source.loc[source.duplicated(GRAIN, keep=False), GRAIN].head(20)
+        sample = source.loc[
+            source.duplicated(GRAIN, keep=False),
+            GRAIN,
+        ].head(20)
         raise ValueError(
-            "Combined Issue 12 source has duplicate canonical grain. Sample="
-            f"{sample.to_dict(orient='records')}"
+            "Combined Issue 12 source has duplicate canonical grain. "
+            f"Sample={sample.to_dict(orient='records')}"
         )
 
-    previous_team = source.groupby("player_id", sort=False)["_history_team"].shift(1)
-    new_stint = previous_team.isna() | source["_history_team"].ne(previous_team)
+    previous_team = (
+        source.groupby(
+            "player_id",
+            sort=False,
+        )["_history_team"]
+        .shift(1)
+    )
+    new_stint = (
+        previous_team.isna()
+        | source["_history_team"].ne(previous_team)
+    )
+
     source["_stint_id"] = (
         new_stint.astype("int64")
-        .groupby(source["player_id"], sort=False)
+        .groupby(
+            source["player_id"],
+            sort=False,
+        )
         .cumsum()
         .astype("int64")
     )
+
     source["_source_history_games"] = (
-        source.groupby("player_id", sort=False).cumcount() + 1
+        source.groupby(
+            "player_id",
+            sort=False,
+        ).cumcount()
+        + 1
     ).astype("int64")
 
     return source
@@ -795,8 +1062,20 @@ def run(reporter: PipelineReporter) -> None:
             )
         )
 
-    target = load_targets(config)
-    source = prepare_source(config, target)
+    target, kickoff = load_targets(config)
+
+    reporter.update_details(
+        {
+            "target_season_start": int(target["season"].min()),
+            "target_season_end": int(target["season"].max()),
+        }
+    )
+
+    source = prepare_source(
+        config,
+        target,
+        kickoff,
+    )
     target = attach_player_history_meta(target, source)
 
     names = feature_columns()
@@ -838,10 +1117,32 @@ def run(reporter: PipelineReporter) -> None:
         for i, metric in enumerate(BASE_METRICS)
     }
 
+    prehistory_mask = source["_prehistory"].eq(1)
+    opportunity_mask = source["_prehistory"].eq(0)
+    opportunity_seasons = source.loc[
+        opportunity_mask,
+        "season",
+    ]
+
     reporter.update_details(
         {
             "output": str(output_path.relative_to(common.repo_root())),
             "rows": int(len(target)),
+            "target_season_start": int(target["season"].min()),
+            "target_season_end": int(target["season"].max()),
+            "opportunity_source_season_start": (
+                int(opportunity_seasons.min())
+                if not opportunity_seasons.empty
+                else None
+            ),
+            "opportunity_source_season_end": (
+                int(opportunity_seasons.max())
+                if not opportunity_seasons.empty
+                else None
+            ),
+            "opportunity_source_rows": int(opportunity_mask.sum()),
+            "prehistory_source_rows": int(prehistory_mask.sum()),
+            "combined_source_rows": int(len(source)),
             "players": int(target["player_id"].nunique()),
             "games": int(target["game_id"].nunique()),
             "base_metrics": len(BASE_METRICS),
