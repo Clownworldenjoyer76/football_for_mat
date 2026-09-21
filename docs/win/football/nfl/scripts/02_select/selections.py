@@ -7,8 +7,6 @@ READS:
   docs/win/football/nfl/01_merge/week_{week}_NFL_enriched.csv
   docs/win/football/nfl/00_intake/schedule/weekly/
       week_{week}_NFL_weekly_schedule.csv
-  docs/win/football/nfl/data/weather/
-      week_{week}_NFL_weekly_weather.csv  (optional)
 
 WRITES:
   docs/win/football/nfl/02_select/week_{week}_NFL_selected.csv
@@ -25,7 +23,7 @@ metrics for every available side:
 The existing final selection columns are retained for downstream compatibility,
 but this step leaves them unselected and marks them as DEFERRED_TO_FILTER.
 A later filtering step can use the raw candidate columns to apply odds, edge,
-EV, Kelly, probability, side, line, weather, or other betting rules.
+EV, Kelly, probability, side, line, or other betting rules.
 
 The *_implied_probability candidate columns contain the no-vig fair market
 probability.
@@ -37,22 +35,55 @@ Kelly is full Kelly capped at settings.yaml selection_defaults.max_kelly.
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import os
 import re
+import shutil
 import sys
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-import pandas as pd
-import yaml
 
-
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_PATH = Path(__file__).resolve()
+SCRIPT_DIR = SCRIPT_PATH.parent
+SCRIPTS_DIR = SCRIPT_DIR.parent
 NFL_ROOT = SCRIPT_DIR.parents[1]
+REPORT_ROOT = NFL_ROOT / "errors"
+
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from pipeline_reporter import PipelineReporter
 
 DEFAULT_SETTINGS_PATH = NFL_ROOT / "config/settings.yaml"
+
+def load_runtime_dependencies(
+    reporter: PipelineReporter,
+) -> None:
+    global np, pd, yaml
+
+    try:
+        import numpy as np_module
+        import pandas as pd_module
+        import yaml as yaml_module
+    except Exception:
+        reporter.set_detail(
+            "dependency_imports_ok",
+            False,
+        )
+        raise
+
+    np = np_module
+    pd = pd_module
+    yaml = yaml_module
+
+    reporter.set_detail(
+        "dependency_imports_ok",
+        True,
+    )
 
 PREDICTION_COLUMNS = [
     "predicted_margin",
@@ -306,6 +337,60 @@ def read_yaml(
     return data
 
 
+
+def validate_csv_header(
+    path: Path,
+    label: str,
+) -> None:
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as handle:
+            reader = csv.reader(handle)
+            header = next(reader, None)
+    except UnicodeDecodeError as exc:
+        fail(
+            f"{label} is not valid UTF-8 CSV: "
+            f"{path}: {exc}"
+        )
+
+    if not header:
+        fail(
+            f"{label} has no CSV header: "
+            f"{path}"
+        )
+
+    normalized = [
+        clean(column)
+        for column in header
+    ]
+
+    if any(
+        not column
+        for column in normalized
+    ):
+        fail(
+            f"{label} contains blank "
+            f"column names: {path}"
+        )
+
+    duplicates = sorted(
+        {
+            column
+            for column in normalized
+            if normalized.count(column) > 1
+        }
+    )
+
+    if duplicates:
+        fail(
+            f"{label} contains duplicate "
+            f"column names: {duplicates}"
+        )
+
+
 def read_csv(
     path: Path,
     label: str,
@@ -320,6 +405,11 @@ def read_csv(
             f"Missing {label}: "
             f"{path}"
         )
+
+    validate_csv_header(
+        path,
+        label,
+    )
 
     df = pd.read_csv(
         path,
@@ -867,84 +957,13 @@ def evaluate_spread(
     }
 
 
-def roof_is_dome(
-    row: pd.Series,
-) -> bool:
-    dome_flag = parse_int(
-        row.get(
-            "wx_dome_flag",
-            "",
-        )
-    )
-
-    if dome_flag is not None:
-        return dome_flag == 1
-
-    roof = clean(
-        row.get(
-            "sched_roof",
-            "",
-        )
-    ).casefold()
-
-    return roof in {
-        "dome",
-        "indoor",
-        "indoors",
-        "closed",
-        "retractable_closed",
-        "retractable-closed",
-    }
 
 
-def roof_is_open_air(
-    row: pd.Series,
-) -> bool:
-    open_flag = parse_int(
-        row.get(
-            "wx_open_air_flag",
-            "",
-        )
-    )
-
-    if open_flag is not None:
-        return open_flag == 1
-
-    roof = clean(
-        row.get(
-            "sched_roof",
-            "",
-        )
-    ).casefold()
-
-    return roof in {
-        "open_air",
-        "open-air",
-        "outdoor",
-        "outdoors",
-        "open",
-    }
 
 
-def weather_available(
-    row: pd.Series,
-) -> bool:
-    return any(
-        clean(
-            row.get(
-                column,
-                "",
-            )
-        )
-        for column in [
-            "wx_temperature",
-            "wx_wind_speed",
-            "wx_wind_gust",
-            "wx_precip_probability",
-            "wx_rain_flag",
-            "wx_snow_flag",
-        ]
-    )
+
+
+
 
 
 def evaluate_total(
@@ -1207,6 +1226,65 @@ def validate_settings(
     )
 
 
+
+def validate_projection_outputs(
+    df: pd.DataFrame,
+    label: str,
+) -> None:
+    score_columns = [
+        "predicted_margin",
+        "predicted_total",
+        "predicted_home_score",
+        "predicted_away_score",
+    ]
+
+    numeric: dict[str, Any] = {}
+
+    for column in score_columns:
+        values = pd.to_numeric(
+            df[column],
+            errors="coerce",
+        )
+
+        array = values.to_numpy(
+            dtype=float
+        )
+
+        if not np.isfinite(array).all():
+            fail(
+                f"{label}: {column} "
+                "contains blank/non-finite values"
+            )
+
+        numeric[column] = array
+
+    if not np.allclose(
+        numeric["predicted_home_score"]
+        + numeric["predicted_away_score"],
+        numeric["predicted_total"],
+        rtol=0.0,
+        atol=1e-9,
+    ):
+        fail(
+            f"{label}: predicted home/away "
+            "scores do not reconcile to "
+            "predicted_total"
+        )
+
+    if not np.allclose(
+        numeric["predicted_home_score"]
+        - numeric["predicted_away_score"],
+        numeric["predicted_margin"],
+        rtol=0.0,
+        atol=1e-9,
+    ):
+        fail(
+            f"{label}: predicted home/away "
+            "scores do not reconcile to "
+            "predicted_margin"
+        )
+
+
 def validate_combined(
     df: pd.DataFrame,
     season: int,
@@ -1278,9 +1356,15 @@ def validate_combined(
             f"found {types}"
         )
 
+    validate_projection_outputs(
+        df,
+        label,
+    )
+
     validate_probability_pairs(
         df
     )
+
 
 
 def merge_schedule(
@@ -1298,6 +1382,8 @@ def merge_schedule(
             "season_type",
             "week",
             "game_id",
+            "away_team",
+            "home_team",
             "neutral_site",
             "roof",
             "bookmaker",
@@ -1361,24 +1447,45 @@ def merge_schedule(
             f"{season_type}"
         )
 
+    odds_available = schedule[
+        "odds_available"
+    ].map(clean)
+
+    invalid_odds_available = (
+        ~odds_available.isin(
+            {"0", "1"}
+        )
+    )
+
+    if invalid_odds_available.any():
+        examples = (
+            schedule.loc[
+                invalid_odds_available,
+                [
+                    "game_id",
+                    "odds_available",
+                ],
+            ]
+            .head(10)
+            .to_dict(
+                "records"
+            )
+        )
+
+        fail(
+            "Weekly schedule contains "
+            "invalid odds_available values; "
+            f"expected only 0/1: {examples}"
+        )
+
+    available_rows = (
+        odds_available.eq("1")
+    )
+
     configured_book = (
         normalize_bookmaker(
             sportsbook
         )
-    )
-
-    odds_available = (
-        pd.to_numeric(
-            schedule[
-                "odds_available"
-            ],
-            errors="coerce",
-        )
-        .fillna(0)
-    )
-
-    available_rows = (
-        odds_available.eq(1)
     )
 
     bad_book = (
@@ -1441,6 +1548,61 @@ def merge_schedule(
             f"{missing[:10]}"
         )
 
+    schedule_by_id = (
+        schedule.set_index(
+            "game_id",
+            drop=False,
+        )
+    )
+
+    identity_mismatches: list[
+        dict[str, str]
+    ] = []
+
+    for _, row in combined.iterrows():
+        game_id = row["game_id"]
+
+        if game_id not in schedule_by_id.index:
+            continue
+
+        schedule_row = schedule_by_id.loc[
+            game_id
+        ]
+
+        projected_home = clean(
+            row["home_team"]
+        )
+        projected_away = clean(
+            row["away_team"]
+        )
+        schedule_home = clean(
+            schedule_row["home_team"]
+        )
+        schedule_away = clean(
+            schedule_row["away_team"]
+        )
+
+        if (
+            projected_home != schedule_home
+            or projected_away != schedule_away
+        ):
+            identity_mismatches.append(
+                {
+                    "game_id": game_id,
+                    "projected_away": projected_away,
+                    "projected_home": projected_home,
+                    "schedule_away": schedule_away,
+                    "schedule_home": schedule_home,
+                }
+            )
+
+    if identity_mismatches:
+        fail(
+            "Weekly schedule team identity "
+            "does not match projected input: "
+            f"{identity_mismatches[:10]}"
+        )
+
     columns = [
         "game_id",
         "neutral_site",
@@ -1482,45 +1644,7 @@ def merge_schedule(
     )
 
 
-def merge_weather(
-    working: pd.DataFrame,
-    weather: pd.DataFrame | None,
-) -> pd.DataFrame:
-    if (
-        weather is None
-        or weather.empty
-    ):
-        return working
 
-    require_columns(
-        weather,
-        ["game_id"],
-        "weekly weather",
-    )
-
-    validate_unique_game_ids(
-        weather,
-        "weekly weather",
-    )
-
-    source = weather.rename(
-        columns={
-            column: (
-                f"wx_{column}"
-            )
-            for column
-            in weather.columns
-            if column
-            != "game_id"
-        }
-    )
-
-    return working.merge(
-        source,
-        on="game_id",
-        how="left",
-        validate="one_to_one",
-    )
 
 
 def build_output(
@@ -1642,34 +1766,745 @@ def build_output(
     return output
 
 
-def write_atomic_csv(
-    df: pd.DataFrame,
-    path: Path,
+
+def _require_close(
+    actual: float,
+    expected: float,
+    *,
+    label: str,
+    atol: float = 1e-12,
 ) -> None:
-    path.parent.mkdir(
+    if not math.isclose(
+        actual,
+        expected,
+        rel_tol=1e-12,
+        abs_tol=atol,
+    ):
+        fail(
+            f"{label}: expected {expected!r}; "
+            f"found {actual!r}"
+        )
+
+
+def validate_candidate_output(
+    df: pd.DataFrame,
+    original: pd.DataFrame,
+    max_kelly: float,
+    label: str,
+) -> None:
+    expected_columns = (
+        list(original.columns)
+        + SELECTION_COLUMNS
+        + CANDIDATE_COLUMNS
+    )
+
+    if list(df.columns) != expected_columns:
+        fail(
+            f"{label}: final candidate "
+            "column order/integrity check failed"
+        )
+
+    if len(df) != len(original):
+        fail(
+            f"{label}: row count changed; "
+            f"expected={len(original)} "
+            f"actual={len(df)}"
+        )
+
+    validate_unique_game_ids(
+        df,
+        label,
+    )
+
+    if (
+        df["game_id"].tolist()
+        != original["game_id"].tolist()
+    ):
+        fail(
+            f"{label}: game_id order changed"
+        )
+
+    if (
+        df["away_team"].tolist()
+        != original["away_team"].tolist()
+    ):
+        fail(
+            f"{label}: away_team changed"
+        )
+
+    if (
+        df["home_team"].tolist()
+        != original["home_team"].tolist()
+    ):
+        fail(
+            f"{label}: home_team changed"
+        )
+
+    for column in original.columns:
+        expected_values = [
+            clean(value)
+            for value in original[
+                column
+            ].tolist()
+        ]
+        actual_values = [
+            clean(value)
+            for value in df[
+                column
+            ].tolist()
+        ]
+
+        if actual_values != expected_values:
+            fail(
+                f"{label}: source column "
+                f"{column!r} changed"
+            )
+
+    allowed_reasons = {
+        "DEFERRED_TO_FILTER",
+        "CURRENT_LINE_MISSING",
+        "CURRENT_ODDS_UNAVAILABLE",
+    }
+
+    for _, row in df.iterrows():
+        game_id = row["game_id"]
+
+        for market in (
+            "ml",
+            "spread",
+            "total",
+        ):
+            selected = parse_int(
+                row.get(
+                    f"{market}_selected",
+                    "",
+                )
+            )
+
+            if selected != 0:
+                fail(
+                    f"{label}: game_id={game_id} "
+                    f"{market}_selected must be 0"
+                )
+
+            if clean(
+                row.get(
+                    f"{market}_selection",
+                    "",
+                )
+            ):
+                fail(
+                    f"{label}: game_id={game_id} "
+                    f"{market}_selection must be blank"
+                )
+
+            reason = clean(
+                row.get(
+                    f"{market}_selection_reason",
+                    "",
+                )
+            )
+
+            if reason not in allowed_reasons:
+                fail(
+                    f"{label}: game_id={game_id} "
+                    f"invalid {market}_selection_reason="
+                    f"{reason!r}"
+                )
+
+            for metric in (
+                "odds_american",
+                "model_probability",
+                "implied_probability",
+                "edge",
+                "ev",
+                "full_kelly",
+                "kelly",
+            ):
+                if clean(
+                    row.get(
+                        f"{market}_{metric}",
+                        "",
+                    )
+                ):
+                    fail(
+                        f"{label}: game_id={game_id} "
+                        f"deferred {market}_{metric} "
+                        "must be blank"
+                    )
+
+        for (
+            market,
+            first_prefix,
+            second_prefix,
+            include_line,
+        ) in (
+            (
+                "ml",
+                "ml_home",
+                "ml_away",
+                False,
+            ),
+            (
+                "spread",
+                "spread_home",
+                "spread_away",
+                True,
+            ),
+            (
+                "total",
+                "total_over",
+                "total_under",
+                True,
+            ),
+        ):
+            first_available = parse_int(
+                row.get(
+                    f"{first_prefix}_available",
+                    "",
+                )
+            )
+            second_available = parse_int(
+                row.get(
+                    f"{second_prefix}_available",
+                    "",
+                )
+            )
+
+            if first_available not in {0, 1}:
+                fail(
+                    f"{label}: game_id={game_id} "
+                    f"invalid {first_prefix}_available"
+                )
+
+            if second_available not in {0, 1}:
+                fail(
+                    f"{label}: game_id={game_id} "
+                    f"invalid {second_prefix}_available"
+                )
+
+            if first_available != second_available:
+                fail(
+                    f"{label}: game_id={game_id} "
+                    f"{market} candidate availability "
+                    "must be paired"
+                )
+
+            reason = clean(
+                row[
+                    f"{market}_selection_reason"
+                ]
+            )
+
+            if first_available == 0:
+                for prefix in (
+                    first_prefix,
+                    second_prefix,
+                ):
+                    for metric in (
+                        "odds_american",
+                        "model_probability",
+                        "implied_probability",
+                        "edge",
+                        "ev",
+                        "full_kelly",
+                        "kelly",
+                    ):
+                        if clean(
+                            row.get(
+                                f"{prefix}_{metric}",
+                                "",
+                            )
+                        ):
+                            fail(
+                                f"{label}: game_id={game_id} "
+                                f"unavailable {prefix}_{metric} "
+                                "must be blank"
+                            )
+
+                    if include_line:
+                        line_text = clean(
+                            row.get(
+                                f"{prefix}_line",
+                                "",
+                            )
+                        )
+                        if (
+                            line_text
+                            and parse_float(
+                                line_text
+                            )
+                            is None
+                        ):
+                            fail(
+                                f"{label}: game_id={game_id} "
+                                f"{prefix}_line is non-finite"
+                            )
+
+                if reason not in {
+                    "CURRENT_LINE_MISSING",
+                    "CURRENT_ODDS_UNAVAILABLE",
+                }:
+                    fail(
+                        f"{label}: game_id={game_id} "
+                        f"unavailable {market} has "
+                        f"unexpected reason={reason!r}"
+                    )
+
+                continue
+
+            if reason != "DEFERRED_TO_FILTER":
+                fail(
+                    f"{label}: game_id={game_id} "
+                    f"available {market} must be "
+                    "DEFERRED_TO_FILTER"
+                )
+
+            first_odds = parse_float(
+                row[
+                    f"{first_prefix}_odds_american"
+                ]
+            )
+            second_odds = parse_float(
+                row[
+                    f"{second_prefix}_odds_american"
+                ]
+            )
+
+            if (
+                first_odds is None
+                or second_odds is None
+                or first_odds == 0
+                or second_odds == 0
+            ):
+                fail(
+                    f"{label}: game_id={game_id} "
+                    f"{market} candidate odds "
+                    "must be finite and nonzero"
+                )
+
+            first_fair, second_fair = (
+                no_vig_probabilities(
+                    first_odds,
+                    second_odds,
+                )
+            )
+
+            for prefix, fair in (
+                (
+                    first_prefix,
+                    first_fair,
+                ),
+                (
+                    second_prefix,
+                    second_fair,
+                ),
+            ):
+                model_probability = parse_float(
+                    row[
+                        f"{prefix}_model_probability"
+                    ]
+                )
+                implied_probability = parse_float(
+                    row[
+                        f"{prefix}_implied_probability"
+                    ]
+                )
+                edge = parse_float(
+                    row[
+                        f"{prefix}_edge"
+                    ]
+                )
+                ev = parse_float(
+                    row[
+                        f"{prefix}_ev"
+                    ]
+                )
+                full_kelly = parse_float(
+                    row[
+                        f"{prefix}_full_kelly"
+                    ]
+                )
+                kelly = parse_float(
+                    row[
+                        f"{prefix}_kelly"
+                    ]
+                )
+                odds = parse_float(
+                    row[
+                        f"{prefix}_odds_american"
+                    ]
+                )
+
+                if any(
+                    value is None
+                    for value in (
+                        model_probability,
+                        implied_probability,
+                        edge,
+                        ev,
+                        full_kelly,
+                        kelly,
+                        odds,
+                    )
+                ):
+                    fail(
+                        f"{label}: game_id={game_id} "
+                        f"{prefix} contains blank/"
+                        "non-finite candidate metrics"
+                    )
+
+                assert model_probability is not None
+                assert implied_probability is not None
+                assert edge is not None
+                assert ev is not None
+                assert full_kelly is not None
+                assert kelly is not None
+                assert odds is not None
+
+                if not (
+                    0.0
+                    <= model_probability
+                    <= 1.0
+                ):
+                    fail(
+                        f"{label}: game_id={game_id} "
+                        f"{prefix}_model_probability "
+                        "outside [0,1]"
+                    )
+
+                if not (
+                    0.0
+                    <= implied_probability
+                    <= 1.0
+                ):
+                    fail(
+                        f"{label}: game_id={game_id} "
+                        f"{prefix}_implied_probability "
+                        "outside [0,1]"
+                    )
+
+                expected = calculate_metrics(
+                    model_probability,
+                    odds,
+                    fair,
+                )
+
+                _require_close(
+                    implied_probability,
+                    expected[
+                        "implied_probability"
+                    ],
+                    label=(
+                        f"{label}: game_id={game_id} "
+                        f"{prefix}_implied_probability"
+                    ),
+                )
+                _require_close(
+                    edge,
+                    expected["edge"],
+                    label=(
+                        f"{label}: game_id={game_id} "
+                        f"{prefix}_edge"
+                    ),
+                )
+                _require_close(
+                    ev,
+                    expected["ev"],
+                    label=(
+                        f"{label}: game_id={game_id} "
+                        f"{prefix}_ev"
+                    ),
+                )
+                _require_close(
+                    full_kelly,
+                    expected["full_kelly"],
+                    label=(
+                        f"{label}: game_id={game_id} "
+                        f"{prefix}_full_kelly"
+                    ),
+                )
+                _require_close(
+                    kelly,
+                    min(
+                        expected[
+                            "full_kelly"
+                        ],
+                        max_kelly,
+                    ),
+                    label=(
+                        f"{label}: game_id={game_id} "
+                        f"{prefix}_kelly"
+                    ),
+                )
+
+            if include_line:
+                first_line = parse_float(
+                    row[
+                        f"{first_prefix}_line"
+                    ]
+                )
+                second_line = parse_float(
+                    row[
+                        f"{second_prefix}_line"
+                    ]
+                )
+
+                if (
+                    first_line is None
+                    or second_line is None
+                ):
+                    fail(
+                        f"{label}: game_id={game_id} "
+                        f"{market} candidate lines "
+                        "must be finite"
+                    )
+
+                if market == "spread":
+                    _require_close(
+                        first_line
+                        + second_line,
+                        0.0,
+                        label=(
+                            f"{label}: game_id={game_id} "
+                            "spread lines must be opposites"
+                        ),
+                        atol=1e-9,
+                    )
+                else:
+                    _require_close(
+                        first_line,
+                        second_line,
+                        label=(
+                            f"{label}: game_id={game_id} "
+                            "total candidate lines must match"
+                        ),
+                        atol=1e-9,
+                    )
+
+
+def stage_candidate_csv(
+    df: pd.DataFrame,
+    output_path: Path,
+) -> Path:
+    output_path.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    temporary = (
-        path.with_suffix(
-            path.suffix
-            + ".tmp"
+    descriptor, raw_path = (
+        tempfile.mkstemp(
+            prefix=(
+                f".{output_path.name}."
+                "stage."
+            ),
+            suffix=".csv",
+            dir=str(
+                output_path.parent
+            ),
         )
     )
+    os.close(descriptor)
 
-    df.to_csv(
-        temporary,
-        index=False,
+    staged_path = Path(
+        raw_path
     )
 
-    os.replace(
-        temporary,
+    try:
+        df.to_csv(
+            staged_path,
+            index=False,
+            encoding="utf-8",
+        )
+
+        if (
+            not staged_path.is_file()
+            or staged_path.stat().st_size
+            == 0
+        ):
+            fail(
+                "Staged candidate output "
+                f"was not written: {staged_path}"
+            )
+
+        return staged_path
+    except Exception:
+        staged_path.unlink(
+            missing_ok=True
+        )
+        raise
+
+
+def validate_serialized_candidate_csv(
+    path: Path,
+    *,
+    original: pd.DataFrame,
+    max_kelly: float,
+    label: str,
+) -> pd.DataFrame:
+    staged = read_csv(
         path,
+        label,
+    )
+    assert staged is not None
+
+    validate_candidate_output(
+        staged,
+        original,
+        max_kelly,
+        label,
     )
 
+    return staged
 
-def main() -> int:
+
+def publish_candidate_csv(
+    staged_path: Path,
+    output_path: Path,
+    *,
+    original: pd.DataFrame,
+    max_kelly: float,
+    reporter: PipelineReporter,
+) -> None:
+    backup_path = (
+        output_path.parent
+        / (
+            f".{output_path.name}."
+            f"backup.{uuid.uuid4().hex}"
+        )
+    )
+    had_existing_output = (
+        output_path.exists()
+    )
+    published = False
+    rollback_failed = False
+
+    reporter.update_details(
+        {
+            "publication_mode": (
+                "atomic_replace_with_"
+                "backup_rollback"
+            ),
+            "publication_completed": False,
+            "post_publish_validation": False,
+            "rollback_performed": False,
+        }
+    )
+
+    try:
+        if had_existing_output:
+            shutil.copy2(
+                output_path,
+                backup_path,
+            )
+
+        os.replace(
+            staged_path,
+            output_path,
+        )
+        published = True
+
+        validate_serialized_candidate_csv(
+            output_path,
+            original=original,
+            max_kelly=max_kelly,
+            label=(
+                "published candidate output"
+            ),
+        )
+
+        reporter.update_details(
+            {
+                "publication_completed": True,
+                "post_publish_validation": True,
+            }
+        )
+    except Exception as publish_exc:
+        if published:
+            try:
+                if (
+                    had_existing_output
+                    and backup_path.exists()
+                ):
+                    os.replace(
+                        backup_path,
+                        output_path,
+                    )
+                elif (
+                    not had_existing_output
+                    and output_path.exists()
+                ):
+                    output_path.unlink()
+
+                reporter.update_details(
+                    {
+                        "publication_completed": False,
+                        "post_publish_validation": False,
+                        "rollback_performed": True,
+                    }
+                )
+            except Exception as rollback_exc:
+                rollback_failed = True
+
+                reporter.update_details(
+                    {
+                        "publication_completed": False,
+                        "post_publish_validation": False,
+                        "rollback_performed": False,
+                        "rollback_error_type": (
+                            type(
+                                rollback_exc
+                            ).__name__
+                        ),
+                        "rollback_error": str(
+                            rollback_exc
+                        ),
+                    }
+                )
+
+                raise RuntimeError(
+                    "Candidate output publication "
+                    "failed and rollback also "
+                    "failed: "
+                    f"publication_error="
+                    f"{publish_exc}; "
+                    f"rollback_error="
+                    f"{rollback_exc}"
+                ) from rollback_exc
+
+        raise
+    finally:
+        staged_path.unlink(
+            missing_ok=True
+        )
+
+        if (
+            backup_path.exists()
+            and not rollback_failed
+            and (
+                not published
+                or output_path.exists()
+            )
+        ):
+            try:
+                backup_path.unlink()
+            except Exception as exc:
+                reporter.warning(
+                    "Candidate output published "
+                    "but temporary backup cleanup "
+                    "failed",
+                    backup_path=str(
+                        backup_path
+                    ),
+                    error_type=(
+                        type(exc).__name__
+                    ),
+                    error=str(exc),
+                )
+
+
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -1698,10 +2533,90 @@ def main() -> int:
         default=None,
     )
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def candidate_summary(
+    output: pd.DataFrame,
+) -> dict[str, Any]:
+    candidate_counts: dict[
+        str,
+        int,
+    ] = {}
+
+    for prefix in (
+        "ml_home",
+        "ml_away",
+        "spread_home",
+        "spread_away",
+        "total_over",
+        "total_under",
+    ):
+        candidate_counts[prefix] = int(
+            pd.to_numeric(
+                output[
+                    f"{prefix}_available"
+                ],
+                errors="coerce",
+            )
+            .fillna(0)
+            .sum()
+        )
+
+    reason_counts: dict[
+        str,
+        dict[str, int],
+    ] = {}
+
+    for market in (
+        "ml",
+        "spread",
+        "total",
+    ):
+        counts = (
+            output[
+                f"{market}_selection_reason"
+            ]
+            .astype(str)
+            .value_counts(
+                dropna=False
+            )
+            .to_dict()
+        )
+
+        reason_counts[market] = {
+            str(key): int(value)
+            for key, value
+            in counts.items()
+        }
+
+    return {
+        "candidate_counts": (
+            candidate_counts
+        ),
+        "market_reason_counts": (
+            reason_counts
+        ),
+    }
+
+
+def run(
+    args: argparse.Namespace,
+    reporter: PipelineReporter,
+) -> None:
+    load_runtime_dependencies(
+        reporter,
+    )
+
+    settings_path = (
+        args.settings.resolve()
+    )
+    reporter.add_input(
+        settings_path
+    )
 
     settings = read_yaml(
-        args.settings.resolve(),
+        settings_path,
         "settings config",
     )
 
@@ -1745,6 +2660,56 @@ def main() -> int:
         args.week,
     )
 
+    reporter.season = season
+    reporter.week = week
+
+    reporter.update_details(
+        {
+            "resolved_season": season,
+            "resolved_week": week,
+            "season_type": season_type,
+            "sportsbook": sportsbook,
+            "settings_path": str(
+                settings_path
+            ),
+            "season_override": (
+                args.season
+            ),
+            "week_override": (
+                args.week
+            ),
+            "input_override": (
+                str(
+                    args.input.resolve()
+                )
+                if args.input
+                is not None
+                else None
+            ),
+            "output_override": (
+                str(
+                    args.output.resolve()
+                )
+                if args.output
+                is not None
+                else None
+            ),
+            "max_kelly": max_kelly,
+            "candidate_formulas": (
+                "existing_no_vig_edge_ev_"
+                "full_kelly_preserved"
+            ),
+            "weather_dependency": (
+                "removed_no_effect_on_"
+                "candidate_artifact"
+            ),
+            "staged_roundtrip_verified": False,
+            "publication_completed": False,
+            "post_publish_validation": False,
+            "rollback_performed": False,
+        }
+    )
+
     input_path = (
         args.input.resolve()
         if args.input is not None
@@ -1772,11 +2737,25 @@ def main() -> int:
             "will not overwrite a file it reads."
         )
 
+    reporter.add_input(
+        input_path
+    )
+    reporter.add_output(
+        output_path
+    )
+
     combined = read_csv(
         input_path,
         "projected combined enriched file",
     )
     assert combined is not None
+
+    source_rows = len(
+        combined
+    )
+    reporter.set_rows(
+        rows_in=source_rows
+    )
 
     prior_output_columns = [
         column
@@ -1805,6 +2784,9 @@ def main() -> int:
         / "00_intake/schedule/weekly"
         / f"week_{week}_NFL_weekly_schedule.csv"
     )
+    reporter.add_input(
+        schedule_path
+    )
 
     schedule = read_csv(
         schedule_path,
@@ -1821,71 +2803,73 @@ def main() -> int:
         sportsbook,
     )
 
-    weather_path = (
-        NFL_ROOT
-        / "data/weather"
-        / f"week_{week}_NFL_weekly_weather.csv"
-    )
-
-    weather = read_csv(
-        weather_path,
-        "weekly weather",
-        optional=True,
-    )
-
-    working = merge_weather(
-        working,
-        weather,
-    )
-
     output = build_output(
         combined,
         working,
         max_kelly,
     )
 
-    expected_columns = (
-        list(combined.columns)
-        + SELECTION_COLUMNS
-        + CANDIDATE_COLUMNS
+    validate_candidate_output(
+        output,
+        combined,
+        max_kelly,
+        "in-memory candidate output",
     )
 
-    if list(output.columns) != expected_columns:
-        fail(
-            "Final candidate column "
-            "order/integrity check failed"
-        )
+    summary = candidate_summary(
+        output
+    )
+    reporter.update_details(
+        {
+            "source_rows": source_rows,
+            "source_columns": len(
+                combined.columns
+            ),
+            "output_rows": len(
+                output
+            ),
+            "output_columns": len(
+                output.columns
+            ),
+            **summary,
+        }
+    )
 
-    if (
-        output["game_id"].tolist()
-        != combined["game_id"].tolist()
-    ):
-        fail(
-            "game_id order changed during "
-            "candidate processing"
-        )
-
-    if (
-        output["away_team"].tolist()
-        != combined["away_team"].tolist()
-    ):
-        fail(
-            "away_team changed during "
-            "candidate processing"
-        )
-
-    if (
-        output["home_team"].tolist()
-        != combined["home_team"].tolist()
-    ):
-        fail(
-            "home_team changed during "
-            "candidate processing"
-        )
-
-    write_atomic_csv(
+    staged_path = stage_candidate_csv(
         output,
         output_path,
+    )
+
+    try:
+        validate_serialized_candidate_csv(
+            staged_path,
+            original=combined,
+            max_kelly=max_kelly,
+            label=(
+                "staged candidate output"
+            ),
+        )
+        reporter.set_detail(
+            "staged_roundtrip_verified",
+            True,
+        )
+
+        publish_candidate_csv(
+            staged_path,
+            output_path,
+            original=combined,
+            max_kelly=max_kelly,
+            reporter=reporter,
+        )
+    finally:
+        staged_path.unlink(
+            missing_ok=True
+        )
+
+    reporter.set_rows(
+        rows_out=len(
+            output
+        )
     )
 
     print(
@@ -1895,29 +2879,53 @@ def main() -> int:
         f"games={len(output)}"
     )
 
-    for column, label in [
-        ("ml_home_available", "ml_home"),
-        ("ml_away_available", "ml_away"),
-        ("spread_home_available", "spread_home"),
-        ("spread_away_available", "spread_away"),
-        ("total_over_available", "total_over"),
-        ("total_under_available", "total_under"),
-    ]:
-        count = int(
-            pd.to_numeric(
-                output[column],
-                errors="coerce",
-            )
-            .fillna(0)
-            .sum()
-        )
+    for prefix, count in (
+        summary[
+            "candidate_counts"
+        ].items()
+    ):
         print(
-            f"{label}_candidates={count}"
+            f"{prefix}_candidates={count}"
         )
 
-    print(f"Updated: {output_path}")
+    print(
+        f"Updated: {output_path}"
+    )
 
-    return 0
+
+def main() -> int:
+    args = parse_args()
+
+    try:
+        with PipelineReporter(
+            script=SCRIPT_PATH,
+            stage="02_select",
+            report_root=REPORT_ROOT,
+            pipeline="NFL",
+            league="NFL",
+            extra_context={
+                "component": (
+                    "candidate enrichment"
+                ),
+                "selection_stage": (
+                    "deferred_to_filter"
+                ),
+            },
+        ) as reporter:
+            run(
+                args,
+                reporter,
+            )
+
+        return 0
+    except Exception as exc:
+        print(
+            f"ERROR: {type(exc).__name__}: "
+            f"{exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 1
 
 
 if __name__ == "__main__":
