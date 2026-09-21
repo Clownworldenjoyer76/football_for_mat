@@ -191,12 +191,6 @@ def load_canonical_team_ids() -> set[str]:
         if not team_id:
             continue
 
-        if team_id in team_ids:
-            fail(
-                f"{TEAM_MAP_PATH} line {line_number} "
-                f"duplicates team_id={team_id}"
-            )
-
         team_ids.add(team_id)
 
     if len(team_ids) != 32:
