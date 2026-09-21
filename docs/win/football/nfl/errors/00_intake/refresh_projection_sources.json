@@ -1,0 +1,103 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35661014491-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
+  "pipeline": "NFL",
+  "league": "NFL",
+  "stage": "00_intake",
+  "script": "refresh_projection_sources.py",
+  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/refresh_projection_sources.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/refresh_projection_sources.json",
+  "started_at_utc": "2026-09-21T22:16:40.818905+00:00",
+  "finished_at_utc": "2026-09-21T22:16:55.236764+00:00",
+  "duration_seconds": 14.418,
+  "environment": {
+    "hostname": "runnervmlun5p",
+    "python_version": "3.11.16",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2820,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35661014491",
+    "github_run_attempt": "1",
+    "github_workflow": "NFL 01 Pipeline",
+    "github_job": "nfl-all",
+    "github_ref_name": "main",
+    "github_sha": "5c1a26402c523c7f8a540c49e80d364d909ed73b",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": 2026,
+    "week": null,
+    "component": "projection source refresh",
+    "refresh_scope": "current-season snap counts and depth charts"
+  },
+  "inputs": [
+    "https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_2026.parquet",
+    "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_2026.parquet"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/historic_data/snap_counts/snap_counts_2026.parquet",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/historic_data/depth_charts/depth_charts_2026.parquet"
+  ],
+  "rows_in": 548085,
+  "rows_out": 548085,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
+  "details": {
+    "season": 2026,
+    "sources": {
+      "snap_counts": {
+        "url": "https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_2026.parquet",
+        "final_url": "https://release-assets.githubusercontent.com/github-production-release-asset/452908115/1a4b5c58-5f79-4760-9763-6d403ebc7ffb?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-09-21T22%3A56%3A53Z&rscd=attachment%3B+filename%3Dsnap_counts_2026.parquet&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-09-21T21%3A56%3A38Z&ske=2026-09-21T22%3A56%3A53Z&sks=b&skv=2018-11-09&sig=FD2pFI72KHcn8yWqC9oTSQ%2BLrpRAGi1Wf5wh4jGK98Y%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5MDAyOTMwMSwibmJmIjoxNzkwMDI5MDAxLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.Q5NZNgx_qFxh_W6EklXBAdS4Un3iOh3ckgjhHNBV09g&response-content-disposition=attachment%3B%20filename%3Dsnap_counts_2026.parquet&response-content-type=application%2Foctet-stream",
+        "download_bytes": 59429,
+        "content_length_header": "59429",
+        "sha256": "5089fc7484739b7b2f14a557f35184bc920c9b907d77a00c0cc705f0b440d5f5",
+        "rows": 2901,
+        "columns": 16,
+        "min_week": 1,
+        "max_week": 2,
+        "team_count": 32,
+        "identity_columns": [
+          "pfr_player_id",
+          "player"
+        ]
+      },
+      "depth_charts": {
+        "url": "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_2026.parquet",
+        "final_url": "https://release-assets.githubusercontent.com/github-production-release-asset/452908115/a6b3bf68-fffc-4748-a3c4-57d5ddf387fd?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-09-21T23%3A05%3A38Z&rscd=attachment%3B+filename%3Ddepth_charts_2026.parquet&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-09-21T22%3A05%3A25Z&ske=2026-09-21T23%3A05%3A38Z&sks=b&skv=2018-11-09&sig=5nH0HOm63%2BKl0FIf7Bs8qf1PsHsbdwe7Vm8Mytw82kM%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5MDAyOTMwMSwibmJmIjoxNzkwMDI5MDAxLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.Q5NZNgx_qFxh_W6EklXBAdS4Un3iOh3ckgjhHNBV09g&response-content-disposition=attachment%3B%20filename%3Ddepth_charts_2026.parquet&response-content-type=application%2Foctet-stream",
+        "download_bytes": 2575764,
+        "content_length_header": "2575764",
+        "sha256": "e28e262168bbd64e488bc9ac2d609327d73126c8da3ca1d2dc14af4100a1d270",
+        "rows": 545184,
+        "columns": 12,
+        "schema_mode": "timestamped",
+        "team_column": "team",
+        "rank_column": "pos_rank",
+        "slot_column": "pos_slot",
+        "identity_columns": [
+          "gsis_id",
+          "espn_id",
+          "player_name"
+        ],
+        "team_count": 32,
+        "min_week": null,
+        "max_week": null,
+        "min_timestamp_utc": "2026-03-22T06:38:42+00:00",
+        "max_timestamp_utc": "2026-09-21T13:56:04+00:00"
+      }
+    },
+    "participation_required": false,
+    "publication_mode": "validated_two_file_transaction_with_rollback",
+    "staged_roundtrip_verified": true,
+    "publication_completed": true,
+    "published_outputs": {
+      "snap_counts": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/historic_data/snap_counts/snap_counts_2026.parquet",
+      "depth_charts": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/historic_data/depth_charts/depth_charts_2026.parquet"
+    }
+  }
+}
