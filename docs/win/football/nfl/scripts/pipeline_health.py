@@ -346,49 +346,49 @@ def artifact_specs(settings: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "path": NFL_ROOT / "00_intake" / "schedule" / "weekly" / f"week_{week}_NFL_weekly_schedule.csv",
             "required": {"season", "season_type", "week", "game_id", "away_team", "home_team"},
             "allow_empty": False,
-            "identity": "full",
+            "identity": "schedule_full",
         },
         "projection": {
             "path": NFL_ROOT / "01_merge" / f"week_{week}_NFL_enriched.csv",
             "required": {"season", "season_type", "week", "game_id", "away_team", "home_team"},
             "allow_empty": False,
-            "identity": "full",
+            "identity": "schedule_subset",
         },
         "selected_candidates": {
             "path": NFL_ROOT / "02_select" / f"week_{week}_NFL_selected.csv",
             "required": {"season", "season_type", "week", "game_id", "away_team", "home_team"},
             "allow_empty": False,
-            "identity": "full",
+            "identity": "projection_exact",
         },
         "root_picks": {
             "path": NFL_ROOT / "03_picks" / f"week_{week}_NFL_picks.csv",
             "required": {"season", "season_type", "week", "game_id", "away_team", "home_team"},
             "allow_empty": False,
-            "identity": "full",
+            "identity": "projection_exact",
         },
         "all_games": {
             "path": NFL_ROOT / "03_picks" / "all_games" / f"all_week_{week}_NFL_picks.csv",
             "required": {"season", "week", "game_id", "away_team", "home_team"},
             "allow_empty": False,
-            "identity": "full",
+            "identity": "projection_exact",
         },
         "selected_bets": {
             "path": NFL_ROOT / "03_picks" / "selected" / f"week_{week}_NFL_select_picks.csv",
             "required": {"season", "season_type", "week", "game_id", "away_team", "home_team"},
             "allow_empty": True,
-            "identity": "subset",
+            "identity": "schedule_subset",
         },
         "projection_picks": {
             "path": NFL_ROOT / "03_picks" / "projection" / f"week_{week}_NFL_projection.csv",
             "required": {"season", "season_type", "week", "game_id", "away_team", "home_team"},
             "allow_empty": False,
-            "identity": "full",
+            "identity": "projection_exact",
         },
         "survivor": {
             "path": NFL_ROOT / "03_picks" / "survivor" / f"{week}_survivor_picks.csv",
             "required": {"week", "game_id", "pick", "pt_diff", "away_team", "home_team"},
             "allow_empty": False,
-            "identity": "full",
+            "identity": "projection_exact",
         },
         "nmbets": {
             "path": NFL_ROOT / "03_picks" / "nmbets" / f"week_{week}_NM_NFL_picks.csv",
@@ -397,7 +397,7 @@ def artifact_specs(settings: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 "Projected_Score", "Predicted_Margin", "Predicted_Total",
             },
             "allow_empty": False,
-            "identity": "row_count",
+            "identity": "root_picks_row_count",
         },
         "final_scores": {
             "path": NFL_ROOT / "04_final_results" / "results" / f"{season}_{season_type}_{week}.csv",
@@ -406,7 +406,7 @@ def artifact_specs(settings: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 "home_team", "away_score", "home_score", "status",
             },
             "allow_empty": False,
-            "identity": "full",
+            "identity": "schedule_full",
         },
     }
 
@@ -437,7 +437,7 @@ def collect_artifact_health(
                 "identity_mode": spec["identity"],
             }
 
-            if spec["identity"] in {"full", "subset"}:
+            if spec["identity"] != "root_picks_row_count":
                 ids, blank, duplicates = ids_and_integrity(rows, path=path)
                 id_sets[name] = ids
                 item.update({
@@ -457,22 +457,30 @@ def collect_artifact_health(
             }
 
     scheduled = id_sets.get("weekly_schedule")
+    projection = id_sets.get("projection")
+
     if scheduled is not None:
-        for name in (
-            "projection", "selected_candidates", "root_picks",
-            "all_games", "projection_picks", "survivor", "final_scores",
-        ):
-            ids = id_sets.get(name)
-            if ids is None:
-                continue
-            missing = sorted(scheduled - ids)
-            extra = sorted(ids - scheduled)
-            artifacts[name]["missing_scheduled_game_ids"] = missing
-            artifacts[name]["extra_game_ids"] = extra
+        final_scores = id_sets.get("final_scores")
+        if final_scores is not None:
+            missing = sorted(scheduled - final_scores)
+            extra = sorted(final_scores - scheduled)
+            artifacts["final_scores"]["missing_scheduled_game_ids"] = missing
+            artifacts["final_scores"]["extra_game_ids"] = extra
             if missing or extra:
                 fatals.append(
-                    f"{name}: game_id set does not match weekly_schedule "
+                    "final_scores: game_id set does not match weekly_schedule "
                     f"(missing={len(missing)} extra={len(extra)})"
+                )
+
+        if projection is not None:
+            not_projected = sorted(scheduled - projection)
+            extra_projection = sorted(projection - scheduled)
+            artifacts["projection"]["not_projected_game_ids"] = not_projected
+            artifacts["projection"]["extra_game_ids"] = extra_projection
+            if extra_projection:
+                fatals.append(
+                    "projection: "
+                    f"{len(extra_projection)} game_id(s) are not in weekly_schedule"
                 )
 
         selected = id_sets.get("selected_bets")
@@ -484,10 +492,37 @@ def collect_artifact_health(
                     f"selected_bets: {len(extra_selected)} game_id(s) are not in weekly_schedule"
                 )
 
-        nmbets = artifacts.get("nmbets", {})
-        if "rows" in nmbets and int(nmbets["rows"]) != len(scheduled):
+    if projection is not None:
+        for name in (
+            "selected_candidates",
+            "root_picks",
+            "all_games",
+            "projection_picks",
+            "survivor",
+        ):
+            ids = id_sets.get(name)
+            if ids is None:
+                continue
+            missing = sorted(projection - ids)
+            extra = sorted(ids - projection)
+            artifacts[name]["missing_projection_game_ids"] = missing
+            artifacts[name]["extra_projection_game_ids"] = extra
+            if missing or extra:
+                fatals.append(
+                    f"{name}: game_id set does not match projection "
+                    f"(missing={len(missing)} extra={len(extra)})"
+                )
+
+    root_picks = artifacts.get("root_picks", {})
+    nmbets = artifacts.get("nmbets", {})
+    if "rows" in root_picks and "rows" in nmbets:
+        expected_nm_rows = int(root_picks["rows"])
+        actual_nm_rows = int(nmbets["rows"])
+        nmbets["expected_root_pick_rows"] = expected_nm_rows
+        if actual_nm_rows != expected_nm_rows:
             fatals.append(
-                f"nmbets: rows={nmbets['rows']} does not match scheduled_games={len(scheduled)}"
+                f"nmbets: rows={actual_nm_rows} "
+                f"does not match root_picks_rows={expected_nm_rows}"
             )
 
     return artifacts, warnings, fatals
