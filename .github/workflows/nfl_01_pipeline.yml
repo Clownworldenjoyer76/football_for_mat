@@ -796,6 +796,71 @@ jobs:
           fi
           git push origin "HEAD:$GITHUB_REF_NAME"
 
+
+      # ============================================================
+      # NFL 08 PIPELINE HEALTH
+      # ============================================================
+
+      - name: Generate NFL pipeline health
+        if: always()
+        id: nfl_pipeline_health
+        shell: bash
+        env:
+          NFL_PIPELINE_WORKFLOW: nfl_01
+          NFL_PIPELINE_JOB_STATUS: ${{ job.status }}
+          NFL_PROJECTION_MODE: ${{ inputs.projection_mode }}
+        run: |
+          set +e
+
+          python docs/win/football/nfl/scripts/pipeline_health.py
+          status=$?
+
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Commit NFL pipeline health
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HEALTH_PATHS=(
+            docs/win/football/nfl/pipeline_health.json
+            docs/win/football/nfl/errors/pipeline_health.txt
+            frontend/data/pipeline_health/nfl.json
+          )
+
+          STAGE_PATHS=()
+
+          for FILE in "${HEALTH_PATHS[@]}"; do
+            if [ -e "$FILE" ] || git ls-files --error-unmatch "$FILE" >/dev/null 2>&1; then
+              STAGE_PATHS+=("$FILE")
+            fi
+          done
+
+          if [ "${#STAGE_PATHS[@]}" -eq 0 ]; then
+            echo "No NFL pipeline-health outputs exist to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A -- "${STAGE_PATHS[@]}"
+
+          if git diff --cached --quiet -- "${STAGE_PATHS[@]}"; then
+            echo "No NFL pipeline-health changes to commit."
+          else
+            git commit -m "Update NFL pipeline health" -- "${STAGE_PATHS[@]}"
+
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
       - name: Publish NFL failure reports
         if: failure()
         shell: bash
@@ -829,3 +894,10 @@ jobs:
           fi
 
           git push origin "HEAD:$GITHUB_REF_NAME"
+
+      - name: Fail workflow if NFL pipeline health failed
+        if: always() && steps.nfl_pipeline_health.outputs.exit_code != '0'
+        run: |
+          echo "NFL pipeline health reported a fatal condition."
+          echo "See docs/win/football/nfl/pipeline_health.json"
+          exit 1
