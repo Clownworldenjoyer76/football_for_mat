@@ -11,6 +11,8 @@ import json
 import os
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -24,11 +26,30 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from pipeline_reporter import PipelineReporter
 
-TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
 COACHES_URL_TEMPLATE = (
     "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/"
     "seasons/{season}/teams/{team_id}/coaches"
 )
+
+REQUEST_HEADERS = {
+    "Accept": "application/json",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 "
+        "Chrome/140.0 Safari/537.36"
+    ),
+}
+HTTP_ATTEMPTS = 4
+HTTP_TIMEOUT = 30
+RETRYABLE_HTTP_CODES = {
+    408,
+    425,
+    429,
+    500,
+    502,
+    503,
+    504,
+}
 
 TEAM_MASTER_PATH = NFL_ROOT / "data/master/team_master.csv"
 OUTPUT_PATH = NFL_ROOT / "data/master/coaches_master.csv"
@@ -82,19 +103,85 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def fetch_json(url: str, timeout: int = 10) -> dict[str, Any]:
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except Exception as exc:
+def fetch_json(
+    url: str,
+    *,
+    attempts: int = HTTP_ATTEMPTS,
+    timeout: int = HTTP_TIMEOUT,
+) -> dict[str, Any]:
+    if not clean(url):
+        raise CoachesError("Cannot fetch blank ESPN URL")
+
+    if attempts < 1:
+        raise CoachesError("ESPN request attempts must be at least 1")
+
+    request = urllib.request.Request(
+        url,
+        headers=REQUEST_HEADERS,
+    )
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=timeout,
+            ) as response:
+                raw = response.read().decode("utf-8")
+
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise CoachesError(
+                    f"ESPN returned invalid JSON {url}: {exc}"
+                ) from exc
+
+            if not isinstance(payload, dict):
+                raise CoachesError(
+                    f"Unexpected ESPN response type for {url}"
+                )
+
+            return payload
+
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+
+            if (
+                exc.code not in RETRYABLE_HTTP_CODES
+                or attempt == attempts
+            ):
+                raise CoachesError(
+                    f"Failed ESPN request {url}: "
+                    f"HTTPError: status={exc.code}"
+                ) from exc
+
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_error = exc
+
+            if attempt == attempts:
+                raise CoachesError(
+                    f"Failed ESPN request {url}: "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
+
+        if attempt < attempts:
+            delay = min(2 ** (attempt - 1), 8)
+            print(
+                f"retry_espn_request "
+                f"attempt={attempt}/{attempts} "
+                f"delay={delay}s url={url}"
+            )
+            time.sleep(delay)
+
+    if last_error is not None:
         raise CoachesError(
-            f"Failed ESPN request {url}: {type(exc).__name__}: {exc}"
-        ) from exc
+            f"Failed ESPN request {url}: "
+            f"{type(last_error).__name__}: {last_error}"
+        ) from last_error
 
-    if not isinstance(payload, dict):
-        raise CoachesError(f"Unexpected ESPN response type for {url}")
-
-    return payload
+    raise CoachesError(
+        f"Failed ESPN request {url} without an exception"
+    )
 
 
 def load_team_master() -> tuple[dict[str, str], int]:
@@ -155,108 +242,6 @@ def load_team_master() -> tuple[dict[str, str], int]:
 
     return lookup, len(rows)
 
-
-def get_espn_teams() -> list[tuple[str, str]]:
-    data = fetch_json(TEAMS_URL)
-
-    sports = data.get("sports")
-
-    if not isinstance(sports, list) or not sports:
-        raise CoachesError(
-            "ESPN teams response contains no sports"
-        )
-
-    teams: list[tuple[str, str]] = []
-
-    for sport in sports:
-        if not isinstance(sport, dict):
-            raise CoachesError(
-                "ESPN teams response contains invalid sport data"
-            )
-
-        leagues = sport.get("leagues")
-
-        if not isinstance(leagues, list):
-            raise CoachesError(
-                "ESPN teams response contains invalid leagues"
-            )
-
-        for league in leagues:
-            if not isinstance(league, dict):
-                raise CoachesError(
-                    "ESPN teams response contains invalid league data"
-                )
-
-            entries = league.get("teams")
-
-            if not isinstance(entries, list):
-                raise CoachesError(
-                    "ESPN teams response contains invalid teams"
-                )
-
-            for entry in entries:
-                team = (
-                    entry.get("team")
-                    if isinstance(entry, dict)
-                    else None
-                )
-
-                if not isinstance(team, dict):
-                    raise CoachesError(
-                        "ESPN teams response contains invalid team data"
-                    )
-
-                team_id = clean(team.get("id"))
-                abbr = clean(team.get("abbreviation"))
-
-                if not team_id or not abbr:
-                    raise CoachesError(
-                        "ESPN teams response contains blank "
-                        "team ID/abbreviation"
-                    )
-
-                teams.append((team_id, abbr))
-
-    ids = [team_id for team_id, _ in teams]
-    abbrs = [abbr for _, abbr in teams]
-
-    if (
-        len(teams) != 32
-        or len(set(ids)) != 32
-        or len(set(abbrs)) != 32
-    ):
-        raise CoachesError(
-            "ESPN teams response must contain exactly "
-            "32 unique team IDs/abbreviations"
-        )
-
-    return teams
-
-
-def validate_team_sources(
-    teams: list[tuple[str, str]],
-    team_master: dict[str, str],
-) -> None:
-    espn_abbrs = {abbr for _, abbr in teams}
-    master_abbrs = set(team_master)
-
-    if espn_abbrs != master_abbrs:
-        raise CoachesError(
-            "ESPN/team_master abbreviation mismatch: "
-            f"missing={sorted(master_abbrs - espn_abbrs)} "
-            f"unexpected={sorted(espn_abbrs - master_abbrs)}"
-        )
-
-    mismatches = [
-        (abbr, team_master[abbr], espn_id)
-        for espn_id, abbr in teams
-        if team_master[abbr] != espn_id
-    ]
-
-    if mismatches:
-        raise CoachesError(
-            f"ESPN/team_master team-ID mismatch: {mismatches[:5]}"
-        )
 
 
 def get_career_records(
@@ -515,7 +500,8 @@ def run(
 
     reporter.update_details(
         {
-            "teams_url": TEAMS_URL,
+            "team_universe_source": str(TEAM_MASTER_PATH),
+            "coach_url_template": COACHES_URL_TEMPLATE,
             "publication_completed": False,
             "staged_roundtrip_verified": False,
             "teams_resolved": 0,
@@ -538,24 +524,9 @@ def run(
         }
     )
 
-    teams = get_espn_teams()
-
-    reporter.set_detail(
-        "espn_teams_discovered",
-        len(teams),
-    )
-
-    validate_team_sources(
-        teams,
-        team_master,
-    )
-
     rows: list[dict[str, str]] = []
 
-    for team_id, abbr in sorted(
-        teams,
-        key=lambda item: item[1],
-    ):
+    for abbr, team_id in sorted(team_master.items()):
         rows.append(
             resolve_head_coach(
                 season,
