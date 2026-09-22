@@ -559,8 +559,6 @@ def validate_weekly_file(
             )
 
         for field in (
-            "game_date",
-            "game_time",
             "away_team",
             "home_team",
         ):
