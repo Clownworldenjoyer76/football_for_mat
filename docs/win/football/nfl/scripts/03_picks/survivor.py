@@ -346,10 +346,16 @@ def validate_input_rows(
         home_favorite = home_spread < 0
         away_favorite = away_spread < 0
 
-        if home_favorite == away_favorite:
+        if (
+            home_favorite == away_favorite
+            and (
+                abs(home_spread) > EPSILON
+                or abs(away_spread) > EPSILON
+            )
+        ):
             fail(
                 f"Row {index}: expected exactly one "
-                f"negative spread"
+                f"negative spread or a projected tie"
             )
 
     return seasons
@@ -403,10 +409,16 @@ def build_output(rows, week, input_path):
         home_favorite = home_spread < 0
         away_favorite = away_spread < 0
 
-        if home_favorite == away_favorite:
+        if (
+            home_favorite == away_favorite
+            and (
+                abs(home_spread) > EPSILON
+                or abs(away_spread) > EPSILON
+            )
+        ):
             fail(
                 f"Row {index}: expected exactly one "
-                f"negative spread"
+                f"negative spread or a projected tie"
             )
 
         if home_favorite:
