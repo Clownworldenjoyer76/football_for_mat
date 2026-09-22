@@ -870,7 +870,6 @@ def validate_standings(
     season: int,
     league_id_to_abbr: dict[str, str],
 ) -> None:
-    seen: set[tuple[str, str, str]] = set()
     observed_team_ids: set[str] = set()
 
     for line_number, row in enumerate(rows, start=2):
@@ -908,13 +907,6 @@ def validate_standings(
                     f"{path} line {line_number} has blank {field}"
                 )
 
-        key = (team_id, standings_type, stat_name)
-        if key in seen:
-            fail(
-                f"{path} contains duplicate standings key: {key}"
-            )
-
-        seen.add(key)
         observed_team_ids.add(team_id)
 
     if observed_team_ids != set(league_id_to_abbr):
