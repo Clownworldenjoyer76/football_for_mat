@@ -18,7 +18,7 @@ jobs:
 
     env:
       PROP_ENGINE_ROOT: docs/win/football/prop_engine
-      SETTINGS_FILE: docs/win/football/nfl/config/settings.yaml
+      SETTINGS_FILE: docs/win/football/prop_engine/config/settings.yaml
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
       TZ: America/New_York
@@ -167,7 +167,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ env.PROP_ENGINE_ROOT }}/data/historical/features/player_game_features.parquet
-          key: prop-01-player-game-features-v1-${{ runner.os }}-${{ hashFiles('docs/win/football/prop_engine/requirements.txt', 'docs/win/football/prop_engine/config/prop_engine.yaml', 'docs/win/football/prop_engine/scripts/build/build_player_form.py', 'docs/win/football/prop_engine/scripts/build/build_historical_features.py', 'docs/win/football/prop_engine/data/historical/**/*.parquet', 'docs/win/football/prop_engine/data/historical/features/feature_manifest.json', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2010.parquet', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2011.parquet') }}
+          key: prop-01-player-game-features-v1-${{ runner.os }}-${{ hashFiles('docs/win/football/prop_engine/requirements.txt', 'docs/win/football/prop_engine/config/prop_engine.yaml', 'docs/win/football/prop_engine/scripts/common.py', 'docs/win/football/prop_engine/scripts/build/build_player_form.py', 'docs/win/football/prop_engine/scripts/build/build_historical_features.py', 'docs/win/football/prop_engine/data/historical/**/*.parquet', 'docs/win/football/prop_engine/data/historical/features/feature_manifest.json', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2010.parquet', 'docs/win/football/nfl/data/historic_data/player_stats/stats_player_week_2011.parquet') }}
 
       - name: Rebuild ignored historical runtime feature table on cache miss
         if: steps.historical_features_cache.outputs.cache-hit != 'true'
@@ -233,7 +233,7 @@ jobs:
           print("historical_feature_runtime_artifact=PASS")
           PY
 
-      - name: Read season and week from NFL settings
+      - name: Read season and week from Prop Engine settings
         id: nfl_settings
         shell: bash
         run: |
@@ -246,7 +246,7 @@ jobs:
           prop_config_path = Path(os.environ["PROP_ENGINE_ROOT"]) / "config" / "prop_engine.yaml"
 
           if not settings_path.is_file():
-              raise SystemExit(f"Missing NFL settings file: {settings_path}")
+              raise SystemExit(f"Missing Prop Engine settings file: {settings_path}")
           if not prop_config_path.is_file():
               raise SystemExit(f"Missing Prop Engine config: {prop_config_path}")
 
@@ -254,7 +254,7 @@ jobs:
           prop_config = yaml.safe_load(prop_config_path.read_text(encoding="utf-8"))
 
           if not isinstance(settings, dict):
-              raise SystemExit("NFL settings.yaml must contain a YAML mapping.")
+              raise SystemExit("Prop Engine settings.yaml must contain a YAML mapping.")
           if not isinstance(prop_config, dict):
               raise SystemExit("prop_engine.yaml must contain a YAML mapping.")
 
@@ -265,9 +265,9 @@ jobs:
               raise SystemExit("settings.yaml must contain integer season and week values.") from exc
 
           if not 1900 <= season <= 2200:
-              raise SystemExit(f"Invalid NFL season in settings.yaml: {season}")
+              raise SystemExit(f"Invalid Prop Engine season in settings.yaml: {season}")
           if not 1 <= week <= 22:
-              raise SystemExit(f"Invalid NFL week in settings.yaml: {week}")
+              raise SystemExit(f"Invalid Prop Engine week in settings.yaml: {week}")
 
           current_prop_season = int(prop_config["seasons"]["current"])
           if current_prop_season != season:
@@ -289,8 +289,8 @@ jobs:
               fh.write(f"season={season}\n")
               fh.write(f"week={week}\n")
 
-          print(f"NFL season={season}")
-          print(f"NFL week={week}")
+          print(f"Prop Engine season={season}")
+          print(f"Prop Engine week={week}")
           print(f"season_type={settings.get('season_type')}")
           PY
 
@@ -425,22 +425,15 @@ jobs:
           PY
 
       - name: Run prop odds
-        run: python docs/win/football/prop_engine/scripts/prop_odds.py
+        run: python docs/win/football/prop_engine/scripts/prop_odds.py --season "$NFL_SEASON" --week "$NFL_WEEK"
 
       - name: Build prop selections
-        run: python docs/win/football/prop_engine/scripts/build_prop_selections.py
+        run: python docs/win/football/prop_engine/scripts/build_prop_selections.py --season "$NFL_SEASON" --week "$NFL_WEEK"
 
       - name: Run prop organizer
         shell: bash
         run: |
-          WEEK=$(find "$PROP_ENGINE_ROOT/output/$NFL_SEASON" -maxdepth 1 -type d -name 'week_*_props' | sed -E 's/.*week_([0-9]+)_props/\1/' | sort -n | tail -1)
-
-          if [[ -z "$WEEK" ]]; then
-            echo "::error::Unable to determine Prop Engine organizer week."
-            exit 1
-          fi
-
-          python docs/win/football/prop_engine/scripts/prop_organizer.py --week "$WEEK"
+          python "$PROP_ENGINE_ROOT/scripts/prop_organizer.py" --season "$NFL_SEASON" --week "$NFL_WEEK"
 
       - name: Run prop organizer stage 2
         run: python docs/win/football/prop_engine/scripts/prop_organizer_stage2.py
