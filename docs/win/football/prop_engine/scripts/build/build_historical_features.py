@@ -50,6 +50,7 @@ if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 
 import common
+from pipeline_reporter import PipelineReporter
 
 
 GRAIN = ["season", "week", "game_id", "player_id"]
@@ -69,10 +70,6 @@ LEADING_COLUMNS = [
     "position_group",
     "home_flag",
 ]
-
-REQUIRED_TARGET_ORDER = list(common.load_config()["targets"].keys())
-
-TARGET_COLUMNS = [f"target_{name}" for name in REQUIRED_TARGET_ORDER]
 
 REQUIRED_MATCHUP_COLUMNS = [
     "matchup_expected_team_plays",
@@ -104,15 +101,6 @@ PLAYER_FORM_KEYS = set(
     GRAIN + ["team", "position", "position_group"]
 )
 TEAM_FORM_KEYS = {"season", "week", "team"}
-ENVIRONMENT_KEYS = {
-    "season",
-    "week",
-    "game_id",
-    "gameday",
-    "home_team",
-    "away_team",
-}
-
 PLAYER_HISTORY_COLUMNS = [
     "no_nfl_history_flag",
     "new_team_flag",
@@ -330,16 +318,6 @@ def validate_sparse_grain_subset(
         )
 
 
-def prefix_columns(
-    source: pd.DataFrame,
-    source_columns: list[str],
-    prefix: str,
-) -> pd.DataFrame:
-    return source[source_columns].rename(
-        columns={column: f"{prefix}{column}" for column in source_columns}
-    )
-
-
 def build_position_allowed_lag(
     source: pd.DataFrame,
 ) -> tuple[pd.DataFrame, list[str]]:
@@ -437,11 +415,6 @@ def build_player_audit(universe: pd.DataFrame) -> pd.DataFrame:
         errors="raise",
         utc=True,
     )
-    played = pd.to_numeric(
-        audit["played_game_flag"],
-        errors="coerce",
-    ).fillna(0).eq(1)
-
     audit = audit.sort_values(
         ["player_id", "_kickoff_sort", "game_id"],
         kind="mergesort",
@@ -641,20 +614,17 @@ def classify_feature_columns(
     return numeric, categorical
 
 
-def main() -> int:
+def _run(reporter: PipelineReporter) -> int:
     config = common.load_config()
 
-    required_config_targets = list(config.get("targets", {}).keys())
-    missing_targets = [
-        name
-        for name in REQUIRED_TARGET_ORDER
-        if name not in required_config_targets
+    required_target_order = list(config.get("targets", {}).keys())
+    if not required_target_order:
+        raise ValueError("Issue 17 requires at least one configured target.")
+
+    target_columns = [
+        f"target_{name}"
+        for name in required_target_order
     ]
-    if missing_targets:
-        raise ValueError(
-            "Issue 17 missing configured target(s): "
-            + ", ".join(missing_targets)
-        )
 
     paths = {
         "universe": require_config_path(config, "historical_universe"),
@@ -675,6 +645,15 @@ def main() -> int:
         "features/feature_manifest.json"
     )
 
+    reporter.add_input(
+        "docs/win/football/prop_engine/config/prop_engine.yaml"
+    )
+    for key, value in paths.items():
+        if key != "output":
+            reporter.add_input(value)
+    reporter.add_output(paths["output"])
+    reporter.add_output(manifest_path)
+
     universe = common.read_parquet_required(
         paths["universe"],
         LEADING_COLUMNS + ["played_game_flag"],
@@ -683,6 +662,7 @@ def main() -> int:
     universe_keys = universe[GRAIN].copy()
 
     universe_row_count = len(universe)
+    reporter.set_rows(rows_in=int(universe_row_count))
     out = universe[LEADING_COLUMNS].copy()
     out["_join_team"] = out["team"].map(canonical_franchise)
     out["_join_opponent"] = out["opponent"].map(canonical_franchise)
@@ -1236,16 +1216,16 @@ def main() -> int:
     # Targets: canonical output target names derive from configured target keys.
     targets = common.read_parquet_required(
         paths["targets"],
-        GRAIN + REQUIRED_TARGET_ORDER,
+        GRAIN + required_target_order,
     )
     validate_exact_full_grain(universe_keys, targets, "historical targets")
 
     target_rename = {
         name: f"target_{name}"
-        for name in REQUIRED_TARGET_ORDER
+        for name in required_target_order
     }
     out = out.merge(
-        targets[GRAIN + REQUIRED_TARGET_ORDER].rename(
+        targets[GRAIN + required_target_order].rename(
             columns=target_rename
         ),
         on=GRAIN,
@@ -1293,7 +1273,7 @@ def main() -> int:
         matchup_columns,
         environment_columns,
         history_columns,
-        TARGET_COLUMNS,
+        target_columns,
         AUDIT_COLUMNS,
     ]
 
@@ -1317,7 +1297,7 @@ def main() -> int:
         + matchup_columns
         + environment_columns
         + history_columns
-        + TARGET_COLUMNS
+        + target_columns
         + AUDIT_COLUMNS
     )
 
@@ -1364,7 +1344,7 @@ def main() -> int:
     if list(out.columns[: len(LEADING_COLUMNS)]) != LEADING_COLUMNS:
         raise ValueError("Leading header order mismatch.")
 
-    if [column for column in out.columns if column.startswith("target_")] != TARGET_COLUMNS:
+    if [column for column in out.columns if column.startswith("target_")] != target_columns:
         raise ValueError("Target header order mismatch.")
 
     if [column for column in out.columns if column.startswith("audit_")] != AUDIT_COLUMNS:
@@ -1407,9 +1387,13 @@ def main() -> int:
     if set(numeric_features + categorical_features) != set(candidate_features):
         raise ValueError("Feature manifest does not cover candidate features exactly.")
 
-    numeric_block = out.select_dtypes(include=[np.number])
-    if np.isinf(numeric_block.to_numpy(dtype="float64", copy=False)).any():
-        raise ValueError("Historical feature table contains infinity.")
+    numeric_columns = out.select_dtypes(include=[np.number]).columns
+    for column in numeric_columns:
+        values = out[column].to_numpy(dtype="float64", copy=False)
+        if np.isinf(values).any():
+            raise ValueError(
+                f"Historical feature table contains infinity: {column}"
+            )
 
     schema_hash = stable_schema_hash(out)
 
@@ -1436,7 +1420,7 @@ def main() -> int:
             "matchup": matchup_columns,
             "environment": environment_columns,
             "history": history_columns,
-            "target": TARGET_COLUMNS,
+            "target": target_columns,
             "audit": AUDIT_COLUMNS,
         },
         "numeric_features": numeric_features,
@@ -1453,11 +1437,11 @@ def main() -> int:
                 "player_id",
                 "player_name",
             ],
-            "targets": TARGET_COLUMNS,
+            "targets": target_columns,
             "audit": AUDIT_COLUMNS,
             "outcome_metadata": ["played_game_flag"],
         },
-        "target_columns": TARGET_COLUMNS,
+        "target_columns": target_columns,
         "required_matchup_columns": REQUIRED_MATCHUP_COLUMNS,
         "matchup_formulas": {
             "matchup_expected_team_plays": "mean(team offensive_plays roll3, opponent defensive_plays roll3)",
@@ -1517,19 +1501,37 @@ def main() -> int:
         "output": paths["output"],
         "manifest": manifest_path,
     }
+    reporter.set_rows(rows_out=int(len(out)))
+    reporter.update_details(
+        {
+            "columns": int(len(out.columns)),
+            "features": int(len(candidate_features)),
+            "numeric_features": int(len(numeric_features)),
+            "categorical_features": int(len(categorical_features)),
+            "schema_hash": schema_hash,
+            "market_feature_count": 0,
+            "target_columns_in_manifest": False,
+            "position_allowed_lagged": True,
+        }
+    )
+
     common.log_run("build_historical_features.py", payload)
 
     print(
-        json.dumps(
-            {
-                "script": Path(__file__).name,
-                "payload": payload,
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-        )
+        "PASS: build_historical_features.py "
+        f"rows={len(out)} columns={len(out.columns)} "
+        f"features={len(candidate_features)}"
     )
     return 0
+
+
+def main() -> int:
+    with PipelineReporter(
+        script=Path(__file__).name,
+        stage="historical_build",
+        report_root=common.prop_root() / "logs" / "pipeline_reports",
+    ) as reporter:
+        return _run(reporter)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 
 import common
+from pipeline_reporter import PipelineReporter
 
 
 SCAN_RELATIVE_ROOTS = [
@@ -220,8 +221,11 @@ def parquet_schema_and_metadata(path: Path) -> tuple[list[str], list[str]]:
 
     try:
         from fastparquet import ParquetFile  # type: ignore
-    except ImportError:
-        return [], []
+    except ImportError as exc:
+        raise RuntimeError(
+            "Parquet audit requires pyarrow or fastparquet; "
+            f"cannot inspect schema for {path}"
+        ) from exc
 
     parquet = ParquetFile(str(path))
     names = list(getattr(parquet, "columns", []) or [])
@@ -427,20 +431,86 @@ def run_production_audit(*, write_output: bool = True) -> dict:
     return payload
 
 
+def _run_with_reporter(
+    reporter: PipelineReporter,
+    *,
+    preflight: bool,
+) -> int:
+    reporter.add_input(
+        "docs/win/football/prop_engine/config/prop_engine.yaml"
+    )
+    for root in SCAN_RELATIVE_ROOTS:
+        reporter.add_input(root)
+    reporter.add_output(OUTPUT_RELATIVE_PATH)
+    reporter.set_detail("preflight", bool(preflight))
+
+    payload = run_production_audit(write_output=True)
+
+    reporter.update_details(
+        {
+            "files_scanned": int(payload["files_scanned"]),
+            "forbidden_source_reference_count": int(
+                payload["forbidden_source_reference_count"]
+            ),
+            "forbidden_feature_hit_count": int(
+                payload["forbidden_feature_hit_count"]
+            ),
+            "market_features_used": bool(payload["market_features_used"]),
+            "passed": bool(payload["passed"]),
+        }
+    )
+
+    if payload["passed"]:
+        print(
+            "MARKET EXCLUSION AUDIT: PASS "
+            f"files={payload['files_scanned']} "
+            "source_hits=0 feature_hits=0"
+        )
+        return 0
+
+    print(
+        "MARKET EXCLUSION AUDIT: FAIL "
+        f"files={payload['files_scanned']} "
+        f"source_hits={payload['forbidden_source_reference_count']} "
+        f"feature_hits={payload['forbidden_feature_hit_count']}"
+    )
+    reporter.error(
+        "Market exclusion audit detected forbidden market/source contamination.",
+        forbidden_source_reference_count=int(
+            payload["forbidden_source_reference_count"]
+        ),
+        forbidden_feature_hit_count=int(
+            payload["forbidden_feature_hit_count"]
+        ),
+    )
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit Prop Engine market exclusion.")
+    parser = argparse.ArgumentParser(
+        description="Audit Prop Engine market exclusion."
+    )
     parser.add_argument(
         "--preflight",
         action="store_true",
         help="Run the same production audit as a training/inference preflight.",
     )
     args = parser.parse_args(argv)
-    _ = args.preflight
 
-    payload = run_production_audit(write_output=True)
-    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
-    print("MARKET EXCLUSION AUDIT: PASS" if payload["passed"] else "MARKET EXCLUSION AUDIT: FAIL")
-    return 0 if payload["passed"] else 1
+    try:
+        with PipelineReporter(
+            script=Path(__file__).name,
+            stage="validation",
+            report_root=common.prop_root() / "logs" / "pipeline_reports",
+        ) as reporter:
+            return _run_with_reporter(
+                reporter,
+                preflight=bool(args.preflight),
+            )
+    except RuntimeError as exc:
+        if str(exc).startswith("Pipeline reporter recorded "):
+            return 1
+        raise
 
 
 if __name__ == "__main__":

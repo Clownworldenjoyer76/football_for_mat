@@ -31,9 +31,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 import common
+from pipeline_reporter import PipelineReporter
 
 
-_CONFIG_CONTRACT = common.load_config()
 PIPELINE = (
     'build/refresh_nflverse_player_data.py',
     'build/build_player_identity.py',
@@ -53,8 +53,6 @@ PIPELINE = (
     'report/build_wide_output.py',
     'validate/validate_week.py',
 )
-
-TARGETS = list(_CONFIG_CONTRACT["targets"].keys())
 
 # SIX_TARGET_PRODUCTION_REGISTRY_MODE
 REQUIRED_MANIFEST_KEYS = (
@@ -145,12 +143,18 @@ def load_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def registry_state(prop_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+def registry_state(
+    prop_root: Path,
+    targets: Sequence[str],
+) -> tuple[dict[str, Any], dict[str, Any]]:
     registry = load_json(prop_root / 'models/production_registry.json')
-    if list(registry.keys()) != list(TARGETS):
-        raise ValueError('Production registry must contain exactly the nine Prop Engine targets.')
+    if list(registry.keys()) != list(targets):
+        raise ValueError(
+            'Production registry must contain exactly the configured '
+            'Prop Engine targets.'
+        )
     versions: dict[str, Any] = {}
-    for target in TARGETS:
+    for target in targets:
         entry = registry[target]
         if not isinstance(entry, dict) or 'production_approved' not in entry or 'version' not in entry:
             raise ValueError(f'Invalid production registry entry for {target}.')
@@ -161,13 +165,14 @@ def registry_state(prop_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
 def assert_model_approval(
     registry: dict[str, Any],
     allow_unapproved_models: bool,
+    targets: Sequence[str],
 ) -> tuple[list[str], list[str]]:
     if allow_unapproved_models:
-        return list(TARGETS), []
+        return list(targets), []
 
     approved: list[str] = []
     deferred: list[str] = []
-    for target in TARGETS:
+    for target in targets:
         entry = registry[target]
         approved_flag = entry.get('production_approved')
         version = entry.get('version')
@@ -373,87 +378,208 @@ def make_manifest(*, season: int, week: int, as_of: str, source_files: list[str]
     return manifest
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+def _run(
+    args: argparse.Namespace,
+    reporter: PipelineReporter,
+) -> int:
     validate_season_week(args.season, args.week)
     as_of = normalize_as_of(args.as_of)
     config = common.load_config()
+    targets = list(config.get("targets", {}).keys())
+    if not targets:
+        raise ValueError("Prop Engine config must define at least one target.")
+
     repo_root = common.repo_root().resolve()
     prop_root = common.prop_root().resolve()
     scripts_root = (prop_root / 'scripts').resolve()
     destination = run_manifest_path(prop_root, args.season, args.week)
+    validation_report = validation_report_path(
+        prop_root,
+        args.season,
+        args.week,
+    )
+
+    reporter.add_input(
+        "docs/win/football/prop_engine/config/prop_engine.yaml"
+    )
+    reporter.add_input(
+        "docs/win/football/prop_engine/models/production_registry.json"
+    )
+    reporter.add_output(
+        destination.relative_to(repo_root).as_posix()
+    )
+    reporter.add_output(
+        validation_report.relative_to(repo_root).as_posix()
+    )
+    reporter.update_details(
+        {
+            "season": int(args.season),
+            "week": int(args.week),
+            "as_of": as_of,
+            "skip_refresh": bool(args.skip_refresh),
+            "allow_unapproved_models": bool(args.allow_unapproved_models),
+        }
+    )
 
     steps: list[StepResult] = []
     validation_passed = False
     failure: str | None = None
-    model_versions = {target: None for target in TARGETS}
+    model_versions = {target: None for target in targets}
     production_targets: list[str] = []
     deferred_targets: list[str] = []
 
     try:
         validate_pipeline_files(prop_root)
-        registry, model_versions = registry_state(prop_root)
+        registry, model_versions = registry_state(prop_root, targets)
         production_targets, deferred_targets = assert_model_approval(
-            registry, args.allow_unapproved_models
+            registry,
+            args.allow_unapproved_models,
+            targets,
         )
         status, steps = run_pipeline(
-            pipeline=PIPELINE, scripts_root=scripts_root, repo_root=repo_root,
-            season=args.season, week=args.week, skip_refresh=args.skip_refresh,
+            pipeline=PIPELINE,
+            scripts_root=scripts_root,
+            repo_root=repo_root,
+            season=args.season,
+            week=args.week,
+            skip_refresh=args.skip_refresh,
         )
         if status == 'success':
-            report = validation_report_path(prop_root, args.season, args.week)
-            if not report.is_file():
-                raise FileNotFoundError(f'Required weekly validation report missing: {report}')
-            report_payload = load_json(report)
+            if not validation_report.is_file():
+                raise FileNotFoundError(
+                    f'Required weekly validation report missing: '
+                    f'{validation_report}'
+                )
+            report_payload = load_json(validation_report)
             if report_payload.get('status') != 'passed':
                 raise RuntimeError(
-                    f'Weekly validation report status is not passed: {report_payload.get("status")!r}'
+                    'Weekly validation report status is not passed: '
+                    f'{report_payload.get("status")!r}'
                 )
             validation_passed = True
         else:
-            failed = next((s for s in steps if s.status == 'failed'), None)
-            failure = f'step {failed.step_number} {failed.script} exit_code={failed.exit_code}' if failed else 'weekly pipeline failed'
+            failed = next(
+                (step for step in steps if step.status == 'failed'),
+                None,
+            )
+            failure = (
+                f'step {failed.step_number} {failed.script} '
+                f'exit_code={failed.exit_code}'
+                if failed
+                else 'weekly pipeline failed'
+            )
     except Exception as exc:
         failure = f'{type(exc).__name__}: {exc}'
         print(f'WEEKLY PIPELINE: FAIL - {failure}', file=sys.stderr)
         try:
-            _, model_versions = registry_state(prop_root)
+            _, model_versions = registry_state(prop_root, targets)
         except Exception:
             pass
 
     try:
-        source_files, source_hashes = source_inventory(config, repo_root, args.season, args.week)
+        source_files, source_hashes = source_inventory(
+            config,
+            repo_root,
+            args.season,
+            args.week,
+        )
     except Exception as exc:
         source_files, source_hashes = [], {}
         validation_passed = False
-        failure = failure or f'source inventory failed: {type(exc).__name__}: {exc}'
+        failure = (
+            failure
+            or f'source inventory failed: {type(exc).__name__}: {exc}'
+        )
 
     try:
-        feature_hash = current_feature_schema_hash(prop_root, args.season, args.week)
+        feature_hash = current_feature_schema_hash(
+            prop_root,
+            args.season,
+            args.week,
+        )
     except Exception as exc:
         feature_hash = None
         validation_passed = False
-        failure = failure or f'feature schema hash failed: {type(exc).__name__}: {exc}'
+        failure = (
+            failure
+            or f'feature schema hash failed: {type(exc).__name__}: {exc}'
+        )
 
     manifest = make_manifest(
-        season=args.season, week=args.week, as_of=as_of,
-        source_files=source_files, source_hashes=source_hashes,
+        season=args.season,
+        week=args.week,
+        as_of=as_of,
+        source_files=source_files,
+        source_hashes=source_hashes,
         model_versions=model_versions,
         production_targets=production_targets,
         deferred_targets=deferred_targets,
         feature_schema_hash=feature_hash,
-        validation_passed=validation_passed, steps=steps,
+        validation_passed=validation_passed,
+        steps=steps,
         skip_refresh=args.skip_refresh,
         allow_unapproved_models=args.allow_unapproved_models,
-        status='success' if validation_passed else 'failed', failure=failure,
+        status='success' if validation_passed else 'failed',
+        failure=failure,
     )
     write_json_atomic(manifest, destination)
-    print(f'run_manifest={destination}')
+
+    succeeded_steps = sum(step.status == 'success' for step in steps)
+    failed_steps = sum(step.status == 'failed' for step in steps)
+    skipped_steps = sum(step.status == 'skipped' for step in steps)
+
+    reporter.update_details(
+        {
+            "targets": list(targets),
+            "production_targets": list(production_targets),
+            "deferred_targets": list(deferred_targets),
+            "steps_total": len(steps),
+            "steps_succeeded": int(succeeded_steps),
+            "steps_failed": int(failed_steps),
+            "steps_skipped": int(skipped_steps),
+            "source_file_count": int(len(source_files)),
+            "feature_schema_hash": feature_hash,
+            "validation_passed": bool(validation_passed),
+            "market_data_used": False,
+            "failure": failure,
+        }
+    )
+
     if validation_passed:
-        print('WEEKLY PROP ENGINE: PASS')
+        print(
+            "WEEKLY PROP ENGINE: PASS "
+            f"steps={succeeded_steps} skipped={skipped_steps}"
+        )
         return 0
-    print('WEEKLY PROP ENGINE: FAIL', file=sys.stderr)
+
+    print(
+        "WEEKLY PROP ENGINE: FAIL "
+        f"steps={succeeded_steps} failed={failed_steps} "
+        f"skipped={skipped_steps}",
+        file=sys.stderr,
+    )
+    reporter.error(
+        failure or "Weekly Prop Engine pipeline failed.",
+        steps_failed=int(failed_steps),
+        validation_passed=False,
+    )
     return 1
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+
+    try:
+        with PipelineReporter(
+            script=Path(__file__).name,
+            stage="weekly",
+            report_root=common.prop_root() / "logs" / "pipeline_reports",
+        ) as reporter:
+            return _run(args, reporter)
+    except RuntimeError as exc:
+        if str(exc).startswith("Pipeline reporter recorded "):
+            return 1
+        raise
 
 
 if __name__ == '__main__':

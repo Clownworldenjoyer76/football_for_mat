@@ -13,7 +13,7 @@ Outputs:
   docs/win/football/prop_engine/output/{season}/week_{week}_props/
       selections/{category}/week_{week}_props_select.csv
 
-The output is prop-row driven: every sportsbook prop row is preserved.
+The output is prop-row driven: every row from the canonical category prop CSV is preserved.
 Actual sportsbook fields are prefixed with "actual_prop_".
 Prop-engine fields are prefixed with "prop_engine_".
 Each category only carries projection fields relevant to that prop family.
@@ -30,16 +30,23 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
+import tempfile
 import unicodedata
+from collections import Counter
 from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
 
+import common
+from pipeline_reporter import PipelineReporter
 
-NFL_ROOT = Path("docs/win/football/nfl")
-PROP_ENGINE_ROOT = Path("docs/win/football/prop_engine")
+
+REPO_ROOT = common.repo_root().resolve()
+NFL_ROOT = REPO_ROOT / "docs/win/football/nfl"
+PROP_ENGINE_ROOT = common.prop_root().resolve()
 
 OUTPUT_ROOT = PROP_ENGINE_ROOT / "output"
 
@@ -283,26 +290,39 @@ def write_csv(
         exist_ok=True,
     )
 
-    with path.open(
-        "w",
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
         newline="",
         encoding="utf-8",
-    ) as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=fieldnames,
-            extrasaction="ignore",
-        )
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
 
-        writer.writeheader()
-
-        for row in rows:
-            writer.writerow(
-                {
-                    name: row.get(name, "")
-                    for name in fieldnames
-                }
+    try:
+        with handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=fieldnames,
+                extrasaction="ignore",
             )
+
+            writer.writeheader()
+
+            for row in rows:
+                writer.writerow(
+                    {
+                        name: row.get(name, "")
+                        for name in fieldnames
+                    }
+                )
+
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 
 def resolve_week(
@@ -679,7 +699,8 @@ def build_category(
     espn_to_gsis: dict[str, str],
     roster_by_id: dict[str, dict[str, str]],
     depth_by_id: dict[str, dict[str, str]],
-) -> list[dict[str, str]]:
+    reporter: PipelineReporter,
+) -> tuple[list[dict[str, str]], dict[str, object]]:
     source_dir = (
         props_root
         / category
@@ -689,6 +710,15 @@ def build_category(
         source_dir
     )
 
+    if len(source_files) != 1:
+        raise RuntimeError(
+            f"Expected exactly one source prop CSV for {category}; "
+            f"found {len(source_files)} under {source_dir}"
+        )
+
+    source_file = source_files[0]
+    reporter.add_input(source_file)
+
     source_rows: list[
         dict[str, str]
     ] = []
@@ -697,13 +727,12 @@ def build_category(
         list[str]
     ] = []
 
-    for source_file in source_files:
-        rows, fields = read_csv(
-            source_file
-        )
+    rows, fields = read_csv(
+        source_file
+    )
 
-        source_rows.extend(rows)
-        source_headers.append(fields)
+    source_rows.extend(rows)
+    source_headers.append(fields)
 
     field_map = ACTUAL_FIELD_MAP.get(
         category,
@@ -933,19 +962,21 @@ def build_category(
         output_rows,
         output_fields,
     )
+    reporter.add_output(output_path)
 
-    print(
-        f"{category}: "
-        f"rows={len(output_rows)} "
-        f"projection_matches={matched} "
-        f"unmatched={len(unmatched_rows)} "
-        f"output={output_path}"
-    )
+    stats = {
+        "source_file": source_file.relative_to(REPO_ROOT).as_posix(),
+        "output_file": output_path.relative_to(REPO_ROOT).as_posix(),
+        "input_rows": int(len(source_rows)),
+        "output_rows": int(len(output_rows)),
+        "matched": int(matched),
+        "unmatched": int(len(unmatched_rows)),
+    }
 
-    return unmatched_rows
+    return unmatched_rows, stats
 
 
-def main() -> None:
+def _run(reporter: PipelineReporter) -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -988,6 +1019,17 @@ def main() -> None:
             f"{props_root}"
         )
 
+    reporter.add_input(CROSSWALK_PATH)
+    reporter.add_input(ROSTER_PATH)
+    reporter.add_input(DEPTH_CHART_ROOT)
+    reporter.add_input(projection_path)
+    reporter.update_details(
+        {
+            "season": int(season),
+            "week": int(week),
+        }
+    )
+
     espn_to_gsis = (
         load_player_crosswalk()
     )
@@ -1008,115 +1050,106 @@ def main() -> None:
     all_unmatched: list[
         dict[str, str]
     ] = []
+    category_stats: dict[str, dict[str, object]] = {}
 
     for category in CATEGORIES:
-        all_unmatched.extend(
-            build_category(
-                season=season,
-                week=week,
-                category=category,
-                props_root=props_root,
-                projection_fields=projection_fields,
-                projection_by_game_player_id=projection_by_game_player_id,
-                espn_to_gsis=espn_to_gsis,
-                roster_by_id=roster_by_id,
-                depth_by_id=depth_by_id,
-            )
+        unmatched_rows, stats = build_category(
+            season=season,
+            week=week,
+            category=category,
+            props_root=props_root,
+            projection_fields=projection_fields,
+            projection_by_game_player_id=projection_by_game_player_id,
+            espn_to_gsis=espn_to_gsis,
+            roster_by_id=roster_by_id,
+            depth_by_id=depth_by_id,
+            reporter=reporter,
         )
+        all_unmatched.extend(unmatched_rows)
+        category_stats[category] = stats
 
-    print()
-    print("UNMATCHED PLAYERS")
-    print("-----------------")
+    total_input_rows = sum(
+        int(stats["input_rows"])
+        for stats in category_stats.values()
+    )
+    total_output_rows = sum(
+        int(stats["output_rows"])
+        for stats in category_stats.values()
+    )
+    total_matched = sum(
+        int(stats["matched"])
+        for stats in category_stats.values()
+    )
+    total_unmatched = sum(
+        int(stats["unmatched"])
+        for stats in category_stats.values()
+    )
 
-    if not all_unmatched:
-        print("None")
+    failure_reasons = Counter(
+        row["match_failure"]
+        for row in all_unmatched
+    )
+    unique_unmatched_players = {
+        (
+            row["espn_player_id"]
+            or normalize_name(row["player_name"])
+        )
+        for row in all_unmatched
+        if row["espn_player_id"]
+        or normalize_name(row["player_name"])
+    }
 
-    else:
-        seen_category_records: set[
-            tuple[str, str, str, str]
-        ] = set()
-
-        unique_players: dict[
-            str,
-            dict[str, str],
-        ] = {}
-
-        for row in sorted(
-            all_unmatched,
-            key=lambda r: (
-                r["category"],
-                r["game_id"],
-                r["player_name"],
-                r["espn_player_id"],
+    reporter.set_rows(
+        rows_in=int(total_input_rows),
+        rows_out=int(total_output_rows),
+    )
+    reporter.update_details(
+        {
+            "projection_rows": int(
+                len(projection_by_game_player_id)
             ),
-        ):
-            record_key = (
-                row["category"],
-                row["game_id"],
-                row["player_name"],
-                row["espn_player_id"],
-            )
-
-            if record_key in seen_category_records:
-                continue
-
-            seen_category_records.add(
-                record_key
-            )
-
-            player_key = (
-                row["espn_player_id"]
-                or normalize_name(
-                    row["player_name"]
-                )
-            )
-
-            unique_players.setdefault(
-                player_key,
-                row,
-            )
-
-            print(
-                f'{row["category"]} | '
-                f'game_id={row["game_id"]} | '
-                f'player={row["player_name"]} | '
-                f'espn_player_id={row["espn_player_id"]} | '
-                f'gsis_player_id={row["gsis_player_id"]} | '
-                f'match_failure={row["match_failure"]} | '
-                f'depth_chart_found={row["depth_chart_found"]} | '
-                f'depth_chart_team={row["depth_chart_team"]}'
-            )
-
-        print(
-            f"Total unmatched category records: "
-            f"{len(seen_category_records)}"
-        )
-
-        print(
-            f"Total unique unmatched players: "
-            f"{len(unique_players)}"
-        )
-
-        print()
-        print("UNIQUE UNMATCHED PLAYERS")
-        print("------------------------")
-
-        for row in sorted(
-            unique_players.values(),
-            key=lambda r: (
-                r["player_name"],
-                r["espn_player_id"],
+            "crosswalk_mappings": int(len(espn_to_gsis)),
+            "roster_ids": int(len(roster_by_id)),
+            "depth_chart_ids": int(len(depth_by_id)),
+            "category_stats": category_stats,
+            "matched_rows": int(total_matched),
+            "unmatched_rows": int(total_unmatched),
+            "unique_unmatched_players": int(
+                len(unique_unmatched_players)
             ),
-        ):
-            print(
-                f'player={row["player_name"]} | '
-                f'espn_player_id={row["espn_player_id"]} | '
-                f'gsis_player_id={row["gsis_player_id"]} | '
-                f'match_failure={row["match_failure"]} | '
-                f'depth_chart_found={row["depth_chart_found"]} | '
-                f'depth_chart_team={row["depth_chart_team"]} | '
-                f'depth_chart_name={row["depth_chart_name"]}'
-            )
+            "unmatched_failure_reasons": dict(
+                sorted(failure_reasons.items())
+            ),
+        }
+    )
+
+    if total_unmatched:
+        reporter.warning(
+            "Some prop rows could not be matched to Prop Engine projections.",
+            unmatched_rows=int(total_unmatched),
+            unique_unmatched_players=int(
+                len(unique_unmatched_players)
+            ),
+            unmatched_failure_reasons=dict(
+                sorted(failure_reasons.items())
+            ),
+        )
+
+    print(
+        "PROP SELECTIONS: PASS "
+        f"season={season} week={week} "
+        f"rows={total_output_rows} matched={total_matched} "
+        f"unmatched={total_unmatched}"
+    )
+
+
+def main() -> None:
+    with PipelineReporter(
+        script=Path(__file__).name,
+        stage="props",
+        report_root=common.prop_root() / "logs" / "pipeline_reports",
+    ) as reporter:
+        _run(reporter)
 
 
 if __name__ == "__main__":

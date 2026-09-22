@@ -9,8 +9,7 @@ Each CSV is one row per game/player and includes:
   game_id
   player_name
   player_id
-  requested prop columns
-  ESPN odds total
+  requested market target/line columns
 
 ESPN occasionally returns duplicate prop rows. Exact duplicate offers are collapsed.
 
@@ -29,15 +28,21 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+
+import common
+from pipeline_reporter import PipelineReporter
 
 
 ESPN_CORE_BASE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl"
+ESPN_ALLOWED_HOSTS = frozenset({"sports.core.api.espn.com"})
 SEASON_TYPE = 2
 MAX_REGULAR_WEEKS = 18
 HTTP_RETRIES = 4
@@ -191,7 +196,24 @@ CATEGORY_CONFIG = {
 
 
 def secure_ref(value: object) -> str:
-    return str(value or "").strip().replace("http://", "https://", 1)
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    if text.startswith("http://"):
+        text = "https://" + text[len("http://"):]
+
+    parsed = urlsplit(text)
+    if parsed.scheme != "https":
+        raise ValueError(f"ESPN reference must use HTTPS: {text}")
+    if parsed.hostname not in ESPN_ALLOWED_HOSTS:
+        raise ValueError(f"Untrusted ESPN reference host: {parsed.hostname!r}")
+    if parsed.username or parsed.password:
+        raise ValueError("ESPN reference must not contain credentials.")
+    if parsed.port not in (None, 443):
+        raise ValueError(f"Unexpected ESPN reference port: {parsed.port}")
+
+    return text
 
 
 def clean_value(value: object) -> str:
@@ -208,6 +230,7 @@ def clean_value(value: object) -> str:
 
 
 def http_get_json(url: str) -> object:
+    url = secure_ref(url)
     last_error: Exception | None = None
 
     for attempt in range(1, HTTP_RETRIES + 1):
@@ -348,6 +371,7 @@ def fetch_week_events(
     ]
 
     events: list[dict] = []
+    failures: list[str] = []
 
     with ThreadPoolExecutor(
         max_workers=WORKERS
@@ -368,11 +392,7 @@ def fetch_week_events(
             try:
                 event = future.result()
             except Exception as exc:
-                print(
-                    f"WARN event fetch failed: "
-                    f"{ref}: {exc}",
-                    file=sys.stderr,
-                )
+                failures.append(f"{ref}: {type(exc).__name__}: {exc}")
                 continue
 
             if not isinstance(
@@ -401,6 +421,12 @@ def fetch_week_events(
                     "event": event,
                 }
             )
+
+    if failures:
+        raise RuntimeError(
+            "ESPN event fetch failed after retries: "
+            f"count={len(failures)} sample={failures[:3]}"
+        )
 
     events.sort(
         key=lambda row: (
@@ -592,6 +618,7 @@ def fetch_all_game_props(
     events: list[dict],
 ) -> list[dict]:
     results: list[dict] = []
+    failures: list[str] = []
 
     with ThreadPoolExecutor(
         max_workers=WORKERS
@@ -615,20 +642,16 @@ def fetch_all_game_props(
                 )
 
             except Exception as exc:
-                print(
-                    f"WARN props fetch failed: "
-                    f"game_id="
-                    f"{event['event_id']}: "
-                    f"{exc}",
-                    file=sys.stderr,
+                failures.append(
+                    f"game_id={event['event_id']}: "
+                    f"{type(exc).__name__}: {exc}"
                 )
 
-                results.append(
-                    {
-                        **event,
-                        "props": [],
-                    }
-                )
+    if failures:
+        raise RuntimeError(
+            "ESPN prop fetch failed after retries: "
+            f"count={len(failures)} sample={failures[:3]}"
+        )
 
     results.sort(
         key=lambda row: (
@@ -642,6 +665,7 @@ def fetch_all_game_props(
 
 def resolve_athletes(
     game_props: list[dict],
+    reporter: PipelineReporter | None = None,
 ) -> dict[str, str]:
     refs: dict[
         str,
@@ -712,12 +736,20 @@ def resolve_athletes(
                 )
 
             except Exception as exc:
-                print(
-                    f"WARN athlete fetch failed: "
+                message = (
                     f"athlete_id={athlete_id}: "
-                    f"{exc}",
+                    f"{type(exc).__name__}: {exc}"
+                )
+                print(
+                    f"WARN athlete fetch failed: {message}",
                     file=sys.stderr,
                 )
+                if reporter is not None:
+                    reporter.warning(
+                        "ESPN athlete-name lookup failed.",
+                        athlete_id=athlete_id,
+                        error=f"{type(exc).__name__}: {exc}",
+                    )
 
                 names[
                     athlete_id
@@ -1173,28 +1205,41 @@ def write_csv(
         )
     )
 
-    with path.open(
-        "w",
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
         newline="",
         encoding="utf-8",
-    ) as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=fieldnames,
-        )
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
 
-        writer.writeheader()
-
-        for row in rows:
-            writer.writerow(
-                {
-                    field: row.get(
-                        field,
-                        "",
-                    )
-                    for field in fieldnames
-                }
+    try:
+        with handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=fieldnames,
             )
+
+            writer.writeheader()
+
+            for row in rows:
+                writer.writerow(
+                    {
+                        field: row.get(
+                            field,
+                            "",
+                        )
+                        for field in fieldnames
+                    }
+                )
+
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 
 def parse_args() -> argparse.Namespace:
@@ -1241,7 +1286,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def _run(reporter: PipelineReporter) -> None:
     args = parse_args()
 
     season = args.season
@@ -1265,6 +1310,15 @@ def main() -> None:
             f"{week}"
         )
 
+    reporter.update_details(
+        {
+            "season": int(season),
+            "week": int(week),
+            "source": ESPN_CORE_BASE,
+            "workers": int(WORKERS),
+        }
+    )
+
     events = fetch_week_events(
         season,
         week,
@@ -1283,7 +1337,8 @@ def main() -> None:
 
     athlete_names = (
         resolve_athletes(
-            games
+            games,
+            reporter=reporter,
         )
     )
 
@@ -1299,6 +1354,9 @@ def main() -> None:
         )
         for game in games
     )
+
+    category_rows: dict[str, int] = {}
+    total_output_rows = 0
 
     for (
         category,
@@ -1324,33 +1382,43 @@ def main() -> None:
             rows,
         )
 
-        print(
-            f"{category}: "
-            f"{len(rows)} rows -> "
-            f"{output_path}"
+        reporter.add_output(
+            output_path.relative_to(common.repo_root()).as_posix()
         )
+        category_rows[category] = int(len(rows))
+        total_output_rows += len(rows)
 
-    print(
-        f"season={season}"
+    reporter.set_rows(
+        rows_in=int(total_props),
+        rows_out=int(total_output_rows),
+    )
+    reporter.update_details(
+        {
+            "games": int(len(events)),
+            "raw_prop_rows": int(total_props),
+            "athletes": int(len(athlete_names)),
+            "category_rows": category_rows,
+            "output_root": week_root.relative_to(
+                common.repo_root()
+            ).as_posix(),
+        }
     )
 
     print(
-        f"week={week}"
+        "PROP ODDS: PASS "
+        f"season={season} week={week} "
+        f"games={len(events)} raw_props={total_props} "
+        f"rows={total_output_rows}"
     )
 
-    print(
-        f"games={len(events)}"
-    )
 
-    print(
-        f"raw_prop_rows="
-        f"{total_props}"
-    )
-
-    print(
-        f"output_root="
-        f"{week_root}"
-    )
+def main() -> None:
+    with PipelineReporter(
+        script=Path(__file__).name,
+        stage="props",
+        report_root=common.prop_root() / "logs" / "pipeline_reports",
+    ) as reporter:
+        _run(reporter)
 
 
 if __name__ == "__main__":

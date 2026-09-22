@@ -26,10 +26,7 @@ CONTRACT:
 
 from __future__ import annotations
 
-import math
-import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -42,6 +39,7 @@ if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 
 import common
+from pipeline_reporter import PipelineReporter
 
 
 GRAIN = ["season", "week", "game_id", "player_id"]
@@ -144,25 +142,6 @@ PREHISTORY_DIRECT_MAP = {
     "sacks": "def_sacks",
     "qb_hits": "def_qb_hits",
 }
-
-NUMERIC_COUNT_LIKE = {
-    "pass_attempts",
-    "completions",
-    "passing_tds",
-    "carries",
-    "rushing_tds",
-    "targets",
-    "receptions",
-    "receiving_tds",
-    "field_goal_attempts",
-    "field_goals_made",
-    "extra_point_attempts",
-    "extra_points_made",
-    "tackles",
-    "sacks",
-    "qb_hits",
-}
-
 
 def clean(value: Any) -> str:
     if value is None:
@@ -718,6 +697,7 @@ def validate_output(
     target: pd.DataFrame,
     features: np.ndarray,
     columns: list[str],
+    config: dict,
 ) -> None:
     if features.shape != (len(target), len(columns)):
         raise ValueError(
@@ -734,7 +714,7 @@ def validate_output(
     if (target["history_games"] < 0).any():
         raise ValueError("history_games must be nonnegative.")
 
-    common.reject_forbidden_feature_columns(columns, common.load_config())
+    common.reject_forbidden_feature_columns(columns, config)
 
 
 def write_output_atomic(
@@ -777,86 +757,116 @@ def write_output_atomic(
 
 
 def main() -> None:
-    config = common.load_config()
-    validate_config(config)
-
-    target = load_targets(config)
-    source = prepare_source(config, target)
-    target = attach_player_history_meta(target, source)
-
-    names = feature_columns()
-    matrix = np.full((len(target), len(names)), np.nan, dtype="float32")
-
-    for metric_index, metric in enumerate(BASE_METRICS):
-        block = metric_features_for_targets(target, source, metric)
-        start = metric_index * len(FEATURE_SUFFIXES)
-        end = start + len(FEATURE_SUFFIXES)
-        matrix[:, start:end] = block.astype("float32")
-        print(
-            f"ISSUE12 metric {metric_index + 1:02d}/{len(BASE_METRICS):02d}: {metric}",
-            flush=True,
+    with PipelineReporter(
+        script=SCRIPT_PATH.name,
+        stage="historical_build",
+        report_root=common.prop_root() / "logs" / "pipeline_reports",
+    ) as reporter:
+        reporter.add_input(
+            "docs/win/football/prop_engine/config/prop_engine.yaml"
         )
 
-    validate_output(target, matrix, names)
+        config = common.load_config()
+        validate_config(config)
 
-    configured = config.get("paths", {}).get("player_form")
-    if configured:
-        output_path = common.repo_root() / configured
-    else:
-        output_path = (
-            common.prop_root()
-            / "data/historical/features/player_form.parquet"
+        configured = config.get("paths", {}).get("player_form")
+        if configured:
+            output_path = common.repo_root() / configured
+            output_report_path = str(configured)
+        else:
+            output_report_path = (
+                "docs/win/football/prop_engine/data/historical/features/"
+                "player_form.parquet"
+            )
+            output_path = common.repo_root() / output_report_path
+
+        reporter.add_input(config["paths"]["historical_universe"])
+        reporter.add_input(config["paths"]["player_opportunity"])
+
+        prehistory_pattern = config["paths"]["historical_player_stats_pattern"]
+        for season in PREHISTORY_SEASONS:
+            reporter.add_input(prehistory_pattern.format(season=season))
+
+        reporter.add_output(output_report_path)
+
+        target = load_targets(config)
+        reporter.set_rows(rows_in=int(len(target)))
+
+        source = prepare_source(config, target)
+        reporter.set_detail("source_rows", int(len(source)))
+
+        target = attach_player_history_meta(target, source)
+
+        names = feature_columns()
+        matrix = np.full((len(target), len(names)), np.nan, dtype="float32")
+
+        for metric_index, metric in enumerate(BASE_METRICS):
+            block = metric_features_for_targets(target, source, metric)
+            start = metric_index * len(FEATURE_SUFFIXES)
+            end = start + len(FEATURE_SUFFIXES)
+            matrix[:, start:end] = block.astype("float32")
+
+        validate_output(target, matrix, names, config)
+        write_output_atomic(target, matrix, names, output_path)
+        reporter.set_rows(rows_out=int(len(target)))
+
+        nonnull_counts = {
+            metric: int(
+                np.isfinite(matrix[:, i * len(FEATURE_SUFFIXES)]).sum()
+            )
+            for i, metric in enumerate(BASE_METRICS)
+        }
+
+        reporter.update_details(
+            {
+                "players": int(target["player_id"].nunique()),
+                "games": int(target["game_id"].nunique()),
+                "base_metrics": len(BASE_METRICS),
+                "feature_columns": len(names),
+                "total_columns": len(BASE_ID_COLUMNS) + 3 + len(names),
+                "prehistory_seasons": list(PREHISTORY_SEASONS),
+                "strict_prior_kickoff": True,
+                "same_game_realized_forbidden": True,
+                "position_prior_policy": (
+                    "metric-specific strictly prior expanding position mean; "
+                    "roll5_std uses strictly prior expanding position population std"
+                ),
+                "position_prior_seed_policy": (
+                    "2010-2011 source-compatible core metrics only; unavailable "
+                    "metrics remain null until canonical source begins"
+                ),
+                "share_reset_metrics": sorted(TEAM_SHARE_METRICS),
+                "team_share_policy": (
+                    "reset to current franchise stint after team change"
+                ),
+                "career_policy": (
+                    "non-share career history survives team changes"
+                ),
+                "rolling_policy": "last N observed prior metric games",
+                "roll5_std_ddof": 0,
+                "ewm_adjust": False,
+                "history_games_policy": (
+                    "count all strictly prior realized/source player-games "
+                    "including 2010-2011 prehistory"
+                ),
+                "no_nfl_history_policy": "history_games == 0",
+                "new_team_policy": (
+                    "prior NFL/source history exists and target franchise differs "
+                    "from latest strictly prior source-game franchise"
+                ),
+                "lag1_nonnull_by_metric": nonnull_counts,
+            }
         )
 
-    write_output_atomic(target, matrix, names, output_path)
-
-    nonnull_counts = {
-        metric: int(
-            np.isfinite(matrix[:, i * len(FEATURE_SUFFIXES)]).sum()
+        common.log_run(
+            "build_player_form.py",
+            {
+                "status": "passed",
+                "output": str(output_path.relative_to(common.repo_root())),
+                "rows": int(len(target)),
+                "feature_columns": len(names),
+            },
         )
-        for i, metric in enumerate(BASE_METRICS)
-    }
-
-    common.log_run(
-        "build_player_form.py",
-        {
-            "status": "passed",
-            "output": str(output_path.relative_to(common.repo_root())),
-            "rows": int(len(target)),
-            "players": int(target["player_id"].nunique()),
-            "games": int(target["game_id"].nunique()),
-            "base_metrics": len(BASE_METRICS),
-            "feature_columns": len(names),
-            "total_columns": len(BASE_ID_COLUMNS) + 3 + len(names),
-            "prehistory_seasons": list(PREHISTORY_SEASONS),
-            "strict_prior_kickoff": True,
-            "same_game_realized_forbidden": True,
-            "position_prior_policy": (
-                "metric-specific strictly prior expanding position mean; "
-                "roll5_std uses strictly prior expanding position population std"
-            ),
-            "position_prior_seed_policy": (
-                "2010-2011 source-compatible core metrics only; unavailable metrics "
-                "remain null until canonical source begins"
-            ),
-            "share_reset_metrics": sorted(TEAM_SHARE_METRICS),
-            "team_share_policy": "reset to current franchise stint after team change",
-            "career_policy": "non-share career history survives team changes",
-            "rolling_policy": "last N observed prior metric games",
-            "roll5_std_ddof": 0,
-            "ewm_adjust": False,
-            "history_games_policy": (
-                "count all strictly prior realized/source player-games including "
-                "2010-2011 prehistory"
-            ),
-            "no_nfl_history_policy": "history_games == 0",
-            "new_team_policy": (
-                "prior NFL/source history exists and target franchise differs from "
-                "latest strictly prior source-game franchise"
-            ),
-            "lag1_nonnull_by_metric": nonnull_counts,
-        },
-    )
 
 
 if __name__ == "__main__":
