@@ -111,6 +111,24 @@ def require_finite_number(
     return number
 
 
+def optional_finite_number(
+    value: Any,
+    label: str,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float | None:
+    if not clean(value):
+        return None
+
+    return require_finite_number(
+        value,
+        label,
+        minimum=minimum,
+        maximum=maximum,
+    )
+
+
 def read_csv(
     path: Path,
     required_columns: list[str],
@@ -668,6 +686,13 @@ def validate_team_stats(
         "early_down_epa",
         "third_down_conversion_rate",
     ]
+    rate_columns = {
+        "off_success_rate",
+        "def_success_rate",
+        "red_zone_td_rate",
+        "red_zone_td_rate_allowed",
+        "third_down_conversion_rate",
+    }
 
     for line_number, row in enumerate(rows, start=2):
         row_season = parse_int(
@@ -698,9 +723,11 @@ def validate_team_stats(
         )
 
         for column in metric_columns:
-            require_finite_number(
+            optional_finite_number(
                 row.get(column),
                 f"{path} line {line_number} {column}",
+                minimum=(0.0 if column in rate_columns else None),
+                maximum=(1.0 if column in rate_columns else None),
             )
 
 
