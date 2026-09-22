@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-35732785737-attempt-1",
+  "run_id": "github-35733867783-attempt-1",
   "status": "FAILED",
   "exit_code": 1,
   "pipeline": "NFL",
@@ -9,22 +9,22 @@
   "script": "coaches.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/coaches.json",
-  "started_at_utc": "2026-09-22T13:22:12.802782+00:00",
-  "finished_at_utc": "2026-09-22T13:22:22.977704+00:00",
-  "duration_seconds": 10.175,
+  "started_at_utc": "2026-09-22T13:31:31.967214+00:00",
+  "finished_at_utc": "2026-09-22T13:31:32.228009+00:00",
+  "duration_seconds": 0.261,
   "environment": {
     "hostname": "runnervmlun5p",
     "python_version": "3.11.16",
     "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
     "platform": "linux",
-    "process_id": 2376,
+    "process_id": 2607,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "35732785737",
+    "github_run_id": "35733867783",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "d8553961af621171c4106b0372ff1029feecbdc4",
+    "github_sha": "089fb328186bf74bbecbca29950dddac15f8fb37",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -44,10 +44,10 @@
   "warnings": [],
   "errors": [
     {
-      "timestamp_utc": "2026-09-22T13:22:22.977682+00:00",
+      "timestamp_utc": "2026-09-22T13:31:32.227993+00:00",
       "type": "CoachesError",
-      "message": "Failed ESPN request https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams: URLError: <urlopen error _ssl.c:999: The handshake operation timed out>",
-      "traceback": "Traceback (most recent call last):\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 1348, in do_open\n    h.request(req.get_method(), req.selector, req.data, headers,\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/http/client.py\", line 1351, in request\n    self._send_request(method, url, body, headers, encode_chunked)\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/http/client.py\", line 1397, in _send_request\n    self.endheaders(body, encode_chunked=encode_chunked)\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/http/client.py\", line 1346, in endheaders\n    self._send_output(message_body, encode_chunked=encode_chunked)\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/http/client.py\", line 1106, in _send_output\n    self.send(msg)\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/http/client.py\", line 1044, in send\n    self.connect()\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/http/client.py\", line 1523, in connect\n    self.sock = self._context.wrap_socket(self.sock,\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/ssl.py\", line 517, in wrap_socket\n    return self.sslsocket_class._create(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/ssl.py\", line 1104, in _create\n    self.do_handshake()\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/ssl.py\", line 1382, in do_handshake\n    self._sslobj.do_handshake()\nTimeoutError: _ssl.c:999: The handshake operation timed out\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 87, in fetch_json\n    with urllib.request.urlopen(url, timeout=timeout) as response:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 216, in urlopen\n    return opener.open(url, data, timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 519, in open\n    response = self._open(req, data)\n               ^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 536, in _open\n    result = self._call_chain(self.handle_open, protocol, protocol +\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 496, in _call_chain\n    result = func(*args)\n             ^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 1391, in https_open\n    return self.do_open(http.client.HTTPSConnection, req,\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 1351, in do_open\n    raise URLError(err)\nurllib.error.URLError: <urlopen error _ssl.c:999: The handshake operation timed out>\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 617, in main\n    run(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 541, in run\n    teams = get_espn_teams()\n            ^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 160, in get_espn_teams\n    data = fetch_json(TEAMS_URL)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 90, in fetch_json\n    raise CoachesError(\nCoachesError: Failed ESPN request https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams: URLError: <urlopen error _ssl.c:999: The handshake operation timed out>\n",
+      "message": "Failed ESPN request https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams: HTTPError: status=403",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 127, in fetch_json\n    with urllib.request.urlopen(\n         ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 216, in urlopen\n    return opener.open(url, data, timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 525, in open\n    response = meth(req, response)\n               ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 634, in http_response\n    response = self.parent.error(\n               ^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 563, in error\n    return self._call_chain(*args)\n           ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 496, in _call_chain\n    result = func(*args)\n             ^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/urllib/request.py\", line 643, in http_error_default\n    raise HTTPError(req.full_url, code, msg, hdrs, fp)\nurllib.error.HTTPError: HTTP Error 403: Forbidden\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 705, in main\n    run(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 629, in run\n    teams = get_espn_teams()\n            ^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 248, in get_espn_teams\n    data = fetch_json(TEAMS_URL)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/coaches.py\", line 154, in fetch_json\n    raise CoachesError(\nCoachesError: Failed ESPN request https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams: HTTPError: status=403\n",
       "details": null
     }
   ],
