@@ -4,10 +4,10 @@
 """
 docs/win/football/nfl/scripts/00_intake/pull_schedule.py
 
-Pulls an NFL season schedule from the ESPN team schedule API.
+Pulls an NFL regular-season schedule from the ESPN Core API.
 
 Source:
-  https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{TEAM_ID}/schedule?season={SEASON}
+  https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{SEASON}/types/2/weeks/{WEEK}/events?limit=100
 
 Inputs:
   docs/win/football/nfl/config/mapping/team_map.csv
@@ -39,6 +39,7 @@ import tempfile
 import traceback
 import unicodedata
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -54,6 +55,9 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+
+
+REGULAR_SEASON_WEEKS = tuple(range(1, 19))
 
 
 OUTPUT_COLUMNS = [
@@ -447,16 +451,79 @@ def build_stadium_maps(
     return by_team, by_stadium
 
 
-def fetch_team_schedule(
-    team_id: str,
-    season: int,
-    log: RunLog,
-) -> dict[str, Any] | None:
-    url = (
-        "https://site.api.espn.com/apis/site/v2/sports/"
-        f"football/nfl/teams/{team_id}/schedule?season={season}"
+def normalize_core_ref(
+    value: Any,
+    *,
+    label: str,
+) -> str:
+    ref = clean(value)
+
+    if not ref:
+        raise ScheduleError(f"{label} is blank")
+
+    parsed = urllib.parse.urlsplit(ref)
+
+    if parsed.scheme not in {"http", "https"}:
+        raise ScheduleError(
+            f"{label} has unsupported scheme={parsed.scheme!r}"
+        )
+
+    if parsed.netloc.casefold() != "sports.core.api.espn.com":
+        raise ScheduleError(
+            f"{label} has unexpected host={parsed.netloc!r}"
+        )
+
+    return urllib.parse.urlunsplit(
+        (
+            "https",
+            "sports.core.api.espn.com",
+            parsed.path,
+            parsed.query,
+            "",
+        )
     )
 
+
+def get_ref_segment(
+    value: Any,
+    segment: str,
+) -> str:
+    if not isinstance(value, dict):
+        return ""
+
+    ref = clean(value.get("$ref"))
+
+    if not ref:
+        return ""
+
+    try:
+        path = urllib.parse.urlsplit(ref).path
+    except Exception:
+        return ""
+
+    parts = [
+        part
+        for part in path.split("/")
+        if part
+    ]
+
+    try:
+        index = parts.index(segment)
+    except ValueError:
+        return ""
+
+    if index + 1 >= len(parts):
+        return ""
+
+    return clean(parts[index + 1])
+
+
+def fetch_core_json(
+    url: str,
+    *,
+    label: str,
+    log: RunLog,
+) -> dict[str, Any] | None:
     request = urllib.request.Request(
         url=url,
         headers={
@@ -477,54 +544,213 @@ def fetch_team_schedule(
 
     except urllib.error.HTTPError as exc:
         log.error(
-            f"HTTP error for TEAM_ID={team_id}: "
+            f"HTTP error for {label}: "
             f"{exc.code} {exc.reason}",
-            team_id=team_id,
+            source_label=label,
             http_status=exc.code,
+            url=url,
         )
         return None
 
     except urllib.error.URLError as exc:
         log.error(
-            f"URL error for TEAM_ID={team_id}: {exc.reason}",
-            team_id=team_id,
+            f"URL error for {label}: {exc.reason}",
+            source_label=label,
+            url=url,
         )
         return None
 
     except Exception as exc:
         log.error(
-            f"Fetch failed for TEAM_ID={team_id}: "
+            f"Fetch failed for {label}: "
             f"{type(exc).__name__}: {exc}",
-            team_id=team_id,
+            source_label=label,
             error_type=type(exc).__name__,
+            url=url,
         )
         return None
 
     if not isinstance(data, dict):
         log.error(
-            f"TEAM_ID={team_id} response is not a JSON object",
-            team_id=team_id,
-        )
-        return None
-
-    events = data.get("events")
-
-    if not isinstance(events, list):
-        log.error(
-            f"TEAM_ID={team_id} response missing events list",
-            team_id=team_id,
-        )
-        return None
-
-    if not events:
-        log.error(
-            f"TEAM_ID={team_id} response contains zero events",
-            team_id=team_id,
+            f"{label} response is not a JSON object",
+            source_label=label,
+            url=url,
         )
         return None
 
     return data
 
+
+def fetch_core_week_event_refs(
+    week: int,
+    season: int,
+    log: RunLog,
+) -> list[str] | None:
+    url = (
+        "https://sports.core.api.espn.com/v2/sports/"
+        "football/leagues/nfl/"
+        f"seasons/{season}/types/2/weeks/{week}/"
+        "events?limit=100"
+    )
+
+    data = fetch_core_json(
+        url,
+        label=f"WEEK={week}",
+        log=log,
+    )
+
+    if data is None:
+        return None
+
+    items = data.get("items")
+
+    if not isinstance(items, list):
+        log.error(
+            f"WEEK={week} response missing items list",
+            week=week,
+            url=url,
+        )
+        return None
+
+    if not items:
+        log.error(
+            f"WEEK={week} response contains zero event refs",
+            week=week,
+            url=url,
+        )
+        return None
+
+    try:
+        count = int(data.get("count"))
+        page_count = int(data.get("pageCount"))
+    except (TypeError, ValueError):
+        log.error(
+            f"WEEK={week} response has invalid pagination metadata",
+            week=week,
+            url=url,
+        )
+        return None
+
+    if page_count != 1:
+        log.error(
+            f"WEEK={week} response unexpectedly spans "
+            f"{page_count} pages",
+            week=week,
+            page_count=page_count,
+            url=url,
+        )
+        return None
+
+    if count != len(items):
+        log.error(
+            f"WEEK={week} response count mismatch "
+            f"count={count} items={len(items)}",
+            week=week,
+            response_count=count,
+            item_count=len(items),
+            url=url,
+        )
+        return None
+
+    refs: list[str] = []
+    seen_refs: set[str] = set()
+
+    for item_number, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            log.error(
+                f"WEEK={week} item {item_number} "
+                "is not an object",
+                week=week,
+                item_number=item_number,
+            )
+            continue
+
+        try:
+            ref = normalize_core_ref(
+                item.get("$ref"),
+                label=(
+                    f"WEEK={week} item {item_number} $ref"
+                ),
+            )
+        except ScheduleError as exc:
+            log.error(
+                str(exc),
+                week=week,
+                item_number=item_number,
+            )
+            continue
+
+        if ref in seen_refs:
+            log.error(
+                f"WEEK={week} contains duplicate event ref={ref}",
+                week=week,
+                event_ref=ref,
+            )
+            continue
+
+        seen_refs.add(ref)
+        refs.append(ref)
+
+    if len(refs) != len(items):
+        return None
+
+    return refs
+
+
+def fetch_core_event(
+    ref: str,
+    *,
+    week: int,
+    log: RunLog,
+) -> dict[str, Any] | None:
+    try:
+        url = normalize_core_ref(
+            ref,
+            label=f"WEEK={week} event ref",
+        )
+    except ScheduleError as exc:
+        log.error(
+            str(exc),
+            week=week,
+        )
+        return None
+
+    event = fetch_core_json(
+        url,
+        label=f"WEEK={week} EVENT",
+        log=log,
+    )
+
+    if event is None:
+        return None
+
+    event_id = clean(event.get("id"))
+
+    if not event_id:
+        log.error(
+            f"WEEK={week} event response missing id",
+            week=week,
+            url=url,
+        )
+        return None
+
+    competitions = event.get("competitions")
+
+    if (
+        not isinstance(competitions, list)
+        or len(competitions) != 1
+        or not isinstance(competitions[0], dict)
+    ):
+        log.error(
+            f"WEEK={week} EVENT={event_id} must contain "
+            "exactly one competition object",
+            week=week,
+            game_id=event_id,
+            url=url,
+        )
+        return None
+
+    return event
 
 def get_first_competition(
     event: dict[str, Any],
@@ -560,7 +786,18 @@ def get_team_by_home_away(
             team = competitor.get("team")
 
             if isinstance(team, dict):
-                return team
+                resolved_team = dict(team)
+
+                if not clean(resolved_team.get("id")):
+                    resolved_team["id"] = (
+                        clean(competitor.get("id"))
+                        or get_ref_segment(
+                            resolved_team,
+                            "teams",
+                        )
+                    )
+
+                return resolved_team
 
     return {}
 
@@ -893,7 +1130,13 @@ def build_row(
     season_obj = event.get("season")
 
     if isinstance(season_obj, dict):
-        season = clean(season_obj.get("year"))
+        season = (
+            clean(season_obj.get("year"))
+            or get_ref_segment(
+                season_obj,
+                "seasons",
+            )
+        )
 
     if season != str(expected_season):
         log.error(
@@ -913,6 +1156,40 @@ def build_row(
         )
 
     if not season_type:
+        season_type_code = (
+            get_ref_segment(
+                season_type_obj,
+                "types",
+            )
+            or (
+                clean(season_obj.get("type"))
+                if isinstance(season_obj, dict)
+                else ""
+            )
+        )
+        season_slug = (
+            clean(
+                season_obj.get("slug")
+            ).casefold()
+            if isinstance(season_obj, dict)
+            else ""
+        )
+
+        season_type = {
+            "1": "pre",
+            "2": "reg",
+            "3": "post",
+        }.get(season_type_code, "")
+
+        if not season_type:
+            season_type = {
+                "preseason": "pre",
+                "regular-season": "reg",
+                "postseason": "post",
+                "post-season": "post",
+            }.get(season_slug, "")
+
+    if not season_type:
         log.error(
             f"missing season_type game_id={game_id}",
             game_id=game_id,
@@ -922,7 +1199,13 @@ def build_row(
     week_obj = event.get("week")
 
     if isinstance(week_obj, dict):
-        week = clean(week_obj.get("number"))
+        week = (
+            clean(week_obj.get("number"))
+            or get_ref_segment(
+                week_obj,
+                "weeks",
+            )
+        )
 
     if not week:
         log.error(
@@ -1193,6 +1476,10 @@ def run(season: int) -> int:
 
         api_calls_attempted = 0
         api_calls_succeeded = 0
+        week_calls_attempted = 0
+        week_calls_succeeded = 0
+        event_calls_attempted = 0
+        event_calls_succeeded = 0
         events_seen = 0
         duplicate_events_seen = 0
         duplicate_events_changed = 0
@@ -1249,35 +1536,47 @@ def run(season: int) -> int:
                 dict[str, str],
             ] = {}
 
-            for team_id in team_ids:
+            week_calls_attempted = 0
+            week_calls_succeeded = 0
+            event_calls_attempted = 0
+            event_calls_succeeded = 0
+
+            for week in REGULAR_SEASON_WEEKS:
+                week_calls_attempted += 1
                 api_calls_attempted += 1
 
-                data = fetch_team_schedule(
-                    team_id,
+                event_refs = fetch_core_week_event_refs(
+                    week,
                     season,
                     log,
                 )
 
-                if data is None:
+                if event_refs is None:
                     continue
 
+                week_calls_succeeded += 1
                 api_calls_succeeded += 1
-                events = data["events"]
 
                 log.info(
-                    f"TEAM_ID={team_id} "
-                    f"events_returned={len(events)}"
+                    f"WEEK={week} "
+                    f"event_refs_returned={len(event_refs)}"
                 )
 
-                for event in events:
-                    if not isinstance(event, dict):
-                        log.error(
-                            f"TEAM_ID={team_id} "
-                            "contains non-object event",
-                            team_id=team_id,
-                        )
+                for event_ref in event_refs:
+                    event_calls_attempted += 1
+                    api_calls_attempted += 1
+
+                    event = fetch_core_event(
+                        event_ref,
+                        week=week,
+                        log=log,
+                    )
+
+                    if event is None:
                         continue
 
+                    event_calls_succeeded += 1
+                    api_calls_succeeded += 1
                     events_seen += 1
 
                     row = build_row(
@@ -1316,11 +1615,11 @@ def run(season: int) -> int:
                                 "duplicate game_id pulled "
                                 "with conflicting rows "
                                 f"game_id={game_id} "
-                                f"TEAM_ID={team_id} "
+                                f"WEEK={week} "
                                 f"changed_columns="
                                 f"{changed_columns(previous_row, row)}",
                                 game_id=game_id,
-                                team_id=team_id,
+                                week=week,
                             )
 
                         continue
@@ -1329,21 +1628,43 @@ def run(season: int) -> int:
                         game_id
                     ] = row
 
-            if api_calls_succeeded != len(team_ids):
+            if (
+                week_calls_succeeded
+                != len(REGULAR_SEASON_WEEKS)
+            ):
                 log.error(
-                    "Incomplete ESPN schedule source: "
-                    f"{api_calls_succeeded}/"
-                    f"{len(team_ids)} configured team "
-                    "endpoints returned valid schedules. "
+                    "Incomplete ESPN Core week source: "
+                    f"{week_calls_succeeded}/"
+                    f"{len(REGULAR_SEASON_WEEKS)} regular-season "
+                    "week collections returned valid event refs. "
                     "No schedule output will be published.",
-                    api_calls_attempted=(
-                        api_calls_attempted
+                    week_calls_attempted=(
+                        week_calls_attempted
                     ),
-                    api_calls_succeeded=(
-                        api_calls_succeeded
+                    week_calls_succeeded=(
+                        week_calls_succeeded
                     ),
-                    configured_team_count=(
-                        len(team_ids)
+                    configured_week_count=(
+                        len(REGULAR_SEASON_WEEKS)
+                    ),
+                )
+
+            if (
+                event_calls_attempted == 0
+                or event_calls_succeeded
+                != event_calls_attempted
+            ):
+                log.error(
+                    "Incomplete ESPN Core event source: "
+                    f"{event_calls_succeeded}/"
+                    f"{event_calls_attempted} event refs "
+                    "resolved to valid event objects. "
+                    "No schedule output will be published.",
+                    event_calls_attempted=(
+                        event_calls_attempted
+                    ),
+                    event_calls_succeeded=(
+                        event_calls_succeeded
                     ),
                 )
 
@@ -1495,10 +1816,28 @@ def run(season: int) -> int:
                 {
                     "requested_season": season,
                     "source_url_template": (
-                        "https://site.api.espn.com/"
-                        "apis/site/v2/sports/football/"
-                        "nfl/teams/{TEAM_ID}/schedule"
-                        f"?season={season}"
+                        "https://sports.core.api.espn.com/"
+                        "v2/sports/football/leagues/nfl/"
+                        f"seasons/{season}/types/2/"
+                        "weeks/{WEEK}/events?limit=100"
+                    ),
+                    "source_event_ref_type": (
+                        "sports.core.api.espn.com event $ref"
+                    ),
+                    "source_week_count": (
+                        len(REGULAR_SEASON_WEEKS)
+                    ),
+                    "week_calls_attempted": (
+                        week_calls_attempted
+                    ),
+                    "week_calls_succeeded": (
+                        week_calls_succeeded
+                    ),
+                    "event_calls_attempted": (
+                        event_calls_attempted
+                    ),
+                    "event_calls_succeeded": (
+                        event_calls_succeeded
                     ),
                     "api_calls_attempted": (
                         api_calls_attempted
