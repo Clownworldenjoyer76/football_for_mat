@@ -369,37 +369,6 @@ def validate_pbp_input(
             f"{examples}"
         )
 
-    relevant = df[
-        df["qb_dropback"].eq(1)
-        | df["pass_attempt"].eq(1)
-    ]
-
-    if not relevant.empty:
-        identity_blank = (
-            _blank_mask(relevant["posteam"])
-            | _blank_mask(relevant["passer_player_id"])
-            | _blank_mask(relevant["passer_player_name"])
-        )
-        if identity_blank.any():
-            examples = (
-                relevant.loc[
-                    identity_blank,
-                    [
-                        "game_id",
-                        "play_id",
-                        "posteam",
-                        "passer_player_id",
-                        "passer_player_name",
-                    ],
-                ]
-                .head(5)
-                .to_dict("records")
-            )
-            raise QBStatsError(
-                "QB dropback/pass-attempt rows contain blank grouping identity: "
-                f"{examples}"
-            )
-
     for flag_column in [
         "qb_dropback",
         "pass_attempt",
@@ -417,14 +386,28 @@ def validate_pbp_input(
     return df
 
 
+def qb_identity_complete_mask(df: pd.DataFrame) -> pd.Series:
+    return (
+        ~_blank_mask(df["posteam"])
+        & ~_blank_mask(df["passer_player_id"])
+        & ~_blank_mask(df["passer_player_name"])
+    )
+
+
 def build_qb_stats(
     pbp: pd.DataFrame,
 ) -> tuple[pd.DataFrame, int, int]:
-    dropback_df = pbp[pbp["qb_dropback"].eq(1)].copy()
-    pass_df = pbp[pbp["pass_attempt"].eq(1)].copy()
+    identity_complete = qb_identity_complete_mask(pbp)
 
-    dropback_rows = int(len(dropback_df))
-    pass_attempt_rows = int(len(pass_df))
+    dropback_rows = int(pbp["qb_dropback"].eq(1).sum())
+    pass_attempt_rows = int(pbp["pass_attempt"].eq(1).sum())
+
+    dropback_df = pbp[
+        pbp["qb_dropback"].eq(1) & identity_complete
+    ].copy()
+    pass_df = pbp[
+        pbp["pass_attempt"].eq(1) & identity_complete
+    ].copy()
 
     if dropback_df.empty:
         raise QBStatsError(
@@ -751,6 +734,9 @@ def main() -> int:
             pbp_rows = 0
             dropback_rows = 0
             pass_attempt_rows = 0
+            identity_incomplete_qb_rows_excluded = 0
+            identity_incomplete_dropback_rows = 0
+            identity_incomplete_pass_attempt_rows = 0
             output_rows = 0
             existing_rows: int | None = None
             existing_readable = True
@@ -821,6 +807,54 @@ def main() -> int:
                         pbp,
                         season,
                     )
+
+                    identity_complete = qb_identity_complete_mask(
+                        validated_pbp
+                    )
+                    relevant_mask = (
+                        validated_pbp["qb_dropback"].eq(1)
+                        | validated_pbp["pass_attempt"].eq(1)
+                    )
+                    excluded_identity = validated_pbp.loc[
+                        relevant_mask & ~identity_complete,
+                        [
+                            "game_id",
+                            "play_id",
+                            "posteam",
+                            "passer_player_id",
+                            "passer_player_name",
+                            "qb_dropback",
+                            "pass_attempt",
+                        ],
+                    ]
+
+                    identity_incomplete_qb_rows_excluded = int(
+                        len(excluded_identity)
+                    )
+                    identity_incomplete_dropback_rows = int(
+                        excluded_identity["qb_dropback"].eq(1).sum()
+                    )
+                    identity_incomplete_pass_attempt_rows = int(
+                        excluded_identity["pass_attempt"].eq(1).sum()
+                    )
+
+                    if identity_incomplete_qb_rows_excluded:
+                        reporter.warning(
+                            "Excluded QB dropback/pass-attempt rows with incomplete "
+                            "passer identity from QB aggregation",
+                            excluded_rows=identity_incomplete_qb_rows_excluded,
+                            dropback_rows=identity_incomplete_dropback_rows,
+                            pass_attempt_rows=(
+                                identity_incomplete_pass_attempt_rows
+                            ),
+                            examples=(
+                                excluded_identity
+                                .head(5)
+                                .fillna("")
+                                .to_dict("records")
+                            ),
+                        )
+
                     (
                         candidate,
                         dropback_rows,
@@ -893,6 +927,15 @@ def main() -> int:
                         "pbp_rows": pbp_rows,
                         "dropback_rows": dropback_rows,
                         "pass_attempt_rows": pass_attempt_rows,
+                        "identity_incomplete_qb_rows_excluded": (
+                            identity_incomplete_qb_rows_excluded
+                        ),
+                        "identity_incomplete_dropback_rows": (
+                            identity_incomplete_dropback_rows
+                        ),
+                        "identity_incomplete_pass_attempt_rows": (
+                            identity_incomplete_pass_attempt_rows
+                        ),
                         "output_rows": output_rows,
                         "existing_rows": existing_rows,
                         "existing_readable": existing_readable,
