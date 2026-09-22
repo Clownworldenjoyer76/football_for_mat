@@ -6,26 +6,43 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import re
-import sys
+import tempfile
+import time
 import urllib.error
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
+import common
+from pipeline_reporter import PipelineReporter
 
-PROP_ENGINE_ROOT = Path("docs/win/football/prop_engine")
+
+REPO_ROOT = common.repo_root().resolve()
+PROP_ENGINE_ROOT = common.prop_root().resolve()
 PROP_PICKS_ROOT = PROP_ENGINE_ROOT / "prop_picks_final"
 FINAL_ROOT = PROP_ENGINE_ROOT / "05_final"
 GRADED_ROOT = FINAL_ROOT / "graded"
 REPORTS_ROOT = FINAL_ROOT / "reports"
+LOCKED_ROOT = PROP_PICKS_ROOT / "locked"
 
 ESPN_SUMMARY_URL = (
     "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={game_id}"
 )
 USER_AGENT = "football_for_mat-prop-grader/1.0"
 REQUEST_TIMEOUT_SECONDS = 30
+HTTP_RETRIES = 4
+TRANSIENT_HTTP_CODES = {
+    408,
+    425,
+    429,
+    500,
+    502,
+    503,
+    504,
+}
 
 
 PROP_DEFS = [
@@ -92,6 +109,10 @@ PROBABILITY_BUCKETS = [
 
 
 STAGE3_RE = re.compile(r"^(?P<season>\d{4})_(?P<week>\d+)_all_props\.csv$")
+LOCKED_RE = re.compile(
+    r"^(?P<season>\d{4})_(?P<week>\d+)_all_props_"
+    r"(?P<timestamp>\d{8}_\d{6})\.csv$"
+)
 
 
 def clean(value: Any) -> str:
@@ -168,6 +189,80 @@ def discover_stage3() -> dict[str, list[tuple[int, Path]]]:
     return dict(seasons)
 
 
+
+def discover_latest_locked() -> dict[tuple[str, int], Path]:
+    latest: dict[tuple[str, int], Path] = {}
+
+    if not LOCKED_ROOT.is_dir():
+        return latest
+
+    for path in sorted(LOCKED_ROOT.glob("*_all_props_*.csv")):
+        match = LOCKED_RE.match(path.name)
+        if not match:
+            continue
+
+        key = (
+            match.group("season"),
+            int(match.group("week")),
+        )
+        current = latest.get(key)
+
+        if current is None or path.name > current.name:
+            latest[key] = path
+
+    return latest
+
+
+def discover_grading_inputs(
+    reporter: PipelineReporter,
+) -> dict[str, list[tuple[int, Path]]]:
+    stage3 = discover_stage3()
+    stage3_map: dict[tuple[str, int], Path] = {
+        (season, week): path
+        for season, files in stage3.items()
+        for week, path in files
+    }
+    locked = discover_latest_locked()
+
+    keys = sorted(
+        set(stage3_map) | set(locked),
+        key=lambda item: (item[0], item[1]),
+    )
+
+    seasons: dict[str, list[tuple[int, Path]]] = defaultdict(list)
+
+    for season, week in keys:
+        locked_path = locked.get((season, week))
+
+        if locked_path is not None:
+            seasons[season].append(
+                (
+                    week,
+                    locked_path,
+                )
+            )
+            continue
+
+        stage3_path = stage3_map.get((season, week))
+        if stage3_path is None:
+            continue
+
+        reporter.warning(
+            "No locked prop snapshot found; using Stage 3 fallback.",
+            season=season,
+            week=int(week),
+            input_path=stage3_path.relative_to(REPO_ROOT).as_posix(),
+        )
+        seasons[season].append(
+            (
+                week,
+                stage3_path,
+            )
+        )
+
+    return dict(seasons)
+
+
 def read_stage3_files(files: list[tuple[int, Path]]) -> tuple[list[str], list[dict[str, str]]]:
     fieldnames: list[str] = []
     rows: list[dict[str, str]] = []
@@ -208,21 +303,56 @@ def detect_prop(row: dict[str, str]) -> tuple[dict[str, str] | None, float | Non
 
 def fetch_espn_summary(game_id: str) -> dict[str, Any]:
     url = ESPN_SUMMARY_URL.format(game_id=game_id)
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "application/json",
-        },
+    last_error: Exception | None = None
+
+    for attempt in range(1, HTTP_RETRIES + 1):
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": USER_AGENT,
+                "Accept": "application/json",
+            },
+        )
+
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            ) as response:
+                payload = json.load(response)
+
+            if not isinstance(payload, dict):
+                raise ValueError(
+                    "ESPN summary response is not a JSON object"
+                )
+
+            return payload
+
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code not in TRANSIENT_HTTP_CODES:
+                raise
+
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            json.JSONDecodeError,
+            ValueError,
+        ) as exc:
+            last_error = exc
+
+        if attempt < HTTP_RETRIES:
+            time.sleep(
+                min(
+                    2 ** (attempt - 1),
+                    8,
+                )
+            )
+
+    raise RuntimeError(
+        f"ESPN summary request failed after {HTTP_RETRIES} attempts: "
+        f"game_id={game_id}: {last_error}"
     )
-
-    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
-        payload = json.load(response)
-
-    if not isinstance(payload, dict):
-        raise ValueError("ESPN summary response is not a JSON object")
-
-    return payload
 
 
 def game_is_final(payload: dict[str, Any]) -> bool:
@@ -518,6 +648,7 @@ def build_game_requests(
 def grade_row(
     row: dict[str, str],
     summaries: dict[str, dict[str, Any]],
+    player_maps: dict[str, dict[str, dict[str, Any]]],
     summary_errors: dict[str, str],
     existing: dict[tuple[str, ...], dict[str, str]],
 ) -> dict[str, str]:
@@ -588,7 +719,7 @@ def grade_row(
         output["grade_reason"] = "missing_espn_player_id"
         return output
 
-    players = player_stat_map(payload)
+    players = player_maps.get(game_id, {})
     player = players.get(espn_player_id)
     if player is None:
         output["final_stat"] = ""
@@ -616,13 +747,45 @@ def grade_row(
     return output
 
 
-def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> None:
+def write_csv(
+    path: Path,
+    fieldnames: list[str],
+    rows: list[dict[str, Any]],
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({field: row.get(field, "") for field in fieldnames})
+
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        newline="",
+        encoding="utf-8",
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+
+    try:
+        with handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=fieldnames,
+                extrasaction="ignore",
+            )
+            writer.writeheader()
+
+            for row in rows:
+                writer.writerow(
+                    {
+                        field: row.get(field, "")
+                        for field in fieldnames
+                    }
+                )
+
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 
 def betting_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -699,28 +862,44 @@ def probability_bucket(value: Any) -> str:
     return ""
 
 
-def build_reports(season: str, rows: list[dict[str, str]]) -> None:
+def build_reports(
+    season: str,
+    rows: list[dict[str, str]],
+    reporter: PipelineReporter,
+) -> list[Path]:
     report_dir = REPORTS_ROOT / season
     bets = betting_rows(rows)
 
+    outputs: list[Path] = []
+
     overall = {"season": season, **metrics(rows)}
+    overall_path = report_dir / "overall.csv"
     write_csv(
-        report_dir / "overall.csv",
+        overall_path,
         ["season", *REPORT_METRIC_COLUMNS],
         [overall],
     )
+    outputs.append(overall_path)
 
     fields, report = grouped_report(bets, "prop_type", lambda row: row.get("prop_type"))
-    write_csv(report_dir / "by_prop_type.csv", fields, report)
+    by_prop_type_path = report_dir / "by_prop_type.csv"
+    write_csv(by_prop_type_path, fields, report)
+    outputs.append(by_prop_type_path)
 
     fields, report = grouped_report(bets, "probability_bucket", lambda row: probability_bucket(row.get("pick_prob")))
-    write_csv(report_dir / "by_probability.csv", fields, report)
+    by_probability_path = report_dir / "by_probability.csv"
+    write_csv(by_probability_path, fields, report)
+    outputs.append(by_probability_path)
 
     fields, report = grouped_report(bets, "pick", lambda row: clean(row.get("pick")).casefold())
-    write_csv(report_dir / "by_pick_direction.csv", fields, report)
+    by_pick_path = report_dir / "by_pick_direction.csv"
+    write_csv(by_pick_path, fields, report)
+    outputs.append(by_pick_path)
 
     fields, report = grouped_report(bets, "week", lambda row: row.get("week"))
-    write_csv(report_dir / "by_week.csv", fields, report)
+    by_week_path = report_dir / "by_week.csv"
+    write_csv(by_week_path, fields, report)
+    outputs.append(by_week_path)
 
     calibration_groups: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in bets:
@@ -752,8 +931,9 @@ def build_reports(season: str, rows: list[dict[str, str]]) -> None:
             }
         )
 
+    calibration_path = report_dir / "calibration.csv"
     write_csv(
-        report_dir / "calibration.csv",
+        calibration_path,
         [
             "probability_bucket",
             "graded_bets",
@@ -765,13 +945,42 @@ def build_reports(season: str, rows: list[dict[str, str]]) -> None:
         calibration_rows,
     )
 
+    outputs.append(calibration_path)
 
-def process_season(season: str, files: list[tuple[int, Path]]) -> None:
+    for path in outputs:
+        reporter.add_output(path)
+
+    return outputs
+
+
+def process_season(
+    season: str,
+    files: list[tuple[int, Path]],
+    reporter: PipelineReporter,
+) -> dict[str, Any]:
+    for _, path in files:
+        reporter.add_input(path)
+
     original_fields, rows = read_stage3_files(files)
     if not rows:
-        return
+        return {
+            "season": season,
+            "rows": 0,
+            "games_requested": 0,
+            "fetch_failures": 0,
+            "grade_counts": {},
+            "ungraded_reasons": {},
+            "source_files": [
+                path.relative_to(REPO_ROOT).as_posix()
+                for _, path in files
+            ],
+        }
 
     graded_path = GRADED_ROOT / season / f"{season}_all_props_graded.csv"
+
+    if graded_path.is_file():
+        reporter.add_input(graded_path)
+
     existing = load_existing_grades(graded_path)
     game_ids = build_game_requests(rows, existing)
 
@@ -781,46 +990,166 @@ def process_season(season: str, files: list[tuple[int, Path]]) -> None:
     for game_id in sorted(game_ids):
         try:
             summaries[game_id] = fetch_espn_summary(game_id)
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            TimeoutError,
+            ValueError,
+            json.JSONDecodeError,
+            RuntimeError,
+        ) as exc:
             summary_errors[game_id] = f"{type(exc).__name__}: {exc}"
 
+    player_maps = {
+        game_id: player_stat_map(payload)
+        for game_id, payload in summaries.items()
+    }
+
     graded_rows = [
-        grade_row(row, summaries, summary_errors, existing)
+        grade_row(
+            row,
+            summaries,
+            player_maps,
+            summary_errors,
+            existing,
+        )
         for row in rows
     ]
 
     fieldnames = list(original_fields)
-    for field in ["week", "prop_type", "final_stat", "grade", "grade_reason"]:
+    for field in [
+        "week",
+        "prop_type",
+        "final_stat",
+        "grade",
+        "grade_reason",
+    ]:
         if field not in fieldnames:
             fieldnames.append(field)
 
     write_csv(graded_path, fieldnames, graded_rows)
-    build_reports(season, graded_rows)
-
-    grade_counts: dict[str, int] = defaultdict(int)
-    for row in graded_rows:
-        grade_counts[clean(row.get("grade")) or "blank"] += 1
-
-    print(
-        f"{season}: rows={len(graded_rows)} "
-        f"wins={grade_counts['win']} losses={grade_counts['loss']} "
-        f"pushes={grade_counts['push']} ungraded={grade_counts['ungraded']} "
-        f"no_bet={grade_counts['no_bet']}"
+    reporter.add_output(graded_path)
+    report_outputs = build_reports(
+        season,
+        graded_rows,
+        reporter,
     )
 
+    grade_counts: dict[str, int] = defaultdict(int)
+    ungraded_reasons: dict[str, int] = defaultdict(int)
+
+    for row in graded_rows:
+        grade = clean(row.get("grade")) or "blank"
+        grade_counts[grade] += 1
+
+        if grade == "ungraded":
+            reason = clean(row.get("grade_reason")) or "unspecified"
+            ungraded_reasons[reason] += 1
+
     if summary_errors:
-        print(f"{season}: ESPN fetch failures={len(summary_errors)}", file=sys.stderr)
-        for game_id, error in sorted(summary_errors.items()):
-            print(f"  {game_id}: {error}", file=sys.stderr)
+        reporter.warning(
+            "ESPN summary fetch failures left some props ungraded.",
+            season=season,
+            failures=summary_errors,
+        )
+
+    return {
+        "season": season,
+        "rows": int(len(graded_rows)),
+        "games_requested": int(len(game_ids)),
+        "summaries_fetched": int(len(summaries)),
+        "fetch_failures": int(len(summary_errors)),
+        "grade_counts": dict(sorted(grade_counts.items())),
+        "ungraded_reasons": dict(sorted(ungraded_reasons.items())),
+        "source_files": [
+            path.relative_to(REPO_ROOT).as_posix()
+            for _, path in files
+        ],
+        "graded_output": graded_path.relative_to(REPO_ROOT).as_posix(),
+        "report_outputs": [
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in report_outputs
+        ],
+    }
+
+
+def _run(reporter: PipelineReporter) -> None:
+    discovered = discover_grading_inputs(reporter)
+
+    if not discovered:
+        raise FileNotFoundError(
+            f"No locked or Stage 3 prop files found under "
+            f"{PROP_PICKS_ROOT}"
+        )
+
+    season_stats: dict[str, dict[str, Any]] = {}
+
+    for season in sorted(discovered):
+        season_stats[season] = process_season(
+            season,
+            discovered[season],
+            reporter,
+        )
+
+    total_rows = sum(
+        int(stats["rows"])
+        for stats in season_stats.values()
+    )
+    total_games_requested = sum(
+        int(stats["games_requested"])
+        for stats in season_stats.values()
+    )
+    total_fetch_failures = sum(
+        int(stats["fetch_failures"])
+        for stats in season_stats.values()
+    )
+
+    grade_counts: dict[str, int] = defaultdict(int)
+    ungraded_reasons: dict[str, int] = defaultdict(int)
+
+    for stats in season_stats.values():
+        for grade, count in stats["grade_counts"].items():
+            grade_counts[str(grade)] += int(count)
+
+        for reason, count in stats["ungraded_reasons"].items():
+            ungraded_reasons[str(reason)] += int(count)
+
+    reporter.set_rows(
+        rows_in=int(total_rows),
+        rows_out=int(total_rows),
+    )
+    reporter.update_details(
+        {
+            "seasons": int(len(season_stats)),
+            "games_requested": int(total_games_requested),
+            "fetch_failures": int(total_fetch_failures),
+            "grade_counts": dict(sorted(grade_counts.items())),
+            "ungraded_reasons": dict(
+                sorted(ungraded_reasons.items())
+            ),
+            "season_stats": season_stats,
+        }
+    )
+
+    print(
+        "GRADE PROPS: PASS "
+        f"seasons={len(season_stats)} "
+        f"rows={total_rows} "
+        f"wins={grade_counts['win']} "
+        f"losses={grade_counts['loss']} "
+        f"pushes={grade_counts['push']} "
+        f"ungraded={grade_counts['ungraded']} "
+        f"fetch_failures={total_fetch_failures}"
+    )
 
 
 def main() -> None:
-    discovered = discover_stage3()
-    if not discovered:
-        raise FileNotFoundError(f"No Stage 3 prop files found under {PROP_PICKS_ROOT}")
-
-    for season in sorted(discovered):
-        process_season(season, discovered[season])
+    with PipelineReporter(
+        script=Path(__file__).name,
+        stage="props",
+        report_root=common.prop_root() / "logs" / "pipeline_reports",
+    ) as reporter:
+        _run(reporter)
 
 
 if __name__ == "__main__":

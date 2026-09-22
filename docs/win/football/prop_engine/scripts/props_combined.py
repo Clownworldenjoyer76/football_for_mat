@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import math
+import os
 import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -14,8 +17,12 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
+import common
+from pipeline_reporter import PipelineReporter
 
-PROP_ENGINE_ROOT = Path("docs/win/football/prop_engine")
+
+REPO_ROOT = common.repo_root().resolve()
+PROP_ENGINE_ROOT = common.prop_root().resolve()
 FINAL_ROOT = PROP_ENGINE_ROOT / "prop_picks_final"
 LOCKED_ROOT = FINAL_ROOT / "locked"
 MARKETS_PATH = PROP_ENGINE_ROOT / "config" / "markets.yaml"
@@ -41,6 +48,16 @@ PICK_DIRECTIONS = {
     "over",
     "under",
 }
+
+STAGE2_FILES = (
+    (Path("combo/pass_rush_yds"), "pass_rush_yds"),
+    (Path("combo/rec_rush_yds"), "rec_rush_yds"),
+    (Path("defense"), "defense"),
+    (Path("kicking"), "kicking"),
+    (Path("passing"), "passing"),
+    (Path("receiving"), "receiving"),
+    (Path("rushing"), "rushing"),
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -314,12 +331,48 @@ def discover_stage_2_weeks() -> list[tuple[str, Path]]:
     return discovered
 
 
-def discover_csv_files(week_path: Path) -> list[Path]:
-    return sorted(
+def expected_stage_2_files(
+    week_path: Path,
+) -> list[Path]:
+    week_number = week_path.name.removeprefix("week_")
+
+    return [
+        (
+            week_path
+            / relative_path
+            / f"week_{week_number}_{filename_suffix}.csv"
+        )
+        for relative_path, filename_suffix in STAGE2_FILES
+    ]
+
+
+def inspect_stage_2_files(
+    week_path: Path,
+) -> tuple[list[Path], list[Path], list[Path]]:
+    expected = expected_stage_2_files(week_path)
+    expected_set = {
+        path.resolve()
+        for path in expected
+    }
+
+    available = [
         path
-        for path in week_path.rglob("*")
-        if path.is_file() and path.suffix.lower() == ".csv"
+        for path in expected
+        if path.is_file()
+    ]
+    missing = [
+        path
+        for path in expected
+        if not path.is_file()
+    ]
+    unexpected = sorted(
+        path
+        for path in week_path.rglob("*.csv")
+        if path.is_file()
+        and path.resolve() not in expected_set
     )
+
+    return available, missing, unexpected
 
 
 def read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -436,21 +489,38 @@ def write_csv(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=fieldnames,
-            extrasaction="ignore",
-        )
-        writer.writeheader()
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        newline="",
+        encoding="utf-8",
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
 
-        for row in rows:
-            writer.writerow(
-                {
-                    fieldname: row.get(fieldname, "")
-                    for fieldname in fieldnames
-                }
+    try:
+        with handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=fieldnames,
+                extrasaction="ignore",
             )
+            writer.writeheader()
+
+            for row in rows:
+                writer.writerow(
+                    {
+                        fieldname: row.get(fieldname, "")
+                        for fieldname in fieldnames
+                    }
+                )
+
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 
 def validate_stage3_output(
@@ -479,6 +549,16 @@ def validate_stage3_output(
             f"game_id={clean(row.get('game_id'))} "
             f"player_name={clean(row.get('player_name'))}"
         )
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+
+    return digest.hexdigest()
 
 
 def write_locked_snapshot(
@@ -518,24 +598,36 @@ def write_locked_snapshot(
             f"{locked_path}"
         )
 
-    shutil.copy2(
-        source_path,
-        locked_path,
-    )
+    temp_path = LOCKED_ROOT / f".{locked_path.name}.tmp"
 
-    if (
-        not locked_path.is_file()
-        or locked_path.stat().st_size
-        != source_path.stat().st_size
-    ):
-        fail(
-            "Locked prop snapshot verification failed: "
-            f"{locked_path}"
+    if temp_path.exists():
+        temp_path.unlink()
+
+    try:
+        shutil.copy2(
+            source_path,
+            temp_path,
         )
 
-    print(
-        f"locked_prop_snapshot={locked_path}"
-    )
+        source_hash = sha256_file(source_path)
+        locked_hash = sha256_file(temp_path)
+
+        if source_hash != locked_hash:
+            fail(
+                "Locked prop snapshot hash verification failed: "
+                f"{locked_path}"
+            )
+
+        os.replace(temp_path, locked_path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+    if sha256_file(locked_path) != sha256_file(source_path):
+        fail(
+            "Locked prop snapshot verification failed after publish: "
+            f"{locked_path}"
+        )
 
     return locked_path
 
@@ -546,22 +638,123 @@ def process_week(
     markets: dict[str, Any],
     *,
     lock_snapshot: bool,
-) -> None:
+    reporter: PipelineReporter,
+) -> dict[str, Any]:
     week_number = week_path.name.removeprefix("week_")
-    csv_files = discover_csv_files(week_path)
+    csv_files, missing_files, unexpected_files = inspect_stage_2_files(
+        week_path
+    )
+
+    if missing_files and lock_snapshot:
+        fail(
+            "Target Stage 2 week is incomplete; missing expected files: "
+            + ", ".join(
+                path.relative_to(REPO_ROOT).as_posix()
+                for path in missing_files
+            )
+        )
+
+    if missing_files:
+        reporter.warning(
+            "Historical Stage 2 week is incomplete.",
+            season=season,
+            week=week_number,
+            missing_files=[
+                path.relative_to(REPO_ROOT).as_posix()
+                for path in missing_files
+            ],
+        )
+
+    if unexpected_files:
+        reporter.warning(
+            "Unexpected Stage 2 CSV files were ignored.",
+            season=season,
+            week=week_number,
+            unexpected_files=[
+                path.relative_to(REPO_ROOT).as_posix()
+                for path in unexpected_files
+            ],
+        )
 
     if not csv_files:
-        return
+        return {
+            "season": season,
+            "week": week_number,
+            "status": "skipped",
+            "input_files": [],
+            "missing_files": [
+                path.relative_to(REPO_ROOT).as_posix()
+                for path in missing_files
+            ],
+            "unexpected_files": [
+                path.relative_to(REPO_ROOT).as_posix()
+                for path in unexpected_files
+            ],
+            "input_rows": 0,
+            "selected_rows": 0,
+            "selected_by_category_side": {},
+            "locked_snapshot": "",
+        }
+
+    for csv_path in csv_files:
+        reporter.add_input(csv_path)
 
     fieldnames, rows = combine_csv_files(csv_files)
 
     if not fieldnames:
-        return
+        if lock_snapshot:
+            fail(
+                "Target Stage 2 files contain no CSV headers: "
+                f"season={season} week={week_number}"
+            )
+
+        reporter.warning(
+            "Historical Stage 2 files contain no CSV headers.",
+            season=season,
+            week=week_number,
+        )
+
+        return {
+            "season": season,
+            "week": week_number,
+            "status": "skipped",
+            "input_files": [
+                path.relative_to(REPO_ROOT).as_posix()
+                for path in csv_files
+            ],
+            "missing_files": [
+                path.relative_to(REPO_ROOT).as_posix()
+                for path in missing_files
+            ],
+            "unexpected_files": [
+                path.relative_to(REPO_ROOT).as_posix()
+                for path in unexpected_files
+            ],
+            "input_rows": int(len(rows)),
+            "selected_rows": 0,
+            "selected_by_category_side": {},
+            "locked_snapshot": "",
+        }
 
     filtered_rows = filter_rows(
         rows,
         markets,
     )
+
+    selected_by_category_side: dict[str, dict[str, int]] = {}
+
+    for row in filtered_rows:
+        category, _ = detect_category(row)
+        pick = clean(row.get("pick")).casefold()
+
+        category_counts = selected_by_category_side.setdefault(
+            category,
+            {
+                "over": 0,
+                "under": 0,
+            },
+        )
+        category_counts[pick] += 1
 
     output_path = (
         FINAL_ROOT
@@ -575,6 +768,7 @@ def process_week(
         fieldnames,
         filtered_rows,
     )
+    reporter.add_output(output_path)
 
     validate_stage3_output(
         output_path,
@@ -582,16 +776,48 @@ def process_week(
         markets,
     )
 
+    locked_path: Path | None = None
+
     if lock_snapshot:
-        write_locked_snapshot(
+        locked_path = write_locked_snapshot(
             output_path,
             season,
             week_number,
         )
+        reporter.add_output(locked_path)
+
+    return {
+        "season": season,
+        "week": week_number,
+        "status": "processed",
+        "input_files": [
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in csv_files
+        ],
+        "missing_files": [
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in missing_files
+        ],
+        "unexpected_files": [
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in unexpected_files
+        ],
+        "output_file": output_path.relative_to(REPO_ROOT).as_posix(),
+        "input_rows": int(len(rows)),
+        "selected_rows": int(len(filtered_rows)),
+        "selected_by_category_side": selected_by_category_side,
+        "locked_snapshot": (
+            locked_path.relative_to(REPO_ROOT).as_posix()
+            if locked_path is not None
+            else ""
+        ),
+    }
 
 
-def main() -> None:
+def _run(reporter: PipelineReporter) -> None:
     args = parse_args()
+    reporter.add_input(MARKETS_PATH)
+
     markets = load_markets()
     stage_2_weeks = discover_stage_2_weeks()
 
@@ -624,13 +850,112 @@ def main() -> None:
                 f"season={args.season} week={args.week}"
             )
 
+    week_stats: dict[str, dict[str, Any]] = {}
+
     for season, week_path in stage_2_weeks:
-        process_week(
+        stats = process_week(
             season,
             week_path,
             markets,
             lock_snapshot=lock_snapshot,
+            reporter=reporter,
         )
+        week_stats[f"{season}/{week_path.name}"] = stats
+
+    processed = [
+        stats
+        for stats in week_stats.values()
+        if stats["status"] == "processed"
+    ]
+
+    total_input_rows = sum(
+        int(stats["input_rows"])
+        for stats in processed
+    )
+    total_selected_rows = sum(
+        int(stats["selected_rows"])
+        for stats in processed
+    )
+    missing_file_count = sum(
+        len(stats["missing_files"])
+        for stats in week_stats.values()
+    )
+    unexpected_file_count = sum(
+        len(stats["unexpected_files"])
+        for stats in week_stats.values()
+    )
+
+    selected_totals: dict[str, dict[str, int]] = {}
+
+    for stats in processed:
+        category_counts = stats["selected_by_category_side"]
+        if not isinstance(category_counts, dict):
+            raise RuntimeError("Invalid Stage 3 selection statistics.")
+
+        for category, counts in category_counts.items():
+            if not isinstance(counts, dict):
+                raise RuntimeError(
+                    "Invalid Stage 3 category selection statistics."
+                )
+
+            totals = selected_totals.setdefault(
+                str(category),
+                {
+                    "over": 0,
+                    "under": 0,
+                },
+            )
+            totals["over"] += int(counts.get("over", 0))
+            totals["under"] += int(counts.get("under", 0))
+
+    reporter.set_rows(
+        rows_in=int(total_input_rows),
+        rows_out=int(total_selected_rows),
+    )
+    reporter.update_details(
+        {
+            "lock_snapshot": bool(lock_snapshot),
+            "target_season": (
+                int(args.season)
+                if args.season is not None
+                else None
+            ),
+            "target_week": (
+                int(args.week)
+                if args.week is not None
+                else None
+            ),
+            "weeks_discovered": int(len(stage_2_weeks)),
+            "weeks_processed": int(len(processed)),
+            "missing_expected_stage_2_files": int(
+                missing_file_count
+            ),
+            "ignored_unexpected_stage_2_files": int(
+                unexpected_file_count
+            ),
+            "selected_by_category_side": selected_totals,
+            "week_stats": week_stats,
+        }
+    )
+
+    print(
+        "PROPS COMBINED: PASS "
+        f"weeks={len(processed)} "
+        f"rows_in={total_input_rows} "
+        f"selected={total_selected_rows} "
+        f"missing={missing_file_count} "
+        f"ignored={unexpected_file_count} "
+        f"locked={str(lock_snapshot).lower()}"
+    )
+
+
+def main() -> None:
+    with PipelineReporter(
+        script=Path(__file__).name,
+        stage="props",
+        report_root=common.prop_root() / "logs" / "pipeline_reports",
+    ) as reporter:
+        _run(reporter)
 
 
 if __name__ == "__main__":

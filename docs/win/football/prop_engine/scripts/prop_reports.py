@@ -3,11 +3,16 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import math
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
+import common
+from pipeline_reporter import PipelineReporter
 from props_combined import (
     PROP_LINE_COLUMNS,
     filter_rows as apply_market_filters,
@@ -15,20 +20,12 @@ from props_combined import (
 )
 
 
-PROP_ENGINE_ROOT = Path("docs/win/football/prop_engine")
-GRADED_INPUT = (
-    PROP_ENGINE_ROOT
-    / "05_final"
-    / "graded"
-    / "2026"
-    / "2026_all_props_graded.csv"
-)
-DASHBOARD_ROOT = (
-    PROP_ENGINE_ROOT
-    / "05_final"
-    / "reports"
-    / "dashboard"
-)
+REPO_ROOT = common.repo_root().resolve()
+PROP_ENGINE_ROOT = common.prop_root().resolve()
+FINAL_ROOT = PROP_ENGINE_ROOT / "05_final"
+GRADED_ROOT = FINAL_ROOT / "graded"
+DASHBOARD_ROOT = FINAL_ROOT / "reports" / "dashboard"
+MARKETS_PATH = PROP_ENGINE_ROOT / "config" / "markets.yaml"
 
 MARKETS = dict(PROP_LINE_COLUMNS)
 
@@ -85,6 +82,63 @@ VALID_GRADES = {
 }
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Build NFL Prop Engine dashboard reports using "
+            "the active markets configuration."
+        )
+    )
+    parser.add_argument(
+        "--season",
+        type=int,
+    )
+    args = parser.parse_args()
+
+    if args.season is not None and not 1900 <= args.season <= 2200:
+        parser.error("--season must be between 1900 and 2200")
+
+    return args
+
+
+def resolve_season(cli_season: int | None) -> str:
+    if cli_season is not None:
+        return str(cli_season)
+
+    env_season = str(os.environ.get("NFL_SEASON", "") or "").strip()
+    if env_season:
+        if not env_season.isdigit():
+            raise RuntimeError(
+                f"NFL_SEASON must be numeric; found {env_season!r}"
+            )
+
+        season = int(env_season)
+        if not 1900 <= season <= 2200:
+            raise RuntimeError(
+                f"NFL_SEASON must be between 1900 and 2200; found {season}"
+            )
+        return str(season)
+
+    available: list[int] = []
+
+    if GRADED_ROOT.is_dir():
+        for season_dir in GRADED_ROOT.iterdir():
+            if not season_dir.is_dir() or not season_dir.name.isdigit():
+                continue
+
+            season = int(season_dir.name)
+            graded_path = season_dir / f"{season}_all_props_graded.csv"
+            if graded_path.is_file():
+                available.append(season)
+
+    if not available:
+        raise FileNotFoundError(
+            f"No graded season files found under {GRADED_ROOT}"
+        )
+
+    return str(max(available))
+
+
 def clean(value: Any) -> str:
     if value is None:
         return ""
@@ -133,13 +187,13 @@ def format_number(value: float, decimals: int = 4) -> str:
     return f"{rounded:.{decimals}f}".rstrip("0").rstrip(".")
 
 
-def read_graded_rows() -> list[dict[str, str]]:
-    if not GRADED_INPUT.is_file():
+def read_graded_rows(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
         raise FileNotFoundError(
-            f"Missing graded prop file: {GRADED_INPUT}"
+            f"Missing graded prop file: {path}"
         )
 
-    with GRADED_INPUT.open(
+    with path.open(
         "r",
         newline="",
         encoding="utf-8-sig",
@@ -296,13 +350,52 @@ def summarize_rows(
     }
 
 
+def write_csv(
+    path: Path,
+    fieldnames: list[str],
+    rows: list[dict[str, str]],
+) -> None:
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        newline="",
+        encoding="utf-8",
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+
+    try:
+        with handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=fieldnames,
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+
+        os.replace(
+            temp_path,
+            path,
+        )
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
 def write_report(
     market_name: str,
     market_rows: list[dict[str, str]],
     market_line_column: str,
     variable_name: str,
     variable_config: dict[str, Any],
-) -> None:
+) -> dict[str, Any]:
     source_column = (
         market_line_column
         if variable_name == "actual_prop_total_*"
@@ -325,6 +418,8 @@ def write_report(
                 value,
             )
         )
+
+    skipped_non_numeric = len(market_rows) - len(numeric_rows)
 
     values = [
         value
@@ -386,48 +481,142 @@ def write_report(
         / str(variable_config["filename"])
     )
 
-    output_path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
+    write_csv(
+        output_path,
+        OUTPUT_FIELDS,
+        output_rows,
     )
 
-    with output_path.open(
-        "w",
-        newline="",
-        encoding="utf-8",
-    ) as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=OUTPUT_FIELDS,
-        )
-
-        writer.writeheader()
-        writer.writerows(output_rows)
+    return {
+        "output_path": output_path,
+        "output_rows": int(len(output_rows)),
+        "market_rows": int(len(market_rows)),
+        "numeric_values": int(len(numeric_rows)),
+        "skipped_non_numeric_values": int(skipped_non_numeric),
+    }
 
 
-def main() -> None:
+def _run(reporter: PipelineReporter) -> None:
+    args = parse_args()
+    season = resolve_season(args.season)
+
+    graded_input = (
+        GRADED_ROOT
+        / season
+        / f"{season}_all_props_graded.csv"
+    )
+
+    reporter.add_input(graded_input)
+    reporter.add_input(MARKETS_PATH)
+
     markets = load_markets()
+    input_rows = read_graded_rows(graded_input)
 
-    rows = apply_market_filters(
-        read_graded_rows(),
+    filtered_rows = apply_market_filters(
+        input_rows,
         markets,
     )
+
+    market_row_counts: dict[str, int] = {}
+    output_stats: dict[str, dict[str, Any]] = {}
+    skipped_non_numeric_values = 0
+    total_output_rows = 0
 
     for market_name, market_line_column in MARKETS.items():
         market_rows = [
             row
-            for row in rows
+            for row in filtered_rows
             if clean(row.get("prop_type")) == market_name
         ]
+        market_row_counts[market_name] = int(len(market_rows))
 
         for variable_name, variable_config in VARIABLES.items():
-            write_report(
+            stats = write_report(
                 market_name=market_name,
                 market_rows=market_rows,
                 market_line_column=market_line_column,
                 variable_name=variable_name,
                 variable_config=variable_config,
             )
+
+            output_path = stats.pop("output_path")
+            if not isinstance(output_path, Path):
+                raise RuntimeError(
+                    "Dashboard output path statistics are invalid."
+                )
+
+            reporter.add_output(output_path)
+
+            key = (
+                f"{market_name}/"
+                f"{variable_config['filename']}"
+            )
+            output_stats[key] = {
+                **stats,
+                "output_file": (
+                    output_path
+                    .relative_to(REPO_ROOT)
+                    .as_posix()
+                ),
+            }
+
+            skipped_non_numeric_values += int(
+                stats["skipped_non_numeric_values"]
+            )
+            total_output_rows += int(
+                stats["output_rows"]
+            )
+
+    reporter.set_rows(
+        rows_in=int(len(input_rows)),
+        rows_out=int(len(filtered_rows)),
+    )
+    reporter.update_details(
+        {
+            "season": int(season),
+            "graded_input": (
+                graded_input
+                .relative_to(REPO_ROOT)
+                .as_posix()
+            ),
+            "input_rows": int(len(input_rows)),
+            "market_filtered_rows": int(len(filtered_rows)),
+            "market_row_counts": market_row_counts,
+            "dashboard_files": int(len(output_stats)),
+            "dashboard_output_rows": int(total_output_rows),
+            "skipped_non_numeric_values": int(
+                skipped_non_numeric_values
+            ),
+            "output_stats": output_stats,
+        }
+    )
+
+    if skipped_non_numeric_values:
+        reporter.warning(
+            "Dashboard report generation skipped non-numeric values.",
+            season=int(season),
+            skipped_non_numeric_values=int(
+                skipped_non_numeric_values
+            ),
+        )
+
+    print(
+        "PROP REPORTS: PASS "
+        f"season={season} "
+        f"rows_in={len(input_rows)} "
+        f"filtered={len(filtered_rows)} "
+        f"outputs={len(output_stats)} "
+        f"skipped_values={skipped_non_numeric_values}"
+    )
+
+
+def main() -> None:
+    with PipelineReporter(
+        script=Path(__file__).name,
+        stage="props",
+        report_root=common.prop_root() / "logs" / "pipeline_reports",
+    ) as reporter:
+        _run(reporter)
 
 
 if __name__ == "__main__":

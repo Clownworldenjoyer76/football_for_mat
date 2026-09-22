@@ -5,10 +5,16 @@ from __future__ import annotations
 
 import csv
 import math
+import os
+import tempfile
 from pathlib import Path
 
+import common
+from pipeline_reporter import PipelineReporter
 
-PROP_ENGINE_ROOT = Path("docs/win/football/prop_engine")
+
+REPO_ROOT = common.repo_root().resolve()
+PROP_ENGINE_ROOT = common.prop_root().resolve()
 FINAL_ROOT = PROP_ENGINE_ROOT / "prop_picks_final"
 
 Z_90 = 1.2815515655446004
@@ -108,10 +114,27 @@ def write_csv(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        newline="",
+        encoding="utf-8",
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+
+    try:
+        with handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 
 def require_columns(
@@ -476,74 +499,12 @@ def build_pick_fields(
     }
 
 
-def row_key(row: dict[str, str]) -> tuple[str, ...]:
-    return tuple(
-        str(row.get(column, "") or "").strip()
-        for column in IDENTITY_COLUMNS
-    )
-
-
-def merge_existing_output(
-    output_path: Path,
-    fieldnames: list[str],
-    new_rows: list[dict[str, str]],
-) -> list[dict[str, str]]:
-    if not output_path.is_file():
-        return new_rows
-
-    existing_rows, existing_fieldnames = read_csv(output_path)
-
-    if existing_fieldnames != fieldnames:
-        existing_rows = [
-            {
-                column: row.get(column, "")
-                for column in fieldnames
-            }
-            for row in existing_rows
-        ]
-
-    merged_rows: list[dict[str, str]] = [
-        {
-            column: row.get(column, "")
-            for column in fieldnames
-        }
-        for row in existing_rows
-    ]
-
-    index: dict[tuple[str, ...], int] = {
-        row_key(row): position
-        for position, row in enumerate(merged_rows)
-    }
-
-    for new_row in new_rows:
-        key = row_key(new_row)
-
-        if key not in index:
-            index[key] = len(merged_rows)
-            merged_rows.append(
-                {
-                    column: new_row.get(column, "")
-                    for column in fieldnames
-                }
-            )
-            continue
-
-        existing_row = merged_rows[index[key]]
-
-        for column in fieldnames:
-            new_value = str(new_row.get(column, "") or "")
-
-            if new_value.strip():
-                existing_row[column] = new_value
-
-    return merged_rows
-
-
 def process_file(
     season: str,
     week_name: str,
     config: dict[str, object],
-) -> None:
+    reporter: PipelineReporter,
+) -> dict[str, object]:
     stage_1_root = FINAL_ROOT / season / "stage_1" / week_name
     stage_2_root = FINAL_ROOT / season / "stage_2" / week_name
 
@@ -567,7 +528,30 @@ def process_file(
     )
 
     if not input_path.is_file():
-        return
+        reporter.warning(
+            "Missing expected Stage 1 prop file.",
+            season=season,
+            week=week_number,
+            input_path=input_path.relative_to(REPO_ROOT).as_posix(),
+        )
+        return {
+            "status": "missing",
+            "season": season,
+            "week": week_number,
+            "filename_suffix": filename_suffix,
+            "input_file": input_path.relative_to(REPO_ROOT).as_posix(),
+            "input_rows": 0,
+            "output_rows": 0,
+            "pick_counts": {
+                "over": 0,
+                "under": 0,
+                "no_bet": 0,
+            },
+            "missing_or_invalid_numeric_inputs": 0,
+            "invalid_probability_inputs": 0,
+        }
+
+    reporter.add_input(input_path)
 
     output_path = (
         stage_2_root
@@ -608,15 +592,55 @@ def process_file(
     ]
 
     output_rows: list[dict[str, str]] = []
+    pick_counts = {
+        "over": 0,
+        "under": 0,
+        "no_bet": 0,
+    }
+    missing_or_invalid_numeric_inputs = 0
+    invalid_probability_inputs = 0
 
     for row in rows:
+        line_text = row.get(actual_column, "")
+        projection_text = row.get(engine_column, "")
+        low_text = row.get(low_column, "")
+        high_text = row.get(high_column, "")
+
+        numeric_inputs = (
+            parse_number(line_text),
+            parse_number(projection_text),
+            parse_number(low_text),
+            parse_number(high_text),
+        )
+
+        has_invalid_numeric_input = any(
+            value is None
+            for value in numeric_inputs
+        )
+
+        if has_invalid_numeric_input:
+            missing_or_invalid_numeric_inputs += 1
+
         pick_fields = build_pick_fields(
             model=model,
-            line_text=row.get(actual_column, ""),
-            projection_text=row.get(engine_column, ""),
-            low_text=row.get(low_column, ""),
-            high_text=row.get(high_column, ""),
+            line_text=line_text,
+            projection_text=projection_text,
+            low_text=low_text,
+            high_text=high_text,
         )
+
+        pick = pick_fields["pick"]
+        if pick not in pick_counts:
+            raise RuntimeError(f"Unexpected pick value: {pick!r}")
+
+        pick_counts[pick] += 1
+
+        if (
+            pick == "no_bet"
+            and not pick_fields["pick_prob"]
+            and not has_invalid_numeric_input
+        ):
+            invalid_probability_inputs += 1
 
         output_rows.append(
             {
@@ -624,7 +648,7 @@ def process_file(
                 "game_id": row.get("game_id", ""),
                 "player_name": row.get("player_name", ""),
                 actual_column: row.get(actual_column, ""),
-                "pick": pick_fields["pick"],
+                "pick": pick,
                 "pick_prob": pick_fields["pick_prob"],
                 "over_prob": pick_fields["over_prob"],
                 "under_prob": pick_fields["under_prob"],
@@ -639,17 +663,31 @@ def process_file(
             }
         )
 
-    merged_rows = merge_existing_output(
+    write_csv(
         output_path,
         output_columns,
         output_rows,
     )
+    reporter.add_output(output_path)
 
-    write_csv(
-        output_path,
-        output_columns,
-        merged_rows,
-    )
+    return {
+        "status": "processed",
+        "season": season,
+        "week": week_number,
+        "filename_suffix": filename_suffix,
+        "model": model,
+        "input_file": input_path.relative_to(REPO_ROOT).as_posix(),
+        "output_file": output_path.relative_to(REPO_ROOT).as_posix(),
+        "input_rows": int(len(rows)),
+        "output_rows": int(len(output_rows)),
+        "pick_counts": pick_counts,
+        "missing_or_invalid_numeric_inputs": int(
+            missing_or_invalid_numeric_inputs
+        ),
+        "invalid_probability_inputs": int(
+            invalid_probability_inputs
+        ),
+    }
 
 
 def discover_stage_1_weeks() -> list[tuple[str, str]]:
@@ -692,7 +730,7 @@ def discover_stage_1_weeks() -> list[tuple[str, str]]:
     return discovered
 
 
-def main() -> None:
+def _run(reporter: PipelineReporter) -> None:
     stage_1_weeks = discover_stage_1_weeks()
 
     if not stage_1_weeks:
@@ -700,13 +738,112 @@ def main() -> None:
             f"No Stage 1 week folders found under {FINAL_ROOT}"
         )
 
+    file_stats: dict[str, dict[str, object]] = {}
+
     for season, week_name in stage_1_weeks:
         for config in FILE_CONFIGS:
-            process_file(
+            stats = process_file(
                 season,
                 week_name,
                 config,
+                reporter,
             )
+            key = (
+                f"{season}/{week_name}/"
+                f"{stats['filename_suffix']}"
+            )
+            file_stats[key] = stats
+
+    processed_stats = [
+        stats
+        for stats in file_stats.values()
+        if stats["status"] == "processed"
+    ]
+    missing_stats = [
+        stats
+        for stats in file_stats.values()
+        if stats["status"] == "missing"
+    ]
+
+    total_input_rows = sum(
+        int(stats["input_rows"])
+        for stats in processed_stats
+    )
+    total_output_rows = sum(
+        int(stats["output_rows"])
+        for stats in processed_stats
+    )
+
+    pick_counts = {
+        "over": 0,
+        "under": 0,
+        "no_bet": 0,
+    }
+
+    for stats in processed_stats:
+        counts = stats["pick_counts"]
+        if not isinstance(counts, dict):
+            raise RuntimeError("Invalid Stage 2 pick-count statistics.")
+
+        for pick in pick_counts:
+            pick_counts[pick] += int(counts.get(pick, 0))
+
+    missing_or_invalid_numeric_inputs = sum(
+        int(stats["missing_or_invalid_numeric_inputs"])
+        for stats in processed_stats
+    )
+    invalid_probability_inputs = sum(
+        int(stats["invalid_probability_inputs"])
+        for stats in processed_stats
+    )
+
+    reporter.set_rows(
+        rows_in=int(total_input_rows),
+        rows_out=int(total_output_rows),
+    )
+    reporter.update_details(
+        {
+            "stage_1_weeks": [
+                {
+                    "season": season,
+                    "week": week_name.removeprefix("week_"),
+                }
+                for season, week_name in stage_1_weeks
+            ],
+            "weeks_processed": int(len(stage_1_weeks)),
+            "files_expected": int(
+                len(stage_1_weeks) * len(FILE_CONFIGS)
+            ),
+            "files_processed": int(len(processed_stats)),
+            "files_missing": int(len(missing_stats)),
+            "pick_counts": pick_counts,
+            "missing_or_invalid_numeric_inputs": int(
+                missing_or_invalid_numeric_inputs
+            ),
+            "invalid_probability_inputs": int(
+                invalid_probability_inputs
+            ),
+            "file_stats": file_stats,
+        }
+    )
+
+    print(
+        "PROP ORGANIZER STAGE 2: PASS "
+        f"weeks={len(stage_1_weeks)} "
+        f"files={len(processed_stats)} "
+        f"missing={len(missing_stats)} "
+        f"rows={total_output_rows} "
+        f"no_bet={pick_counts['no_bet']}"
+    )
+
+
+def main() -> None:
+    with PipelineReporter(
+        script=Path(__file__).name,
+        stage="props",
+        report_root=common.prop_root() / "logs" / "pipeline_reports",
+    ) as reporter:
+        _run(reporter)
 
 
 if __name__ == "__main__":
