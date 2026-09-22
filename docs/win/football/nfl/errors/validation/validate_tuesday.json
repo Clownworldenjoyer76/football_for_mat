@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-35735126094-attempt-1",
+  "run_id": "github-35736315922-attempt-1",
   "status": "FAILED",
   "exit_code": 1,
   "pipeline": "NFL",
@@ -9,22 +9,22 @@
   "script": "validate_tuesday.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/validation/validate_tuesday.json",
-  "started_at_utc": "2026-09-22T13:44:18.463521+00:00",
-  "finished_at_utc": "2026-09-22T13:44:18.704923+00:00",
-  "duration_seconds": 0.241,
+  "started_at_utc": "2026-09-22T13:54:24.155638+00:00",
+  "finished_at_utc": "2026-09-22T13:54:24.383370+00:00",
+  "duration_seconds": 0.228,
   "environment": {
     "hostname": "runnervmlun5p",
     "python_version": "3.11.16",
     "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
     "platform": "linux",
-    "process_id": 2789,
+    "process_id": 2552,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "35735126094",
+    "github_run_id": "35736315922",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "1a6b42330734cc00d7839ce9d3438cf086b82eda",
+    "github_sha": "8d67c04aafe20ba6fbd76a3dabd2ba54a45d0c8e",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -56,7 +56,9 @@
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/04_final_results/results/2026_reg_9.csv",
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/pbp/2026_pbp.csv.gz",
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/team_stats/2026_team_stats.csv",
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/qb/2026_qb_stats.csv"
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/qb/2026_qb_stats.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/league_master.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/league_standings.csv"
   ],
   "outputs": [],
   "rows_in": null,
@@ -66,10 +68,10 @@
   "warnings": [],
   "errors": [
     {
-      "timestamp_utc": "2026-09-22T13:44:18.704904+00:00",
+      "timestamp_utc": "2026-09-22T13:54:24.383357+00:00",
       "type": "TuesdayValidationError",
-      "message": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/qb/2026_qb_stats.csv line 32 cpoe is blank",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 1974, in main\n    run(args, reporter)\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 1682, in run\n    validate_qb_stats(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 790, in validate_qb_stats\n    require_finite_number(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 95, in require_finite_number\n    fail(f\"{label} is blank\")\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 46, in fail\n    raise TuesdayValidationError(message)\nTuesdayValidationError: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/qb/2026_qb_stats.csv line 32 cpoe is blank\n",
+      "message": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/league_standings.csv contains duplicate standings key: ('2', 'overall', 'wins')",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 1986, in main\n    run(args, reporter)\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 1752, in run\n    validate_standings(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 913, in validate_standings\n    fail(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/validation/validate_tuesday.py\", line 46, in fail\n    raise TuesdayValidationError(message)\nTuesdayValidationError: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/league_standings.csv contains duplicate standings key: ('2', 'overall', 'wins')\n",
       "details": null
     }
   ],
