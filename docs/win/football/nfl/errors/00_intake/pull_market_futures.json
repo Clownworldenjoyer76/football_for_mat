@@ -1,0 +1,69 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35729580253-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
+  "pipeline": "NFL",
+  "league": "NFL",
+  "stage": "00_intake",
+  "script": "pull_market_futures.py",
+  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/pull_market_futures.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/pull_market_futures.json",
+  "started_at_utc": "2026-09-22T12:52:25.823163+00:00",
+  "finished_at_utc": "2026-09-22T12:52:26.075637+00:00",
+  "duration_seconds": 0.252,
+  "environment": {
+    "hostname": "runnervmlun5p",
+    "python_version": "3.11.16",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2381,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35729580253",
+    "github_run_attempt": "1",
+    "github_workflow": "NFL 01 Pipeline",
+    "github_job": "nfl-all",
+    "github_ref_name": "main",
+    "github_sha": "abf3cd046b46c15b70cf71bec9f7f63d52e7e1ca",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": 2026,
+    "week": null,
+    "component": "market futures"
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/team_master.csv",
+    "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/futures"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/market_futures/market_futures_2026.csv"
+  ],
+  "rows_in": 734,
+  "rows_out": 734,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
+  "details": {
+    "season": 2026,
+    "futures_url": "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/futures",
+    "output_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/market_futures/market_futures_2026.csv",
+    "publication_completed": true,
+    "staged_roundtrip_verified": true,
+    "team_master_rows": 266,
+    "page_count": 1,
+    "page_item_counts": [
+      22
+    ],
+    "expected_count": 22,
+    "source_future_count": 22,
+    "provider_entry_count": 22,
+    "source_book_count": 734,
+    "futures_without_providers": 0,
+    "providers_without_books": 0,
+    "rows_validated": 734,
+    "rows_published": 734
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35729580253-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
+  "pipeline": "NFL",
+  "league": "NFL",
+  "stage": "00_intake",
+  "script": "pull_league_leaders.py",
+  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/pull_league_leaders.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/pull_league_leaders.json",
+  "started_at_utc": "2026-09-22T12:52:25.307670+00:00",
+  "finished_at_utc": "2026-09-22T12:52:25.700211+00:00",
+  "duration_seconds": 0.393,
+  "environment": {
+    "hostname": "runnervmlun5p",
+    "python_version": "3.11.16",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2379,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35729580253",
+    "github_run_attempt": "1",
+    "github_workflow": "NFL 01 Pipeline",
+    "github_job": "nfl-all",
+    "github_ref_name": "main",
+    "github_sha": "abf3cd046b46c15b70cf71bec9f7f63d52e7e1ca",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": 2026,
+    "week": null,
+    "component": "league leaders",
+    "season_type": 2
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/master/team_master.csv",
+    "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/types/2/leaders"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/league_leaders/league_leaders_2026.csv"
+  ],
+  "rows_in": 400,
+  "rows_out": 400,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
+  "details": {
+    "season": 2026,
+    "season_type": 2,
+    "leaders_url": "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/types/2/leaders",
+    "empty_data": false,
+    "publication_completed": true,
+    "staged_roundtrip_verified": true,
+    "team_master_rows": 266,
+    "category_count": 16,
+    "source_leader_count": 400,
+    "output_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/league_leaders/league_leaders_2026.csv",
+    "rows_published": 400
+  }
+}
