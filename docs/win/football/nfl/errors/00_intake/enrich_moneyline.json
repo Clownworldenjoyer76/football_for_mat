@@ -1,30 +1,30 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-35741773260-attempt-1",
-  "status": "FAILED",
-  "exit_code": 1,
+  "run_id": "github-35745451860-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
   "pipeline": "NFL",
   "league": "NFL",
   "stage": "00_intake",
   "script": "enrich_moneyline.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/enrich_moneyline.json",
-  "started_at_utc": "2026-09-22T14:50:54.031021+00:00",
-  "finished_at_utc": "2026-09-22T14:50:54.185706+00:00",
-  "duration_seconds": 0.155,
+  "started_at_utc": "2026-09-22T15:17:51.320319+00:00",
+  "finished_at_utc": "2026-09-22T15:17:51.559571+00:00",
+  "duration_seconds": 0.239,
   "environment": {
-    "hostname": "runnervmtr4k5",
+    "hostname": "runnervmlun5p",
     "python_version": "3.11.16",
     "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
     "platform": "linux",
-    "process_id": 2895,
+    "process_id": 3040,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "35741773260",
+    "github_run_id": "35745451860",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "043dc7109a4aaa42b7d97b34fdcb51a581d8d223",
+    "github_sha": "d2d505eed50e1fb1cd0dc7db0427951ce7aad4c6",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -43,22 +43,37 @@
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/drat/clean/2026_week_1_drat.csv",
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/final/2026_reg_1_clean_predictions.csv",
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/drat/clean/2026_week_2_drat.csv",
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/final/2026_reg_2_clean_predictions.csv"
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/final/2026_reg_2_clean_predictions.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/drat/clean/2026_week_3_drat.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/final/2026_reg_3_clean_predictions.csv"
   ],
-  "outputs": [],
-  "rows_in": null,
-  "rows_out": null,
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/enriched/moneyline/week_1_NFL_enriched.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/enriched/moneyline/week_2_NFL_enriched.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/enriched/moneyline/week_3_NFL_enriched.csv"
+  ],
+  "rows_in": 48,
+  "rows_out": 48,
   "warning_count": 0,
-  "error_count": 1,
+  "error_count": 0,
   "warnings": [],
-  "errors": [
-    {
-      "timestamp_utc": "2026-09-22T14:50:54.185689+00:00",
-      "type": "MoneylineEnrichmentError",
-      "message": "Input file not found: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/drat/clean/2026_week_3_drat.csv",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py\", line 3521, in main\n    run(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py\", line 3326, in run\n    ) = load_drat(\n        ^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py\", line 871, in load_drat\n    headers, rows = read_csv_table(path)\n                    ^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py\", line 415, in read_csv_table\n    fail(f\"Input file not found: {path}\")\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/enrich_moneyline.py\", line 327, in fail\n    raise MoneylineEnrichmentError(message)\nMoneylineEnrichmentError: Input file not found: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/predictions/drat/clean/2026_week_3_drat.csv\n",
-      "details": null
-    }
-  ],
-  "details": {}
+  "errors": [],
+  "details": {
+    "season": 2026,
+    "weeks_enriched": 3,
+    "games_enriched": 48,
+    "active_supported_rules": 372,
+    "master_rows": 397,
+    "latest_odds_file": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/odds/2026_09_22_NFL_odds.csv",
+    "latest_odds_rows": 96,
+    "odds_candidates_skipped": 0,
+    "current_odds_matches": 16,
+    "weekly_schedule_market_fallbacks": 32,
+    "output_columns": 96,
+    "publication_mode": "validated_directory_swap_with_rollback",
+    "publication_completed": true,
+    "staged_roundtrip_verified": true,
+    "files_published": 3,
+    "rows_published": 48
+  }
 }
