@@ -1,0 +1,89 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35779209683-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
+  "pipeline": "NFL Prop Engine",
+  "league": "NFL",
+  "stage": "weekly",
+  "script": "run_weekly.py",
+  "script_path": "run_weekly.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/weekly/run_weekly.json",
+  "started_at_utc": "2026-09-22T20:19:26.944693+00:00",
+  "finished_at_utc": "2026-09-22T20:20:50.622642+00:00",
+  "duration_seconds": 83.678,
+  "environment": {
+    "hostname": "runnervmtr4k5",
+    "python_version": "3.14.5",
+    "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2555,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35779209683",
+    "github_run_attempt": "1",
+    "github_workflow": "Prop 01 Pipeline",
+    "github_job": "run-prop-engine",
+    "github_ref_name": "main",
+    "github_sha": "7b6c8242725085de402085b40f413a556ff33c6f",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": null,
+    "week": null
+  },
+  "inputs": [
+    "docs/win/football/prop_engine/config/prop_engine.yaml",
+    "docs/win/football/prop_engine/models/production_registry.json"
+  ],
+  "outputs": [
+    "docs/win/football/prop_engine/output/2026/week_2_run_manifest.json",
+    "docs/win/football/prop_engine/output/2026/week_2_validation.json"
+  ],
+  "rows_in": null,
+  "rows_out": null,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
+  "details": {
+    "season": 2026,
+    "week": 2,
+    "as_of": "2026-09-22T20:19:26.944705Z",
+    "skip_refresh": false,
+    "allow_unapproved_models": false,
+    "targets": [
+      "passing_yards",
+      "passing_tds",
+      "rushing_yards",
+      "rushing_tds",
+      "receiving_yards",
+      "receiving_tds",
+      "kicking_points",
+      "tackles",
+      "sacks"
+    ],
+    "production_targets": [
+      "passing_yards",
+      "passing_tds",
+      "rushing_yards",
+      "receiving_yards",
+      "kicking_points",
+      "tackles"
+    ],
+    "deferred_targets": [
+      "rushing_tds",
+      "receiving_tds",
+      "sacks"
+    ],
+    "steps_total": 14,
+    "steps_succeeded": 13,
+    "steps_failed": 0,
+    "steps_skipped": 1,
+    "source_file_count": 43,
+    "feature_schema_hash": "79dd684b517c9dc22fa45c04131a0e495ef707ab4cc0e3981781073e8553238c",
+    "validation_passed": true,
+    "market_data_used": false,
+    "failure": null
+  }
+}

@@ -1,0 +1,350 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35779209683-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
+  "pipeline": "NFL Prop Engine",
+  "league": "NFL",
+  "stage": "props",
+  "script": "prop_organizer_stage2.py",
+  "script_path": "prop_organizer_stage2.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer_stage2.json",
+  "started_at_utc": "2026-09-22T20:21:06.325243+00:00",
+  "finished_at_utc": "2026-09-22T20:21:06.348741+00:00",
+  "duration_seconds": 0.024,
+  "environment": {
+    "hostname": "runnervmtr4k5",
+    "python_version": "3.14.5",
+    "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2864,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35779209683",
+    "github_run_attempt": "1",
+    "github_workflow": "Prop 01 Pipeline",
+    "github_job": "run-prop-engine",
+    "github_ref_name": "main",
+    "github_sha": "7b6c8242725085de402085b40f413a556ff33c6f",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": null,
+    "week": null
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/combo/pass_rush_yds/week_1_pass_rush_yds.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/combo/rec_rush_yds/week_1_rec_rush_yds.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/defense/week_1_defense.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/kicking/week_1_kicking.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/passing/week_1_passing.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/receiving/week_1_receiving.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/rushing/week_1_rushing.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/combo/pass_rush_yds/week_2_pass_rush_yds.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/combo/rec_rush_yds/week_2_rec_rush_yds.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/defense/week_2_defense.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/kicking/week_2_kicking.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/passing/week_2_passing.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/receiving/week_2_receiving.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/rushing/week_2_rushing.csv"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/combo/pass_rush_yds/week_1_pass_rush_yds.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/combo/rec_rush_yds/week_1_rec_rush_yds.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/defense/week_1_defense.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/kicking/week_1_kicking.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/passing/week_1_passing.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/receiving/week_1_receiving.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/rushing/week_1_rushing.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/combo/pass_rush_yds/week_2_pass_rush_yds.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/combo/rec_rush_yds/week_2_rec_rush_yds.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/defense/week_2_defense.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/kicking/week_2_kicking.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/passing/week_2_passing.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/receiving/week_2_receiving.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/rushing/week_2_rushing.csv"
+  ],
+  "rows_in": 978,
+  "rows_out": 978,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
+  "details": {
+    "stage_1_weeks": [
+      {
+        "season": "2026",
+        "week": "1"
+      },
+      {
+        "season": "2026",
+        "week": "2"
+      }
+    ],
+    "weeks_processed": 2,
+    "files_expected": 14,
+    "files_processed": 14,
+    "files_missing": 0,
+    "pick_counts": {
+      "over": 430,
+      "under": 501,
+      "no_bet": 47
+    },
+    "missing_or_invalid_numeric_inputs": 24,
+    "invalid_probability_inputs": 21,
+    "file_stats": {
+      "2026/week_1/pass_rush_yds": {
+        "status": "processed",
+        "season": "2026",
+        "week": "1",
+        "filename_suffix": "pass_rush_yds",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/combo/pass_rush_yds/week_1_pass_rush_yds.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/combo/pass_rush_yds/week_1_pass_rush_yds.csv",
+        "input_rows": 28,
+        "output_rows": 28,
+        "pick_counts": {
+          "over": 8,
+          "under": 20,
+          "no_bet": 0
+        },
+        "missing_or_invalid_numeric_inputs": 0,
+        "invalid_probability_inputs": 0
+      },
+      "2026/week_1/rec_rush_yds": {
+        "status": "processed",
+        "season": "2026",
+        "week": "1",
+        "filename_suffix": "rec_rush_yds",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/combo/rec_rush_yds/week_1_rec_rush_yds.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/combo/rec_rush_yds/week_1_rec_rush_yds.csv",
+        "input_rows": 41,
+        "output_rows": 41,
+        "pick_counts": {
+          "over": 11,
+          "under": 27,
+          "no_bet": 3
+        },
+        "missing_or_invalid_numeric_inputs": 2,
+        "invalid_probability_inputs": 1
+      },
+      "2026/week_1/defense": {
+        "status": "processed",
+        "season": "2026",
+        "week": "1",
+        "filename_suffix": "defense",
+        "model": "tackles",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/defense/week_1_defense.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/defense/week_1_defense.csv",
+        "input_rows": 33,
+        "output_rows": 33,
+        "pick_counts": {
+          "over": 23,
+          "under": 2,
+          "no_bet": 8
+        },
+        "missing_or_invalid_numeric_inputs": 0,
+        "invalid_probability_inputs": 8
+      },
+      "2026/week_1/kicking": {
+        "status": "processed",
+        "season": "2026",
+        "week": "1",
+        "filename_suffix": "kicking",
+        "model": "kicking",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/kicking/week_1_kicking.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/kicking/week_1_kicking.csv",
+        "input_rows": 29,
+        "output_rows": 29,
+        "pick_counts": {
+          "over": 13,
+          "under": 15,
+          "no_bet": 1
+        },
+        "missing_or_invalid_numeric_inputs": 0,
+        "invalid_probability_inputs": 0
+      },
+      "2026/week_1/passing": {
+        "status": "processed",
+        "season": "2026",
+        "week": "1",
+        "filename_suffix": "passing",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/passing/week_1_passing.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/passing/week_1_passing.csv",
+        "input_rows": 30,
+        "output_rows": 30,
+        "pick_counts": {
+          "over": 10,
+          "under": 19,
+          "no_bet": 1
+        },
+        "missing_or_invalid_numeric_inputs": 0,
+        "invalid_probability_inputs": 1
+      },
+      "2026/week_1/receiving": {
+        "status": "processed",
+        "season": "2026",
+        "week": "1",
+        "filename_suffix": "receiving",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/receiving/week_1_receiving.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/receiving/week_1_receiving.csv",
+        "input_rows": 183,
+        "output_rows": 183,
+        "pick_counts": {
+          "over": 72,
+          "under": 109,
+          "no_bet": 2
+        },
+        "missing_or_invalid_numeric_inputs": 0,
+        "invalid_probability_inputs": 1
+      },
+      "2026/week_1/rushing": {
+        "status": "processed",
+        "season": "2026",
+        "week": "1",
+        "filename_suffix": "rushing",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_1/rushing/week_1_rushing.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_1/rushing/week_1_rushing.csv",
+        "input_rows": 83,
+        "output_rows": 83,
+        "pick_counts": {
+          "over": 23,
+          "under": 59,
+          "no_bet": 1
+        },
+        "missing_or_invalid_numeric_inputs": 0,
+        "invalid_probability_inputs": 1
+      },
+      "2026/week_2/pass_rush_yds": {
+        "status": "processed",
+        "season": "2026",
+        "week": "2",
+        "filename_suffix": "pass_rush_yds",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/combo/pass_rush_yds/week_2_pass_rush_yds.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/combo/pass_rush_yds/week_2_pass_rush_yds.csv",
+        "input_rows": 26,
+        "output_rows": 26,
+        "pick_counts": {
+          "over": 5,
+          "under": 19,
+          "no_bet": 2
+        },
+        "missing_or_invalid_numeric_inputs": 2,
+        "invalid_probability_inputs": 0
+      },
+      "2026/week_2/rec_rush_yds": {
+        "status": "processed",
+        "season": "2026",
+        "week": "2",
+        "filename_suffix": "rec_rush_yds",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/combo/rec_rush_yds/week_2_rec_rush_yds.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/combo/rec_rush_yds/week_2_rec_rush_yds.csv",
+        "input_rows": 46,
+        "output_rows": 46,
+        "pick_counts": {
+          "over": 13,
+          "under": 29,
+          "no_bet": 4
+        },
+        "missing_or_invalid_numeric_inputs": 4,
+        "invalid_probability_inputs": 0
+      },
+      "2026/week_2/defense": {
+        "status": "processed",
+        "season": "2026",
+        "week": "2",
+        "filename_suffix": "defense",
+        "model": "tackles",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/defense/week_2_defense.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/defense/week_2_defense.csv",
+        "input_rows": 124,
+        "output_rows": 124,
+        "pick_counts": {
+          "over": 107,
+          "under": 16,
+          "no_bet": 1
+        },
+        "missing_or_invalid_numeric_inputs": 0,
+        "invalid_probability_inputs": 1
+      },
+      "2026/week_2/kicking": {
+        "status": "processed",
+        "season": "2026",
+        "week": "2",
+        "filename_suffix": "kicking",
+        "model": "kicking",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/kicking/week_2_kicking.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/kicking/week_2_kicking.csv",
+        "input_rows": 32,
+        "output_rows": 32,
+        "pick_counts": {
+          "over": 24,
+          "under": 8,
+          "no_bet": 0
+        },
+        "missing_or_invalid_numeric_inputs": 0,
+        "invalid_probability_inputs": 0
+      },
+      "2026/week_2/passing": {
+        "status": "processed",
+        "season": "2026",
+        "week": "2",
+        "filename_suffix": "passing",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/passing/week_2_passing.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/passing/week_2_passing.csv",
+        "input_rows": 32,
+        "output_rows": 32,
+        "pick_counts": {
+          "over": 11,
+          "under": 18,
+          "no_bet": 3
+        },
+        "missing_or_invalid_numeric_inputs": 1,
+        "invalid_probability_inputs": 2
+      },
+      "2026/week_2/receiving": {
+        "status": "processed",
+        "season": "2026",
+        "week": "2",
+        "filename_suffix": "receiving",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/receiving/week_2_receiving.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/receiving/week_2_receiving.csv",
+        "input_rows": 197,
+        "output_rows": 197,
+        "pick_counts": {
+          "over": 74,
+          "under": 109,
+          "no_bet": 14
+        },
+        "missing_or_invalid_numeric_inputs": 8,
+        "invalid_probability_inputs": 6
+      },
+      "2026/week_2/rushing": {
+        "status": "processed",
+        "season": "2026",
+        "week": "2",
+        "filename_suffix": "rushing",
+        "model": "continuous",
+        "input_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_2/rushing/week_2_rushing.csv",
+        "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_2/rushing/week_2_rushing.csv",
+        "input_rows": 94,
+        "output_rows": 94,
+        "pick_counts": {
+          "over": 36,
+          "under": 51,
+          "no_bet": 7
+        },
+        "missing_or_invalid_numeric_inputs": 7,
+        "invalid_probability_inputs": 0
+      }
+    }
+  }
+}

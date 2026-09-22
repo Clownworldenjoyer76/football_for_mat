@@ -1,0 +1,108 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35779209683-attempt-1",
+  "status": "WARNING",
+  "exit_code": 0,
+  "pipeline": "NFL Prop Engine",
+  "league": "NFL",
+  "stage": "props",
+  "script": "grade_props.py",
+  "script_path": "grade_props.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/grade_props.json",
+  "started_at_utc": "2026-09-22T20:21:09.543120+00:00",
+  "finished_at_utc": "2026-09-22T20:21:10.605870+00:00",
+  "duration_seconds": 1.063,
+  "environment": {
+    "hostname": "runnervmtr4k5",
+    "python_version": "3.14.5",
+    "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2884,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35779209683",
+    "github_run_attempt": "1",
+    "github_workflow": "Prop 01 Pipeline",
+    "github_job": "run-prop-engine",
+    "github_ref_name": "main",
+    "github_sha": "7b6c8242725085de402085b40f413a556ff33c6f",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": null,
+    "week": null
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_3/2026_1_all_props.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/locked/2026_2_all_props_20260922_162108.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/graded/2026/2026_all_props_graded.csv"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/graded/2026/2026_all_props_graded.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/2026/overall.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/2026/by_prop_type.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/2026/by_probability.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/2026/by_pick_direction.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/2026/by_week.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/2026/calibration.csv"
+  ],
+  "rows_in": 407,
+  "rows_out": 407,
+  "warning_count": 1,
+  "error_count": 0,
+  "warnings": [
+    {
+      "timestamp_utc": "2026-09-22T20:21:09.543859+00:00",
+      "message": "No locked prop snapshot found; using Stage 3 fallback.",
+      "details": {
+        "season": "2026",
+        "week": 1,
+        "input_path": "docs/win/football/prop_engine/prop_picks_final/2026/stage_3/2026_1_all_props.csv"
+      }
+    }
+  ],
+  "errors": [],
+  "details": {
+    "seasons": 1,
+    "games_requested": 16,
+    "fetch_failures": 0,
+    "grade_counts": {
+      "loss": 142,
+      "ungraded": 6,
+      "win": 259
+    },
+    "ungraded_reasons": {
+      "player_not_in_boxscore": 6
+    },
+    "season_stats": {
+      "2026": {
+        "season": "2026",
+        "rows": 407,
+        "games_requested": 16,
+        "summaries_fetched": 16,
+        "fetch_failures": 0,
+        "grade_counts": {
+          "loss": 142,
+          "ungraded": 6,
+          "win": 259
+        },
+        "ungraded_reasons": {
+          "player_not_in_boxscore": 6
+        },
+        "source_files": [
+          "docs/win/football/prop_engine/prop_picks_final/2026/stage_3/2026_1_all_props.csv",
+          "docs/win/football/prop_engine/prop_picks_final/locked/2026_2_all_props_20260922_162108.csv"
+        ],
+        "graded_output": "docs/win/football/prop_engine/05_final/graded/2026/2026_all_props_graded.csv",
+        "report_outputs": [
+          "docs/win/football/prop_engine/05_final/reports/2026/overall.csv",
+          "docs/win/football/prop_engine/05_final/reports/2026/by_prop_type.csv",
+          "docs/win/football/prop_engine/05_final/reports/2026/by_probability.csv",
+          "docs/win/football/prop_engine/05_final/reports/2026/by_pick_direction.csv",
+          "docs/win/football/prop_engine/05_final/reports/2026/by_week.csv",
+          "docs/win/football/prop_engine/05_final/reports/2026/calibration.csv"
+        ]
+      }
+    }
+  }
+}

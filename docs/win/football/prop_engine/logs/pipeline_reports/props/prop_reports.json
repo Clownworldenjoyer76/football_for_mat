@@ -1,0 +1,291 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35779209683-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
+  "pipeline": "NFL Prop Engine",
+  "league": "NFL",
+  "stage": "props",
+  "script": "prop_reports.py",
+  "script_path": "prop_reports.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_reports.json",
+  "started_at_utc": "2026-09-22T20:21:11.654603+00:00",
+  "finished_at_utc": "2026-09-22T20:21:11.698083+00:00",
+  "duration_seconds": 0.043,
+  "environment": {
+    "hostname": "runnervmtr4k5",
+    "python_version": "3.14.5",
+    "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2890,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35779209683",
+    "github_run_attempt": "1",
+    "github_workflow": "Prop 01 Pipeline",
+    "github_job": "run-prop-engine",
+    "github_ref_name": "main",
+    "github_sha": "7b6c8242725085de402085b40f413a556ff33c6f",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": null,
+    "week": null
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/graded/2026/2026_all_props_graded.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/config/markets.yaml"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/kicking_points/prop_total.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/kicking_points/pick_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/kicking_points/over_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/kicking_points/under_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/passing_rushing_yards/prop_total.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/passing_rushing_yards/pick_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/passing_rushing_yards/over_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/passing_rushing_yards/under_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/passing_yards/prop_total.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/passing_yards/pick_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/passing_yards/over_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/passing_yards/under_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/receiving_yards/prop_total.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/receiving_yards/pick_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/receiving_yards/over_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/receiving_yards/under_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/rushing_receiving_yards/prop_total.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/rushing_receiving_yards/pick_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/rushing_receiving_yards/over_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/rushing_receiving_yards/under_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/rushing_yards/prop_total.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/rushing_yards/pick_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/rushing_yards/over_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/rushing_yards/under_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/tackles/prop_total.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/tackles/pick_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/tackles/over_prob.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard/tackles/under_prob.csv"
+  ],
+  "rows_in": 407,
+  "rows_out": 407,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
+  "details": {
+    "season": 2026,
+    "graded_input": "docs/win/football/prop_engine/05_final/graded/2026/2026_all_props_graded.csv",
+    "input_rows": 407,
+    "market_filtered_rows": 407,
+    "market_row_counts": {
+      "kicking_points": 29,
+      "passing_rushing_yards": 27,
+      "passing_yards": 28,
+      "receiving_yards": 100,
+      "rushing_receiving_yards": 53,
+      "rushing_yards": 34,
+      "tackles": 136
+    },
+    "dashboard_files": 28,
+    "dashboard_output_rows": 1188,
+    "skipped_non_numeric_values": 0,
+    "output_stats": {
+      "kicking_points/prop_total.csv": {
+        "output_rows": 4,
+        "market_rows": 29,
+        "numeric_values": 29,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/kicking_points/prop_total.csv"
+      },
+      "kicking_points/pick_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 29,
+        "numeric_values": 29,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/kicking_points/pick_prob.csv"
+      },
+      "kicking_points/over_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 29,
+        "numeric_values": 29,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/kicking_points/over_prob.csv"
+      },
+      "kicking_points/under_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 29,
+        "numeric_values": 29,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/kicking_points/under_prob.csv"
+      },
+      "passing_rushing_yards/prop_total.csv": {
+        "output_rows": 114,
+        "market_rows": 27,
+        "numeric_values": 27,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/passing_rushing_yards/prop_total.csv"
+      },
+      "passing_rushing_yards/pick_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 27,
+        "numeric_values": 27,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/passing_rushing_yards/pick_prob.csv"
+      },
+      "passing_rushing_yards/over_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 27,
+        "numeric_values": 27,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/passing_rushing_yards/over_prob.csv"
+      },
+      "passing_rushing_yards/under_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 27,
+        "numeric_values": 27,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/passing_rushing_yards/under_prob.csv"
+      },
+      "passing_yards/prop_total.csv": {
+        "output_rows": 108,
+        "market_rows": 28,
+        "numeric_values": 28,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/passing_yards/prop_total.csv"
+      },
+      "passing_yards/pick_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 28,
+        "numeric_values": 28,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/passing_yards/pick_prob.csv"
+      },
+      "passing_yards/over_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 28,
+        "numeric_values": 28,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/passing_yards/over_prob.csv"
+      },
+      "passing_yards/under_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 28,
+        "numeric_values": 28,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/passing_yards/under_prob.csv"
+      },
+      "receiving_yards/prop_total.csv": {
+        "output_rows": 34,
+        "market_rows": 100,
+        "numeric_values": 100,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/receiving_yards/prop_total.csv"
+      },
+      "receiving_yards/pick_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 100,
+        "numeric_values": 100,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/receiving_yards/pick_prob.csv"
+      },
+      "receiving_yards/over_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 100,
+        "numeric_values": 100,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/receiving_yards/over_prob.csv"
+      },
+      "receiving_yards/under_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 100,
+        "numeric_values": 100,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/receiving_yards/under_prob.csv"
+      },
+      "rushing_receiving_yards/prop_total.csv": {
+        "output_rows": 52,
+        "market_rows": 53,
+        "numeric_values": 53,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/rushing_receiving_yards/prop_total.csv"
+      },
+      "rushing_receiving_yards/pick_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 53,
+        "numeric_values": 53,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/rushing_receiving_yards/pick_prob.csv"
+      },
+      "rushing_receiving_yards/over_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 53,
+        "numeric_values": 53,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/rushing_receiving_yards/over_prob.csv"
+      },
+      "rushing_receiving_yards/under_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 53,
+        "numeric_values": 53,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/rushing_receiving_yards/under_prob.csv"
+      },
+      "rushing_yards/prop_total.csv": {
+        "output_rows": 32,
+        "market_rows": 34,
+        "numeric_values": 34,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/rushing_yards/prop_total.csv"
+      },
+      "rushing_yards/pick_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 34,
+        "numeric_values": 34,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/rushing_yards/pick_prob.csv"
+      },
+      "rushing_yards/over_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 34,
+        "numeric_values": 34,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/rushing_yards/over_prob.csv"
+      },
+      "rushing_yards/under_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 34,
+        "numeric_values": 34,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/rushing_yards/under_prob.csv"
+      },
+      "tackles/prop_total.csv": {
+        "output_rows": 4,
+        "market_rows": 136,
+        "numeric_values": 136,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/tackles/prop_total.csv"
+      },
+      "tackles/pick_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 136,
+        "numeric_values": 136,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/tackles/pick_prob.csv"
+      },
+      "tackles/over_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 136,
+        "numeric_values": 136,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/tackles/over_prob.csv"
+      },
+      "tackles/under_prob.csv": {
+        "output_rows": 40,
+        "market_rows": 136,
+        "numeric_values": 136,
+        "skipped_non_numeric_values": 0,
+        "output_file": "docs/win/football/prop_engine/05_final/reports/dashboard/tackles/under_prob.csv"
+      }
+    }
+  }
+}

@@ -6,19 +6,35 @@
     "mode": "existing_current_source",
     "output": "docs/win/football/prop_engine/data/current/source/roster_weekly_2026.parquet"
   },
-  "eligible_rows": 1357,
+  "eligible_rows": 1311,
   "games": 16,
-  "ineligible_rows": 1050,
+  "ineligible_rows": 1097,
   "market_exclusion_passed": true,
   "market_features_used": false,
-  "multi_team_reconciliation_count": 1,
+  "multi_team_reconciliation_count": 3,
   "multi_team_reconciliations": [
+    {
+      "authority": "player_crosswalk_current_team",
+      "kept_team": "IND",
+      "player_id": "00-0035535",
+      "removed_teams": [
+        "NYG"
+      ]
+    },
     {
       "authority": "player_crosswalk_current_team",
       "kept_team": "TEN",
       "player_id": "00-0037106",
       "removed_teams": [
         "CHI"
+      ]
+    },
+    {
+      "authority": "player_crosswalk_current_team",
+      "kept_team": "BUF",
+      "player_id": "00-0038635",
+      "removed_teams": [
+        "MIA"
       ]
     }
   ],
@@ -329,7 +345,6 @@
     "00-0035413",
     "00-0035500",
     "00-0035525",
-    "00-0035535",
     "00-0035537",
     "00-0035544",
     "00-0035567",
@@ -2460,7 +2475,7 @@
     "roster_master": "docs/win/football/nfl/data/master/roster_master.csv",
     "schedule": "docs/win/football/nfl/00_intake/schedule/2026_schedule.csv"
   },
-  "rows": 2407,
+  "rows": 2408,
   "rules": {
     "canonical_player_id": "gsis_id",
     "defensive_requires_depth_or_recent_participation": true,
