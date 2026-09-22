@@ -758,7 +758,7 @@ def write_output_atomic(
 
 def main() -> None:
     with PipelineReporter(
-        script=SCRIPT_PATH.name,
+        script=Path(__file__).name,
         stage="historical_build",
         report_root=common.prop_root() / "logs" / "pipeline_reports",
     ) as reporter:
