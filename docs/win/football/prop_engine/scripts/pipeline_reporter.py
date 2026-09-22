@@ -16,13 +16,13 @@ Example:
 
     PipelineReporter(
         script=__file__,
-        stage="00_intake",
-        report_root="docs/project/errors",
+        stage="weekly",
+        report_root="docs/win/football/prop_engine/logs/pipeline_reports",
     )
 
 writes:
 
-    docs/project/errors/00_intake/build_travel.json
+    docs/win/football/prop_engine/logs/pipeline_reports/weekly/run_weekly.json
 
 Each execution replaces the prior report for that script so the file always
 describes the most recent execution.
@@ -56,9 +56,9 @@ class PipelineReporter:
         *,
         script: str | os.PathLike[str],
         stage: str,
-        report_root: str | os.PathLike[str],
-        pipeline: str | None = None,
-        league: str | None = None,
+        report_root: str | os.PathLike[str] = "docs/win/football/prop_engine/logs/pipeline_reports",
+        pipeline: str | None = "NFL Prop Engine",
+        league: str | None = "NFL",
         season: int | str | None = None,
         week: int | str | None = None,
         run_id: str | None = None,
@@ -144,7 +144,9 @@ class PipelineReporter:
 
             return False
 
-        if self._errors:
+        had_errors = bool(self._errors)
+
+        if had_errors:
             status = "FAILED"
             exit_code = 1
         elif self._warnings:
@@ -158,6 +160,12 @@ class PipelineReporter:
             status=status,
             exit_code=exit_code,
         )
+
+        if had_errors:
+            raise RuntimeError(
+                "Pipeline reporter recorded "
+                f"{len(self._errors)} error(s)."
+            )
 
         return False
 
@@ -432,6 +440,8 @@ class PipelineReporter:
             ),
         }
 
+        report = _sanitize_json_value(report)
+
         self.output_dir.mkdir(
             parents=True,
             exist_ok=True,
@@ -514,11 +524,26 @@ def _validate_nonnegative_int(
 
     try:
         converted = int(value)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(
             f"{field} must be a "
             "non-negative integer"
         ) from exc
+
+    if not isinstance(value, str):
+        try:
+            if value != converted:
+                raise ValueError(
+                    f"{field} must be a "
+                    "non-negative integer"
+                )
+        except (TypeError, ValueError):
+            raise
+        except Exception as exc:
+            raise ValueError(
+                f"{field} must be a "
+                "non-negative integer"
+            ) from exc
 
     if converted < 0:
         raise ValueError(
@@ -527,6 +552,52 @@ def _validate_nonnegative_int(
         )
 
     return converted
+
+
+def _sanitize_json_value(
+    value: Any,
+) -> Any:
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return str(value)
+
+        return value
+
+    if isinstance(value, Mapping):
+        return {
+            key: _sanitize_json_value(item)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, list):
+        return [
+            _sanitize_json_value(item)
+            for item in value
+        ]
+
+    if isinstance(value, tuple):
+        return [
+            _sanitize_json_value(item)
+            for item in value
+        ]
+
+    if isinstance(value, set):
+        return [
+            _sanitize_json_value(item)
+            for item in sorted(value, key=str)
+        ]
+
+    if hasattr(value, "item"):
+        try:
+            scalar = value.item()
+
+            if scalar is not value:
+                return _sanitize_json_value(scalar)
+
+        except Exception:
+            pass
+
+    return value
 
 
 def _json_default(

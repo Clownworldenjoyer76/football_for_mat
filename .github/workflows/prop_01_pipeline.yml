@@ -553,3 +553,75 @@ jobs:
               fi
             fi
           fi
+
+      # ============================================================
+      # PROP ENGINE PIPELINE HEALTH
+      # ============================================================
+
+      - name: Generate Prop Engine pipeline health
+        if: always()
+        id: prop_pipeline_health
+        shell: bash
+        env:
+          PROP_PIPELINE_WORKFLOW: prop_01
+          PROP_PIPELINE_JOB_STATUS: ${{ job.status }}
+        run: |
+          set +e
+
+          python "$PROP_ENGINE_ROOT/scripts/pipeline_health.py"
+          status=$?
+
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Commit Prop Engine pipeline health
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HEALTH_PATHS=(
+            "$PROP_ENGINE_ROOT/pipeline_health.json"
+            "$PROP_ENGINE_ROOT/logs/pipeline_health.txt"
+            "$PROP_ENGINE_ROOT/logs/pipeline_reports"
+            "frontend/data/pipeline_health/prop_engine.json"
+          )
+
+          STAGE_PATHS=()
+
+          for FILE in "${HEALTH_PATHS[@]}"; do
+            if [ -e "$FILE" ] || git ls-files --error-unmatch "$FILE" >/dev/null 2>&1; then
+              STAGE_PATHS+=("$FILE")
+            fi
+          done
+
+          if [ "${#STAGE_PATHS[@]}" -eq 0 ]; then
+            echo "No Prop Engine pipeline-health outputs exist to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A -- "${STAGE_PATHS[@]}"
+
+          if git diff --cached --quiet -- "${STAGE_PATHS[@]}"; then
+            echo "No Prop Engine pipeline-health changes to commit."
+          else
+            git commit -m "Update NFL Prop Engine pipeline health" -- "${STAGE_PATHS[@]}"
+
+            if ! git pull --rebase --autostash origin "$GITHUB_REF_NAME"; then
+              git rebase --abort 2>/dev/null || true
+              exit 1
+            fi
+
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
+      - name: Fail workflow if Prop Engine pipeline health failed
+        if: always() && steps.prop_pipeline_health.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          echo "Prop Engine pipeline health reported a fatal condition."
+          echo "See $PROP_ENGINE_ROOT/pipeline_health.json"
+          exit 1
