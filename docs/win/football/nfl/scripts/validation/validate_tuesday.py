@@ -741,10 +741,15 @@ def validate_qb_stats(
     name_to_abbr: dict[str, str],
     completed_games_exist: bool,
 ) -> None:
-    numeric_columns = ["dropbacks"]
+    optional_numeric_columns: list[str] = []
+    rate_columns = {
+        "sack_rate",
+        "interception_rate",
+        "fumble_rate",
+    }
 
     if completed_games_exist:
-        numeric_columns.extend([
+        optional_numeric_columns.extend([
             "epa_per_play",
             "cpoe",
             "air_yards",
@@ -786,10 +791,17 @@ def validate_qb_stats(
         if not clean(row.get("qb_name")):
             fail(f"{path} line {line_number} has blank qb_name")
 
-        for column in numeric_columns:
-            require_finite_number(
+        require_finite_number(
+            row.get("dropbacks"),
+            f"{path} line {line_number} dropbacks",
+        )
+
+        for column in optional_numeric_columns:
+            optional_finite_number(
                 row.get(column),
                 f"{path} line {line_number} {column}",
+                minimum=(0.0 if column in rate_columns else None),
+                maximum=(1.0 if column in rate_columns else None),
             )
 
 
