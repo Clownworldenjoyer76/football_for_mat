@@ -26,7 +26,6 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from pipeline_reporter import PipelineReporter
 
-TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
 COACHES_URL_TEMPLATE = (
     "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/"
     "seasons/{season}/teams/{team_id}/coaches"
@@ -243,108 +242,6 @@ def load_team_master() -> tuple[dict[str, str], int]:
 
     return lookup, len(rows)
 
-
-def get_espn_teams() -> list[tuple[str, str]]:
-    data = fetch_json(TEAMS_URL)
-
-    sports = data.get("sports")
-
-    if not isinstance(sports, list) or not sports:
-        raise CoachesError(
-            "ESPN teams response contains no sports"
-        )
-
-    teams: list[tuple[str, str]] = []
-
-    for sport in sports:
-        if not isinstance(sport, dict):
-            raise CoachesError(
-                "ESPN teams response contains invalid sport data"
-            )
-
-        leagues = sport.get("leagues")
-
-        if not isinstance(leagues, list):
-            raise CoachesError(
-                "ESPN teams response contains invalid leagues"
-            )
-
-        for league in leagues:
-            if not isinstance(league, dict):
-                raise CoachesError(
-                    "ESPN teams response contains invalid league data"
-                )
-
-            entries = league.get("teams")
-
-            if not isinstance(entries, list):
-                raise CoachesError(
-                    "ESPN teams response contains invalid teams"
-                )
-
-            for entry in entries:
-                team = (
-                    entry.get("team")
-                    if isinstance(entry, dict)
-                    else None
-                )
-
-                if not isinstance(team, dict):
-                    raise CoachesError(
-                        "ESPN teams response contains invalid team data"
-                    )
-
-                team_id = clean(team.get("id"))
-                abbr = clean(team.get("abbreviation"))
-
-                if not team_id or not abbr:
-                    raise CoachesError(
-                        "ESPN teams response contains blank "
-                        "team ID/abbreviation"
-                    )
-
-                teams.append((team_id, abbr))
-
-    ids = [team_id for team_id, _ in teams]
-    abbrs = [abbr for _, abbr in teams]
-
-    if (
-        len(teams) != 32
-        or len(set(ids)) != 32
-        or len(set(abbrs)) != 32
-    ):
-        raise CoachesError(
-            "ESPN teams response must contain exactly "
-            "32 unique team IDs/abbreviations"
-        )
-
-    return teams
-
-
-def validate_team_sources(
-    teams: list[tuple[str, str]],
-    team_master: dict[str, str],
-) -> None:
-    espn_abbrs = {abbr for _, abbr in teams}
-    master_abbrs = set(team_master)
-
-    if espn_abbrs != master_abbrs:
-        raise CoachesError(
-            "ESPN/team_master abbreviation mismatch: "
-            f"missing={sorted(master_abbrs - espn_abbrs)} "
-            f"unexpected={sorted(espn_abbrs - master_abbrs)}"
-        )
-
-    mismatches = [
-        (abbr, team_master[abbr], espn_id)
-        for espn_id, abbr in teams
-        if team_master[abbr] != espn_id
-    ]
-
-    if mismatches:
-        raise CoachesError(
-            f"ESPN/team_master team-ID mismatch: {mismatches[:5]}"
-        )
 
 
 def get_career_records(
@@ -603,7 +500,8 @@ def run(
 
     reporter.update_details(
         {
-            "teams_url": TEAMS_URL,
+            "team_universe_source": str(TEAM_MASTER_PATH),
+            "coach_url_template": COACHES_URL_TEMPLATE,
             "publication_completed": False,
             "staged_roundtrip_verified": False,
             "teams_resolved": 0,
@@ -626,24 +524,9 @@ def run(
         }
     )
 
-    teams = get_espn_teams()
-
-    reporter.set_detail(
-        "espn_teams_discovered",
-        len(teams),
-    )
-
-    validate_team_sources(
-        teams,
-        team_master,
-    )
-
     rows: list[dict[str, str]] = []
 
-    for team_id, abbr in sorted(
-        teams,
-        key=lambda item: item[1],
-    ):
+    for abbr, team_id in sorted(team_master.items()):
         rows.append(
             resolve_head_coach(
                 season,
