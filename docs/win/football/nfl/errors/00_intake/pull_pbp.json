@@ -1,0 +1,73 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-35720692070-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
+  "pipeline": "NFL",
+  "league": "NFL",
+  "stage": "00_intake",
+  "script": "pull_pbp.py",
+  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/pull_pbp.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/pull_pbp.json",
+  "started_at_utc": "2026-09-22T11:19:27.172685+00:00",
+  "finished_at_utc": "2026-09-22T11:19:29.670101+00:00",
+  "duration_seconds": 2.497,
+  "environment": {
+    "hostname": "runnervmtr4k5",
+    "python_version": "3.11.16",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2534,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "35720692070",
+    "github_run_attempt": "1",
+    "github_workflow": "NFL 01 Pipeline",
+    "github_job": "nfl-all",
+    "github_ref_name": "main",
+    "github_sha": "e22ef8692246beed4b8d26b03df5b63a787ea129",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
+  },
+  "context": {
+    "season": 2026,
+    "week": null,
+    "component": "nflverse play-by-play intake",
+    "source_requested": "auto"
+  },
+  "inputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/pbp/2026_pbp.csv.gz"
+  ],
+  "outputs": [
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/pbp/2026_pbp.csv.gz",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/pull_pbp.txt"
+  ],
+  "rows_in": 5489,
+  "rows_out": 5489,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
+  "details": {
+    "source_used": "nflreadpy",
+    "source_attempts": [
+      {
+        "source": "nflreadpy",
+        "status": "SUCCESS",
+        "rows": 5489,
+        "columns": 372
+      }
+    ],
+    "candidate_rows": 5489,
+    "candidate_columns": 373,
+    "existing_rows": 2756,
+    "existing_readable": true,
+    "existing_game_count": 16,
+    "candidate_game_count": 32,
+    "completed_games_detected_for_empty_check": 0,
+    "result_files_checked_for_empty_safety": 0,
+    "completed_game_inspection_uncertain": false,
+    "empty_candidate_allowed": false,
+    "publication_completed": true,
+    "required_nonempty_column_count": 74
+  }
+}
