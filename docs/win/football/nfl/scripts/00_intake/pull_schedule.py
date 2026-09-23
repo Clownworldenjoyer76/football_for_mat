@@ -1921,7 +1921,7 @@ def run(season: int) -> int:
             log.info("pull_schedule.py finished")
             log.write_legacy()
 
-        return 1 if log.has_errors else 0
+    return 1 if log.has_errors else 0
 
 
 def main() -> int:

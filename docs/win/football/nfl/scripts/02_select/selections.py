@@ -44,7 +44,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -57,6 +57,9 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+np: Any
+pd: Any
+yaml: Any
 
 DEFAULT_SETTINGS_PATH = NFL_ROOT / "config/settings.yaml"
 
@@ -201,7 +204,7 @@ SEASON_TYPE_ALIASES = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 

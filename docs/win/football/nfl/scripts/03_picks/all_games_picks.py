@@ -59,6 +59,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+pd: Any
 
 
 DEFAULT_INPUT_DIR = NFL_ROOT / "02_select"
