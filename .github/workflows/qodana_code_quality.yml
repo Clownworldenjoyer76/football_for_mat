@@ -52,7 +52,6 @@ jobs:
             --only-directory docs/win/football/nfl
             --config qodana-nfl.yaml
           pr-mode: false
-          upload-result: true
           artifact-name: qodana-nfl
           primary-cache-key: qodana-2026.2-nfl-${{ github.ref }}-${{ github.sha }}
           additional-cache-key: qodana-2026.2-nfl-${{ github.ref }}
@@ -99,11 +98,10 @@ jobs:
             --only-directory docs/win/football/prop_engine
             --config qodana-prop-engine.yaml
           pr-mode: false
-          upload-result: true
           artifact-name: qodana-prop-engine
           primary-cache-key: qodana-2026.2-prop-engine-${{ github.ref }}-${{ github.sha }}
           additional-cache-key: qodana-2026.2-prop-engine-${{ github.ref }}
         env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_PROP_ENGINE }}
+          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_2053302466 }}
           QODANA_ENDPOINT: 'https://qodana.cloud'
           QODANA_PYTHON_PATH: ${{ steps.python-prop.outputs.python-path }}
