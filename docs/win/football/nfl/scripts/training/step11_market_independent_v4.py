@@ -32,13 +32,13 @@ def main() -> int:
     variant_schema = {}
     for variant, features in variants.items():
         categorical, numeric = infer_feature_types(raw, features)
-        X = prepare_matrix(raw, features, categorical, numeric)
+        feature_matrix = prepare_matrix(raw, features, categorical, numeric)
         cat_indices = [features.index(c) for c in categorical]
 
-        margin_model = train_regressor(X, margin, cat_indices)
-        total_model = train_regressor(X, total, cat_indices)
+        margin_model = train_regressor(feature_matrix, margin, cat_indices)
+        total_model = train_regressor(feature_matrix, total, cat_indices)
         win_mask = home_win.notna()
-        win_model = train_classifier(X.loc[win_mask], home_win.loc[win_mask], cat_indices)
+        win_model = train_classifier(feature_matrix.loc[win_mask], home_win.loc[win_mask], cat_indices)
 
         paths = {
             "margin": MODELS_DIR / f"step11_margin_model_{variant}_v4.cbm",

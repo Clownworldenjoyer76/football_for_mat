@@ -48,6 +48,19 @@ def calibration_bins(y: np.ndarray, p: np.ndarray, bins: int = 10) -> list[dict]
     return out
 
 
+def error_distribution(values: np.ndarray) -> dict:
+    return {
+        "n": len(values),
+        "mean": float(np.mean(values)),
+        "std": float(np.std(values, ddof=1)),
+        "quantiles": {
+            str(q): float(np.quantile(values, q))
+            for q in (0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99)
+        },
+        "errors": [float(value) for value in values],
+    }
+
+
 def main() -> int:
     if not INPUT_PATH.exists():
         raise FileNotFoundError(INPUT_PATH)
@@ -190,16 +203,8 @@ def main() -> int:
         "candidate_version": "v4_market_independent_outcomes",
         "selected_variants": selected,
         "moneyline_platt": {"intercept": final_intercept, "slope": final_slope, "fit_rows": len(win_fit)},
-        "margin_error_distribution": {
-            "n": len(margin_errors), "mean": float(np.mean(margin_errors)), "std": float(np.std(margin_errors, ddof=1)),
-            "quantiles": {str(q): float(np.quantile(margin_errors, q)) for q in (0.01,0.05,0.1,0.25,0.5,0.75,0.9,0.95,0.99)},
-            "errors": [float(x) for x in margin_errors],
-        },
-        "total_error_distribution": {
-            "n": len(total_errors), "mean": float(np.mean(total_errors)), "std": float(np.std(total_errors, ddof=1)),
-            "quantiles": {str(q): float(np.quantile(total_errors, q)) for q in (0.01,0.05,0.1,0.25,0.5,0.75,0.9,0.95,0.99)},
-            "errors": [float(x) for x in total_errors],
-        },
+        "margin_error_distribution": error_distribution(margin_errors),
+        "total_error_distribution": error_distribution(total_errors),
         "inference_formula": {
             "home_cover_probability": "P(OOF margin_error > live_spread_line - predicted_margin), half-weight equality",
             "over_probability": "P(OOF total_error > live_total_line - predicted_total), half-weight equality",

@@ -40,6 +40,7 @@ No raw source files are edited.
 """
 
 from __future__ import annotations
+from typing import Any
 
 from pathlib import Path
 import math
@@ -201,7 +202,7 @@ def require_columns(
         )
 
 
-def clean_text(value: object) -> str:
+def clean_text(value: Any) -> str:
     if value is None:
         return ""
 
@@ -1245,9 +1246,9 @@ if __name__ == "__main__":
         raise SystemExit(
             main()
         )
-    except Exception as exc:
+    except Exception as main_error:
         print(
-            f"ERROR: {exc}",
+            f"ERROR: {main_error}",
             file=sys.stderr,
         )
         raise

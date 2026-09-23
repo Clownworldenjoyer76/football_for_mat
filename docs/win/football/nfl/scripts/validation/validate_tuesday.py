@@ -1979,7 +1979,8 @@ def main() -> int:
 
         return 0
 
-    except Exception:
+    except Exception as exc:
+        print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 1
 
 

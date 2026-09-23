@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
 import math
 import os
@@ -12,7 +11,7 @@ import tempfile
 import urllib.request
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -118,13 +117,13 @@ def import_pandas() -> None:
 
     try:
         import pandas as pandas_module
-    except ImportError as exc:
+        pd = pandas_module
+    except ImportError:
         fail(
             "This script requires pandas and a parquet engine. "
             "Install docs/win/football/nfl/requirements.txt."
         )
 
-    pd = pandas_module
 
 
 def clean(value: Any) -> str:
@@ -890,7 +889,7 @@ def publish_pair_with_rollback(
             try:
                 if target.exists():
                     target.unlink()
-            except Exception:
+            except OSError:
                 pass
 
         restore_errors = []

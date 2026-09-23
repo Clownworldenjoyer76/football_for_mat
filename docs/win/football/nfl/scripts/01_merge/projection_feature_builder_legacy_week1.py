@@ -19,6 +19,7 @@ WRITES ONLY:
 """
 
 from __future__ import annotations
+from typing import Any
 
 from dataclasses import dataclass
 import json
@@ -129,14 +130,14 @@ def nfl_root() -> Path:
     return root
 
 
-def clean(value: object) -> str:
+def clean(value: Any) -> str:
     if value is None:
         return ""
     try:
         missing = pd.isna(value)
         if isinstance(missing, (bool, np.bool_)) and missing:
             return ""
-    except Exception:
+    except (TypeError, ValueError):
         pass
     text = str(value).strip()
     if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
@@ -215,7 +216,7 @@ def parse_timestamp(value: object) -> pd.Timestamp | None:
         return None
     try:
         ts = pd.to_datetime(text, utc=True, errors="coerce")
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
     return None if pd.isna(ts) else ts
 
@@ -336,16 +337,16 @@ class TeamNormalizer:
                 continue
             self.canonical_abbrs.add(abbr)
 
-        def add_alias(value: object, abbr: str) -> None:
+        def add_alias(value: object, alias_abbr: str) -> None:
             key = normalize_name(value)
             if not key:
                 return
             previous = self.alias_to_abbr.get(key)
-            if previous is not None and previous != abbr:
+            if previous is not None and previous != alias_abbr:
                 raise ValueError(
-                    f"{path}: ambiguous team alias {clean(value)!r}: {previous} vs {abbr}"
+                    f"{path}: ambiguous team alias {clean(value)!r}: {previous} vs {alias_abbr}"
                 )
-            self.alias_to_abbr[key] = abbr
+            self.alias_to_abbr[key] = alias_abbr
 
         for _, row in df.iterrows():
             abbr = clean(row["team_abbr"]).upper()
@@ -705,7 +706,7 @@ class SnapProvider:
             for identity in identities:
                 self.series.setdefault((team, identity), []).append(item)
         for key in self.series:
-            self.series[key].sort(key=lambda item: item[0])
+            self.series[key].sort(key=lambda series_entry: series_entry[0])
 
     def latest(self, team: str, pfr_id: str, name: str) -> tuple[float, float, str] | None:
         identities = []
@@ -805,7 +806,7 @@ class ParticipationProvider:
         for (team, pid, week), (off, deff) in combined.items():
             self.series.setdefault((team, pid), []).append((week, off, deff))
         for key in self.series:
-            self.series[key].sort(key=lambda item: item[0])
+            self.series[key].sort(key=lambda series_entry: series_entry[0])
 
     def latest(self, team: str, gsis_id: str) -> tuple[float, float] | None:
         if not gsis_id:

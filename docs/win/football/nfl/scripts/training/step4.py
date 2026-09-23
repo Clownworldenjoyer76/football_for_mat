@@ -747,7 +747,7 @@ def family_matches(matches, family: str):
     return [match for match in matches if match["family"] == family]
 
 
-def build_side_summary(matches, historical_label: str):
+def build_common_summary(matches, condition_field: str):
     output = {}
 
     positive = [
@@ -767,11 +767,32 @@ def build_side_summary(matches, historical_label: str):
         (
             f'{match["rule_id"]}:'
             f'{match["family"]}:'
-            f'{match["side"]}:'
+            f'{match[condition_field]}:'
             f'{match["condition"]}'
         )
         for match in matches
     )
+
+    return output
+
+
+def add_family_summary(output, matches):
+    for family, prefix in (
+        ("DRAT", "drat"),
+        ("EPRED", "epred"),
+        ("MARKET", "market"),
+        ("DRAT_EPRED_CONSENSUS", "drat_epred_consensus"),
+        ("ALL3_CONSENSUS", "all3_consensus"),
+    ):
+        matches_for_family = family_matches(matches, family)
+        output[f"{prefix}_matched_rule_count"] = len(matches_for_family)
+        output[f"{prefix}_matched_rule_ids"] = join_text(
+            match["rule_id"] for match in matches_for_family
+        )
+
+
+def build_side_summary(matches, historical_label: str):
+    output = build_common_summary(matches, "side")
 
     for side_name, side in (("home", "Home"), ("away", "Away")):
         side_matches = [
@@ -805,47 +826,13 @@ def build_side_summary(matches, historical_label: str):
                 item["games"] if item else ""
             )
 
-    for family, prefix in (
-        ("DRAT", "drat"),
-        ("EPRED", "epred"),
-        ("MARKET", "market"),
-        ("DRAT_EPRED_CONSENSUS", "drat_epred_consensus"),
-        ("ALL3_CONSENSUS", "all3_consensus"),
-    ):
-        matches_for_family = family_matches(matches, family)
-        output[f"{prefix}_matched_rule_count"] = len(matches_for_family)
-        output[f"{prefix}_matched_rule_ids"] = join_text(
-            match["rule_id"] for match in matches_for_family
-        )
+    add_family_summary(output, matches)
 
     return output
 
 
 def build_totals_summary(matches):
-    output = {}
-
-    positive = [
-        match for match in matches if match["direction"] == "POSITIVE"
-    ]
-    negative = [
-        match for match in matches if match["direction"] == "NEGATIVE"
-    ]
-
-    output["matched_rule_count"] = len(matches)
-    output["matched_positive_rule_count"] = len(positive)
-    output["matched_negative_rule_count"] = len(negative)
-    output["matched_rule_ids"] = join_text(
-        match["rule_id"] for match in matches
-    )
-    output["matched_rule_conditions"] = join_text(
-        (
-            f'{match["rule_id"]}:'
-            f'{match["family"]}:'
-            f'{match["totals_direction"]}:'
-            f'{match["condition"]}'
-        )
-        for match in matches
-    )
+    output = build_common_summary(matches, "totals_direction")
 
     for prefix, totals_direction in (
         ("over", "Over"),
@@ -906,18 +893,7 @@ def build_totals_summary(matches):
                 item["games"] if item else ""
             )
 
-    for family, prefix in (
-        ("DRAT", "drat"),
-        ("EPRED", "epred"),
-        ("MARKET", "market"),
-        ("DRAT_EPRED_CONSENSUS", "drat_epred_consensus"),
-        ("ALL3_CONSENSUS", "all3_consensus"),
-    ):
-        matches_for_family = family_matches(matches, family)
-        output[f"{prefix}_matched_rule_count"] = len(matches_for_family)
-        output[f"{prefix}_matched_rule_ids"] = join_text(
-            match["rule_id"] for match in matches_for_family
-        )
+    add_family_summary(output, matches)
 
     return output
 

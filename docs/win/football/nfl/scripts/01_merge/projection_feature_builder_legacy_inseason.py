@@ -12,10 +12,10 @@ performance uses the latest same-season QB row with source week < N.
 """
 
 from __future__ import annotations
+from typing import Any
 
 from bisect import bisect_left
 from dataclasses import dataclass
-from datetime import datetime
 import json
 import math
 from pathlib import Path
@@ -120,7 +120,7 @@ def nfl_root() -> Path:
     return repo_root() / NFL_REL
 
 
-def clean(value: object) -> str:
+def clean(value: Any) -> str:
     if value is None or pd.isna(value):
         return ""
     text = str(value).strip()
@@ -343,7 +343,7 @@ def parse_timestamp(
             utc=True,
             errors="coerce",
         )
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
 
     return (
@@ -684,7 +684,7 @@ def load_team_name_lookup(
         if canonical:
             abbr_to_name[abbr] = canonical
 
-        values: list[object] = [
+        values: list[Any] = [
             row.get(c)
             for c in candidates
             if c in df.columns
@@ -920,7 +920,7 @@ class CurrentRoster:
                 encoding="utf-8-sig",
                 low_memory=False,
             )
-        except Exception:
+        except (OSError, UnicodeError, pd.errors.ParserError, pd.errors.EmptyDataError):
             return
 
         if df.empty:

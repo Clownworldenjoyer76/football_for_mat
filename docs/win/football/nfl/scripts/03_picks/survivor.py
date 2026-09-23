@@ -440,7 +440,7 @@ def build_output(rows, week, input_path):
         )
 
     output.sort(
-        key=lambda row: row["pt_diff"],
+        key=lambda sort_row: sort_row["pt_diff"],
         reverse=True,
     )
 
@@ -484,7 +484,7 @@ def expected_output_rows(
         )
 
     expected.sort(
-        key=lambda row: row["pt_diff"],
+        key=lambda sort_row: sort_row["pt_diff"],
         reverse=True,
     )
     return expected

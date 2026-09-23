@@ -74,7 +74,7 @@ def fail(message: str) -> Never:
     log(f'ERROR: {message}')
     raise OddsError(message)
 
-def secure_ref(value: object) -> str:
+def secure_ref(value: Any) -> str:
     return str(value or '').strip().replace('http://', 'https://', 1)
 
 def http_get_json(url: str) -> object:
@@ -99,7 +99,7 @@ def http_get_json(url: str) -> object:
             time.sleep(min(2 ** (attempt - 1), 8))
     raise OddsError(f'ESPN request failed after {HTTP_RETRIES} attempts: {last_error}')
 
-def parse_espn_datetime(value: object) -> datetime | None:
+def parse_espn_datetime(value: Any) -> datetime | None:
     text = str(value or '').strip()
     if not text:
         return None
@@ -107,13 +107,13 @@ def parse_espn_datetime(value: object) -> datetime | None:
         text = text[:-1] + '+00:00'
     try:
         parsed = datetime.fromisoformat(text)
-    except Exception:
+    except ValueError:
         return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
 
-def to_float(value: object) -> float | None:
+def to_float(value: Any) -> float | None:
     if value is None:
         return None
     text = str(value).strip()
@@ -121,7 +121,7 @@ def to_float(value: object) -> float | None:
         return None
     try:
         return float(text)
-    except Exception:
+    except ValueError:
         return None
 
 def clean_number(value: object) -> str:
@@ -242,7 +242,7 @@ def fetch_all_event_records(event_refs: list[str], season: int, season_type: int
     records.sort(key=lambda record: (record.get('date', ''), record['event_id']))
     return records
 
-def bookmaker_key(value: object) -> str:
+def bookmaker_key(value: Any) -> str:
     return re.sub('[^a-z0-9]+', '', str(value or '').strip().lower())
 
 def select_bookmaker_item(items: object, preferred_bookmaker: str) -> tuple[dict[str, Any] | None, str, bool]:
@@ -259,11 +259,11 @@ def select_bookmaker_item(items: object, preferred_bookmaker: str) -> tuple[dict
     preferred_key = bookmaker_key(preferred_bookmaker)
     for item, provider_name in valid:
         if bookmaker_key(provider_name) == preferred_key:
-            return (item, provider_name, False)
+            return item, provider_name, False
     if valid:
         item, provider_name = valid[0]
-        return (item, provider_name, True)
-    return (None, '', False)
+        return item, provider_name, True
+    return None, '', False
 
 def fetch_odds_for_record(record: dict[str, Any], preferred_bookmaker: str) -> dict[str, Any] | None:
     event_id = record['event_id']
@@ -287,7 +287,7 @@ def eligible_event_records(records: list[dict[str, Any]], now: datetime) -> tupl
             eligible.append(record)
         else:
             excluded_ids.append(record['event_id'])
-    return (eligible, excluded_ids)
+    return eligible, excluded_ids
 
 def fetch_odds_records(records: list[dict[str, Any]], preferred_bookmaker: str) -> tuple[list[dict[str, Any]], list[str], list[dict[str, str]]]:
     results: list[dict[str, Any]] = []
@@ -313,7 +313,7 @@ def fetch_odds_records(records: list[dict[str, Any]], preferred_bookmaker: str) 
     results.sort(key=lambda record: (record.get('date', ''), record['event_id']))
     missing_odds.sort()
     fallbacks.sort(key=lambda item: item['event_id'])
-    return (results, missing_odds, fallbacks)
+    return results, missing_odds, fallbacks
 
 def team_name_from_payload(team_payload: object) -> str:
     if not isinstance(team_payload, dict):
@@ -344,17 +344,17 @@ def fetch_team_names(odds_records: list[dict[str, Any]]) -> tuple[dict[str, str]
             except Exception as exc:
                 failures.append(f'team_id={team_id} ref={ref} error={type(exc).__name__}: {exc}')
     failures.sort()
-    return (names, failures)
+    return names, failures
 
 def fallback_team_names(event: dict[str, Any]) -> tuple[str, str]:
     name = str(event.get('name', '')).strip()
     if ' at ' in name:
         away, home = name.split(' at ', 1)
-        return (home.strip(), away.strip())
+        return home.strip(), away.strip()
     if ' vs ' in name:
         away, home = name.split(' vs ', 1)
-        return (home.strip(), away.strip())
-    return ('', '')
+        return home.strip(), away.strip()
+    return '', ''
 
 def enrich_names(record: dict[str, Any], team_names: dict[str, str]) -> tuple[str, str]:
     item = record['odds_item']
@@ -363,9 +363,9 @@ def enrich_names(record: dict[str, Any], team_names: dict[str, str]) -> tuple[st
     home = team_names.get(team_id_from_ref(home_ref), '')
     away = team_names.get(team_id_from_ref(away_ref), '')
     if home and away:
-        return (home, away)
+        return home, away
     fallback_home, fallback_away = fallback_team_names(record.get('event', {}))
-    return (home or fallback_home, away or fallback_away)
+    return home or fallback_home, away or fallback_away
 
 def market_values(item: dict[str, Any]) -> dict[str, str]:
     home_current_spread = value_from_display_object(nested(item, 'homeTeamOdds', 'current', 'pointSpread'))
@@ -634,9 +634,9 @@ def main() -> int:
         with PipelineReporter(script=SCRIPT_PATH, stage='00_intake', report_root=REPORT_ROOT, pipeline='NFL', league='NFL', season=args.season, extra_context={'component': 'current odds', 'season_type': args.season_type, 'week': args.week}) as reporter:
             run(args, reporter)
         return 0
-    except Exception:
+    except Exception as exc:
         log(traceback.format_exc())
-        print(f'ERROR: see {LOG_FILE}', file=sys.stderr)
+        print(f"ERROR: {type(exc).__name__}: {exc}; see {LOG_FILE}", file=sys.stderr)
         return 1
 if __name__ == '__main__':
     sys.exit(main())

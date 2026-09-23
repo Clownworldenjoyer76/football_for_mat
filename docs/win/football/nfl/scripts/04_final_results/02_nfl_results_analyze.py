@@ -9,7 +9,6 @@ import os
 import shutil
 import sys
 import tempfile
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -155,7 +154,7 @@ def to_float(value: Any) -> float | None:
     try:
         result = float(str(value).strip())
         return result if math.isfinite(result) else None
-    except Exception:
+    except (TypeError, ValueError):
         return None
 
 

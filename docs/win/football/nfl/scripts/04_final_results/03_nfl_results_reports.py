@@ -197,7 +197,7 @@ def to_float(value: Any) -> float | None:
     try:
         result = float(str(value).strip())
         return result if math.isfinite(result) else None
-    except Exception:
+    except (TypeError, ValueError):
         return None
 
 
@@ -586,9 +586,10 @@ def build_dimension_frames(
 
 
 def build_report_frames(df: pd.DataFrame) -> dict[Path, pd.DataFrame]:
-    frames: dict[Path, pd.DataFrame] = {}
+    frames: dict[Path, pd.DataFrame] = {
+        Path("nfl_summary_overall.csv"): aggregate(df, ["league", "market_type"])
+    }
 
-    frames[Path("nfl_summary_overall.csv")] = aggregate(df, ["league", "market_type"])
     frames[Path("reports/overview/nfl_report_metric_definitions.csv")] = metric_definitions_frame()
     frames[Path("reports/overview/nfl_summary_overall.csv")] = overall_row(df)
     frames[Path("reports/overview/nfl_summary_by_market.csv")] = aggregate(

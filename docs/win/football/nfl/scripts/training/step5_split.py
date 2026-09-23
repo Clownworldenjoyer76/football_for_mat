@@ -301,7 +301,7 @@ def split_source() -> tuple[
         for handle in handles.values():
             try:
                 handle.close()
-            except Exception:
+            except OSError:
                 pass
 
     if total_rows == 0:
@@ -517,9 +517,9 @@ if __name__ == "__main__":
         raise SystemExit(
             main()
         )
-    except Exception as exc:
+    except Exception as main_error:
         print(
-            f"ERROR: {exc}",
+            f"ERROR: {main_error}",
             file=sys.stderr,
         )
         raise

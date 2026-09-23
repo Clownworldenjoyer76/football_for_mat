@@ -205,7 +205,7 @@ def clean(value: Any) -> str:
         try:
             if float(text).is_integer() and all(ch.isdigit() or ch in ".-+" for ch in text):
                 return str(int(float(text)))
-        except Exception:
+        except (TypeError, ValueError, OverflowError):
             pass
     return text
 

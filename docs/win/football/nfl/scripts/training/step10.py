@@ -98,12 +98,12 @@ BASE_FEATURES = [
 ]
 
 GENERATED_COLUMNS: list[str] = []
-for feature in BASE_FEATURES:
+for _generated_feature in BASE_FEATURES:
     GENERATED_COLUMNS.extend(
         [
-            f"home_{feature}",
-            f"away_{feature}",
-            f"{feature}_diff",
+            f"home_{_generated_feature}",
+            f"away_{_generated_feature}",
+            f"{_generated_feature}_diff",
         ]
     )
 
@@ -827,7 +827,7 @@ def parse_timestamp(value: Any) -> pd.Timestamp | None:
         return None
     try:
         timestamp = pd.to_datetime(text, utc=True, errors="raise")
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
     if isinstance(timestamp, pd.DatetimeIndex):
         return None
@@ -1527,6 +1527,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except Exception as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+    except Exception as main_error:
+        print(f"ERROR: {main_error}", file=sys.stderr)
         raise

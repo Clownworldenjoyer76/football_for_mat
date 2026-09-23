@@ -362,7 +362,7 @@ def load_team_map() -> dict[str, str]:
     return mapping
 
 
-def canonical_team(value: Any, team_map: dict[str, str]) -> str:
+def resolve_canonical_team(value: Any, team_map: dict[str, str]) -> str:
     raw = clean(value)
     if not raw:
         return ""
@@ -459,7 +459,7 @@ def select_odds_capture(
 
         try:
             payload = json.loads(raw_path.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, UnicodeError, json.JSONDecodeError):
             continue
 
         if not isinstance(payload, dict):
@@ -744,8 +744,8 @@ def build_schedule_index(
     index = {}
 
     for row in schedule_rows:
-        home = canonical_team(row.get("home_team"), team_map)
-        away = canonical_team(row.get("away_team"), team_map)
+        home = resolve_canonical_team(row.get("home_team"), team_map)
+        away = resolve_canonical_team(row.get("away_team"), team_map)
         game_date = parse_date(row.get("game_date"))
 
         if not home or not away or game_date is None:
@@ -772,8 +772,8 @@ def schedule_candidate_keys(
     raw_event: dict[str, Any],
     team_map: dict[str, str],
 ) -> list[tuple[str, str, str]]:
-    odds_home = canonical_team(raw_event.get("home"), team_map)
-    odds_away = canonical_team(raw_event.get("away"), team_map)
+    odds_home = resolve_canonical_team(raw_event.get("home"), team_map)
+    odds_away = resolve_canonical_team(raw_event.get("away"), team_map)
     odds_date = parse_date(raw_event.get("date"))
 
     if not odds_home or not odds_away or odds_date is None:
@@ -910,11 +910,11 @@ def build_output_rows(
         output_rows.append(row)
 
     output_rows.sort(
-        key=lambda row: (
-            clean(row.get("game_date")),
-            clean(row.get("game_time")),
-            clean(row.get("away_team")),
-            clean(row.get("home_team")),
+        key=lambda sort_row: (
+            clean(sort_row.get("game_date")),
+            clean(sort_row.get("game_time")),
+            clean(sort_row.get("away_team")),
+            clean(sort_row.get("home_team")),
         )
     )
 

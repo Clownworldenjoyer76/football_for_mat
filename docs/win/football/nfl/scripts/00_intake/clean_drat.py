@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
+from typing import Any
 
 import csv
 import os
@@ -252,7 +253,7 @@ class RunLog:
             temporary_path.unlink(missing_ok=True)
 
 
-def clean_text(value: object) -> str:
+def clean_text(value: Any) -> str:
     if value is None:
         return ""
     return str(value).strip()

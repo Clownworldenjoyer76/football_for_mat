@@ -15,7 +15,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -408,9 +408,9 @@ def import_pandas() -> None:
         return
     try:
         import pandas as pandas_module
-    except ImportError as exc:
+        pd = pandas_module
+    except ImportError:
         fail("This script requires pandas. Install the repository requirements before running it.")
-    pd = pandas_module
 
 def read_raw_header(path: Path) -> list[str]:
     if not path.is_file():

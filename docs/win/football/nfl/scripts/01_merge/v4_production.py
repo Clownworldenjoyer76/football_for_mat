@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Shared production inference for the market-independent NFL v4 models."""
 from __future__ import annotations
+from typing import Any
 
 import json
 from pathlib import Path
@@ -32,13 +33,13 @@ def load_json(path: Path) -> dict:
         return json.load(handle)
 
 
-def clean_text(value: object) -> str:
+def clean_text(value: Any) -> str:
     if value is None:
         return ""
     try:
         if pd.isna(value):
             return ""
-    except Exception:
+    except (TypeError, ValueError):
         pass
     text = str(value).strip()
     if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
