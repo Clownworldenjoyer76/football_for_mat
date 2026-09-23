@@ -89,7 +89,7 @@ REPORT_SPECS = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 

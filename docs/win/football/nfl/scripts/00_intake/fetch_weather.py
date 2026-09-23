@@ -29,7 +29,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 from zoneinfo import ZoneInfo
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -143,7 +143,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise WeatherError(message)
 
 

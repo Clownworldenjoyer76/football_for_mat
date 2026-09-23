@@ -68,7 +68,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise InjuryPullError(message)
 
 

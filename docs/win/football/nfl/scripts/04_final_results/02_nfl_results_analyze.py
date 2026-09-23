@@ -128,7 +128,7 @@ def load_runtime_dependencies(
     )
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 

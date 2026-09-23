@@ -46,7 +46,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -118,7 +118,7 @@ def load_runtime_dependencies(
     )
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 

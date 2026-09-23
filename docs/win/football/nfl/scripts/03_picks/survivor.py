@@ -66,7 +66,7 @@ EPSILON = 1e-9
 DISPLAY_RECONCILIATION_TOLERANCE = 0.150000001
 
 
-def fail(message):
+def fail(message) -> Never:
     raise RuntimeError(message)
 
 

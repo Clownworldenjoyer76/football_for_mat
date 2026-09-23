@@ -70,7 +70,7 @@ def log(message: str) -> None:
     with LOG_FILE.open('a', encoding='utf-8') as handle:
         handle.write(f'[{utc_now_iso()}] {message}\n')
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     log(f'ERROR: {message}')
     raise OddsError(message)
 

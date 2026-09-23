@@ -15,7 +15,7 @@ import shutil
 import sys
 import tempfile
 import traceback
-from typing import Any
+from typing import Any, Never
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -104,7 +104,7 @@ def load_runtime_dependencies(reporter: PipelineReporter) -> None:
     reporter.set_detail("dependency_imports_ok", True)
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 

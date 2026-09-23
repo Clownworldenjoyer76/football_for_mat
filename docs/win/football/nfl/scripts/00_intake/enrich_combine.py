@@ -388,7 +388,7 @@ pd = None
 class CombineEnrichmentError(RuntimeError):
     pass
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise CombineEnrichmentError(message)
 
 def clean(value: Any) -> str:

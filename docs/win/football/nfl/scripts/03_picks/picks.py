@@ -32,7 +32,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -144,7 +144,7 @@ MARKETS = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 

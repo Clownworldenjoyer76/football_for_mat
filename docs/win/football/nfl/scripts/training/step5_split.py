@@ -219,7 +219,7 @@ def split_source() -> tuple[
     total_rows = 0
 
     handles: dict[str, object] = {}
-    writers: dict[str, csv.writer] = {}
+    writers = {}
 
     try:
         with SOURCE_PATH.open(

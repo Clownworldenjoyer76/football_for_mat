@@ -84,7 +84,7 @@ class ProjectionSourceRefreshError(RuntimeError):
     pass
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise ProjectionSourceRefreshError(message)
 
 

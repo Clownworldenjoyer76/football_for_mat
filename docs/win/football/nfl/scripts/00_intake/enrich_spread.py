@@ -323,7 +323,7 @@ class SpreadEnrichmentError(RuntimeError):
     pass
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise SpreadEnrichmentError(message)
 
 

@@ -15,7 +15,7 @@ import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -115,7 +115,7 @@ def log(message: str) -> None:
         handle.write(f"[{utc_now_iso()}] {message}\n")
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     log(f"ERROR: {message}")
     raise OpeningOddsError(message)
 

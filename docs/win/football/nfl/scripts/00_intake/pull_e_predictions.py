@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -134,7 +134,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise PredictionPullError(message)
 
 
@@ -1296,8 +1296,8 @@ def run(
             "weekly_row_counts": {
                 (
                     f"{key[0]}_{key[1]}_{key[2]}"
-                ): len(group_rows)
-                for key, group_rows
+                ): len(rows_for_group)
+                for key, rows_for_group
                 in sorted(
                     rows_by_group.items(),
                     key=lambda item: (

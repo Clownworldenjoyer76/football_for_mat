@@ -97,7 +97,7 @@ TEAM_SCORE_LABELS = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 

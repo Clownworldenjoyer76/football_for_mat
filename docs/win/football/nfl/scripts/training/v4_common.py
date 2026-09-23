@@ -6,7 +6,7 @@ import json
 import math
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 import numpy as np
 import pandas as pd
@@ -84,7 +84,7 @@ CLASSIFIER_PARAMS = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 
@@ -119,8 +119,12 @@ def sha256_file(path: Path) -> str:
 def discover_training_seasons(start_season: int = DEFAULT_START_SEASON, end_season: int | None = None) -> list[int]:
     available = sorted({
         int(match.group(1))
-        for path in TRAINING_DIR.iterdir()
-        if path.is_file() and (match := HISTORICAL_FILE_PATTERN.fullmatch(path.name))
+        for match in (
+            HISTORICAL_FILE_PATTERN.fullmatch(path.name)
+            for path in TRAINING_DIR.iterdir()
+            if path.is_file()
+        )
+        if match is not None
     })
     if not available or start_season not in available:
         fail(f"Missing historical season files; available={available}")

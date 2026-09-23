@@ -37,7 +37,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -126,7 +126,7 @@ def clean(value: Any) -> str:
     return text
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 

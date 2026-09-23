@@ -56,7 +56,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     print(f"VALIDATION FAILED: {message}", file=sys.stderr)
     raise DailyValidationError(message)
 

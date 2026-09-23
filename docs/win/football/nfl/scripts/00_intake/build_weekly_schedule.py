@@ -175,7 +175,7 @@ def log(message: str) -> None:
         handle.write(f"[{utc_now_iso()}] {message}\n")
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     log(f"ERROR: {message}")
     raise WeeklyScheduleError(message)
 
