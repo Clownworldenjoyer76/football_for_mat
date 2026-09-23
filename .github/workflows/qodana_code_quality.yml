@@ -18,6 +18,9 @@ jobs:
     name: Qodana - NFL
     runs-on: ubuntu-latest
 
+    env:
+      PYTHONPATH: ${{ github.workspace }}/docs/win/football/nfl/scripts
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -42,6 +45,7 @@ jobs:
           python --version
           python -c "import sys; print(sys.executable)"
           python -m pip check
+          python -c "import pipeline_reporter; print(pipeline_reporter.__file__)"
 
       - name: Qodana NFL Scan
         uses: JetBrains/qodana-action@v2026.2
@@ -59,10 +63,14 @@ jobs:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_23453728 }}
           QODANA_ENDPOINT: 'https://qodana.cloud'
           QODANA_PYTHON_PATH: ${{ steps.python-nfl.outputs.python-path }}
+          PYTHONPATH: ${{ github.workspace }}/docs/win/football/nfl/scripts
 
   qodana-prop-engine:
     name: Qodana - Prop Engine
     runs-on: ubuntu-latest
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}/docs/win/football/prop_engine/scripts
 
     steps:
       - name: Checkout repository
@@ -88,6 +96,8 @@ jobs:
           python --version
           python -c "import sys; print(sys.executable)"
           python -m pip check
+          python -c "import common; print(common.__file__)"
+          python -c "import pipeline_reporter; print(pipeline_reporter.__file__)"
 
       - name: Qodana Prop Engine Scan
         uses: JetBrains/qodana-action@v2026.2
@@ -105,3 +115,4 @@ jobs:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_2053302466 }}
           QODANA_ENDPOINT: 'https://qodana.cloud'
           QODANA_PYTHON_PATH: ${{ steps.python-prop.outputs.python-path }}
+          PYTHONPATH: ${{ github.workspace }}/docs/win/football/prop_engine/scripts
