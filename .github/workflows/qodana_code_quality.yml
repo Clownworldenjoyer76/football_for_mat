@@ -1,47 +1,28 @@
 name: Qodana
-
 on:
   workflow_dispatch:
   pull_request:
   push:
-    branches:
-      - main
-      - 'releases/*'
+    branches: # Specify your branches here
+      - main # The 'main' branch
+      - 'releases/*' # The release branches
 
 jobs:
   qodana:
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
       pull-requests: write
       checks: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v3
         with:
-          fetch-depth: 0
-
-      - name: Set up Python 3.12
-        id: python
-        uses: actions/setup-python@v7
+          ref: ${{ github.event.pull_request.head.sha }}  # to check out the actual pull request commit, not the merge commit
+          fetch-depth: 0  # a full history is required for pull request analysis
+      - name: 'Qodana Scan'
+        uses: JetBrains/qodana-action@v2026.1
         with:
-          python-version: '3.12'
-
-      - name: Verify Python
-        run: |
-          python --version
-          python -c "import sys; print(sys.executable)"
-
-      - name: Qodana Scan
-        uses: JetBrains/qodana-action@v2026.2
-        with:
-          args: |
-            --linter qodana-python
-            --within-docker false
           pr-mode: false
         env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_23453728 }}
+          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_2053302466 }}
           QODANA_ENDPOINT: 'https://qodana.cloud'
-          QODANA_PYTHON_PATH: ${{ steps.python.outputs.python-path }}
