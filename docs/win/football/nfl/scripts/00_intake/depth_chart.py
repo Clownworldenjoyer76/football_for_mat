@@ -486,12 +486,6 @@ def build_old_shape(
                         f"athlete_index={athlete_index}"
                     )
 
-                context = (
-                    f"team_id={team_id} "
-                    f"chart_id={chart_id} "
-                    f"position_key={pos_key} "
-                    f"athlete_index={athlete_index}"
-                )
                 rank = rank_value(
                     athlete_entry
                 )

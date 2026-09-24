@@ -24,7 +24,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 import numpy as np
 import pandas as pd

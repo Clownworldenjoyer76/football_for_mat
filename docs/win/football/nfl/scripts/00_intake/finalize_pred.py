@@ -32,7 +32,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Never
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]

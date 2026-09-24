@@ -8,7 +8,7 @@ import math
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 import pandas as pd
 
@@ -875,8 +875,6 @@ def validate_standings(
     for line_number, row in enumerate(rows, start=2):
         team_id = clean(row.get("team_id"))
         abbr = normalize_team_abbr(row.get("team_abbr"))
-        standings_type = clean(row.get("standings_type"))
-        stat_name = clean(row.get("stat_name"))
 
         if clean(row.get("season")) != str(season):
             fail(

@@ -382,7 +382,6 @@ def require_unique_game_id(
 def filter_unstarted_games(
     root: Path,
     base: pd.DataFrame,
-    season: int,
     week: int,
     label: str,
 ) -> pd.DataFrame:
@@ -2374,7 +2373,6 @@ def normalize_injury_status(
 
 def load_current_injuries(
     root: Path,
-    season: int,
     team_lookup: dict[str, str],
 ) -> dict[
     str,
@@ -2993,7 +2991,6 @@ def current_qb_starters(
 
 def load_team_stats_for_week(
     root: Path,
-    season: int,
     week: int,
     week1_mode: bool,
 ) -> dict[
@@ -3102,7 +3099,6 @@ def load_team_stats_for_week(
 
 def load_qb_stats_for_week(
     root: Path,
-    season: int,
     week: int,
     week1_mode: bool,
     starters: dict[str, str],
@@ -3212,7 +3208,6 @@ def load_qb_stats_for_week(
 
 def build_division_lookup(
     root: Path,
-    season: int,
 ) -> dict[str, str]:
     path = (
         root
@@ -3852,7 +3847,6 @@ def previous_game_kickoff(
 
 def add_injury_features(
     work: pd.DataFrame,
-    season: int,
     week1_mode: bool,
     full_schedule: pd.DataFrame,
     team_lookup: dict[str, str],
@@ -3988,7 +3982,6 @@ def add_injury_features(
 
 def prepare_week(
     root: Path,
-    season: int,
     week: int,
     week1_mode: bool,
     schema: dict,
@@ -4671,7 +4664,6 @@ def prepare_week(
 
     add_injury_features(
         base,
-        season,
         week1_mode,
         full_schedule,
         team_lookup,
@@ -5328,7 +5320,6 @@ def apply_models(
 
 def infer_inseason_target_week(
     root: Path,
-    season: int,
 ) -> int:
     """
     Determine the week that should currently be projected.
@@ -5524,7 +5515,6 @@ def infer_inseason_target_week(
 
 def run_projection(
     *,
-    season: int,
     week1_mode: bool,
 ) -> list[Path]:
     root = nfl_root()

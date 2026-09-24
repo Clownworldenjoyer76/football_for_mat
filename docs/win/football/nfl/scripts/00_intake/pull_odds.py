@@ -13,7 +13,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 SCRIPT_PATH = Path(__file__).resolve()

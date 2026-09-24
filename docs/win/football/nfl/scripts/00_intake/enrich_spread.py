@@ -19,7 +19,7 @@ import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
