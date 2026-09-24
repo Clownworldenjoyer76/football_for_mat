@@ -15,7 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from pipeline_reporter import PipelineReporter
 from projection_common import (
-    load_compatibility_schema,
+    load_reported_compatibility_schema,
     produce_and_publish_projection,
 )
 
@@ -89,21 +89,10 @@ def run(reporter: PipelineReporter) -> None:
             f"would be overwritten: {collisions}"
         )
 
-    compatibility_schema, compatibility_path = load_compatibility_schema(root, expected_feature_count=EXPECTED_FEATURE_COUNT)
-    reporter.add_input(compatibility_path)
-    reporter.update_details(
-        {
-            "compatibility_schema_validated": True,
-            "compatibility_schema_features": len(
-                compatibility_schema["feature_order"]
-            ),
-            "compatibility_schema_numeric_features": len(
-                compatibility_schema["numeric_features"]
-            ),
-            "compatibility_schema_categorical_features": len(
-                compatibility_schema["categorical_features"]
-            ),
-        }
+    compatibility_schema = load_reported_compatibility_schema(
+        root,
+        reporter,
+        expected_feature_count=EXPECTED_FEATURE_COUNT,
     )
 
     full_features = helper.prepare_model_features(

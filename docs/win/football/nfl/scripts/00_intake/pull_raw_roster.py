@@ -28,6 +28,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import write_csv_contract
 from team_contract import is_nfl_mapping_row
 from roster_contract import COMPATIBILITY_COLUMNS, CORE_REQUIRED_FIELDS
 
@@ -865,26 +866,7 @@ def validate_flat_rows(
         )
 
 
-def write_csv(
-    path: Path,
-    rows: list[dict[str, Any]],
-    fieldnames: list[str],
-) -> None:
-    with path.open(
-        "w",
-        newline="",
-        encoding="utf-8",
-    ) as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=fieldnames,
-            extrasaction="ignore",
-            lineterminator="\n",
-        )
-        writer.writeheader()
-        writer.writerows(rows)
-        handle.flush()
-        os.fsync(handle.fileno())
+
 
 
 def publish(
@@ -908,10 +890,13 @@ def publish(
             / OUTPUT_PATH.name
         )
 
-        write_csv(
+        write_csv_contract(
             staged_path,
             rows,
-            fieldnames,
+            fieldnames=fieldnames,
+            extrasaction="ignore",
+            lineterminator="\\n",
+            encoding="utf-8",
         )
 
         if staged_path.stat().st_size == 0:

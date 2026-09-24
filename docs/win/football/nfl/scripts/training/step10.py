@@ -606,6 +606,45 @@ class ParticipationProvider:
         return offense, defense
 
 
+def _resolve_player_fields(
+    row: pd.Series,
+    *,
+    players: PlayerCrosswalk,
+    gsis_col: str | None,
+    alternate_id_col: str | None,
+    name_col: str | None,
+    position_col: str | None,
+) -> tuple[str, str, str, str]:
+    raw_gsis = clean(row[gsis_col]) if gsis_col else ""
+    raw_alternate = (
+        clean(row[alternate_id_col])
+        if alternate_id_col
+        else ""
+    )
+    name = clean(row[name_col]) if name_col else ""
+    resolved = players.resolve(
+        raw_gsis or raw_alternate,
+        name,
+    )
+
+    gsis_id = (
+        raw_gsis
+        if raw_gsis.startswith("00-")
+        else ""
+    )
+    if not gsis_id and resolved is not None:
+        gsis_id = resolved.gsis_id
+
+    position = (
+        normalize_position(row[position_col])
+        if position_col
+        else ""
+    )
+    if not position and resolved is not None:
+        position = resolved.position
+
+    return raw_alternate, name, gsis_id, position
+
 def _resolve_depth_player_fields(
     row: pd.Series,
     *,
@@ -621,18 +660,14 @@ def _resolve_depth_player_fields(
     if rank is None or rank < 1:
         return None
 
-    raw_gsis = clean(row[gsis_col]) if gsis_col else ""
-    raw_espn = clean(row[espn_col]) if espn_col else ""
-    name = clean(row[name_col]) if name_col else ""
-    resolved = players.resolve(raw_gsis or raw_espn, name)
-
-    gsis_id = raw_gsis if raw_gsis.startswith("00-") else ""
-    if not gsis_id and resolved is not None:
-        gsis_id = resolved.gsis_id
-
-    position = normalize_position(row[position_col]) if position_col else ""
-    if not position and resolved is not None:
-        position = resolved.position
+    raw_espn, name, gsis_id, position = _resolve_player_fields(
+        row,
+        players=players,
+        gsis_col=gsis_col,
+        alternate_id_col=espn_col,
+        name_col=name_col,
+        position_col=position_col,
+    )
 
     return (
         gsis_id,
@@ -1020,16 +1055,14 @@ def load_injuries(
         if status not in {"out", "doubtful", "questionable"}:
             continue
 
-        raw_gsis = clean(row[gsis_col]) if gsis_col else ""
-        raw_player_id = clean(row[player_id_col]) if player_id_col else ""
-        name = clean(row[name_col]) if name_col else ""
-        resolved = players.resolve(raw_gsis or raw_player_id, name)
-        gsis_id = raw_gsis if raw_gsis.startswith("00-") else ""
-        if not gsis_id and resolved is not None:
-            gsis_id = resolved.gsis_id
-        position = normalize_position(row[position_col]) if position_col else ""
-        if not position and resolved is not None:
-            position = resolved.position
+        raw_player_id, name, gsis_id, position = _resolve_player_fields(
+            row,
+            players=players,
+            gsis_col=gsis_col,
+            alternate_id_col=player_id_col,
+            name_col=name_col,
+            position_col=position_col,
+        )
 
         identity = gsis_id or raw_player_id or normalize_name(name)
         if not identity:

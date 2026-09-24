@@ -92,6 +92,33 @@ def load_compatibility_schema(
 
     return schema, path
 
+def load_reported_compatibility_schema(
+    root: Path,
+    reporter: Any,
+    *,
+    expected_feature_count: int,
+) -> dict[str, Any]:
+    schema, path = load_compatibility_schema(
+        root,
+        expected_feature_count=expected_feature_count,
+    )
+    reporter.add_input(path)
+    reporter.update_details(
+        {
+            "compatibility_schema_validated": True,
+            "compatibility_schema_features": len(
+                schema["feature_order"]
+            ),
+            "compatibility_schema_numeric_features": len(
+                schema["numeric_features"]
+            ),
+            "compatibility_schema_categorical_features": len(
+                schema["categorical_features"]
+            ),
+        }
+    )
+    return schema
+
 
 def _first_mismatch(
     expected: list[str],

@@ -62,6 +62,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import read_validated_csv_header
 
 
 pd = None
@@ -233,6 +234,7 @@ def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
+
 def validate_csv_header(
     path: Path,
     *,
@@ -241,51 +243,12 @@ def validate_csv_header(
     if not path.is_file():
         fail(f"Missing file: {path}")
 
-    try:
-        with path.open(
-            "r",
-            newline="",
-            encoding="utf-8-sig",
-        ) as handle:
-            header = next(csv.reader(handle), [])
-    except UnicodeDecodeError as exc:
-        fail(
-            f"{label}: invalid UTF-8 CSV: "
-            f"{path}: {exc}"
-        )
-
-    if not header:
-        fail(
-            f"{label}: missing CSV header: "
-            f"{path}"
-        )
-
-    normalized = [
-        clean_text(column)
-        for column in header
-    ]
-
-    if any(not column for column in normalized):
-        fail(
-            f"{label}: blank CSV header "
-            f"column: {path}"
-        )
-
-    seen: set[str] = set()
-    duplicates: list[str] = []
-
-    for column in normalized:
-        if column in seen and column not in duplicates:
-            duplicates.append(column)
-        seen.add(column)
-
-    if duplicates:
-        fail(
-            f"{label}: duplicate header "
-            f"columns: {duplicates}"
-        )
-
-    return header
+    return read_validated_csv_header(
+        path,
+        label=label,
+        clean=clean_text,
+        fail=fail,
+    )
 
 
 def require_columns(

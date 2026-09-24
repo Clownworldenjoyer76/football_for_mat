@@ -66,7 +66,8 @@ def read_csv_contract(
     return fieldnames, rows
 
 
-def validate_csv_header_names(
+
+def read_validated_csv_header(
     path: Path,
     *,
     label: str,
@@ -109,7 +110,23 @@ def validate_csv_header_names(
             f"{duplicates}"
         )
 
-    return normalized
+    return header
+
+
+def validate_csv_header_names(
+    path: Path,
+    *,
+    label: str,
+    clean: Callable[[Any], str],
+    fail: Callable[[str], Any],
+) -> list[str]:
+    header = read_validated_csv_header(
+        path,
+        label=label,
+        clean=clean,
+        fail=fail,
+    )
+    return [clean(column) for column in header]
 
 
 def normalize_csv_rows(

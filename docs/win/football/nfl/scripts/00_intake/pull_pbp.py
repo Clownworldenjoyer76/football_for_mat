@@ -35,6 +35,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from results_contract import completed_game_keys
 
 
 PBP_DIR = NFL_ROOT / "00_intake" / "pbp"
@@ -498,23 +499,13 @@ def count_completed_games(season: int, log: RunLog) -> tuple[int, bool, int]:
             "completed", regex=False
         )
 
-        if not done.any():
-            continue
-
-        if "game_id" in frame.columns:
-            ids = (
-                frame.loc[done, "game_id"]
-                .dropna()
-                .astype(str)
-                .str.strip()
-                .tolist()
+        completed.update(
+            completed_game_keys(
+                frame,
+                path,
+                done,
             )
-            completed.update(value for value in ids if value)
-        else:
-            completed.update(
-                f"{path.name}:{index}"
-                for index in frame.index[done].tolist()
-            )
+        )
 
     return len(completed), inspection_uncertain, len(paths)
 
