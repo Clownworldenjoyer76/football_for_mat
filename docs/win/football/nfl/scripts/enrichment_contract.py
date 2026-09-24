@@ -590,4 +590,348 @@ def enrichment_process_week(*, season, season_type, week, schedule_rows, drat_by
     if not output_rows: fail(f"No rows generated for season={season} season_type={season_type} week={week}")
     return output_rows, metrics
 
+# QODANA_SHARED_ENRICHMENT_CORE_V2_BEGIN
+import re as _enrichment_re
+from functools import partial as _enrichment_partial_v2
+
+ENRICHMENT_WEEKLY_FILENAME_RE = _enrichment_re.compile('week_(\\d+)_NFL_weekly_schedule\\.csv')
+
+ENRICHMENT_WEEKLY_COLUMNS = ['season', 'season_type', 'week', 'game_id', 'odds_provider_game_id', 'game_date', 'game_time', 'commence_time', 'away_team', 'home_team', 'odds_away_team', 'odds_home_team', 'neutral_site', 'stadium', 'roof', 'surface', 'home_timezone', 'away_timezone', 'game_timezone', 'bookmaker', 'home_moneyline_american', 'away_moneyline_american', 'home_spread', 'away_spread', 'home_spread_american', 'away_spread_american', 'total', 'over_american', 'under_american', 'odds_last_update', 'odds_available', 'odds_missing_reason']
+
+ENRICHMENT_DRAT_HEADERS = ['season', 'week', 'game_id', 'commence_time_utc', 'home_team', 'away_team', 'spread_home', 'spread_away', 'total', 'moneyline_home', 'moneyline_away', 'updated_at_utc', 'game_date', 'game_time', 'home_prob', 'away_prob', 'spread_home_odds', 'spread_away_odds', 'total_over', 'total_under', 'total_odds_over', 'total_odds_under', 'away_projected_score', 'home_projected_score', 'total_projected_score']
+
+ENRICHMENT_EPRED_HEADERS = ['game_id', 'game_date', 'game_time', 'home_team', 'away_team', 'matchupQuality', 'home_prob', 'away_prob', 'tie_prob', 'away_projected_pts', 'home_projected_pts', 'total_projected_pts', 'home_PtDiff', 'away_PtDiff', 'home_rating', 'away_rating', 'game_name', 'season', 'season_type', 'week', 'sport', 'league']
+
+ENRICHMENT_ODDS_HEADERS = ['snapshot_id', 'snapshot_fetched_at', 'game_id', 'commence_time', 'home_team', 'away_team', 'bookmaker', 'market_type', 'bet_side', 'line', 'odds_american', 'odds_decimal', 'last_update', 'home_moneyline_american', 'away_moneyline_american', 'home_spread', 'away_spread', 'home_spread_american', 'away_spread_american', 'total', 'over_american', 'under_american']
+
+ENRICHMENT_EXPECTED_MARKET_SIDES = {('h2h', 'home'), ('h2h', 'away'), ('spreads', 'home'), ('spreads', 'away'), ('totals', 'over'), ('totals', 'under')}
+
+def enrichment_validate_weekly_schedule(rows, *, path, season, season_type, week, WEEKLY_FILENAME_RE, fail, parse_int_text, s, same_text):
+    match = WEEKLY_FILENAME_RE.fullmatch(path.name)
+    if match is None:
+        fail(f'Unexpected weekly schedule filename: {path}')
+    filename_week = int(match.group(1))
+    if filename_week != week:
+        fail(f'{path.name}: filename week={filename_week} but row week={week}')
+    seen_ids = set()
+    for line_number, row in enumerate(rows, start=2):
+        target = (parse_int_text(row.get('season'), label=f'{path.name} line {line_number} season'), s(row.get('season_type')), parse_int_text(row.get('week'), label=f'{path.name} line {line_number} week'))
+        if target != (season, season_type, week):
+            fail(f'{path.name} line {line_number} target={target}; expected={(season, season_type, week)}')
+        game_id = s(row.get('game_id'))
+        home_team = s(row.get('home_team'))
+        away_team = s(row.get('away_team'))
+        if not game_id:
+            fail(f'{path.name} line {line_number} has blank game_id')
+        if game_id in seen_ids:
+            fail(f'{path.name} contains duplicate game_id={game_id}')
+        seen_ids.add(game_id)
+        if not home_team or not away_team or same_text(home_team, away_team):
+            fail(f'{path.name} game_id={game_id} has invalid home/away team identity')
+        odds_available = s(row.get('odds_available'))
+        if odds_available not in {'0', '1'}:
+            fail(f'{path.name} game_id={game_id} has invalid odds_available={odds_available!r}')
+
+def enrichment_load_target_schedules(*, season, reporter, SCHEDULE_DIR, fail, read_csv_table, require_exact_headers, WEEKLY_COLUMNS, schedule_identity, validate_weekly_schedule):
+    if not SCHEDULE_DIR.is_dir():
+        fail(f'Weekly schedule directory not found: {SCHEDULE_DIR}')
+    schedule_paths = sorted(SCHEDULE_DIR.glob('week_*_NFL_weekly_schedule.csv'))
+    if not schedule_paths:
+        fail(f'No weekly schedule files found in {SCHEDULE_DIR}')
+    target = {}
+    for path in schedule_paths:
+        headers, rows = read_csv_table(path)
+        require_exact_headers(headers, WEEKLY_COLUMNS, label=f'weekly schedule {path.name}')
+        row_season, season_type, week = schedule_identity(rows, path)
+        if row_season != season:
+            continue
+        validate_weekly_schedule(rows, path=path, season=season, season_type=season_type, week=week)
+        if week in target:
+            fail(f'More than one target-season weekly schedule exists for week={week}')
+        target[week] = (path, season_type, rows)
+        reporter.add_input(path)
+    if not target:
+        fail(f'No weekly schedules found for season={season}')
+    return target
+
+def enrichment_load_drat(*, season, week, schedule_rows, reporter, DRAT_DIR, read_csv_table, require_exact_headers, DRAT_HEADERS, s, parse_int_text, fail, same_text, require_finite_number, game_team_key):
+    path = DRAT_DIR / f'{season}_week_{week}_drat.csv'
+    headers, rows = read_csv_table(path)
+    require_exact_headers(headers, DRAT_HEADERS, label=f'DRAT {path.name}')
+    reporter.add_input(path)
+    schedule_by_id = {s(row.get('game_id')): row for row in schedule_rows}
+    seen_ids = set()
+    by_teams = {}
+    for line_number, row in enumerate(rows, start=2):
+        row_season = parse_int_text(row.get('season'), label=f'{path.name} line {line_number} season')
+        row_week = parse_int_text(row.get('week'), label=f'{path.name} line {line_number} week')
+        if row_season != season or row_week != week:
+            fail(f'{path.name} line {line_number} target={(row_season, row_week)}; expected={(season, week)}')
+        game_id = s(row.get('game_id'))
+        if not game_id:
+            fail(f'{path.name} line {line_number} has blank game_id')
+        if game_id in seen_ids:
+            fail(f'{path.name} contains duplicate game_id={game_id}')
+        seen_ids.add(game_id)
+        schedule_row = schedule_by_id.get(game_id)
+        if schedule_row is None:
+            fail(f'{path.name} contains unexpected game_id={game_id}')
+        for field in ('home_team', 'away_team'):
+            if not same_text(row.get(field), schedule_row.get(field)):
+                fail(f'{path.name} game_id={game_id} {field} does not match weekly schedule')
+        home_prob = require_finite_number(row.get('home_prob'), label=f'{path.name} game_id={game_id} home_prob')
+        away_prob = require_finite_number(row.get('away_prob'), label=f'{path.name} game_id={game_id} away_prob')
+        if home_prob < 0 or home_prob > 1 or away_prob < 0 or (away_prob > 1) or (home_prob + away_prob <= 0):
+            fail(f'{path.name} game_id={game_id} has invalid DRAT probabilities')
+        key = game_team_key(row.get('season'), row.get('week'), row.get('home_team'), row.get('away_team'))
+        if key in by_teams:
+            fail(f'{path.name} contains duplicate DRAT team key={key}')
+        by_teams[key] = row
+    expected_ids = set(schedule_by_id)
+    if seen_ids != expected_ids:
+        fail(f'{path.name} DRAT/schedule game universe mismatch missing={sorted(expected_ids - seen_ids)} extra={sorted(seen_ids - expected_ids)}')
+    return (path, rows, by_teams)
+
+def enrichment_load_epred(*, season, season_type, week, schedule_rows, reporter, EPRED_DIR, read_csv_table, require_exact_headers, EPRED_HEADERS, s, parse_int_text, fail, same_text, require_finite_number):
+    path = EPRED_DIR / f'{season}_{season_type}_{week}_clean_predictions.csv'
+    headers, rows = read_csv_table(path)
+    require_exact_headers(headers, EPRED_HEADERS, label=f'EPRED {path.name}')
+    reporter.add_input(path)
+    schedule_by_id = {s(row.get('game_id')): row for row in schedule_rows}
+    by_game = {}
+    for line_number, row in enumerate(rows, start=2):
+        target = (parse_int_text(row.get('season'), label=f'{path.name} line {line_number} season'), s(row.get('season_type')), parse_int_text(row.get('week'), label=f'{path.name} line {line_number} week'))
+        if target != (season, season_type, week):
+            fail(f'{path.name} line {line_number} target={target}; expected={(season, season_type, week)}')
+        game_id = s(row.get('game_id'))
+        if not game_id:
+            fail(f'{path.name} line {line_number} has blank game_id')
+        if game_id in by_game:
+            fail(f'{path.name} contains duplicate game_id={game_id}')
+        schedule_row = schedule_by_id.get(game_id)
+        if schedule_row is None:
+            fail(f'{path.name} contains unexpected game_id={game_id}')
+        for field in ('home_team', 'away_team'):
+            if not same_text(row.get(field), schedule_row.get(field)):
+                fail(f'{path.name} game_id={game_id} {field} does not match weekly schedule')
+        home_prob = require_finite_number(row.get('home_prob'), label=f'{path.name} game_id={game_id} home_prob')
+        away_prob = require_finite_number(row.get('away_prob'), label=f'{path.name} game_id={game_id} away_prob')
+        if home_prob < 0 or home_prob > 1 or away_prob < 0 or (away_prob > 1) or (home_prob + away_prob <= 0):
+            fail(f'{path.name} game_id={game_id} has invalid EPRED probabilities')
+        for field in ('home_rating', 'away_rating', 'matchupQuality'):
+            require_finite_number(row.get(field), label=f'{path.name} game_id={game_id} {field}')
+        by_game[game_id] = row
+    expected_ids = set(schedule_by_id)
+    actual_ids = set(by_game)
+    if actual_ids != expected_ids:
+        fail(f'{path.name} EPRED/schedule game universe mismatch missing={sorted(expected_ids - actual_ids)} extra={sorted(actual_ids - expected_ids)}')
+    return (path, rows, by_game)
+
+def enrichment_validate_side_output_rows(rows, *, schedule_rows, active_rule_ids, path, fail, s, WEEKLY_COLUMNS, require_finite_number, validate_rule_count, parse_int_text, split_rule_ids):
+    if len(rows) != len(schedule_rows):
+        fail(f'{path.name} row count mismatch expected={len(schedule_rows)} actual={len(rows)}')
+    schedule_by_id = {s(row.get('game_id')): row for row in schedule_rows}
+    output_by_id = {}
+    count_pairs = [('matched_rule_count', 'matched_rule_ids'), ('home_matched_rule_count', 'home_matched_rule_ids'), ('away_matched_rule_count', 'away_matched_rule_ids'), ('drat_matched_rule_count', 'drat_matched_rule_ids'), ('epred_matched_rule_count', 'epred_matched_rule_ids'), ('market_matched_rule_count', 'market_matched_rule_ids'), ('drat_epred_consensus_matched_rule_count', 'drat_epred_consensus_matched_rule_ids'), ('all3_consensus_matched_rule_count', 'all3_consensus_matched_rule_ids')]
+    for line_number, row in enumerate(rows, start=2):
+        game_id = s(row.get('game_id'))
+        if not game_id:
+            fail(f'{path.name} line {line_number} has blank game_id')
+        if game_id in output_by_id:
+            fail(f'{path.name} contains duplicate game_id={game_id}')
+        schedule_row = schedule_by_id.get(game_id)
+        if schedule_row is None:
+            fail(f'{path.name} contains unexpected game_id={game_id}')
+        for field in WEEKLY_COLUMNS:
+            if s(row.get(field)) != s(schedule_row.get(field)):
+                fail(f'{path.name} game_id={game_id} changed weekly schedule field={field}')
+        for field in ('drat_home_prob', 'drat_away_prob', 'epred_home_prob_raw', 'epred_away_prob_raw', 'epred_home_prob', 'epred_away_prob', 'epred_home_rating', 'epred_away_rating', 'epred_matchupQuality', 'epred_rating_gap_home', 'drat_epred_prob_diff_pp'):
+            require_finite_number(row.get(field), label=f'{path.name} game_id={game_id} {field}')
+        for field in ('drat_home_prob', 'drat_away_prob', 'epred_home_prob_raw', 'epred_away_prob_raw', 'epred_home_prob', 'epred_away_prob'):
+            value = require_finite_number(row.get(field), label=f'{path.name} game_id={game_id} {field}')
+            if value < 0 or value > 1:
+                fail(f'{path.name} game_id={game_id} {field} outside 0..1')
+        epred_home = require_finite_number(row.get('epred_home_prob'), label=f'{path.name} game_id={game_id} epred_home_prob')
+        epred_away = require_finite_number(row.get('epred_away_prob'), label=f'{path.name} game_id={game_id} epred_away_prob')
+        if abs(epred_home + epred_away - 1.0) > 1e-12:
+            fail(f'{path.name} game_id={game_id} normalized EPRED probabilities do not sum to 1')
+        for count_field, ids_field in count_pairs:
+            validate_rule_count(row, count_field=count_field, ids_field=ids_field, active_rule_ids=active_rule_ids, label=f'{path.name} game_id={game_id}')
+        total_count = parse_int_text(row.get('matched_rule_count'), label=f'{path.name} game_id={game_id} matched_rule_count')
+        positive_count = parse_int_text(row.get('matched_positive_rule_count'), label=f'{path.name} game_id={game_id} matched_positive_rule_count')
+        negative_count = parse_int_text(row.get('matched_negative_rule_count'), label=f'{path.name} game_id={game_id} matched_negative_rule_count')
+        if positive_count + negative_count != total_count:
+            fail(f'{path.name} game_id={game_id} positive+negative matched counts do not equal total')
+        home_ids = set(split_rule_ids(row.get('home_matched_rule_ids')))
+        away_ids = set(split_rule_ids(row.get('away_matched_rule_ids')))
+        all_ids = set(split_rule_ids(row.get('matched_rule_ids')))
+        if home_ids | away_ids != all_ids:
+            fail(f'{path.name} game_id={game_id} home/away rule ID union does not equal all matched rule IDs')
+        if home_ids & away_ids:
+            fail(f'{path.name} game_id={game_id} same rule ID appears on both sides')
+        for side_name, side_ids in (('home', home_ids), ('away', away_ids)):
+            for polarity in ('positive', 'negative'):
+                strongest_id = s(row.get(f'{side_name}_strongest_{polarity}_rule_id'))
+                if strongest_id and strongest_id not in side_ids:
+                    fail(f'{path.name} game_id={game_id} {side_name} strongest {polarity} rule is absent from side matches')
+        output_by_id[game_id] = row
+    if set(output_by_id) != set(schedule_by_id):
+        fail(f'{path.name} output/schedule game universe mismatch')
+
+def enrichment_run_pipeline(reporter, *, season, market_name, MASTER_PATH, read_csv_table, validate_master, select_latest_odds_file, validate_selected_odds, aggregate_latest_odds, load_target_schedules, load_drat, load_epred, process_week, OUTPUT_DIR, validate_output_rows, normalize_rows, OUTPUT_HEADERS, build_staged_root, publish_staged_root, Path, shutil):
+    master_headers, master_rows = read_csv_table(MASTER_PATH)
+    reporter.add_input(MASTER_PATH)
+    active_rule_ids = validate_master(master_headers, master_rows)
+    odds_path, skipped_odds_candidates = select_latest_odds_file(reporter=reporter)
+    odds_headers, odds_rows = read_csv_table(odds_path)
+    validate_selected_odds(path=odds_path, headers=odds_headers, rows=odds_rows)
+    reporter.add_input(odds_path)
+    current_odds = aggregate_latest_odds(odds_rows)
+    schedules = load_target_schedules(season=season, reporter=reporter)
+    week_outputs = {}
+    completed = []
+    total_rows = 0
+    current_odds_matches = 0
+    weekly_fallbacks = 0
+    for week, (schedule_path, season_type, schedule_rows) in sorted(schedules.items()):
+        drat_path, _, drat_by_teams = load_drat(season=season, week=week, schedule_rows=schedule_rows, reporter=reporter)
+        epred_path, _, epred_by_game = load_epred(season=season, season_type=season_type, week=week, schedule_rows=schedule_rows, reporter=reporter)
+        output_rows, metrics = process_week(season=season, season_type=season_type, week=week, schedule_rows=schedule_rows, drat_by_teams=drat_by_teams, epred_by_game=epred_by_game, current_odds=current_odds, master_rows=master_rows)
+        output_path = OUTPUT_DIR / f'week_{week}_NFL_enriched.csv'
+        validate_output_rows(normalize_rows(output_rows), schedule_rows=schedule_rows, active_rule_ids=active_rule_ids, path=output_path)
+        week_outputs[week] = (output_rows, schedule_rows)
+        total_rows += len(output_rows)
+        current_odds_matches += metrics['current_odds_matches']
+        weekly_fallbacks += metrics['weekly_schedule_market_fallbacks']
+        completed.append({'season': season, 'season_type': season_type, 'week': week, 'schedule': schedule_path.name, 'drat': drat_path.name, 'epred': epred_path.name, 'output': str(output_path), 'games': len(output_rows), 'missing_epred': 0, 'missing_drat': 0})
+    reporter.set_rows(rows_in=total_rows, rows_out=0)
+    reporter.update_details({'season': season, 'weeks_enriched': len(completed), 'games_enriched': total_rows, 'active_supported_rules': len(active_rule_ids), 'master_rows': len(master_rows), 'latest_odds_file': str(odds_path), 'latest_odds_rows': len(odds_rows), 'odds_candidates_skipped': skipped_odds_candidates, 'current_odds_matches': current_odds_matches, 'weekly_schedule_market_fallbacks': weekly_fallbacks, 'output_columns': len(OUTPUT_HEADERS), 'publication_mode': 'validated_directory_swap_with_rollback', 'publication_completed': False, 'staged_roundtrip_verified': False})
+    stage_root = None
+    try:
+        stage_root = build_staged_root(week_outputs=week_outputs, active_rule_ids=active_rule_ids)
+        reporter.set_detail('staged_roundtrip_verified', True)
+        publish_staged_root(stage_root, reporter=reporter)
+        stage_root = None
+    finally:
+        if stage_root is not None and stage_root.exists():
+            shutil.rmtree(stage_root, ignore_errors=True)
+    for result in completed:
+        reporter.add_output(Path(result['output']))
+    reporter.set_rows(rows_in=total_rows, rows_out=total_rows)
+    reporter.update_details({'files_published': len(completed), 'rows_published': total_rows, 'publication_completed': True})
+    print(f'Historical {market_name} master: {MASTER_PATH}')
+    print(f'Latest odds file: {odds_path}')
+    print(f'Weeks enriched: {len(completed)}')
+    for result in completed:
+        print(f"week {result['week']} -> {result['output']} (games={result['games']}, missing_epred=0, missing_drat=0)")
+
+def enrichment_bind_input_helpers(*, schedule_dir, drat_dir, epred_dir, fail):
+    read_csv_table = _enrichment_partial_v2(enrichment_read_csv_table, fail=fail)
+    require_exact_headers = _enrichment_partial_v2(enrichment_require_exact_headers, fail=fail)
+    parse_int_text = _enrichment_partial_v2(enrichment_parse_int_text, fail=fail)
+    require_finite_number = _enrichment_partial_v2(enrichment_require_finite_number, fail=fail)
+    game_team_key = _enrichment_partial_v2(enrichment_game_team_key, fail=fail)
+    schedule_identity = _enrichment_partial_v2(enrichment_schedule_identity, fail=fail)
+
+    validate_weekly_schedule = _enrichment_partial_v2(
+        enrichment_validate_weekly_schedule,
+        WEEKLY_FILENAME_RE=ENRICHMENT_WEEKLY_FILENAME_RE,
+        fail=fail,
+        parse_int_text=parse_int_text,
+        s=enrichment_clean_text,
+        same_text=enrichment_same_text,
+    )
+    load_target_schedules = _enrichment_partial_v2(
+        enrichment_load_target_schedules,
+        SCHEDULE_DIR=schedule_dir,
+        fail=fail,
+        read_csv_table=read_csv_table,
+        require_exact_headers=require_exact_headers,
+        WEEKLY_COLUMNS=ENRICHMENT_WEEKLY_COLUMNS,
+        schedule_identity=schedule_identity,
+        validate_weekly_schedule=validate_weekly_schedule,
+    )
+    load_drat = _enrichment_partial_v2(
+        enrichment_load_drat,
+        DRAT_DIR=drat_dir,
+        read_csv_table=read_csv_table,
+        require_exact_headers=require_exact_headers,
+        DRAT_HEADERS=ENRICHMENT_DRAT_HEADERS,
+        s=enrichment_clean_text,
+        parse_int_text=parse_int_text,
+        fail=fail,
+        same_text=enrichment_same_text,
+        require_finite_number=require_finite_number,
+        game_team_key=game_team_key,
+    )
+    load_epred = _enrichment_partial_v2(
+        enrichment_load_epred,
+        EPRED_DIR=epred_dir,
+        read_csv_table=read_csv_table,
+        require_exact_headers=require_exact_headers,
+        EPRED_HEADERS=ENRICHMENT_EPRED_HEADERS,
+        s=enrichment_clean_text,
+        parse_int_text=parse_int_text,
+        fail=fail,
+        same_text=enrichment_same_text,
+        require_finite_number=require_finite_number,
+    )
+    return validate_weekly_schedule, load_target_schedules, load_drat, load_epred
+
+def enrichment_bind_side_output_validator(*, fail):
+    return _enrichment_partial_v2(
+        enrichment_validate_side_output_rows,
+        fail=fail,
+        s=enrichment_clean_text,
+        WEEKLY_COLUMNS=ENRICHMENT_WEEKLY_COLUMNS,
+        require_finite_number=_enrichment_partial_v2(
+            enrichment_require_finite_number,
+            fail=fail,
+        ),
+        validate_rule_count=_enrichment_partial_v2(
+            enrichment_validate_rule_count,
+            fail=fail,
+        ),
+        parse_int_text=_enrichment_partial_v2(
+            enrichment_parse_int_text,
+            fail=fail,
+        ),
+        split_rule_ids=enrichment_split_rule_ids,
+    )
+
+def enrichment_bind_run(namespace, *, market_name):
+    required = (
+        "MASTER_PATH",
+        "read_csv_table",
+        "validate_master",
+        "select_latest_odds_file",
+        "validate_selected_odds",
+        "aggregate_latest_odds",
+        "load_target_schedules",
+        "load_drat",
+        "load_epred",
+        "process_week",
+        "OUTPUT_DIR",
+        "validate_output_rows",
+        "normalize_rows",
+        "OUTPUT_HEADERS",
+        "build_staged_root",
+        "publish_staged_root",
+        "Path",
+        "shutil",
+    )
+    missing = [name for name in required if name not in namespace]
+    if missing:
+        raise RuntimeError(
+            "Cannot bind enrichment runner; missing names: "
+            + ", ".join(missing)
+        )
+    return _enrichment_partial_v2(
+        enrichment_run_pipeline,
+        market_name=market_name,
+        **{name: namespace[name] for name in required},
+    )
+
+# QODANA_SHARED_ENRICHMENT_CORE_V2_END
+
 # QODANA_SHARED_ENRICHMENT_CORE_V1_END
