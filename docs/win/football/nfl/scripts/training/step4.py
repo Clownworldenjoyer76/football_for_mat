@@ -748,31 +748,32 @@ def family_matches(matches, family: str):
 
 
 def build_common_summary(matches, condition_field: str):
-    output = {}
-
-    positive = [
-        match for match in matches if match["direction"] == "POSITIVE"
-    ]
-    negative = [
-        match for match in matches if match["direction"] == "NEGATIVE"
-    ]
-
-    output["matched_rule_count"] = len(matches)
-    output["matched_positive_rule_count"] = len(positive)
-    output["matched_negative_rule_count"] = len(negative)
-    output["matched_rule_ids"] = join_text(
-        match["rule_id"] for match in matches
-    )
-    output["matched_rule_conditions"] = join_text(
-        (
-            f'{match["rule_id"]}:'
-            f'{match["family"]}:'
-            f'{match[condition_field]}:'
-            f'{match["condition"]}'
-        )
-        for match in matches
-    )
-
+    output = {
+        "matched_rule_count": len(matches),
+        "matched_positive_rule_count": sum(
+            1
+            for match in matches
+            if match["direction"] == "POSITIVE"
+        ),
+        "matched_negative_rule_count": sum(
+            1
+            for match in matches
+            if match["direction"] == "NEGATIVE"
+        ),
+        "matched_rule_ids": join_text(
+            match["rule_id"]
+            for match in matches
+        ),
+        "matched_rule_conditions": join_text(
+            (
+                f'{match["rule_id"]}:'
+                f'{match["family"]}:'
+                f'{match[condition_field]}:'
+                f'{match["condition"]}'
+            )
+            for match in matches
+        ),
+    }
     return output
 
 

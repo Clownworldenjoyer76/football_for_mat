@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+# Shared roster schema contract.
+
+COMPATIBILITY_COLUMNS = ['age', 'alternateIds.sdr', 'birthPlace.city', 'birthPlace.country', 'birthPlace.state', 'college.abbrev', 'college.guid', 'college.id', 'college.name', 'college.shortName', 'contract.active', 'contract.bonus', 'contract.optionType', 'contract.salary', 'contract.salaryRemaining', 'contract.season.endDate', 'contract.season.startDate', 'contract.season.year', 'contract.signedThrough', 'dateOfBirth', 'debutYear', 'displayHeight', 'displayName', 'displayWeight', 'experience.years', 'firstName', 'fullName', 'guid', 'hand.abbreviation', 'hand.displayValue', 'hand.type', 'headshot.alt', 'headshot.href', 'height', 'id', 'injuries.0.date', 'injuries.0.status', 'jersey', 'lastName', 'position.abbreviation', 'position.displayName', 'position.id', 'position.leaf', 'position.name', 'position.parent.abbreviation', 'position.parent.displayName', 'position.parent.id', 'position.parent.leaf', 'position.parent.name', 'shortName', 'slug', 'status.abbreviation', 'status.id', 'status.name', 'status.type', 'team_id', 'uid', 'weight']
+
+CORE_REQUIRED_FIELDS = ['id', 'displayName', 'position.id', 'position.abbreviation', 'team_id']

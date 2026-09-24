@@ -975,17 +975,10 @@ def validate_week1_base(base: pd.DataFrame, season: int, label: str) -> None:
         str(schedule_path),
     )
 
-    schedule_season = pd.to_numeric(schedule["season"], errors="coerce")
-    schedule_week = pd.to_numeric(schedule["week"], errors="coerce")
-
-    week_schedule = schedule[
-        (schedule_season == season)
-        & (schedule_week == WEEK)
-    ].copy()
-
-    require_unique_game_id(
-        week_schedule,
-        f"{schedule_path} season={season} week={WEEK}",
+    week_schedule = select_week1_schedule(
+        schedule,
+        season=season,
+        path=schedule_path,
     )
 
     schedule_by_game = week_schedule.set_index("game_id")
@@ -1264,6 +1257,32 @@ def add_epred_features(
     return merge_game_source(work, source, columns, str(path))
 
 
+def select_week1_schedule(
+    schedule: pd.DataFrame,
+    *,
+    season: int,
+    path: Path,
+) -> pd.DataFrame:
+    season_values = pd.to_numeric(
+        schedule["season"],
+        errors="coerce",
+    )
+    week_values = pd.to_numeric(
+        schedule["week"],
+        errors="coerce",
+    )
+
+    selected = schedule[
+        (season_values == season)
+        & (week_values == WEEK)
+    ].copy()
+
+    require_unique_game_id(
+        selected,
+        f"{path} season={season} week={WEEK}",
+    )
+    return selected
+
 def load_schedule_week1(
     work: pd.DataFrame,
     root: Path,
@@ -1283,17 +1302,10 @@ def load_schedule_week1(
         str(path),
     )
 
-    season_num = pd.to_numeric(schedule["season"], errors="coerce")
-    week_num = pd.to_numeric(schedule["week"], errors="coerce")
-
-    week1 = schedule[
-        (season_num == season)
-        & (week_num == WEEK)
-    ].copy()
-
-    require_unique_game_id(
-        week1,
-        f"{path} season={season} week={WEEK}",
+    week1 = select_week1_schedule(
+        schedule,
+        season=season,
+        path=path,
     )
 
     validate_team_alignment(work, week1, teams, str(path))

@@ -28,6 +28,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from roster_contract import COMPATIBILITY_COLUMNS, CORE_REQUIRED_FIELDS
 
 CORE_BASE = "https://sports.core.api.espn.com/v2"
 OUTPUT_PATH = NFL_ROOT / "data" / "raw" / "raw_roster.csv"
@@ -53,74 +54,7 @@ RETRYABLE_HTTP_CODES = {
     504,
 }
 
-COMPATIBILITY_COLUMNS = [
-    "age",
-    "alternateIds.sdr",
-    "birthPlace.city",
-    "birthPlace.country",
-    "birthPlace.state",
-    "college.abbrev",
-    "college.guid",
-    "college.id",
-    "college.name",
-    "college.shortName",
-    "contract.active",
-    "contract.bonus",
-    "contract.optionType",
-    "contract.salary",
-    "contract.salaryRemaining",
-    "contract.season.endDate",
-    "contract.season.startDate",
-    "contract.season.year",
-    "contract.signedThrough",
-    "dateOfBirth",
-    "debutYear",
-    "displayHeight",
-    "displayName",
-    "displayWeight",
-    "experience.years",
-    "firstName",
-    "fullName",
-    "guid",
-    "hand.abbreviation",
-    "hand.displayValue",
-    "hand.type",
-    "headshot.alt",
-    "headshot.href",
-    "height",
-    "id",
-    "injuries.0.date",
-    "injuries.0.status",
-    "jersey",
-    "lastName",
-    "position.abbreviation",
-    "position.displayName",
-    "position.id",
-    "position.leaf",
-    "position.name",
-    "position.parent.abbreviation",
-    "position.parent.displayName",
-    "position.parent.id",
-    "position.parent.leaf",
-    "position.parent.name",
-    "shortName",
-    "slug",
-    "status.abbreviation",
-    "status.id",
-    "status.name",
-    "status.type",
-    "team_id",
-    "uid",
-    "weight",
-]
 
-CORE_REQUIRED_FIELDS = [
-    "id",
-    "displayName",
-    "position.id",
-    "position.abbreviation",
-    "team_id",
-]
 
 
 class RosterPullError(RuntimeError):
@@ -273,42 +207,30 @@ def flatten(
     parent_key: str = "",
     sep: str = ".",
 ) -> dict[str, Any]:
-    items: dict[str, Any] = {}
-
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            new_key = (
-                f"{parent_key}{sep}{key}"
-                if parent_key
-                else str(key)
-            )
-            items.update(
-                flatten(
-                    value,
-                    new_key,
-                    sep,
+    def walk(value: Any, key: str):
+        if isinstance(value, dict):
+            for child_key, child_value in value.items():
+                next_key = (
+                    f"{key}{sep}{child_key}"
+                    if key
+                    else str(child_key)
                 )
-            )
+                yield from walk(child_value, next_key)
+            return
 
-    elif isinstance(obj, list):
-        for index, value in enumerate(obj):
-            new_key = (
-                f"{parent_key}{sep}{index}"
-                if parent_key
-                else str(index)
-            )
-            items.update(
-                flatten(
-                    value,
-                    new_key,
-                    sep,
+        if isinstance(value, list):
+            for index, child_value in enumerate(value):
+                next_key = (
+                    f"{key}{sep}{index}"
+                    if key
+                    else str(index)
                 )
-            )
+                yield from walk(child_value, next_key)
+            return
 
-    else:
-        items[parent_key] = obj
+        yield key, value
 
-    return items
+    return dict(walk(obj, parent_key))
 
 
 def id_from_ref(

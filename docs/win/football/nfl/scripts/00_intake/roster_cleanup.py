@@ -23,80 +23,14 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from roster_contract import COMPATIBILITY_COLUMNS as KEEP_COLUMNS, CORE_REQUIRED_FIELDS
 
 INPUT_PATH = NFL_ROOT / "data" / "raw" / "raw_roster.csv"
 OUTPUT_PATH = NFL_ROOT / "data" / "master" / "roster_master.csv"
 TEAM_MAP_PATH = NFL_ROOT / "config" / "mapping" / "team_map.csv"
 REPORT_ROOT = NFL_ROOT / "errors"
 
-KEEP_COLUMNS = [
-    "age",
-    "alternateIds.sdr",
-    "birthPlace.city",
-    "birthPlace.country",
-    "birthPlace.state",
-    "college.abbrev",
-    "college.guid",
-    "college.id",
-    "college.name",
-    "college.shortName",
-    "contract.active",
-    "contract.bonus",
-    "contract.optionType",
-    "contract.salary",
-    "contract.salaryRemaining",
-    "contract.season.endDate",
-    "contract.season.startDate",
-    "contract.season.year",
-    "contract.signedThrough",
-    "dateOfBirth",
-    "debutYear",
-    "displayHeight",
-    "displayName",
-    "displayWeight",
-    "experience.years",
-    "firstName",
-    "fullName",
-    "guid",
-    "hand.abbreviation",
-    "hand.displayValue",
-    "hand.type",
-    "headshot.alt",
-    "headshot.href",
-    "height",
-    "id",
-    "injuries.0.date",
-    "injuries.0.status",
-    "jersey",
-    "lastName",
-    "position.abbreviation",
-    "position.displayName",
-    "position.id",
-    "position.leaf",
-    "position.name",
-    "position.parent.abbreviation",
-    "position.parent.displayName",
-    "position.parent.id",
-    "position.parent.leaf",
-    "position.parent.name",
-    "shortName",
-    "slug",
-    "status.abbreviation",
-    "status.id",
-    "status.name",
-    "status.type",
-    "team_id",
-    "uid",
-    "weight",
-]
 
-CORE_REQUIRED_FIELDS = [
-    "id",
-    "displayName",
-    "position.id",
-    "position.abbreviation",
-    "team_id",
-]
 
 
 class RosterCleanupError(RuntimeError):

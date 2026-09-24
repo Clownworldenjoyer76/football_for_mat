@@ -663,6 +663,43 @@ def read_pbp(
     return frame
 
 
+def validate_season_week_team(
+    row: dict[str, str],
+    *,
+    path: Path,
+    line_number: int,
+    season: int,
+    schedule_weeks: set[int],
+    valid_abbrs: set[str],
+    name_to_abbr: dict[str, str],
+) -> None:
+    row_season = parse_int(
+        row.get("season"),
+        f"{path} line {line_number} season",
+    )
+    week = parse_int(
+        row.get("week"),
+        f"{path} line {line_number} week",
+    )
+
+    if row_season != season:
+        fail(
+            f"{path} line {line_number} has season={row_season}; "
+            f"expected {season}"
+        )
+    if week not in schedule_weeks:
+        fail(
+            f"{path} line {line_number} has week={week} "
+            "absent from season schedule"
+        )
+
+    resolve_team_abbr(
+        row.get("team"),
+        valid_abbrs=valid_abbrs,
+        name_to_abbr=name_to_abbr,
+        label=f"{path} line {line_number} team",
+    )
+
 def validate_team_stats(
     rows: list[dict[str, str]],
     *,
@@ -695,31 +732,14 @@ def validate_team_stats(
     }
 
     for line_number, row in enumerate(rows, start=2):
-        row_season = parse_int(
-            row.get("season"),
-            f"{path} line {line_number} season",
-        )
-        week = parse_int(
-            row.get("week"),
-            f"{path} line {line_number} week",
-        )
-
-        if row_season != season:
-            fail(
-                f"{path} line {line_number} has season={row_season}; "
-                f"expected {season}"
-            )
-        if week not in schedule_weeks:
-            fail(
-                f"{path} line {line_number} has week={week} "
-                "absent from season schedule"
-            )
-
-        resolve_team_abbr(
-            row.get("team"),
+        validate_season_week_team(
+            row,
+            path=path,
+            line_number=line_number,
+            season=season,
+            schedule_weeks=schedule_weeks,
             valid_abbrs=valid_abbrs,
             name_to_abbr=name_to_abbr,
-            label=f"{path} line {line_number} team",
         )
 
         for column in metric_columns:
@@ -759,31 +779,14 @@ def validate_qb_stats(
         ])
 
     for line_number, row in enumerate(rows, start=2):
-        row_season = parse_int(
-            row.get("season"),
-            f"{path} line {line_number} season",
-        )
-        week = parse_int(
-            row.get("week"),
-            f"{path} line {line_number} week",
-        )
-
-        if row_season != season:
-            fail(
-                f"{path} line {line_number} has season={row_season}; "
-                f"expected {season}"
-            )
-        if week not in schedule_weeks:
-            fail(
-                f"{path} line {line_number} has week={week} "
-                "absent from season schedule"
-            )
-
-        resolve_team_abbr(
-            row.get("team"),
+        validate_season_week_team(
+            row,
+            path=path,
+            line_number=line_number,
+            season=season,
+            schedule_weeks=schedule_weeks,
             valid_abbrs=valid_abbrs,
             name_to_abbr=name_to_abbr,
-            label=f"{path} line {line_number} team",
         )
 
         if not clean(row.get("player_id")):
