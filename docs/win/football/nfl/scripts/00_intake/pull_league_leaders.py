@@ -311,14 +311,58 @@ def publish(
         exist_ok=True,
     )
 
-    write_csv_contract(
-        staged_path,
-        rows,
-        fieldnames=OUTPUT_HEADER,
-        extrasaction="ignore",
-        lineterminator="\\n",
-        encoding="utf-8",
-    )
+    with tempfile.TemporaryDirectory(
+        prefix=".league_leaders_stage_",
+        dir=output_path.parent,
+    ) as staging_dir:
+        staged_path = (
+            Path(staging_dir)
+            / output_path.name
+        )
+
+        write_csv_contract(
+            staged_path,
+            rows,
+            fieldnames=OUTPUT_HEADER,
+            extrasaction="ignore",
+            lineterminator="\n",
+            encoding="utf-8",
+        )
+
+        if staged_path.stat().st_size == 0:
+            raise LeagueLeadersError(
+                "Staged league leaders output is zero bytes"
+            )
+
+        with staged_path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            staged_header = reader.fieldnames or []
+            staged_rows = list(reader)
+
+        if staged_header != OUTPUT_HEADER:
+            raise LeagueLeadersError(
+                "Staged league leaders headers changed"
+            )
+
+        if len(staged_rows) != len(rows):
+            raise LeagueLeadersError(
+                "Staged league leaders row count changed"
+            )
+
+        validate_rows(
+            staged_rows,
+            season,
+            valid_team_ids,
+        )
+
+        os.replace(
+            staged_path,
+            output_path,
+        )
 
 
 def run(

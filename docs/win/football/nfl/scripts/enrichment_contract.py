@@ -12,7 +12,13 @@ import math as _enrichment_math
 import os as _enrichment_os
 from datetime import datetime as _enrichment_datetime
 from pathlib import Path as _EnrichmentPath
-from typing import Any as _EnrichmentAny
+from typing import (
+    Any as _EnrichmentAny,
+    Callable as _EnrichmentCallable,
+    Never as _EnrichmentNever,
+)
+
+_EnrichmentFail = _EnrichmentCallable[[str], _EnrichmentNever]
 
 
 def enrichment_clean_text(value: _EnrichmentAny) -> str:
@@ -30,14 +36,14 @@ def enrichment_number(value: _EnrichmentAny):
     return parsed if _enrichment_math.isfinite(parsed) else None
 
 
-def enrichment_require_finite_number(value: _EnrichmentAny, *, label: str, fail):
+def enrichment_require_finite_number(value: _EnrichmentAny, *, label: str, fail: _EnrichmentFail):
     parsed = enrichment_number(value)
     if parsed is None:
         fail(f"{label} must be a finite numeric value; received={enrichment_clean_text(value)!r}")
     return parsed
 
 
-def enrichment_parse_int_text(value: _EnrichmentAny, *, label: str, fail) -> int:
+def enrichment_parse_int_text(value: _EnrichmentAny, *, label: str, fail: _EnrichmentFail) -> int:
     text = enrichment_clean_text(value)
     if not text:
         fail(f"{label} is blank")
@@ -50,7 +56,7 @@ def enrichment_parse_int_text(value: _EnrichmentAny, *, label: str, fail) -> int
     return int(parsed)
 
 
-def enrichment_read_csv_table(path: _EnrichmentPath, *, fail):
+def enrichment_read_csv_table(path: _EnrichmentPath, *, fail: _EnrichmentFail):
     if not path.is_file():
         fail(f"Input file not found: {path}")
     if path.stat().st_size == 0:
@@ -70,16 +76,16 @@ def enrichment_read_csv_table(path: _EnrichmentPath, *, fail):
     return headers, rows
 
 
-def enrichment_read_csv(path: _EnrichmentPath, *, fail):
+def enrichment_read_csv(path: _EnrichmentPath, *, fail: _EnrichmentFail):
     return enrichment_read_csv_table(path, fail=fail)[1]
 
 
-def enrichment_require_exact_headers(headers, expected, *, label: str, fail) -> None:
+def enrichment_require_exact_headers(headers, expected, *, label: str, fail: _EnrichmentFail) -> None:
     if headers != expected:
         fail(f"{label} schema/order mismatch. Expected={expected} actual={headers}")
 
 
-def enrichment_require_columns(headers, required, *, label: str, fail) -> None:
+def enrichment_require_columns(headers, required, *, label: str, fail: _EnrichmentFail) -> None:
     missing = [column for column in required if column not in headers]
     if missing:
         fail(f"{label} is missing required columns: " + ", ".join(missing))
@@ -103,7 +109,7 @@ def enrichment_team_key(value) -> str:
     return " ".join(enrichment_clean_text(value).casefold().split())
 
 
-def enrichment_game_team_key(season, week, home, away, *, fail):
+def enrichment_game_team_key(season, week, home, away, *, fail: _EnrichmentFail):
     return (
         str(enrichment_parse_int_text(season, label="game-team-key season", fail=fail)),
         str(enrichment_parse_int_text(week, label="game-team-key week", fail=fail)),
@@ -147,7 +153,7 @@ def enrichment_no_vig_probs(home_ml, away_ml):
     return home / total, away / total
 
 
-def enrichment_schedule_identity(rows, path: _EnrichmentPath, *, fail):
+def enrichment_schedule_identity(rows, path: _EnrichmentPath, *, fail: _EnrichmentFail):
     if not rows:
         fail(f"Weekly schedule contains no data rows: {path}")
     values = set()
@@ -170,7 +176,7 @@ def enrichment_schedule_identity(rows, path: _EnrichmentPath, *, fail):
     return season, season_type, week
 
 
-def enrichment_select_latest_odds_file(*, reporter, odds_dir: _EnrichmentPath, fail):
+def enrichment_select_latest_odds_file(*, reporter, odds_dir: _EnrichmentPath, fail: _EnrichmentFail):
     if not odds_dir.is_dir():
         fail(f"Odds directory not found: {odds_dir}")
     paths = sorted(odds_dir.glob("*_NFL_odds.csv"))
@@ -213,7 +219,7 @@ def enrichment_select_latest_odds_file(*, reporter, odds_dir: _EnrichmentPath, f
     return candidates[-1][2], skipped
 
 
-def enrichment_validate_selected_odds(*, path, headers, rows, odds_headers, expected_market_sides, fail):
+def enrichment_validate_selected_odds(*, path, headers, rows, odds_headers, expected_market_sides, fail: _EnrichmentFail):
     enrichment_require_exact_headers(headers, odds_headers, label=f"selected current odds {path.name}", fail=fail)
     if not rows:
         fail(f"Selected current odds file has no rows: {path}")
@@ -367,7 +373,7 @@ def enrichment_market_role_for_side(g, side):
     return "Market Even"
 
 
-def enrichment_feature_value(formula_code, g, family_ctx, *, fail):
+def enrichment_feature_value(formula_code, g, family_ctx, *, fail: _EnrichmentFail):
     side = family_ctx["side"]
     if formula_code == "USE_FAMILY_SELECTED_PROB": return family_ctx["prob"]
     if formula_code == "MARKET_ROLE_FOR_FAMILY_SELECTED_SIDE": return enrichment_market_role_for_side(g, side)
@@ -401,6 +407,7 @@ def enrichment_feature_value(formula_code, g, family_ctx, *, fail):
         return (family_probability - market_probability) * 100.0
     if formula_code == "UNAVAILABLE": return None
     fail("Unsupported formula_code in master: " f"{formula_code}")
+    raise AssertionError("fail callback returned unexpectedly")
 
 
 def enrichment_family_matches(matches, family):
@@ -417,7 +424,7 @@ def enrichment_split_rule_ids(value):
     return [item for item in text.split(";") if item]
 
 
-def enrichment_validate_rule_count(row, *, count_field, ids_field, active_rule_ids, label, fail):
+def enrichment_validate_rule_count(row, *, count_field, ids_field, active_rule_ids, label, fail: _EnrichmentFail):
     count = enrichment_parse_int_text(row.get(count_field), label=f"{label} {count_field}", fail=fail)
     if count < 0: fail(f"{label} {count_field} cannot be negative")
     ids = enrichment_split_rule_ids(row.get(ids_field))
@@ -431,7 +438,7 @@ def enrichment_normalize_rows(rows, *, output_headers):
     return [{header: enrichment_clean_text(row.get(header)) for header in output_headers} for row in rows]
 
 
-def enrichment_condition_matches(rule, number, value, *, fail):
+def enrichment_condition_matches(rule, number, value, *, fail: _EnrichmentFail):
     prefix = f"condition_{number}_"
     match_type = enrichment_clean_text(rule.get(prefix + "match_type"))
     if not match_type: return True
@@ -450,9 +457,10 @@ def enrichment_condition_matches(rule, number, value, *, fail):
         if upper is not None and numeric >= upper: return False
         return True
     fail("Unsupported match_type in master: " f"{match_type}")
+    raise AssertionError("fail callback returned unexpectedly")
 
 
-def enrichment_validate_master_side(headers, rows, *, header_label, display_name, required_headers, supported_families, supported_formulas, supported_match_types, metric_fields, fail):
+def enrichment_validate_master_side(headers, rows, *, header_label, display_name, required_headers, supported_families, supported_formulas, supported_match_types, metric_fields, fail: _EnrichmentFail):
     enrichment_require_columns(headers, required_headers, label=header_label, fail=fail)
     if not rows: fail(f"{display_name} enrichment master contains no rows")
     seen_ids = set(); active_supported_ids = set()
@@ -491,7 +499,7 @@ def enrichment_validate_master_side(headers, rows, *, header_label, display_name
     return active_supported_ids
 
 
-def enrichment_match_rules_side(g, master_rows, contexts, *, master_label, rate_source_field, rate_output_field, fail):
+def enrichment_match_rules_side(g, master_rows, contexts, *, master_label, rate_source_field, rate_output_field, fail: _EnrichmentFail):
     matches = []
     for rule in master_rows:
         if enrichment_clean_text(rule.get("active")) != "1": continue
@@ -541,7 +549,7 @@ def enrichment_build_side_summary_fields(g, matches, *, rate_key, rate_suffix):
     return g
 
 
-def enrichment_process_week(*, season, season_type, week, schedule_rows, drat_by_teams, epred_by_game, current_odds, master_rows, game_team_key, match_rules, build_summary_fields, fail):
+def enrichment_process_week(*, season, season_type, week, schedule_rows, drat_by_teams, epred_by_game, current_odds, master_rows, game_team_key, match_rules, build_summary_fields, fail: _EnrichmentFail):
     output_rows = []
     metrics = {"current_odds_matches": 0, "weekly_schedule_market_fallbacks": 0}
     for base in schedule_rows:
