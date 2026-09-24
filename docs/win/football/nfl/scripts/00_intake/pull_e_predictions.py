@@ -32,7 +32,7 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 from collections import defaultdict
-from decimal import Decimal, InvalidOperation
+
 from pathlib import Path
 from typing import Any, Never
 
@@ -44,6 +44,11 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from schedule_contract import schedule_target_key
+from http_json_contract import fetch_json_object
+from team_contract import build_team_name_maps
+from csv_contract import write_csv_contract
+from value_contract import finite_decimal_text
 from csv_contract import read_csv_contract
 
 SCHEDULE_DIR = NFL_ROOT / "00_intake" / "schedule"
@@ -182,57 +187,14 @@ def load_team_map() -> dict[str, str]:
         label="NFL team map",
         required_columns=TEAM_MAP_REQUIRED_COLUMNS,
     )
-
-    by_name: dict[str, str] = {}
-    by_id: dict[str, str] = {}
-
-    for line_number, row in enumerate(rows, start=2):
-        sport = clean(row.get("sport")).casefold()
-        league = clean(row.get("league")).casefold()
-
-        if sport != "football" or league != "nfl":
-            continue
-
-        team_id = clean(row.get("team_id"))
-        canonical_team = clean(
-            row.get("canonical_team")
-        )
-
-        if not team_id or not canonical_team:
-            fail(
-                f"{TEAM_MAP_PATH} line {line_number} has "
-                "blank team_id/canonical_team"
-            )
-
-        previous_id = by_name.get(canonical_team)
-        if previous_id and previous_id != team_id:
-            fail(
-                f"{TEAM_MAP_PATH} has conflicting team IDs for "
-                f"canonical_team={canonical_team!r}: "
-                f"{previous_id!r} vs {team_id!r}"
-            )
-
-        previous_name = by_id.get(team_id)
-        if (
-            previous_name
-            and previous_name != canonical_team
-        ):
-            fail(
-                f"{TEAM_MAP_PATH} has conflicting canonical "
-                f"teams for team_id={team_id}: "
-                f"{previous_name!r} vs {canonical_team!r}"
-            )
-
-        by_name[canonical_team] = team_id
-        by_id[team_id] = canonical_team
-
-    if len(by_name) != 32 or len(by_id) != 32:
-        fail(
-            "NFL team map must resolve exactly 32 canonical "
-            f"teams; names={len(by_name)} ids={len(by_id)}"
-        )
-
+    by_name, _ = build_team_name_maps(
+        rows,
+        path=TEAM_MAP_PATH,
+        clean=clean,
+        fail=fail,
+    )
     return by_name
+
 
 
 def load_schedule(
@@ -346,61 +308,13 @@ def fetch_json(
             "User-Agent": "football_for_mat/1.0",
         },
     )
+    return fetch_json_object(
+        request,
+        timeout=timeout,
+        attempts=attempts,
+        retryable_http_codes=RETRYABLE_HTTP_CODES,
+    )
 
-    last_error = ""
-
-    for attempt in range(1, attempts + 1):
-        try:
-            with urllib.request.urlopen(
-                request,
-                timeout=timeout,
-            ) as response:
-                raw = response.read()
-
-            try:
-                payload = json.loads(
-                    raw.decode("utf-8")
-                )
-            except (
-                UnicodeDecodeError,
-                json.JSONDecodeError,
-            ) as exc:
-                last_error = (
-                    "invalid UTF-8/JSON response: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-            else:
-                if isinstance(payload, dict):
-                    return payload, attempt, ""
-
-                last_error = (
-                    "response root was not a JSON object"
-                )
-
-        except urllib.error.HTTPError as exc:
-            last_error = f"HTTP {exc.code}"
-
-            if exc.code not in RETRYABLE_HTTP_CODES:
-                return None, attempt, last_error
-
-        except (
-            urllib.error.URLError,
-            TimeoutError,
-        ) as exc:
-            last_error = (
-                f"{type(exc).__name__}: {exc}"
-            )
-
-        except Exception as exc:
-            last_error = (
-                f"{type(exc).__name__}: {exc}"
-            )
-            return None, attempt, last_error
-
-        if attempt < attempts:
-            time.sleep(2 ** (attempt - 1))
-
-    return None, attempts, last_error
 
 
 def extract_team_id(ref_url: Any) -> str:
@@ -422,24 +336,14 @@ def validate_numeric(
     *,
     label: str,
 ) -> str:
-    text = clean(value)
-
-    if not text:
-        fail(f"{label} is blank")
-
-    try:
-        number = Decimal(text)
-    except InvalidOperation:
-        fail(
-            f"{label} must be numeric; received={text!r}"
-        )
-
-    if not number.is_finite():
-        fail(
-            f"{label} must be finite; received={text!r}"
-        )
-
+    text, _ = finite_decimal_text(
+        value,
+        label=label,
+        clean=clean,
+        fail=fail,
+    )
     return text
+
 
 
 def parse_side(
@@ -747,15 +651,13 @@ def validate_generation(
 
         schedule_row = schedule_by_id[game_id]
 
-        expected_target = (
-            clean(schedule_row.get("season")),
-            clean(schedule_row.get("season_type")),
-            clean(schedule_row.get("week")),
+        expected_target = schedule_target_key(
+            schedule_row,
+            clean=clean,
         )
-        actual_target = (
-            clean(row.get("season")),
-            clean(row.get("season_type")),
-            clean(row.get("week")),
+        actual_target = schedule_target_key(
+            row,
+            clean=clean,
         )
 
         if actual_target != expected_target:
@@ -840,14 +742,15 @@ def group_rows(
     ] = defaultdict(list)
 
     for row in rows:
-        key = (
-            clean(row.get("season")),
-            clean(row.get("season_type")),
-            clean(row.get("week")),
-        )
-        grouped[key].append(row)
+        grouped[
+            schedule_target_key(
+                row,
+                clean=clean,
+            )
+        ].append(row)
 
     return dict(grouped)
+
 
 
 def expected_output_paths(
@@ -885,24 +788,13 @@ def write_csv(
     path: Path,
     rows: list[dict[str, str]],
 ) -> None:
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
+    write_csv_contract(
+        path,
+        rows,
+        fieldnames=OUTPUT_HEADER,
+        mkdir=True,
     )
 
-    with path.open(
-        "w",
-        newline="",
-        encoding="utf-8",
-    ) as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=OUTPUT_HEADER,
-        )
-        writer.writeheader()
-        writer.writerows(rows)
-        handle.flush()
-        os.fsync(handle.fileno())
 
 
 def normalize_rows(
@@ -990,22 +882,9 @@ def build_staged_root(
             schedule_rows
         )
 
-        schedule_by_group: dict[
-            tuple[str, str, str],
-            list[dict[str, str]],
-        ] = defaultdict(list)
-
-        for schedule_row in schedule_rows:
-            key = (
-                clean(schedule_row.get("season")),
-                clean(
-                    schedule_row.get("season_type")
-                ),
-                clean(schedule_row.get("week")),
-            )
-            schedule_by_group[key].append(
-                schedule_row
-            )
+        schedule_by_group = group_rows(
+            schedule_rows
+        )
 
         if set(rows_by_group) != set(output_paths):
             fail(

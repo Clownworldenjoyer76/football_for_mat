@@ -42,6 +42,9 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from schedule_contract import schedule_target_key
+from csv_contract import read_csv_contract
+from value_contract import finite_decimal_text
 
 CLEANER_PATH = SCRIPT_PATH.with_name("clean_e_pred.py")
 WEEKLY_BUILDER_PATH = SCRIPT_PATH.with_name(
@@ -170,37 +173,14 @@ def read_csv(
     label: str,
     exact_columns: list[str],
 ) -> list[dict[str, str]]:
-    if not path.is_file():
-        fail(f"Missing {label}: {path}")
-
-    if path.stat().st_size == 0:
-        fail(f"Zero-byte {label}: {path}")
-
-    try:
-        with path.open(
-            "r",
-            newline="",
-            encoding="utf-8-sig",
-        ) as handle:
-            reader = csv.DictReader(handle)
-            fieldnames = reader.fieldnames or []
-            rows = list(reader)
-    except Exception as exc:
-        fail(
-            f"Could not read {label} {path}: "
-            f"{type(exc).__name__}: {exc}"
-        )
-
-    if fieldnames != exact_columns:
-        fail(
-            f"{label} has unexpected column order/schema. "
-            f"Expected={exact_columns} actual={fieldnames}"
-        )
-
-    if not rows:
-        fail(f"{label} contains no data rows: {path}")
-
+    _, rows = read_csv_contract(
+        path,
+        label=label,
+        fail=fail,
+        exact_columns=exact_columns,
+    )
     return rows
+
 
 
 def finite_decimal(
@@ -208,23 +188,14 @@ def finite_decimal(
     *,
     label: str,
 ) -> Decimal:
-    text = clean(raw)
-    if not text:
-        fail(f"{label} is blank")
-
-    try:
-        value = Decimal(text)
-    except InvalidOperation:
-        fail(
-            f"{label} must be numeric; received={text!r}"
-        )
-
-    if not value.is_finite():
-        fail(
-            f"{label} must be finite; received={text!r}"
-        )
-
+    _, value = finite_decimal_text(
+        raw,
+        label=label,
+        clean=clean,
+        fail=fail,
+    )
     return value
+
 
 
 def optional_decimal(
@@ -541,15 +512,13 @@ def validate_weekly_file(
             )
 
         schedule_row = schedule_index[game_id]
-        actual_target = (
-            clean(row.get("season")),
-            clean(row.get("season_type")),
-            clean(row.get("week")),
+        actual_target = schedule_target_key(
+            row,
+            clean=clean,
         )
-        expected_target = (
-            clean(schedule_row.get("season")),
-            clean(schedule_row.get("season_type")),
-            clean(schedule_row.get("week")),
+        expected_target = schedule_target_key(
+            schedule_row,
+            clean=clean,
         )
 
         if actual_target != expected_target:
@@ -1102,13 +1071,16 @@ def validate_final_rows(
 def normalize_rows(
     rows: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-    return [
-        {
-            header: clean(row.get(header))
-            for header in OUT_HEADERS
-        }
-        for row in rows
-    ]
+    normalized: list[dict[str, str]] = []
+    for row in rows:
+        normalized.append(
+            dict(
+                (header, clean(row.get(header)))
+                for header in OUT_HEADERS
+            )
+        )
+    return normalized
+
 
 
 def write_csv(
@@ -1120,6 +1092,8 @@ def write_csv(
         exist_ok=True,
     )
 
+    normalized = normalize_rows(rows)
+
     with path.open(
         "w",
         newline="",
@@ -1129,12 +1103,17 @@ def write_csv(
             handle,
             fieldnames=OUT_HEADERS,
         )
-        writer.writeheader()
-        writer.writerows(
-            normalize_rows(rows)
+        writer.writerow(
+            {
+                header: header
+                for header in OUT_HEADERS
+            }
         )
+        if normalized:
+            writer.writerows(normalized)
         handle.flush()
         os.fsync(handle.fileno())
+
 
 
 def build_staged_root(

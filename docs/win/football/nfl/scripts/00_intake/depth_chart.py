@@ -28,6 +28,8 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import read_csv_contract
+from team_contract import build_team_abbr_map
 
 DEPTHCHART_URL_TEMPLATE = (
     "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/"
@@ -193,78 +195,24 @@ def fetch_json(
 
 
 def load_canonical_teams() -> dict[str, str]:
-    if not TEAM_MAP_PATH.is_file():
-        fail(f"Missing team map: {TEAM_MAP_PATH}")
+    _, rows = read_csv_contract(
+        TEAM_MAP_PATH,
+        label="team map",
+        fail=fail,
+        required_columns=[
+            "sport",
+            "league",
+            "team_id",
+            "team_abbr",
+        ],
+    )
+    return build_team_abbr_map(
+        rows,
+        path=TEAM_MAP_PATH,
+        clean=clean,
+        fail=fail,
+    )
 
-    if TEAM_MAP_PATH.stat().st_size == 0:
-        fail(f"Zero-byte team map: {TEAM_MAP_PATH}")
-
-    with TEAM_MAP_PATH.open(
-        "r",
-        newline="",
-        encoding="utf-8-sig",
-    ) as handle:
-        reader = csv.DictReader(handle)
-        fieldnames = reader.fieldnames or []
-        rows = list(reader)
-
-    required = {
-        "sport",
-        "league",
-        "team_id",
-        "team_abbr",
-    }
-    missing = sorted(required - set(fieldnames))
-
-    if missing:
-        fail(
-            f"Team map missing required columns: {missing}"
-        )
-
-    by_id: dict[str, str] = {}
-    by_abbr: dict[str, str] = {}
-
-    for row in rows:
-        if clean(row.get("sport")).lower() != "football":
-            continue
-        if clean(row.get("league")).lower() != "nfl":
-            continue
-
-        team_id = clean(row.get("team_id"))
-        team_abbr = clean(row.get("team_abbr")).upper()
-
-        if not team_id or not team_abbr:
-            fail(
-                "NFL team map contains blank team_id/team_abbr"
-            )
-
-        previous_abbr = by_id.get(team_id)
-        if previous_abbr and previous_abbr != team_abbr:
-            fail(
-                "NFL team map has conflicting abbreviations "
-                f"for team_id={team_id}: "
-                f"{previous_abbr!r} vs {team_abbr!r}"
-            )
-
-        previous_id = by_abbr.get(team_abbr)
-        if previous_id and previous_id != team_id:
-            fail(
-                "NFL team map has conflicting team IDs "
-                f"for team_abbr={team_abbr}: "
-                f"{previous_id!r} vs {team_id!r}"
-            )
-
-        by_id[team_id] = team_abbr
-        by_abbr[team_abbr] = team_id
-
-    if len(by_id) != 32 or len(by_abbr) != 32:
-        fail(
-            "Canonical NFL team map must contain exactly "
-            f"32 unique teams; ids={len(by_id)} "
-            f"abbrs={len(by_abbr)}"
-        )
-
-    return by_id
 
 
 
@@ -884,22 +832,12 @@ def write_staged_csv(
 def read_csv(
     path: Path,
 ) -> tuple[list[str], list[dict[str, str]]]:
-    if not path.is_file():
-        fail(f"Staged raw depth file missing: {path}")
+    return read_csv_contract(
+        path,
+        label="staged raw depth file",
+        fail=fail,
+    )
 
-    if path.stat().st_size == 0:
-        fail(f"Staged raw depth file is zero bytes: {path}")
-
-    with path.open(
-        "r",
-        newline="",
-        encoding="utf-8-sig",
-    ) as handle:
-        reader = csv.DictReader(handle)
-        fieldnames = reader.fieldnames or []
-        rows = list(reader)
-
-    return fieldnames, rows
 
 
 def main() -> None:

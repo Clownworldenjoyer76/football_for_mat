@@ -22,6 +22,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import write_csv_contract
 
 FUTURES_URL_TEMPLATE = (
     "https://sports.core.api.espn.com/v2/sports/football/"
@@ -489,21 +490,13 @@ def publish(
     ) as staging_dir:
         staged_path = Path(staging_dir) / output_path.name
 
-        with staged_path.open(
-            "w",
-            newline="",
-            encoding="utf-8",
-        ) as handle:
-            writer = csv.DictWriter(
-                handle,
-                fieldnames=OUTPUT_HEADER,
-                extrasaction="ignore",
-                lineterminator="\n",
-            )
-            writer.writeheader()
-            writer.writerows(rows)
-            handle.flush()
-            os.fsync(handle.fileno())
+        write_csv_contract(
+            staged_path,
+            rows,
+            fieldnames=OUTPUT_HEADER,
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
 
         if staged_path.stat().st_size == 0:
             raise MarketFuturesError(

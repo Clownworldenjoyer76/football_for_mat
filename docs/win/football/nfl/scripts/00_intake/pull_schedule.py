@@ -126,15 +126,27 @@ class RunLog:
         return self.error_count > 0
 
     def write_legacy(self) -> None:
-        LEGACY_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path = LEGACY_LOG_FILE.with_name(
-            f".{LEGACY_LOG_FILE.name}.tmp"
+        LEGACY_LOG_FILE.parent.mkdir(
+            parents=True,
+            exist_ok=True,
         )
-
         payload = "\n".join(self.lines).rstrip() + "\n"
 
+        file_descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{LEGACY_LOG_FILE.name}.",
+            suffix=".tmp",
+            dir=LEGACY_LOG_FILE.parent,
+            text=True,
+        )
+        temporary_path = Path(temporary_name)
+
         try:
-            with temporary_path.open("w", encoding="utf-8", newline="") as handle:
+            with os.fdopen(
+                file_descriptor,
+                "w",
+                encoding="utf-8",
+                newline="",
+            ) as handle:
                 handle.write(payload)
                 handle.flush()
                 os.fsync(handle.fileno())
@@ -142,6 +154,7 @@ class RunLog:
             os.replace(temporary_path, LEGACY_LOG_FILE)
         finally:
             temporary_path.unlink(missing_ok=True)
+
 
 
 def parse_args() -> argparse.Namespace:

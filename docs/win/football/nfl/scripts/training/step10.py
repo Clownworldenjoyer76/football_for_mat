@@ -606,6 +606,42 @@ class ParticipationProvider:
         return offense, defense
 
 
+def _resolve_depth_player_fields(
+    row: pd.Series,
+    *,
+    players: PlayerCrosswalk,
+    rank_col: str,
+    position_col: str | None,
+    slot_col: str,
+    gsis_col: str | None,
+    espn_col: str | None,
+    name_col: str | None,
+) -> tuple[str, str, str, str, int] | None:
+    rank = parse_optional_int(row[rank_col])
+    if rank is None or rank < 1:
+        return None
+
+    raw_gsis = clean(row[gsis_col]) if gsis_col else ""
+    raw_espn = clean(row[espn_col]) if espn_col else ""
+    name = clean(row[name_col]) if name_col else ""
+    resolved = players.resolve(raw_gsis or raw_espn, name)
+
+    gsis_id = raw_gsis if raw_gsis.startswith("00-") else ""
+    if not gsis_id and resolved is not None:
+        gsis_id = resolved.gsis_id
+
+    position = normalize_position(row[position_col]) if position_col else ""
+    if not position and resolved is not None:
+        position = resolved.position
+
+    return (
+        gsis_id,
+        name,
+        position,
+        clean(row[slot_col]).upper(),
+        rank,
+    )
+
 class DepthProvider:
     def __init__(
         self,
@@ -648,21 +684,22 @@ class DepthProvider:
         for _, row in df.iterrows():
             team = normalize_team(row[team_col])
             week = parse_optional_int(row[week_col])
-            rank = parse_optional_int(row[rank_col])
-            if not team or week is None or rank is None or rank < 1:
+            if not team or week is None:
                 continue
-            raw_gsis = clean(row[gsis_col]) if gsis_col else ""
-            raw_espn = clean(row[espn_col]) if espn_col else ""
-            name = clean(row[name_col]) if name_col else ""
-            resolved = players.resolve(raw_gsis or raw_espn, name)
-            gsis_id = raw_gsis if raw_gsis.startswith("00-") else ""
-            if not gsis_id and resolved is not None:
-                gsis_id = resolved.gsis_id
-            position = normalize_position(row[position_col]) if position_col else ""
-            if not position and resolved is not None:
-                position = resolved.position
+            player_fields = _resolve_depth_player_fields(
+                row,
+                players=players,
+                rank_col=rank_col,
+                position_col=position_col,
+                slot_col=slot_col,
+                gsis_col=gsis_col,
+                espn_col=espn_col,
+                name_col=name_col,
+            )
+            if player_fields is None:
+                continue
+            gsis_id, name, position, slot_value, rank = player_fields
             formation = clean(row[formation_col]).upper() if formation_col else ""
-            slot_value = clean(row[slot_col]).upper()
             slot = f"{formation}|{slot_value}" if formation else slot_value
             grouped.setdefault((team, week), []).append(
                 DepthPlayer(
@@ -699,21 +736,22 @@ class DepthProvider:
         for _, row in df.iterrows():
             team = normalize_team(row[team_col])
             timestamp = parse_timestamp(row[dt_col])
-            rank = parse_optional_int(row[rank_col])
-            if not team or timestamp is None or rank is None or rank < 1:
+            if not team or timestamp is None:
                 continue
-            raw_gsis = clean(row[gsis_col]) if gsis_col else ""
-            raw_espn = clean(row[espn_col]) if espn_col else ""
-            name = clean(row[name_col]) if name_col else ""
-            resolved = players.resolve(raw_gsis or raw_espn, name)
-            gsis_id = raw_gsis if raw_gsis.startswith("00-") else ""
-            if not gsis_id and resolved is not None:
-                gsis_id = resolved.gsis_id
-            position = normalize_position(row[position_col]) if position_col else ""
-            if not position and resolved is not None:
-                position = resolved.position
+            player_fields = _resolve_depth_player_fields(
+                row,
+                players=players,
+                rank_col=rank_col,
+                position_col=position_col,
+                slot_col=slot_col,
+                gsis_col=gsis_col,
+                espn_col=espn_col,
+                name_col=name_col,
+            )
+            if player_fields is None:
+                continue
+            gsis_id, name, position, slot_value, rank = player_fields
             group = clean(row[group_col]).upper() if group_col else ""
-            slot_value = clean(row[slot_col]).upper()
             slot = f"{group}|{slot_value}|{position}" if group else f"{slot_value}|{position}"
             grouped.setdefault((team, timestamp), []).append(
                 DepthPlayer(

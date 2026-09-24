@@ -20,6 +20,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from team_contract import is_nfl_mapping_row
 
 REPORT_ROOT = NFL_ROOT / "errors"
 
@@ -226,12 +227,11 @@ def load_team_universe() -> tuple[
     name_to_abbr: dict[str, str] = {}
 
     for line_number, row in enumerate(rows, start=2):
-        sport = clean(row.get("sport")).casefold()
-        league = clean(row.get("league")).casefold()
-
-        if sport not in {"", "football"}:
-            continue
-        if league not in {"", "nfl"}:
+        if not is_nfl_mapping_row(
+            row,
+            clean=clean,
+            allow_blank_scope=True,
+        ):
             continue
 
         team_id = clean(row.get("team_id"))

@@ -25,7 +25,7 @@ import sys
 import tempfile
 import uuid
 from collections import defaultdict
-from decimal import Decimal, InvalidOperation, ROUND_DOWN
+from decimal import Decimal, ROUND_DOWN
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Never
@@ -38,6 +38,8 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import read_csv_contract
+from value_contract import finite_decimal_text
 
 PRODUCER_PATH = SCRIPT_PATH.with_name("pull_e_predictions.py")
 IN_DIR = NFL_ROOT / "00_intake" / "predictions" / "e_predictions"
@@ -141,57 +143,25 @@ def read_csv(
     label: str,
     exact_columns: list[str],
 ) -> list[dict[str, str]]:
-    if not path.is_file():
-        fail(f"Missing {label}: {path}")
-
-    if path.stat().st_size == 0:
-        fail(f"Zero-byte {label}: {path}")
-
-    try:
-        with path.open(
-            "r",
-            newline="",
-            encoding="utf-8-sig",
-        ) as handle:
-            reader = csv.DictReader(handle)
-            fieldnames = reader.fieldnames or []
-            rows = list(reader)
-    except Exception as exc:
-        fail(
-            f"Could not read {label} {path}: "
-            f"{type(exc).__name__}: {exc}"
-        )
-
-    if fieldnames != exact_columns:
-        fail(
-            f"{label} has unexpected column order/schema. "
-            f"Expected={exact_columns} actual={fieldnames}"
-        )
-
-    if not rows:
-        fail(f"{label} contains no data rows: {path}")
-
+    _, rows = read_csv_contract(
+        path,
+        label=label,
+        fail=fail,
+        exact_columns=exact_columns,
+    )
     return rows
 
 
+
 def finite_decimal(raw: Any, *, label: str) -> Decimal:
-    text = clean(raw)
-    if not text:
-        fail(f"{label} is blank")
-
-    try:
-        value = Decimal(text)
-    except InvalidOperation:
-        fail(
-            f"{label} must be numeric; received={text!r}"
-        )
-
-    if not value.is_finite():
-        fail(
-            f"{label} must be finite; received={text!r}"
-        )
-
+    _, value = finite_decimal_text(
+        raw,
+        label=label,
+        clean=clean,
+        fail=fail,
+    )
     return value
+
 
 
 def to_decimal_prob(

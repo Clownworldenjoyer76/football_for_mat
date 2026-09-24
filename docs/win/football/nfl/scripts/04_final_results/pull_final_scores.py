@@ -50,6 +50,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import validate_csv_header_names
 
 
 SETTINGS_PATH = NFL_ROOT / "config" / "settings.yaml"
@@ -297,55 +298,13 @@ def validate_csv_header(
     *,
     label: str,
 ) -> list[str]:
-    try:
-        with path.open(
-            "r",
-            encoding="utf-8-sig",
-            newline="",
-        ) as handle:
-            reader = csv.reader(handle)
-            header = next(reader, None)
-    except UnicodeDecodeError as exc:
-        fail(
-            f"{label}: invalid UTF-8 CSV: "
-            f"{path}: {exc}"
-        )
-
-    if not header:
-        fail(
-            f"{label}: missing CSV header: "
-            f"{path}"
-        )
-
-    normalized = [
-        clean(column)
-        for column in header
-    ]
-
-    if any(
-        not column
-        for column in normalized
-    ):
-        fail(
-            f"{label}: blank CSV column name "
-            f"found: {path}"
-        )
-
-    duplicates = sorted(
-        {
-            column
-            for column in normalized
-            if normalized.count(column) > 1
-        }
+    return validate_csv_header_names(
+        path,
+        label=label,
+        clean=clean,
+        fail=fail,
     )
 
-    if duplicates:
-        fail(
-            f"{label}: duplicate CSV column "
-            f"names: {duplicates}"
-        )
-
-    return normalized
 
 
 def read_schedule(

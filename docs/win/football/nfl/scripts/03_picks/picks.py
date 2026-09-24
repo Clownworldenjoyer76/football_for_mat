@@ -1029,25 +1029,25 @@ def validate_input(
         str(path),
     )
 
-    game_ids = df[
-        "game_id"
-    ].map(clean)
+    game_ids = df["game_id"].map(clean)
 
-    if game_ids.eq("").any():
-        fail(
-            f"{path} contains "
-            "blank game_id values"
+    blank_count = int(game_ids.eq("").sum())
+    if blank_count:
+        fail(f"{path} contains blank game_id values")
+
+    counts = game_ids.value_counts(dropna=False)
+    repeated = counts[counts.gt(1)].index
+    if len(repeated):
+        examples = (
+            game_ids.loc[game_ids.isin(repeated)]
+            .head(10)
+            .tolist()
         )
-
-    if game_ids.duplicated().any():
-        examples = game_ids[
-            game_ids.duplicated(False)
-        ].head(10).tolist()
-
         fail(
             f"{path} contains duplicate "
             f"game_id values: {examples}"
         )
+
 
 
 

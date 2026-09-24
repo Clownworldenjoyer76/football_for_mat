@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Build the configured NFL weekly schedule from schedule and current odds."""
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import tempfile
 import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -235,22 +235,27 @@ def read_csv(
 
 
 def parse_iso_datetime(value: Any, label: str) -> datetime:
-    text = clean(value)
-    if not text:
+    raw_text = clean(value)
+    if not raw_text:
         fail(f"{label} is blank")
 
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
+    normalized_text = (
+        f"{raw_text[:-1]}+00:00"
+        if raw_text.endswith("Z")
+        else raw_text
+    )
 
     try:
-        parsed = datetime.fromisoformat(text)
+        timestamp = datetime.fromisoformat(normalized_text)
     except ValueError:
-        fail(f"{label} is not a valid ISO timestamp: {value!r}")
+        fail(
+            f"{label} is not a valid ISO timestamp: {value!r}"
+        )
 
-    if parsed.tzinfo is None:
+    if timestamp.utcoffset() is None:
         fail(f"{label} has no timezone: {value!r}")
 
-    return parsed
+    return timestamp
 
 
 def parse_date(value: Any):
@@ -1048,13 +1053,13 @@ def publish(
                 lineterminator="\n",
             )
             writer.writeheader()
-            for row in rows:
-                writer.writerow(
-                    {
-                        column: row.get(column, "")
-                        for column in OUTPUT_COLUMNS
-                    }
-                )
+            writer.writerows(
+                {
+                    column: row.get(column, "")
+                    for column in OUTPUT_COLUMNS
+                }
+                for row in rows
+            )
             handle.flush()
             os.fsync(handle.fileno())
 

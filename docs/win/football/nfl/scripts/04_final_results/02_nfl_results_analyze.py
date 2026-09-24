@@ -11,7 +11,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -426,24 +426,41 @@ def read_input() -> pd.DataFrame:
     return frame
 
 
+def _parse_integral_value(
+    value: Any,
+    *,
+    label: str,
+    minimum: int,
+    requirement: str,
+) -> float:
+    number = to_float(value)
+    invalid = (
+        number is None
+        or not number.is_integer()
+        or number < minimum
+    )
+    if invalid:
+        fail(
+            f"{label} must be {requirement}; "
+            f"found {value!r}"
+        )
+    return number
+
+
 def parse_positive_int(
     value: Any,
     *,
     label: str,
 ) -> int:
-    number = to_float(value)
-
-    if (
-        number is None
-        or not number.is_integer()
-        or number <= 0
-    ):
-        fail(
-            f"{label} must be a positive "
-            f"integer; found {value!r}"
+    return int(
+        _parse_integral_value(
+            value,
+            label=label,
+            minimum=1,
+            requirement="a positive integer",
         )
+    )
 
-    return int(number)
 
 
 def parse_nonnegative_integer(
@@ -451,19 +468,13 @@ def parse_nonnegative_integer(
     *,
     label: str,
 ) -> float:
-    number = to_float(value)
+    return _parse_integral_value(
+        value,
+        label=label,
+        minimum=0,
+        requirement="a nonnegative integer",
+    )
 
-    if (
-        number is None
-        or number < 0
-        or not number.is_integer()
-    ):
-        fail(
-            f"{label} must be a nonnegative "
-            f"integer; found {value!r}"
-        )
-
-    return number
 
 
 def require_finite_if_present(

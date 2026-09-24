@@ -244,14 +244,20 @@ def num(value):
 
 
 def read_csv(path: Path) -> pd.DataFrame:
-    if not path.exists():
+    if not path.is_file():
         raise FileNotFoundError(f"Missing input file: {path}")
-    return pd.read_csv(
-        path,
-        dtype=str,
+
+    with path.open(
+        "r",
         encoding="utf-8-sig",
-        low_memory=False,
-    )
+        newline="",
+    ) as handle:
+        return pd.read_csv(
+            handle,
+            dtype=str,
+            low_memory=False,
+        )
+
 
 
 def require_columns(
@@ -259,9 +265,14 @@ def require_columns(
     required: list[str],
     label: str,
 ) -> None:
-    missing = [column for column in required if column not in df.columns]
+    missing = sorted(
+        set(required).difference(df.columns)
+    )
     if missing:
-        raise ValueError(f"{label}: missing required columns: {missing}")
+        raise ValueError(
+            f"{label}: missing required columns: {missing}"
+        )
+
 
 
 def american_implied(odds):

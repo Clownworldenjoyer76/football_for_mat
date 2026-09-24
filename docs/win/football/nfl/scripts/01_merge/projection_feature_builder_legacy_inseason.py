@@ -381,7 +381,8 @@ def require_unique_game_id(
 
 def filter_unstarted_games(
     root: Path,
-    base: pd.DataFrame,
+    base: pd.DataFrame,
+    season: int,
     week: int,
     label: str,
 ) -> pd.DataFrame:

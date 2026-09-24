@@ -22,6 +22,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import write_csv_contract
 
 
 DRAT_RAW_DIR = NFL_ROOT / "00_intake" / "predictions" / "drat" / "raw"
@@ -439,31 +440,16 @@ def write_clean_csv(
     output_path: Path,
     rows: list[dict[str, str]],
 ) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    write_csv_contract(
+        output_path,
+        rows,
+        fieldnames=OUTPUT_HEADERS,
+        clean=clean_text,
+        mkdir=True,
+        extrasaction="ignore",
+        lineterminator="\n",
+    )
 
-    with output_path.open(
-        "w",
-        encoding="utf-8",
-        newline="",
-    ) as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=OUTPUT_HEADERS,
-            extrasaction="ignore",
-            lineterminator="\n",
-        )
-        writer.writeheader()
-
-        for row in rows:
-            writer.writerow(
-                {
-                    header: clean_text(row.get(header))
-                    for header in OUTPUT_HEADERS
-                }
-            )
-
-        handle.flush()
-        os.fsync(handle.fileno())
 
 
 def transform_drat_rows(

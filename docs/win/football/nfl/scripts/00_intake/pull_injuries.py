@@ -30,6 +30,8 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from team_contract import build_team_name_maps
+from csv_contract import write_csv_contract, normalize_csv_rows
 from csv_contract import read_csv_contract
 
 INJURIES_URL = (
@@ -122,52 +124,14 @@ def load_canonical_team_names() -> set[str]:
             "canonical_team",
         ],
     )
-
-    by_id: dict[str, str] = {}
-    by_name: dict[str, str] = {}
-
-    for line_number, row in enumerate(rows, start=2):
-        sport = clean(row.get("sport")).casefold()
-        league = clean(row.get("league")).casefold()
-
-        if sport != "football" or league != "nfl":
-            continue
-
-        team_id = clean(row.get("team_id"))
-        canonical_team = clean(row.get("canonical_team"))
-
-        if not team_id or not canonical_team:
-            fail(
-                f"{TEAM_MAP_PATH} line {line_number} has "
-                "blank team_id/canonical_team"
-            )
-
-        previous_name = by_id.get(team_id)
-        if previous_name and previous_name != canonical_team:
-            fail(
-                f"{TEAM_MAP_PATH} has conflicting canonical team "
-                f"names for team_id={team_id}: "
-                f"{previous_name!r} vs {canonical_team!r}"
-            )
-
-        previous_id = by_name.get(canonical_team)
-        if previous_id and previous_id != team_id:
-            fail(
-                f"{TEAM_MAP_PATH} has conflicting team IDs for "
-                f"canonical_team={canonical_team!r}: "
-                f"{previous_id!r} vs {team_id!r}"
-            )
-
-        by_id[team_id] = canonical_team
-        by_name[canonical_team] = team_id
-
-    if len(by_id) != 32 or len(by_name) != 32:
-        fail(
-            "Canonical NFL team map must resolve exactly 32 teams; "
-            f"ids={len(by_id)} names={len(by_name)}"
-        )
-
+    by_name, _ = build_team_name_maps(
+        rows,
+        path=TEAM_MAP_PATH,
+        clean=clean,
+        fail=fail,
+    )
     return set(by_name)
+
 
 
 def fetch_json(
@@ -480,31 +444,23 @@ def write_csv(
     path: Path,
     rows: list[dict[str, str]],
 ) -> None:
-    with path.open(
-        "w",
-        newline="",
-        encoding="utf-8",
-    ) as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=OUTPUT_HEADERS,
-        )
-        writer.writeheader()
-        writer.writerows(rows)
-        handle.flush()
-        os.fsync(handle.fileno())
+    write_csv_contract(
+        path,
+        rows,
+        fieldnames=OUTPUT_HEADERS,
+    )
+
 
 
 def normalize_rows(
     rows: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-    return [
-        {
-            column: clean(row.get(column))
-            for column in OUTPUT_HEADERS
-        }
-        for row in rows
-    ]
+    return normalize_csv_rows(
+        rows,
+        fieldnames=OUTPUT_HEADERS,
+        clean=clean,
+    )
+
 
 
 def publish(

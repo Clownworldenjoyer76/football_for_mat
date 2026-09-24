@@ -23,6 +23,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import write_csv_contract
 
 SCOREBOARD_URL = (
     "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
@@ -326,21 +327,13 @@ def publish(
     ) as staging_dir:
         staged = Path(staging_dir) / path.name
 
-        with staged.open(
-            "w",
-            newline="",
-            encoding="utf-8",
-        ) as handle:
-            writer = csv.DictWriter(
-                handle,
-                fieldnames=fields,
-                extrasaction="ignore",
-                lineterminator="\n",
-            )
-            writer.writeheader()
-            writer.writerows(rows)
-            handle.flush()
-            os.fsync(handle.fileno())
+        write_csv_contract(
+            staged,
+            rows,
+            fieldnames=fields,
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
 
         with staged.open(
             "r",

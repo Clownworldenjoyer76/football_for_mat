@@ -28,6 +28,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from team_contract import is_nfl_mapping_row
 from roster_contract import COMPATIBILITY_COLUMNS, CORE_REQUIRED_FIELDS
 
 CORE_BASE = "https://sports.core.api.espn.com/v2"
@@ -289,12 +290,11 @@ def load_canonical_team_ids(
         team_ids: set[str] = set()
 
         for row in reader:
-            sport = clean(row.get("sport")).casefold()
-            league = clean(row.get("league")).casefold()
-
-            if sport not in {"", "football"}:
-                continue
-            if league not in {"", "nfl"}:
+            if not is_nfl_mapping_row(
+                row,
+                clean=clean,
+                allow_blank_scope=True,
+            ):
                 continue
 
             team_id = clean(row.get("team_id"))

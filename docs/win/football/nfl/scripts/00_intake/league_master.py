@@ -32,6 +32,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from csv_contract import write_csv_contract
 
 
 TEAM_MASTER_PATH = (
@@ -1269,44 +1270,18 @@ def write_csv(
     path: Path,
     *,
     headers: list[str],
-    rows: list[
-        dict[str, Any]
-    ],
+    rows: list[dict[str, Any]],
 ) -> None:
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
+    write_csv_contract(
+        path,
+        rows,
+        fieldnames=headers,
+        clean=clean_text,
+        mkdir=True,
+        extrasaction="ignore",
+        lineterminator="\n",
     )
 
-    with path.open(
-        "w",
-        newline="",
-        encoding="utf-8",
-    ) as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=headers,
-            extrasaction="ignore",
-            lineterminator="\n",
-        )
-
-        writer.writeheader()
-
-        for row in rows:
-            writer.writerow(
-                {
-                    header: clean_text(
-                        row.get(header)
-                    )
-                    for header
-                    in headers
-                }
-            )
-
-        handle.flush()
-        os.fsync(
-            handle.fileno()
-        )
 
 
 def read_csv_rows(

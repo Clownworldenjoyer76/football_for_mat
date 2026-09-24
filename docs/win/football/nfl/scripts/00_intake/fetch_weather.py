@@ -40,6 +40,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from http_json_contract import fetch_json_object
 from csv_contract import read_csv_contract
 
 METNO_URL = (
@@ -458,64 +459,17 @@ def fetch_weather_json(
     lat: str,
     lon: str,
 ) -> tuple[dict[str, Any] | None, int, str]:
-    url = f"{METNO_URL}?lat={lat}&lon={lon}"
     request = urllib.request.Request(
-        url,
+        f"{METNO_URL}?lat={lat}&lon={lon}",
         headers={"User-Agent": METNO_USER_AGENT},
     )
+    return fetch_json_object(
+        request,
+        timeout=REQUEST_TIMEOUT,
+        attempts=REQUEST_ATTEMPTS,
+        retryable_http_codes=RETRYABLE_HTTP_CODES,
+    )
 
-    last_error = ""
-
-    for attempt in range(1, REQUEST_ATTEMPTS + 1):
-        try:
-            with urllib.request.urlopen(
-                request,
-                timeout=REQUEST_TIMEOUT,
-            ) as response:
-                raw = response.read()
-
-            try:
-                payload = json.loads(raw.decode("utf-8"))
-            except (
-                UnicodeDecodeError,
-                json.JSONDecodeError,
-            ) as exc:
-                last_error = (
-                    "invalid UTF-8/JSON response: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-            else:
-                if isinstance(payload, dict):
-                    return payload, attempt, ""
-
-                last_error = (
-                    "response root was not a JSON object"
-                )
-
-        except urllib.error.HTTPError as exc:
-            last_error = f"HTTP {exc.code}"
-
-            if exc.code not in RETRYABLE_HTTP_CODES:
-                return None, attempt, last_error
-
-        except (
-            urllib.error.URLError,
-            TimeoutError,
-        ) as exc:
-            last_error = (
-                f"{type(exc).__name__}: {exc}"
-            )
-
-        except Exception as exc:
-            last_error = (
-                f"{type(exc).__name__}: {exc}"
-            )
-            return None, attempt, last_error
-
-        if attempt < REQUEST_ATTEMPTS:
-            time.sleep(2 ** (attempt - 1))
-
-    return None, REQUEST_ATTEMPTS, last_error
 
 
 def find_closest_timestep(
