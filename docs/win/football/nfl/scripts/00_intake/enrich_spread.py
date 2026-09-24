@@ -9,7 +9,6 @@ directions remain data-driven from spread_enrichment.csv.
 from __future__ import annotations
 
 import argparse
-import csv
 import os
 import shutil
 import sys
@@ -38,7 +37,6 @@ from enrichment_contract import (
     enrichment_bind_side_output_validator as _enrichment_bind_side_output_validator,
     enrichment_aggregate_latest_odds as aggregate_latest_odds,
     enrichment_build_side_summary_fields as _enrichment_build_side_summary_fields,
-    enrichment_clean_text as s,
     enrichment_feature_value as _enrichment_feature_value,
     enrichment_game_team_key as _enrichment_game_team_key,
     enrichment_match_rules_side as _enrichment_match_rules_side,
@@ -50,10 +48,8 @@ from enrichment_contract import (
     enrichment_require_columns as _enrichment_require_columns,
     enrichment_require_exact_headers as _enrichment_require_exact_headers,
     enrichment_require_finite_number as _enrichment_require_finite_number,
-    enrichment_same_text as same_text,
     enrichment_schedule_identity as _enrichment_schedule_identity,
     enrichment_select_latest_odds_file as _enrichment_select_latest_odds_file,
-    enrichment_split_rule_ids as split_rule_ids,
     enrichment_validate_master_side as _enrichment_validate_master_side,
     enrichment_validate_rule_count as _enrichment_validate_rule_count,
     enrichment_validate_selected_odds as _enrichment_validate_selected_odds,
@@ -501,7 +497,11 @@ def publish_staged_root(
             )
 
 
-run = _enrichment_bind_run(globals(), market_name="spread")
+run = _enrichment_bind_run(
+    globals(),
+    market_name="spread",
+    aggregate_latest_odds=aggregate_latest_odds,
+)
 
 
 def main() -> int:

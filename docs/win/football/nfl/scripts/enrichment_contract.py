@@ -51,6 +51,7 @@ def enrichment_parse_int_text(value: _EnrichmentAny, *, label: str, fail: _Enric
         parsed = float(text)
     except ValueError:
         fail(f"{label} must be an integer; received={text!r}")
+        raise AssertionError("fail() unexpectedly returned")
     if not _enrichment_math.isfinite(parsed) or not parsed.is_integer():
         fail(f"{label} must be an integer; received={text!r}")
     return int(parsed)
@@ -530,8 +531,8 @@ def enrichment_build_side_summary_fields(g, matches, *, rate_key, rate_suffix):
     g["matched_rule_count"] = len(matches); g["matched_positive_rule_count"] = len(positive); g["matched_negative_rule_count"] = len(negative)
     g["matched_rule_ids"] = enrichment_join_text(match["rule_id"] for match in matches)
     g["matched_rule_conditions"] = enrichment_join_text(f'{match["rule_id"]}:{match["family"]}:{match["side"]}:{match["condition"]}' for match in matches)
-    def strongest(side, direction):
-        candidates = [match for match in matches if match["side"] == side and match["direction"] == direction and match["lift_pp"] is not None]
+    def strongest(target_side, direction):
+        candidates = [match for match in matches if match["side"] == target_side and match["direction"] == direction and match["lift_pp"] is not None]
         return max(candidates, key=lambda match: abs(match["lift_pp"])) if candidates else None
     for side_name, side in [("home", "Home"), ("away", "Away")]:
         side_matches = [match for match in matches if match["side"] == side]
@@ -690,7 +691,7 @@ def enrichment_load_drat(*, season, week, schedule_rows, reporter, drat_dir, rea
     expected_ids = set(schedule_by_id)
     if seen_ids != expected_ids:
         fail(f'{path.name} DRAT/schedule game universe mismatch missing={sorted(expected_ids - seen_ids)} extra={sorted(seen_ids - expected_ids)}')
-    return (path, rows, by_teams)
+    return path, rows, by_teams
 
 def enrichment_load_epred(*, season, season_type, week, schedule_rows, reporter, epred_dir, read_csv_table, require_exact_headers, epred_headers, s, parse_int_text, fail, same_text, require_finite_number):
     path = epred_dir / f'{season}_{season_type}_{week}_clean_predictions.csv'
@@ -725,7 +726,7 @@ def enrichment_load_epred(*, season, season_type, week, schedule_rows, reporter,
     actual_ids = set(by_game)
     if actual_ids != expected_ids:
         fail(f'{path.name} EPRED/schedule game universe mismatch missing={sorted(expected_ids - actual_ids)} extra={sorted(actual_ids - expected_ids)}')
-    return (path, rows, by_game)
+    return path, rows, by_game
 
 def enrichment_validate_side_output_rows(rows, *, schedule_rows, active_rule_ids, path, fail, s, weekly_columns, require_finite_number, validate_rule_count, parse_int_text, split_rule_ids):
     if len(rows) != len(schedule_rows):
@@ -899,14 +900,13 @@ def enrichment_bind_side_output_validator(*, fail):
         split_rule_ids=enrichment_split_rule_ids,
     )
 
-def enrichment_bind_run(namespace, *, market_name):
+def enrichment_bind_run(namespace, *, market_name, aggregate_latest_odds):
     required = (
         "MASTER_PATH",
         "read_csv_table",
         "validate_master",
         "select_latest_odds_file",
         "validate_selected_odds",
-        "aggregate_latest_odds",
         "load_target_schedules",
         "load_drat",
         "load_epred",
@@ -934,7 +934,7 @@ def enrichment_bind_run(namespace, *, market_name):
         validate_master=namespace["validate_master"],
         select_latest_odds_file=namespace["select_latest_odds_file"],
         validate_selected_odds=namespace["validate_selected_odds"],
-        aggregate_latest_odds=namespace["aggregate_latest_odds"],
+        aggregate_latest_odds=aggregate_latest_odds,
         load_target_schedules=namespace["load_target_schedules"],
         load_drat=namespace["load_drat"],
         load_epred=namespace["load_epred"],

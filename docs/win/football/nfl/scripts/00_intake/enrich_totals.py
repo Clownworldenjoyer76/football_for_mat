@@ -9,7 +9,6 @@ directions remain data-driven from totals_enrichment.csv.
 from __future__ import annotations
 
 import argparse
-import csv
 import os
 import shutil
 import sys
@@ -51,7 +50,6 @@ from enrichment_contract import (
     enrichment_require_columns as _enrichment_require_columns,
     enrichment_require_exact_headers as _enrichment_require_exact_headers,
     enrichment_require_finite_number as _enrichment_require_finite_number,
-    enrichment_same_text as same_text,
     enrichment_schedule_identity as _enrichment_schedule_identity,
     enrichment_select_latest_odds_file as _enrichment_select_latest_odds_file,
     enrichment_split_rule_ids as split_rule_ids,
@@ -1279,7 +1277,11 @@ def publish_staged_root(
             )
 
 
-run = _enrichment_bind_run(globals(), market_name="totals")
+run = _enrichment_bind_run(
+    globals(),
+    market_name="totals",
+    aggregate_latest_odds=aggregate_latest_odds,
+)
 
 
 def main() -> int:
