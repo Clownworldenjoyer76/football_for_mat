@@ -40,7 +40,6 @@ edt_time:
 from __future__ import annotations
 
 import argparse
-import csv
 import math
 import os
 import re

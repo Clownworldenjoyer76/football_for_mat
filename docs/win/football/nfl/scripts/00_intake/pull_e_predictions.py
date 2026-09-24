@@ -19,8 +19,6 @@ and one awayTeam row before any production prediction file is replaced.
 from __future__ import annotations
 
 import argparse
-import csv
-import json
 import os
 import re
 import shutil

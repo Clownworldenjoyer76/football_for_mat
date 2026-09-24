@@ -9,7 +9,6 @@ absent from its team's QB depth rows keeps blank depth-derived fields.
 
 from __future__ import annotations
 
-import csv
 import os
 import sys
 import tempfile

@@ -140,10 +140,10 @@ STEP6_COLUMNS = [
 def read_csv(path: Path) -> pd.DataFrame:
     try:
         path.stat()
-    except FileNotFoundError as exc:
+    except FileNotFoundError as file_error:
         raise FileNotFoundError(
             f"Missing input file: {path}"
-        ) from exc
+        ) from file_error
 
     options = {
         "dtype": str,

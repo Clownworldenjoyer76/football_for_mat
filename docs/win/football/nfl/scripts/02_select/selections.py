@@ -35,7 +35,6 @@ Kelly is full Kelly capped at settings.yaml selection_defaults.max_kelly.
 from __future__ import annotations
 
 import argparse
-import csv
 import math
 import os
 import re

@@ -25,7 +25,6 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from pipeline_reporter import PipelineReporter
 from team_contract import build_team_abbr_map
-from csv_contract import write_csv_contract
 from csv_contract import read_csv_contract
 
 INPUT_PATH = NFL_ROOT / "data" / "raw" / "raw_depth.csv"
