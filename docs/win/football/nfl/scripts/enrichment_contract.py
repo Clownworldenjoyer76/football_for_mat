@@ -606,8 +606,8 @@ ENRICHMENT_ODDS_HEADERS = ['snapshot_id', 'snapshot_fetched_at', 'game_id', 'com
 
 ENRICHMENT_EXPECTED_MARKET_SIDES = {('h2h', 'home'), ('h2h', 'away'), ('spreads', 'home'), ('spreads', 'away'), ('totals', 'over'), ('totals', 'under')}
 
-def enrichment_validate_weekly_schedule(rows, *, path, season, season_type, week, WEEKLY_FILENAME_RE, fail, parse_int_text, s, same_text):
-    match = WEEKLY_FILENAME_RE.fullmatch(path.name)
+def enrichment_validate_weekly_schedule(rows, *, path, season, season_type, week, weekly_filename_re, fail, parse_int_text, s, same_text):
+    match = weekly_filename_re.fullmatch(path.name)
     if match is None:
         fail(f'Unexpected weekly schedule filename: {path}')
     filename_week = int(match.group(1))
@@ -632,16 +632,16 @@ def enrichment_validate_weekly_schedule(rows, *, path, season, season_type, week
         if odds_available not in {'0', '1'}:
             fail(f'{path.name} game_id={game_id} has invalid odds_available={odds_available!r}')
 
-def enrichment_load_target_schedules(*, season, reporter, SCHEDULE_DIR, fail, read_csv_table, require_exact_headers, WEEKLY_COLUMNS, schedule_identity, validate_weekly_schedule):
-    if not SCHEDULE_DIR.is_dir():
-        fail(f'Weekly schedule directory not found: {SCHEDULE_DIR}')
-    schedule_paths = sorted(SCHEDULE_DIR.glob('week_*_NFL_weekly_schedule.csv'))
+def enrichment_load_target_schedules(*, season, reporter, schedule_dir, fail, read_csv_table, require_exact_headers, weekly_columns, schedule_identity, validate_weekly_schedule):
+    if not schedule_dir.is_dir():
+        fail(f'Weekly schedule directory not found: {schedule_dir}')
+    schedule_paths = sorted(schedule_dir.glob('week_*_NFL_weekly_schedule.csv'))
     if not schedule_paths:
-        fail(f'No weekly schedule files found in {SCHEDULE_DIR}')
+        fail(f'No weekly schedule files found in {schedule_dir}')
     target = {}
     for path in schedule_paths:
         headers, rows = read_csv_table(path)
-        require_exact_headers(headers, WEEKLY_COLUMNS, label=f'weekly schedule {path.name}')
+        require_exact_headers(headers, weekly_columns, label=f'weekly schedule {path.name}')
         row_season, season_type, week = schedule_identity(rows, path)
         if row_season != season:
             continue
@@ -654,10 +654,10 @@ def enrichment_load_target_schedules(*, season, reporter, SCHEDULE_DIR, fail, re
         fail(f'No weekly schedules found for season={season}')
     return target
 
-def enrichment_load_drat(*, season, week, schedule_rows, reporter, DRAT_DIR, read_csv_table, require_exact_headers, DRAT_HEADERS, s, parse_int_text, fail, same_text, require_finite_number, game_team_key):
-    path = DRAT_DIR / f'{season}_week_{week}_drat.csv'
+def enrichment_load_drat(*, season, week, schedule_rows, reporter, drat_dir, read_csv_table, require_exact_headers, drat_headers, s, parse_int_text, fail, same_text, require_finite_number, game_team_key):
+    path = drat_dir / f'{season}_week_{week}_drat.csv'
     headers, rows = read_csv_table(path)
-    require_exact_headers(headers, DRAT_HEADERS, label=f'DRAT {path.name}')
+    require_exact_headers(headers, drat_headers, label=f'DRAT {path.name}')
     reporter.add_input(path)
     schedule_by_id = {s(row.get('game_id')): row for row in schedule_rows}
     seen_ids = set()
@@ -692,10 +692,10 @@ def enrichment_load_drat(*, season, week, schedule_rows, reporter, DRAT_DIR, rea
         fail(f'{path.name} DRAT/schedule game universe mismatch missing={sorted(expected_ids - seen_ids)} extra={sorted(seen_ids - expected_ids)}')
     return (path, rows, by_teams)
 
-def enrichment_load_epred(*, season, season_type, week, schedule_rows, reporter, EPRED_DIR, read_csv_table, require_exact_headers, EPRED_HEADERS, s, parse_int_text, fail, same_text, require_finite_number):
-    path = EPRED_DIR / f'{season}_{season_type}_{week}_clean_predictions.csv'
+def enrichment_load_epred(*, season, season_type, week, schedule_rows, reporter, epred_dir, read_csv_table, require_exact_headers, epred_headers, s, parse_int_text, fail, same_text, require_finite_number):
+    path = epred_dir / f'{season}_{season_type}_{week}_clean_predictions.csv'
     headers, rows = read_csv_table(path)
-    require_exact_headers(headers, EPRED_HEADERS, label=f'EPRED {path.name}')
+    require_exact_headers(headers, epred_headers, label=f'EPRED {path.name}')
     reporter.add_input(path)
     schedule_by_id = {s(row.get('game_id')): row for row in schedule_rows}
     by_game = {}
@@ -727,7 +727,7 @@ def enrichment_load_epred(*, season, season_type, week, schedule_rows, reporter,
         fail(f'{path.name} EPRED/schedule game universe mismatch missing={sorted(expected_ids - actual_ids)} extra={sorted(actual_ids - expected_ids)}')
     return (path, rows, by_game)
 
-def enrichment_validate_side_output_rows(rows, *, schedule_rows, active_rule_ids, path, fail, s, WEEKLY_COLUMNS, require_finite_number, validate_rule_count, parse_int_text, split_rule_ids):
+def enrichment_validate_side_output_rows(rows, *, schedule_rows, active_rule_ids, path, fail, s, weekly_columns, require_finite_number, validate_rule_count, parse_int_text, split_rule_ids):
     if len(rows) != len(schedule_rows):
         fail(f'{path.name} row count mismatch expected={len(schedule_rows)} actual={len(rows)}')
     schedule_by_id = {s(row.get('game_id')): row for row in schedule_rows}
@@ -742,7 +742,7 @@ def enrichment_validate_side_output_rows(rows, *, schedule_rows, active_rule_ids
         schedule_row = schedule_by_id.get(game_id)
         if schedule_row is None:
             fail(f'{path.name} contains unexpected game_id={game_id}')
-        for field in WEEKLY_COLUMNS:
+        for field in weekly_columns:
             if s(row.get(field)) != s(schedule_row.get(field)):
                 fail(f'{path.name} game_id={game_id} changed weekly schedule field={field}')
         for field in ('drat_home_prob', 'drat_away_prob', 'epred_home_prob_raw', 'epred_away_prob_raw', 'epred_home_prob', 'epred_away_prob', 'epred_home_rating', 'epred_away_rating', 'epred_matchupQuality', 'epred_rating_gap_home', 'drat_epred_prob_diff_pp'):
@@ -778,9 +778,9 @@ def enrichment_validate_side_output_rows(rows, *, schedule_rows, active_rule_ids
     if set(output_by_id) != set(schedule_by_id):
         fail(f'{path.name} output/schedule game universe mismatch')
 
-def enrichment_run_pipeline(reporter, *, season, market_name, MASTER_PATH, read_csv_table, validate_master, select_latest_odds_file, validate_selected_odds, aggregate_latest_odds, load_target_schedules, load_drat, load_epred, process_week, OUTPUT_DIR, validate_output_rows, normalize_rows, OUTPUT_HEADERS, build_staged_root, publish_staged_root, Path, shutil):
-    master_headers, master_rows = read_csv_table(MASTER_PATH)
-    reporter.add_input(MASTER_PATH)
+def enrichment_run_pipeline(reporter, *, season, market_name, master_path, read_csv_table, validate_master, select_latest_odds_file, validate_selected_odds, aggregate_latest_odds, load_target_schedules, load_drat, load_epred, process_week, output_dir, validate_output_rows, normalize_rows, output_headers, build_staged_root, publish_staged_root, path_type, shutil):
+    master_headers, master_rows = read_csv_table(master_path)
+    reporter.add_input(master_path)
     active_rule_ids = validate_master(master_headers, master_rows)
     odds_path, skipped_odds_candidates = select_latest_odds_file(reporter=reporter)
     odds_headers, odds_rows = read_csv_table(odds_path)
@@ -797,7 +797,7 @@ def enrichment_run_pipeline(reporter, *, season, market_name, MASTER_PATH, read_
         drat_path, _, drat_by_teams = load_drat(season=season, week=week, schedule_rows=schedule_rows, reporter=reporter)
         epred_path, _, epred_by_game = load_epred(season=season, season_type=season_type, week=week, schedule_rows=schedule_rows, reporter=reporter)
         output_rows, metrics = process_week(season=season, season_type=season_type, week=week, schedule_rows=schedule_rows, drat_by_teams=drat_by_teams, epred_by_game=epred_by_game, current_odds=current_odds, master_rows=master_rows)
-        output_path = OUTPUT_DIR / f'week_{week}_NFL_enriched.csv'
+        output_path = output_dir / f'week_{week}_NFL_enriched.csv'
         validate_output_rows(normalize_rows(output_rows), schedule_rows=schedule_rows, active_rule_ids=active_rule_ids, path=output_path)
         week_outputs[week] = (output_rows, schedule_rows)
         total_rows += len(output_rows)
@@ -805,7 +805,7 @@ def enrichment_run_pipeline(reporter, *, season, market_name, MASTER_PATH, read_
         weekly_fallbacks += metrics['weekly_schedule_market_fallbacks']
         completed.append({'season': season, 'season_type': season_type, 'week': week, 'schedule': schedule_path.name, 'drat': drat_path.name, 'epred': epred_path.name, 'output': str(output_path), 'games': len(output_rows), 'missing_epred': 0, 'missing_drat': 0})
     reporter.set_rows(rows_in=total_rows, rows_out=0)
-    reporter.update_details({'season': season, 'weeks_enriched': len(completed), 'games_enriched': total_rows, 'active_supported_rules': len(active_rule_ids), 'master_rows': len(master_rows), 'latest_odds_file': str(odds_path), 'latest_odds_rows': len(odds_rows), 'odds_candidates_skipped': skipped_odds_candidates, 'current_odds_matches': current_odds_matches, 'weekly_schedule_market_fallbacks': weekly_fallbacks, 'output_columns': len(OUTPUT_HEADERS), 'publication_mode': 'validated_directory_swap_with_rollback', 'publication_completed': False, 'staged_roundtrip_verified': False})
+    reporter.update_details({'season': season, 'weeks_enriched': len(completed), 'games_enriched': total_rows, 'active_supported_rules': len(active_rule_ids), 'master_rows': len(master_rows), 'latest_odds_file': str(odds_path), 'latest_odds_rows': len(odds_rows), 'odds_candidates_skipped': skipped_odds_candidates, 'current_odds_matches': current_odds_matches, 'weekly_schedule_market_fallbacks': weekly_fallbacks, 'output_columns': len(output_headers), 'publication_mode': 'validated_directory_swap_with_rollback', 'publication_completed': False, 'staged_roundtrip_verified': False})
     stage_root = None
     try:
         stage_root = build_staged_root(week_outputs=week_outputs, active_rule_ids=active_rule_ids)
@@ -816,10 +816,10 @@ def enrichment_run_pipeline(reporter, *, season, market_name, MASTER_PATH, read_
         if stage_root is not None and stage_root.exists():
             shutil.rmtree(stage_root, ignore_errors=True)
     for result in completed:
-        reporter.add_output(Path(result['output']))
+        reporter.add_output(path_type(result['output']))
     reporter.set_rows(rows_in=total_rows, rows_out=total_rows)
     reporter.update_details({'files_published': len(completed), 'rows_published': total_rows, 'publication_completed': True})
-    print(f'Historical {market_name} master: {MASTER_PATH}')
+    print(f'Historical {market_name} master: {master_path}')
     print(f'Latest odds file: {odds_path}')
     print(f'Weeks enriched: {len(completed)}')
     for result in completed:
@@ -835,7 +835,7 @@ def enrichment_bind_input_helpers(*, schedule_dir, drat_dir, epred_dir, fail):
 
     validate_weekly_schedule = _enrichment_partial_v2(
         enrichment_validate_weekly_schedule,
-        WEEKLY_FILENAME_RE=ENRICHMENT_WEEKLY_FILENAME_RE,
+        weekly_filename_re=ENRICHMENT_WEEKLY_FILENAME_RE,
         fail=fail,
         parse_int_text=parse_int_text,
         s=enrichment_clean_text,
@@ -843,20 +843,20 @@ def enrichment_bind_input_helpers(*, schedule_dir, drat_dir, epred_dir, fail):
     )
     load_target_schedules = _enrichment_partial_v2(
         enrichment_load_target_schedules,
-        SCHEDULE_DIR=schedule_dir,
+        schedule_dir=schedule_dir,
         fail=fail,
         read_csv_table=read_csv_table,
         require_exact_headers=require_exact_headers,
-        WEEKLY_COLUMNS=ENRICHMENT_WEEKLY_COLUMNS,
+        weekly_columns=ENRICHMENT_WEEKLY_COLUMNS,
         schedule_identity=schedule_identity,
         validate_weekly_schedule=validate_weekly_schedule,
     )
     load_drat = _enrichment_partial_v2(
         enrichment_load_drat,
-        DRAT_DIR=drat_dir,
+        drat_dir=drat_dir,
         read_csv_table=read_csv_table,
         require_exact_headers=require_exact_headers,
-        DRAT_HEADERS=ENRICHMENT_DRAT_HEADERS,
+        drat_headers=ENRICHMENT_DRAT_HEADERS,
         s=enrichment_clean_text,
         parse_int_text=parse_int_text,
         fail=fail,
@@ -866,10 +866,10 @@ def enrichment_bind_input_helpers(*, schedule_dir, drat_dir, epred_dir, fail):
     )
     load_epred = _enrichment_partial_v2(
         enrichment_load_epred,
-        EPRED_DIR=epred_dir,
+        epred_dir=epred_dir,
         read_csv_table=read_csv_table,
         require_exact_headers=require_exact_headers,
-        EPRED_HEADERS=ENRICHMENT_EPRED_HEADERS,
+        epred_headers=ENRICHMENT_EPRED_HEADERS,
         s=enrichment_clean_text,
         parse_int_text=parse_int_text,
         fail=fail,
@@ -883,7 +883,7 @@ def enrichment_bind_side_output_validator(*, fail):
         enrichment_validate_side_output_rows,
         fail=fail,
         s=enrichment_clean_text,
-        WEEKLY_COLUMNS=ENRICHMENT_WEEKLY_COLUMNS,
+        weekly_columns=ENRICHMENT_WEEKLY_COLUMNS,
         require_finite_number=_enrichment_partial_v2(
             enrichment_require_finite_number,
             fail=fail,
@@ -929,7 +929,24 @@ def enrichment_bind_run(namespace, *, market_name):
     return _enrichment_partial_v2(
         enrichment_run_pipeline,
         market_name=market_name,
-        **{name: namespace[name] for name in required},
+        master_path=namespace["MASTER_PATH"],
+        read_csv_table=namespace["read_csv_table"],
+        validate_master=namespace["validate_master"],
+        select_latest_odds_file=namespace["select_latest_odds_file"],
+        validate_selected_odds=namespace["validate_selected_odds"],
+        aggregate_latest_odds=namespace["aggregate_latest_odds"],
+        load_target_schedules=namespace["load_target_schedules"],
+        load_drat=namespace["load_drat"],
+        load_epred=namespace["load_epred"],
+        process_week=namespace["process_week"],
+        output_dir=namespace["OUTPUT_DIR"],
+        validate_output_rows=namespace["validate_output_rows"],
+        normalize_rows=namespace["normalize_rows"],
+        output_headers=namespace["OUTPUT_HEADERS"],
+        build_staged_root=namespace["build_staged_root"],
+        publish_staged_root=namespace["publish_staged_root"],
+        path_type=namespace["Path"],
+        shutil=namespace["shutil"],
     )
 
 # QODANA_SHARED_ENRICHMENT_CORE_V2_END
