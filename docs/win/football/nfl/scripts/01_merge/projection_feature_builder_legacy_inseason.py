@@ -2374,6 +2374,7 @@ def normalize_injury_status(
 
 def load_current_injuries(
     root: Path,
+    season: int,
     team_lookup: dict[str, str],
 ) -> dict[
     str,
