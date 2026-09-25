@@ -597,7 +597,6 @@ def main() -> int:
                 <= float(section["maximum_poisson_deviance"]) + 1e-12
             )
 
-        failed: list[str] = []
         gate_map = {
             "training_rows": gate_training,
             "absolute_bias": gate_bias,

@@ -366,8 +366,6 @@ def build_report() -> tuple[dict[str, Any], int]:
     # 3-4. Team/game consistency from canonical historical games.
     team_game_pass = False
     opponent_game_pass = False
-    team_details: dict[str, Any] = {}
-    opponent_details: dict[str, Any] = {}
     try:
         games = load_games(config)
         game_dup = games.duplicated(["season", "week", "game_id"], keep=False)
@@ -643,7 +641,6 @@ def build_report() -> tuple[dict[str, Any], int]:
 
     # 17. No join multiplication: exact row/grain parity with the universe.
     join_pass = False
-    join_details: dict[str, Any] = {}
     try:
         universe = pd.read_parquet(universe_path, columns=GRAIN)
         universe_dup = universe.duplicated(GRAIN, keep=False)

@@ -1198,7 +1198,6 @@ def main() -> int:
         raise RuntimeError("Issue 28 market-exclusion preflight failed.")
 
     config = common.load_config()
-    prop_root = common.prop_root()
 
     eligibility = load_yaml(
         common.repo_root() / ELIGIBILITY_PATH

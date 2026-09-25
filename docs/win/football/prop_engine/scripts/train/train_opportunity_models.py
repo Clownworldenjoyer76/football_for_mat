@@ -1240,14 +1240,6 @@ def build_training_frames(
         "team opportunity labels",
     )
 
-    all_component_features = unique(
-        [
-            column
-            for component in COMPONENT_ORDER
-            for column in COMPONENTS[component]["features"]
-        ]
-    )
-
     # Restrict raw inputs to the final training cutoff before label assembly.
     # 2025 is not included in any training frame.
     base = features.loc[

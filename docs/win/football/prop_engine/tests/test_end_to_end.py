@@ -166,6 +166,7 @@ class EndToEndHistoricalAsCurrentTests(unittest.TestCase):
         metadata = json.loads(
             (model_dir / "metadata.json").read_text(encoding="utf-8")
         )
+        self.assertIsInstance(metadata, dict)
         numeric = list(manifest.get("numeric_features", []))
         categorical = list(manifest.get("categorical_features", []))
         feature_columns = [*numeric, *categorical]

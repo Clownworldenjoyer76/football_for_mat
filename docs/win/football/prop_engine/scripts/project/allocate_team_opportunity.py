@@ -447,7 +447,6 @@ def main() -> int:
     if week < 1:
         raise ValueError("week must be >= 1")
 
-    repo = common.repo_root()
     prop = common.prop_root()
     market = run_market_preflight()
 

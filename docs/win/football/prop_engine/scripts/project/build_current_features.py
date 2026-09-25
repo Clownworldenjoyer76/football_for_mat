@@ -1415,7 +1415,6 @@ def main() -> int:
     leading = list(historical_manifest["leading_columns"])
     families = historical_manifest["column_families"]
     feature_columns = list(historical_manifest["feature_columns"])
-    target_columns = set(historical_manifest.get("target_columns", []))
     audit_columns = set(families.get("audit", []))
 
     if any(c.startswith("target_") for c in feature_columns):
