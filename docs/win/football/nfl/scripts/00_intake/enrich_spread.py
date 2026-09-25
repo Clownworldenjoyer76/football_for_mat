@@ -25,12 +25,14 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from odds_contract import (
+    EXPECTED_MARKET_SIDES,
+    ODDS_OUTPUT_COLUMNS as ODDS_HEADERS,
+)
 
 # QODANA_SHARED_ENRICHMENT_CORE_IMPORTS_V1
 from functools import partial as _enrichment_partial
 from enrichment_contract import (
-    ENRICHMENT_EXPECTED_MARKET_SIDES as EXPECTED_MARKET_SIDES,
-    ENRICHMENT_ODDS_HEADERS as ODDS_HEADERS,
     ENRICHMENT_WEEKLY_COLUMNS as WEEKLY_COLUMNS,
     enrichment_bind_input_helpers as _enrichment_bind_input_helpers,
     enrichment_bind_run as _enrichment_bind_run,

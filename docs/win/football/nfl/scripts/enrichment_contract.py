@@ -594,10 +594,6 @@ def enrichment_process_week(*, season, season_type, week, schedule_rows, drat_by
 # QODANA_SHARED_ENRICHMENT_CORE_V2_BEGIN
 import re as _enrichment_re
 from functools import partial as _enrichment_partial_v2
-from odds_contract import (
-    EXPECTED_MARKET_SIDES as ENRICHMENT_EXPECTED_MARKET_SIDES,
-    ODDS_OUTPUT_COLUMNS as ENRICHMENT_ODDS_HEADERS,
-)
 
 ENRICHMENT_WEEKLY_FILENAME_RE = _enrichment_re.compile('week_(\\d+)_NFL_weekly_schedule\\.csv')
 
