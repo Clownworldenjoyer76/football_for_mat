@@ -9,7 +9,6 @@ import hashlib
 import math
 import os
 import shutil
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Never
@@ -482,47 +481,6 @@ def filter_rows(
     ]
 
 
-def write_csv(
-    path: Path,
-    fieldnames: list[str],
-    rows: list[dict[str, str]],
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        newline="",
-        encoding="utf-8",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-
-    try:
-        with handle:
-            writer = csv.DictWriter(
-                handle,
-                fieldnames=fieldnames,
-                extrasaction="ignore",
-            )
-            writer.writeheader()
-
-            for row in rows:
-                writer.writerow(
-                    {
-                        fieldname: row.get(fieldname, "")
-                        for fieldname in fieldnames
-                    }
-                )
-
-        os.replace(temp_path, path)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
-
-
 def validate_stage3_output(
     path: Path,
     expected_row_count: int,
@@ -763,7 +721,7 @@ def process_week(
         / f"{season}_{week_number}_all_props.csv"
     )
 
-    write_csv(
+    common.write_filtered_csv_dict_rows_atomic(
         output_path,
         fieldnames,
         filtered_rows,

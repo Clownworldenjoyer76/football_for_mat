@@ -6,9 +6,7 @@ from __future__ import annotations
 import csv
 import json
 import math
-import os
 import re
-import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -747,47 +745,6 @@ def grade_row(
     return output
 
 
-def write_csv(
-    path: Path,
-    fieldnames: list[str],
-    rows: list[dict[str, Any]],
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        newline="",
-        encoding="utf-8",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-
-    try:
-        with handle:
-            writer = csv.DictWriter(
-                handle,
-                fieldnames=fieldnames,
-                extrasaction="ignore",
-            )
-            writer.writeheader()
-
-            for row in rows:
-                writer.writerow(
-                    {
-                        field: row.get(field, "")
-                        for field in fieldnames
-                    }
-                )
-
-        os.replace(temp_path, path)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
-
-
 def betting_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return [row for row in rows if clean(row.get("pick")).casefold() in {"over", "under"}]
 
@@ -874,7 +831,7 @@ def build_reports(
 
     overall = {"season": season, **metrics(rows)}
     overall_path = report_dir / "overall.csv"
-    write_csv(
+    common.write_filtered_csv_dict_rows_atomic(
         overall_path,
         ["season", *REPORT_METRIC_COLUMNS],
         [overall],
@@ -883,22 +840,22 @@ def build_reports(
 
     fields, report = grouped_report(bets, "prop_type", lambda report_row: report_row.get("prop_type"))
     by_prop_type_path = report_dir / "by_prop_type.csv"
-    write_csv(by_prop_type_path, fields, report)
+    common.write_filtered_csv_dict_rows_atomic(by_prop_type_path, fields, report)
     outputs.append(by_prop_type_path)
 
     fields, report = grouped_report(bets, "probability_bucket", lambda report_row: probability_bucket(report_row.get("pick_prob")))
     by_probability_path = report_dir / "by_probability.csv"
-    write_csv(by_probability_path, fields, report)
+    common.write_filtered_csv_dict_rows_atomic(by_probability_path, fields, report)
     outputs.append(by_probability_path)
 
     fields, report = grouped_report(bets, "pick", lambda report_row: clean(report_row.get("pick")).casefold())
     by_pick_path = report_dir / "by_pick_direction.csv"
-    write_csv(by_pick_path, fields, report)
+    common.write_filtered_csv_dict_rows_atomic(by_pick_path, fields, report)
     outputs.append(by_pick_path)
 
     fields, report = grouped_report(bets, "week", lambda report_row: report_row.get("week"))
     by_week_path = report_dir / "by_week.csv"
-    write_csv(by_week_path, fields, report)
+    common.write_filtered_csv_dict_rows_atomic(by_week_path, fields, report)
     outputs.append(by_week_path)
 
     calibration_groups: dict[str, list[dict[str, str]]] = defaultdict(list)
@@ -932,7 +889,7 @@ def build_reports(
         )
 
     calibration_path = report_dir / "calibration.csv"
-    write_csv(
+    common.write_filtered_csv_dict_rows_atomic(
         calibration_path,
         [
             "probability_bucket",
@@ -1027,7 +984,7 @@ def process_season(
         if field not in fieldnames:
             fieldnames.append(field)
 
-    write_csv(graded_path, fieldnames, graded_rows)
+    common.write_filtered_csv_dict_rows_atomic(graded_path, fieldnames, graded_rows)
     reporter.add_output(graded_path)
     report_outputs = build_reports(
         season,

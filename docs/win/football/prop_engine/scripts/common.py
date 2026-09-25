@@ -689,6 +689,48 @@ def read_csv_dict_rows(
         return rows, list(reader.fieldnames or [])
 
 
+def write_filtered_csv_dict_rows_atomic(
+    path: str | os.PathLike[str],
+    fieldnames: Sequence[str],
+    rows: Iterable[Mapping[str, Any]],
+) -> None:
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    fields = list(fieldnames)
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        newline="",
+        encoding="utf-8",
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=destination.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+
+    try:
+        with handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=fields,
+                extrasaction="ignore",
+            )
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(
+                    {
+                        field: row.get(field, "")
+                        for field in fields
+                    }
+                )
+
+        os.replace(temp_path, destination)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
 def write_csv_dict_rows_atomic(
     path: str | os.PathLike[str],
     fieldnames: list[str],
