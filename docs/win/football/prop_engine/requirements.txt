@@ -11,8 +11,8 @@
 #   numpy<2.0 and pandas<2.0, which conflicts with the approved environment.
 #   The production refresh path uses nflreadpy; nfl_data_py remains an
 #   optional code fallback and is not required for the approved weekly run.
-# - fastparquet is intentionally excluded. pyarrow is the production parquet
-#   engine, and the audit code treats fastparquet as an optional fallback.
+# - fastparquet is intentionally excluded. pyarrow is the required production
+#   parquet engine used by the audit and weekly pipeline.
 #
 # No sportsbook, odds, market-projection, DRAT, EPRED, consensus-projection,
 # or other forbidden prediction-source packages are permitted.

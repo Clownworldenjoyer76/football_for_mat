@@ -19,6 +19,8 @@ import os
 import tempfile
 import sys
 
+import pyarrow.parquet as pq
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
@@ -201,35 +203,17 @@ def lightgbm_feature_names(text: str) -> list[str]:
 
 
 def parquet_schema_and_metadata(path: Path) -> tuple[list[str], list[str]]:
-    """Inspect parquet metadata without loading row data when an engine is available."""
-    try:
-        import pyarrow.parquet as pq  # type: ignore
-    except ImportError:
-        pq = None
-
-    if pq is not None:
-        parquet = pq.ParquetFile(path)
-        names = list(parquet.schema_arrow.names)
-        metadata_text: list[str] = []
-        metadata = parquet.metadata.metadata or {}
-        for raw_value in metadata.values():
-            try:
-                metadata_text.append(raw_value.decode("utf-8"))
-            except (UnicodeDecodeError, AttributeError):
-                continue
-        return names, metadata_text
-
-    try:
-        from fastparquet import ParquetFile  # type: ignore
-    except ImportError as exc:
-        raise RuntimeError(
-            "Parquet audit requires pyarrow or fastparquet; "
-            f"cannot inspect schema for {path}"
-        ) from exc
-
-    parquet = ParquetFile(str(path))
-    names = list(getattr(parquet, "columns", []) or [])
-    return [str(name) for name in names], []
+    """Inspect parquet metadata without loading row data."""
+    parquet = pq.ParquetFile(path)
+    names = list(parquet.schema_arrow.names)
+    metadata_text: list[str] = []
+    metadata = parquet.metadata.metadata or {}
+    for raw_value in metadata.values():
+        try:
+            metadata_text.append(raw_value.decode("utf-8"))
+        except (UnicodeDecodeError, AttributeError):
+            continue
+    return names, metadata_text
 
 
 def relative_display(path: Path, repo: Path | None) -> str:
