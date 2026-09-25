@@ -56,8 +56,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import yaml
-
 try:
     import lightgbm as lgb
 except ModuleNotFoundError as import_error:
@@ -140,24 +138,16 @@ ENVIRONMENT_JOIN_CONTRACT = {
 
 
 def load_json(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Required JSON missing: {path}")
-    with path.open("r", encoding="utf-8-sig") as handle:
-        value = json.load(handle)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected JSON object: {path}")
-    return value
-
+    return common.load_json_mapping(
+        path,
+        missing_message=f"Required JSON missing: {path}",
+    )
 
 def load_yaml(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Required YAML missing: {path}")
-    with path.open("r", encoding="utf-8-sig") as handle:
-        value = yaml.safe_load(handle)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected YAML mapping: {path}")
-    return value
-
+    return common.load_yaml_mapping(
+        path,
+        missing_message=f"Required YAML missing: {path}",
+    )
 
 def stable_json_bytes(value: Any) -> bytes:
     return (

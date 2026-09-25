@@ -171,6 +171,40 @@ def _resolve_prop_output_path(path: str | os.PathLike[str]) -> Path:
     return resolved
 
 
+def load_json_mapping(
+    path: str | os.PathLike[str],
+    *,
+    missing_message: str | None = None,
+) -> dict[str, Any]:
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise FileNotFoundError(
+            missing_message or f"Required JSON missing: {resolved}"
+        )
+    with resolved.open("r", encoding="utf-8-sig") as handle:
+        value = json.load(handle)
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected JSON object: {resolved}")
+    return value
+
+
+def load_yaml_mapping(
+    path: str | os.PathLike[str],
+    *,
+    missing_message: str | None = None,
+) -> dict[str, Any]:
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise FileNotFoundError(
+            missing_message or f"Required YAML missing: {resolved}"
+        )
+    with resolved.open("r", encoding="utf-8-sig") as handle:
+        value = yaml.safe_load(handle)
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected YAML mapping: {resolved}")
+    return value
+
+
 def load_config() -> dict:
     """Load and validate the shared Prop Engine YAML contract."""
     path = repo_root() / _CONFIG_RELATIVE_PATH
