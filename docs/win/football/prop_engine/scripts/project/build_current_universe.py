@@ -49,7 +49,6 @@ from pathlib import Path
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
-import numpy as np
 import pandas as pd
 
 SCRIPT_DIR = Path(__file__).resolve().parent

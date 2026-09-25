@@ -12,14 +12,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import numpy as np
 import pandas as pd
