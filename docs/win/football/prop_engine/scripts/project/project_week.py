@@ -72,8 +72,8 @@ import common
 
 _CONFIG_CONTRACT = common.load_config()
 import project_components as pc
-import train_opportunity_models as opportunity
-import train_efficiency_models as efficiency
+from train import train_opportunity_models as opportunity
+from train import train_efficiency_models as efficiency
 
 GRAIN = ["season", "week", "game_id", "player_id"]
 TEAM_GRAIN = ["season", "week", "game_id", "team"]

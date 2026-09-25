@@ -60,7 +60,7 @@ for value in (SCRIPTS_ROOT, VALIDATE_DIR):
         sys.path.insert(0, str(value))
 
 import common
-import audit_market_exclusion
+from validate import audit_market_exclusion
 
 
 OUTPUT_COLUMNS = [

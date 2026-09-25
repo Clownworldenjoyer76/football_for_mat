@@ -57,8 +57,8 @@ for p in (SCRIPTS_ROOT, TRAIN_DIR):
         sys.path.insert(0, str(p))
 
 import common
-import train_opportunity_models as opportunity
-import train_efficiency_models as efficiency
+from train import train_opportunity_models as opportunity
+from train import train_efficiency_models as efficiency
 
 GRAIN = ["season", "week", "game_id", "player_id"]
 TEAM_GRAIN = ["season", "week", "game_id", "team"]
