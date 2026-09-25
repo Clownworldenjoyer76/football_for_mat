@@ -1456,21 +1456,21 @@ def train_component(
             f"{component}: empty final training set."
         )
 
-    X_select = numeric_frame(selection_train, features)
+    x_select = numeric_frame(selection_train, features)
     y_select = selection_train["_label"].astype("float64")
 
-    X_valid = numeric_frame(validation, features)
+    x_valid = numeric_frame(validation, features)
     y_valid = validation["_label"].astype("float64")
 
-    X_final = numeric_frame(final_train, features)
+    x_final = numeric_frame(final_train, features)
     y_final = final_train["_label"].astype("float64")
 
-    if X_select.isna().all(axis=1).all():
+    if x_select.isna().all(axis=1).all():
         raise ValueError(
             f"{component}: every model-selection row has all features missing."
         )
 
-    if X_valid.isna().all(axis=1).all():
+    if x_valid.isna().all(axis=1).all():
         raise ValueError(
             f"{component}: every 2024 validation row has all features missing."
         )
@@ -1499,14 +1499,14 @@ def train_component(
     }
 
     select_set = lgb.Dataset(
-        X_select,
+        x_select,
         label=y_select,
         feature_name=features,
         free_raw_data=False,
     )
 
     valid_set = lgb.Dataset(
-        X_valid,
+        x_valid,
         label=y_valid,
         feature_name=features,
         reference=select_set,
@@ -1541,7 +1541,7 @@ def train_component(
         )
 
     valid_raw = selected_model.predict(
-        X_valid,
+        x_valid,
         num_iteration=best_iteration,
     )
 
@@ -1559,7 +1559,7 @@ def train_component(
     }
 
     final_set = lgb.Dataset(
-        X_final,
+        x_final,
         label=y_final,
         feature_name=features,
         free_raw_data=False,

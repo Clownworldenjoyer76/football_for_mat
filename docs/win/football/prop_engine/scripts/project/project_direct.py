@@ -525,8 +525,8 @@ def main() -> int:
             raise ValueError(f"{target}: no eligible current target/player combinations")
 
         rows = work.loc[mask].copy()
-        X = model_matrix(rows, numeric_features, categorical_features, levels)
-        pred = np.asarray(booster.predict(X), dtype="float64")
+        model_input = model_matrix(rows, numeric_features, categorical_features, levels)
+        pred = np.asarray(booster.predict(model_input), dtype="float64")
         if pred.shape[0] != len(rows) or not np.isfinite(pred).all():
             raise ValueError(f"{target}: invalid direct-model prediction")
         pred = np.maximum(pred, 0.0)

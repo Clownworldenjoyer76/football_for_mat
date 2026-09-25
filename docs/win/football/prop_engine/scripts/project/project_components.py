@@ -747,9 +747,9 @@ def score_opportunity(
             eligibility,
             team_def_rate,
         )
-        X = opportunity.numeric_frame(rows, feature_names)
+        model_input = opportunity.numeric_frame(rows, feature_names)
         pred = opportunity.transform_prediction(
-            booster.predict(X),
+            booster.predict(model_input),
             component,
         )
         if not np.isfinite(pred).all():
@@ -842,8 +842,8 @@ def score_efficiency(root: Path, current: pd.DataFrame, history: pd.DataFrame, e
         expected = list(efficiency.FEATURES[name])
         if feature_names != expected:
             raise ValueError(f"{name}: manifest differs from trainer efficiency feature order")
-        X = efficiency.feature_matrix(rows, name)
-        pred = efficiency.transform_prediction(booster.predict(X), name)
+        model_input = efficiency.feature_matrix(rows, name)
+        pred = efficiency.transform_prediction(booster.predict(model_input), name)
         if not np.isfinite(pred).all():
             raise ValueError(f"{name}: nonfinite persisted-model prediction")
         out = rows[GRAIN].copy()

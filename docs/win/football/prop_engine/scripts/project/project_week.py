@@ -522,8 +522,8 @@ def score_opportunity_component(
         rows = features.loc[pos.isin(positions)].copy()
     else:
         raise ValueError(f"{component}: unsupported opportunity scope {scope!r}")
-    X = opportunity.numeric_frame(rows, feature_names)
-    pred = opportunity.transform_prediction(booster.predict(X), component)
+    model_input = opportunity.numeric_frame(rows, feature_names)
+    pred = opportunity.transform_prediction(booster.predict(model_input), component)
     if not np.isfinite(pred).all():
         raise ValueError(f"{component}: nonfinite persisted-model prediction")
     key = GRAIN if scope == "player" else TEAM_GRAIN
@@ -569,8 +569,8 @@ def score_efficiency_model(
     expected = list(efficiency.FEATURES[model_name])
     if feature_names != expected:
         raise ValueError(f"{model_name}: efficiency manifest differs from trainer order")
-    X = efficiency.feature_matrix(rows, model_name)
-    pred = efficiency.transform_prediction(booster.predict(X), model_name)
+    model_input = efficiency.feature_matrix(rows, model_name)
+    pred = efficiency.transform_prediction(booster.predict(model_input), model_name)
     if not np.isfinite(pred).all():
         raise ValueError(f"{model_name}: nonfinite persisted-model prediction")
     out = rows[GRAIN].copy()

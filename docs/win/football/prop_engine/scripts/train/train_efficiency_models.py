@@ -1673,7 +1673,7 @@ def train_model(
             f"{model_name}: empty final training set."
         )
 
-    X_train = feature_matrix(
+    x_train = feature_matrix(
         selection_train,
         model_name,
     )
@@ -1681,7 +1681,7 @@ def train_model(
         selection_train["_label"]
     )
 
-    X_valid = feature_matrix(
+    x_valid = feature_matrix(
         validation,
         model_name,
     )
@@ -1689,7 +1689,7 @@ def train_model(
         validation["_label"]
     )
 
-    X_final = feature_matrix(
+    x_final = feature_matrix(
         final_train,
         model_name,
     )
@@ -1721,14 +1721,14 @@ def train_model(
     }
 
     train_set = lgb.Dataset(
-        X_train,
+        x_train,
         label=y_train,
         feature_name=FEATURES[model_name],
         free_raw_data=False,
     )
 
     valid_set = lgb.Dataset(
-        X_valid,
+        x_valid,
         label=y_valid,
         feature_name=FEATURES[model_name],
         reference=train_set,
@@ -1759,7 +1759,7 @@ def train_model(
 
     valid_pred = transform_prediction(
         selected.predict(
-            X_valid,
+            x_valid,
             num_iteration=best_iteration,
         ),
         model_name,
@@ -1785,7 +1785,7 @@ def train_model(
     }
 
     final_set = lgb.Dataset(
-        X_final,
+        x_final,
         label=y_final,
         feature_name=FEATURES[model_name],
         free_raw_data=False,

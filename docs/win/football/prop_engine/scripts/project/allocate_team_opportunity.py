@@ -290,12 +290,12 @@ def score_component(
 
     # All persisted Issue 22 component features are numeric. Building the frame
     # in one operation avoids the fragmented-DataFrame warning from the trainer helper.
-    X = pd.DataFrame(
+    model_input = pd.DataFrame(
         {c: numeric(rows[c]).to_numpy() for c in feature_names},
         index=rows.index,
         columns=feature_names,
     )
-    pred = opportunity.transform_prediction(booster.predict(X), component)
+    pred = opportunity.transform_prediction(booster.predict(model_input), component)
     if not np.isfinite(pred).all():
         raise ValueError(f"{component}: nonfinite persisted-model prediction")
 

@@ -523,7 +523,7 @@ def direct_feature_requirements(
 
 
 def train_fixed_booster(
-    X: pd.DataFrame,
+    x: pd.DataFrame,
     y: pd.Series,
     *,
     feature_names: list[str],
@@ -534,7 +534,7 @@ def train_fixed_booster(
     if rounds < 1:
         raise ValueError(f"Invalid boosting round count: {rounds}")
     dataset = lgb.Dataset(
-        X,
+        x,
         label=numeric(y),
         feature_name=feature_names,
         categorical_feature=categorical_features,
@@ -617,10 +617,10 @@ def score_direct_variants(
     )
 
     levels_selection = direct.categorical_levels(train, categorical_features)
-    X_train = direct.model_matrix(
+    x_train = direct.model_matrix(
         train, numeric_features, categorical_features, levels_selection
     )
-    X_valid = direct.model_matrix(
+    x_valid = direct.model_matrix(
         validation, numeric_features, categorical_features, levels_selection
     )
     y_train = numeric(train[f"target_{target}"])
@@ -654,14 +654,14 @@ def score_direct_variants(
     for variant in variants:
         params = direct.params_for(variant["objective"])
         model = train_fixed_booster(
-            X_train,
+            x_train,
             y_train,
             feature_names=feature_names,
             categorical_features=categorical_features,
             params=params,
             rounds=variant["rounds"],
         )
-        pred = model.predict(X_valid, num_iteration=variant["rounds"])
+        pred = model.predict(x_valid, num_iteration=variant["rounds"])
         pred = direct.transform_prediction(pred, variant["objective"])
         pred = transform_target_prediction(pred, config, target)
         variant_predictions[variant["name"]] = pred
@@ -687,13 +687,13 @@ def score_direct_variants(
     final_levels = persisted_manifest[
         "categorical_levels_final_through_2024"
     ]
-    X_test = direct.model_matrix(
+    x_test = direct.model_matrix(
         test, numeric_features, categorical_features, final_levels
     )
     persisted = lgb.Booster(model_file=str(chosen["model_file"]))
     if persisted.feature_name() != feature_names:
         raise ValueError(f"{target}: persisted direct feature order mismatch.")
-    test_pred = persisted.predict(X_test)
+    test_pred = persisted.predict(x_test)
     test_pred = direct.transform_prediction(test_pred, chosen["objective"])
     test_pred = transform_target_prediction(test_pred, config, target)
 
@@ -780,10 +780,10 @@ def score_opportunity_models(
                 policy["selection_train_end_season"]
             )
         ].copy()
-        X_train = numeric_matrix(train, feature_names)
+        x_train = numeric_matrix(train, feature_names)
         y_train = numeric(train["_label"])
         model = train_fixed_booster(
-            X_train,
+            x_train,
             y_train,
             feature_names=feature_names,
             categorical_features=[],
@@ -794,9 +794,9 @@ def score_opportunity_models(
         valid_rows = component_inference_rows(
             validation_features, component, eligibility
         )
-        X_valid = numeric_matrix(valid_rows, feature_names)
+        x_valid = numeric_matrix(valid_rows, feature_names)
         valid_pred = opportunity.transform_prediction(
-            model.predict(X_valid), component
+            model.predict(x_valid), component
         )
 
         key = GRAIN if spec["scope"] == "player" else TEAM_GRAIN
@@ -806,7 +806,7 @@ def score_opportunity_models(
         validation_predictions[component] = valid_output
 
         test_rows = component_inference_rows(test_features, component, eligibility)
-        X_test = numeric_matrix(test_rows, feature_names)
+        x_test = numeric_matrix(test_rows, feature_names)
         persisted = lgb.Booster(
             model_file=str(
                 root
@@ -818,7 +818,7 @@ def score_opportunity_models(
         if persisted.feature_name() != feature_names:
             raise ValueError(f"{component}: persisted opportunity feature order mismatch.")
         test_pred = opportunity.transform_prediction(
-            persisted.predict(X_test), component
+            persisted.predict(x_test), component
         )
         test_output = test_rows[key].copy()
         test_output[component] = test_pred
@@ -961,10 +961,10 @@ def score_efficiency_models(
             / model_name
             / "metadata.json"
         )
-        X_train = efficiency.feature_matrix(train, model_name)
+        x_train = efficiency.feature_matrix(train, model_name)
         y_train = numeric(train["_label"])
         model = train_fixed_booster(
-            X_train,
+            x_train,
             y_train,
             feature_names=feature_names,
             categorical_features=[],

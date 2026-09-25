@@ -682,19 +682,19 @@ def train_candidate(
         categorical_features,
     )
 
-    X_train = model_matrix(
+    x_train = model_matrix(
         selection_train,
         numeric_features,
         categorical_features,
         selection_levels,
     )
-    X_valid = model_matrix(
+    x_valid = model_matrix(
         validation,
         numeric_features,
         categorical_features,
         selection_levels,
     )
-    X_final = model_matrix(
+    x_final = model_matrix(
         final_train,
         numeric_features,
         categorical_features,
@@ -723,7 +723,7 @@ def train_candidate(
     ]
 
     train_set = lgb.Dataset(
-        X_train,
+        x_train,
         label=y_train,
         feature_name=feature_names,
         categorical_feature=categorical_features,
@@ -731,7 +731,7 @@ def train_candidate(
     )
 
     valid_set = lgb.Dataset(
-        X_valid,
+        x_valid,
         label=y_valid,
         feature_name=feature_names,
         categorical_feature=categorical_features,
@@ -767,7 +767,7 @@ def train_candidate(
 
     validation_prediction = transform_prediction(
         selected.predict(
-            X_valid,
+            x_valid,
             num_iteration=best_iteration,
         ),
         objective,
@@ -793,7 +793,7 @@ def train_candidate(
     }
 
     final_set = lgb.Dataset(
-        X_final,
+        x_final,
         label=y_final,
         feature_name=feature_names,
         categorical_feature=categorical_features,
