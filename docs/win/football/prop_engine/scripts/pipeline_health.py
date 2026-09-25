@@ -23,7 +23,7 @@ import sys
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 from zoneinfo import ZoneInfo
 
 from pipeline_reporter import PipelineReporter
@@ -51,7 +51,7 @@ VALID_SEASON_TYPES = {"pre", "reg", "post"}
 VALID_REPORT_STATUSES = {"SUCCESS", "WARNING", "FAILED"}
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 
