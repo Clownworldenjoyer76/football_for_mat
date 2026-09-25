@@ -56,7 +56,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import os
 import sys
 import tempfile
@@ -879,46 +878,6 @@ def save_model_atomic(
             temp_path.unlink()
 
 
-def rmse(actual: np.ndarray, pred: np.ndarray) -> float:
-    return float(
-        np.sqrt(
-            np.mean(
-                np.square(
-                    np.asarray(actual, dtype=float)
-                    - np.asarray(pred, dtype=float)
-                )
-            )
-        )
-    )
-
-
-def mae(actual: np.ndarray, pred: np.ndarray) -> float:
-    return float(
-        np.mean(
-            np.abs(
-                np.asarray(actual, dtype=float)
-                - np.asarray(pred, dtype=float)
-            )
-        )
-    )
-
-
-def r2(actual: np.ndarray, pred: np.ndarray) -> float | None:
-    y = np.asarray(actual, dtype=float)
-    p = np.asarray(pred, dtype=float)
-
-    denominator = float(np.sum(np.square(y - y.mean())))
-    if denominator <= 0.0:
-        return None
-
-    value = 1.0 - float(
-        np.sum(np.square(y - p))
-        / denominator
-    )
-
-    return value if math.isfinite(value) else None
-
-
 def assert_feature_contract(
     config: dict[str, Any],
     canonical_manifest: dict[str, Any],
@@ -1467,11 +1426,10 @@ def train_component(
 
     valid_actual = y_valid.to_numpy(dtype="float64")
 
-    validation_metrics = {
-        "rmse": rmse(valid_actual, valid_pred),
-        "mae": mae(valid_actual, valid_pred),
-        "r2": r2(valid_actual, valid_pred),
-    }
+    validation_metrics = common.regression_metrics(
+        valid_actual,
+        valid_pred,
+    )
 
     final_set = lgb.Dataset(
         x_final,

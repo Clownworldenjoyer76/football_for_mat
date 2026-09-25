@@ -776,6 +776,24 @@ def enforce_monotone_quantiles(
     return output
 
 
+def regression_metrics(
+    actual: np.ndarray,
+    predicted: np.ndarray,
+) -> dict[str, float | None]:
+    y = np.asarray(actual, dtype=float)
+    p = np.asarray(predicted, dtype=float)
+    error = y - p
+    rmse = float(np.sqrt(np.mean(np.square(error))))
+    mae = float(np.mean(np.abs(error)))
+    denominator = float(np.sum(np.square(y - y.mean())))
+    if denominator <= 0.0:
+        r2 = None
+    else:
+        value = 1.0 - float(np.sum(np.square(error)) / denominator)
+        r2 = value if math.isfinite(value) else None
+    return {"rmse": rmse, "mae": mae, "r2": r2}
+
+
 def poisson_deviance(
     actual: np.ndarray,
     predicted: np.ndarray,

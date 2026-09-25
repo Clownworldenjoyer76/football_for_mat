@@ -47,7 +47,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import os
 import sys
 import tempfile
@@ -609,49 +608,6 @@ def transform_prediction(
     return values
 
 
-def rmse(y: np.ndarray, p: np.ndarray) -> float:
-    return float(
-        np.sqrt(
-            np.mean(
-                np.square(
-                    np.asarray(y, dtype=float)
-                    - np.asarray(p, dtype=float)
-                )
-            )
-        )
-    )
-
-
-def mae(y: np.ndarray, p: np.ndarray) -> float:
-    return float(
-        np.mean(
-            np.abs(
-                np.asarray(y, dtype=float)
-                - np.asarray(p, dtype=float)
-            )
-        )
-    )
-
-
-def r2(y: np.ndarray, p: np.ndarray) -> float | None:
-    actual = np.asarray(y, dtype=float)
-    pred = np.asarray(p, dtype=float)
-    denominator = float(
-        np.sum(
-            np.square(
-                actual - actual.mean()
-            )
-        )
-    )
-    if denominator <= 0.0:
-        return None
-    value = 1.0 - float(
-        np.sum(np.square(actual - pred))
-        / denominator
-    )
-    return value if math.isfinite(value) else None
-
-
 def train_candidate(
     target: str,
     objective: str,
@@ -767,20 +723,10 @@ def train_candidate(
         dtype="float64"
     )
 
-    metrics = {
-        "rmse": rmse(
-            y_valid_array,
-            validation_prediction,
-        ),
-        "mae": mae(
-            y_valid_array,
-            validation_prediction,
-        ),
-        "r2": r2(
-            y_valid_array,
-            validation_prediction,
-        ),
-    }
+    metrics = common.regression_metrics(
+        y_valid_array,
+        validation_prediction,
+    )
 
     final_set = lgb.Dataset(
         x_final,
