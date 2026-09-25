@@ -148,19 +148,7 @@ def load_yaml(path: Path) -> dict[str, Any]:
         missing_message=f"Required YAML missing: {path}",
     )
 
-def stable_json_bytes(value: Any) -> bytes:
-    return (
-        json.dumps(
-            value,
-            sort_keys=True,
-            indent=2,
-            ensure_ascii=False,
-        )
-        + "\n"
-    ).encode("utf-8")
-
-
-def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
+def prop_output_destination(path: Path) -> Path:
     destination = path.resolve()
     prop = common.prop_root().resolve()
     try:
@@ -171,23 +159,15 @@ def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
         ) from exc
 
     destination.parent.mkdir(parents=True, exist_ok=True)
+    return destination
 
-    handle = tempfile.NamedTemporaryFile(
-        mode="wb",
-        dir=destination.parent,
-        prefix=f".{destination.name}.",
-        suffix=".tmp",
-        delete=False,
+
+def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
+    destination = prop_output_destination(path)
+    common.write_json_atomic(
+        destination,
+        value,
     )
-    temp_path = Path(handle.name)
-
-    try:
-        with handle:
-            handle.write(stable_json_bytes(value))
-        os.replace(temp_path, destination)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
 
 
 def save_model_atomic(
@@ -195,16 +175,7 @@ def save_model_atomic(
     path: Path,
     num_iteration: int,
 ) -> None:
-    destination = path.resolve()
-    prop = common.prop_root().resolve()
-    try:
-        destination.relative_to(prop)
-    except ValueError as exc:
-        raise ValueError(
-            f"Refusing write outside Prop Engine: {destination}"
-        ) from exc
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination = prop_output_destination(path)
 
     handle = tempfile.NamedTemporaryFile(
         mode="wb",
