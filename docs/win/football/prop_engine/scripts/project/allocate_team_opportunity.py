@@ -487,10 +487,14 @@ def main() -> int:
         raise ValueError("Issue 34 current features unexpectedly contain target columns")
 
     for frame, label in [(component, "component"), (features, "features"), (roles, "roles"), (universe_all, "universe")]:
-        frame["season"] = pd.to_numeric(frame["season"], errors="raise").astype(int)
-        frame["week"] = pd.to_numeric(frame["week"], errors="raise").astype(int)
-        if set(frame["season"]) != {season} or set(frame["week"]) != {week}:
-            raise ValueError(f"Issue 34 {label} season/week mismatch")
+        common.require_current_week_frame(
+            frame,
+            season=season,
+            week=week,
+            mismatch_message=(
+                f"Issue 34 {label} season/week mismatch"
+            ),
+        )
 
     # Context must agree across the accepted current-week artifacts.
     context = component[[*GRAIN, "team", "position"]].merge(

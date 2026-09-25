@@ -289,10 +289,14 @@ def build_current_context(
     common.ensure_unique(universe_all, GRAIN, "Issue 29 current universe")
 
     for frame, label in [(features, "features"), (roles, "roles"), (universe_all, "universe")]:
-        frame["season"] = pd.to_numeric(frame["season"], errors="raise").astype(int)
-        frame["week"] = pd.to_numeric(frame["week"], errors="raise").astype(int)
-        if set(frame["season"]) != {season} or set(frame["week"]) != {week}:
-            raise ValueError(f"Issue 35 {label} season/week mismatch")
+        common.require_current_week_frame(
+            frame,
+            season=season,
+            week=week,
+            mismatch_message=(
+                f"Issue 35 {label} season/week mismatch"
+            ),
+        )
 
     eligible_universe = universe_all.loc[
         universe_all["eligibility_status"].fillna("").astype(str).str.strip().str.casefold().eq("eligible")

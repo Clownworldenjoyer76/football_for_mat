@@ -311,6 +311,29 @@ def read_regular_season_pbp(
     return frame
 
 
+def require_current_week_frame(
+    frame: pd.DataFrame,
+    *,
+    season: int,
+    week: int,
+    mismatch_message: str,
+) -> None:
+    frame["season"] = pd.to_numeric(
+        frame["season"],
+        errors="raise",
+    ).astype(int)
+    frame["week"] = pd.to_numeric(
+        frame["week"],
+        errors="raise",
+    ).astype(int)
+
+    if (
+        set(frame["season"]) != {int(season)}
+        or set(frame["week"]) != {int(week)}
+    ):
+        raise ValueError(mismatch_message)
+
+
 def load_config() -> dict:
     """Load and validate the shared Prop Engine YAML contract."""
     path = repo_root() / _CONFIG_RELATIVE_PATH
