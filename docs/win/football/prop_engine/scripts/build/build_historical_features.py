@@ -614,6 +614,25 @@ def classify_feature_columns(
     return numeric, categorical
 
 
+def build_specialized_feature_rename_map(
+    columns: list[str],
+    role_map: dict[str, str],
+    player_prefix: str,
+    role_columns: list[str],
+    player_columns: list[str],
+) -> dict[str, str]:
+    renamed: dict[str, str] = {}
+    for column in columns:
+        if column in role_map:
+            output_name = role_map[column]
+            role_columns.append(output_name)
+        else:
+            output_name = f"{player_prefix}{column}"
+            player_columns.append(output_name)
+        renamed[column] = output_name
+    return renamed
+
+
 def _run(reporter: PipelineReporter) -> int:
     config = common.load_config()
 
@@ -1042,15 +1061,13 @@ def _run(reporter: PipelineReporter) -> int:
         if column not in set(GRAIN + ["position"])
     ]
 
-    defensive_rename: dict[str, str] = {}
-    for column in defensive_source:
-        if column in DEFENSIVE_ROLE_MAP:
-            output_name = DEFENSIVE_ROLE_MAP[column]
-            role_columns.append(output_name)
-        else:
-            output_name = f"player_defensive_{column}"
-            player_columns.append(output_name)
-        defensive_rename[column] = output_name
+    defensive_rename = build_specialized_feature_rename_map(
+        defensive_source,
+        DEFENSIVE_ROLE_MAP,
+        "player_defensive_",
+        role_columns,
+        player_columns,
+    )
 
     out = out.merge(
         defensive[GRAIN + defensive_source].rename(
@@ -1075,15 +1092,13 @@ def _run(reporter: PipelineReporter) -> int:
         and column not in KICKING_REDUNDANT_ENVIRONMENT
     ]
 
-    kicking_rename: dict[str, str] = {}
-    for column in kicking_source:
-        if column in KICKING_ROLE_MAP:
-            output_name = KICKING_ROLE_MAP[column]
-            role_columns.append(output_name)
-        else:
-            output_name = f"player_kicking_{column}"
-            player_columns.append(output_name)
-        kicking_rename[column] = output_name
+    kicking_rename = build_specialized_feature_rename_map(
+        kicking_source,
+        KICKING_ROLE_MAP,
+        "player_kicking_",
+        role_columns,
+        player_columns,
+    )
 
     out = out.merge(
         kicking[GRAIN + kicking_source].rename(

@@ -177,6 +177,27 @@ def normalize_position_group(value: Any, position: Any = "") -> str:
     return normalize_position(position)
 
 
+def normalize_identity_columns(frame: pd.DataFrame) -> None:
+    frame["season"] = pd.to_numeric(
+        frame["season"], errors="raise"
+    ).astype(int)
+    frame["week"] = pd.to_numeric(
+        frame["week"], errors="raise"
+    ).astype(int)
+    frame["game_id"] = frame["game_id"].map(clean)
+    frame["player_id"] = frame["player_id"].map(
+        common.normalize_player_id
+    )
+    frame["team"] = frame["team"].map(normalize_team)
+    frame["position"] = frame["position"].map(normalize_position)
+    frame["position_group"] = [
+        normalize_position_group(group, position)
+        for group, position in zip(
+            frame["position_group"], frame["position"]
+        )
+    ]
+
+
 def numeric(series: pd.Series, *, fill_zero: bool = False) -> pd.Series:
     result = pd.to_numeric(series, errors="coerce").astype("float64")
     result = result.replace([np.inf, -np.inf], np.nan)
@@ -235,16 +256,7 @@ def load_targets(config: dict) -> pd.DataFrame:
         pd.to_numeric(target["season"], errors="coerce").between(start, end)
     ].copy()
 
-    target["season"] = pd.to_numeric(target["season"], errors="raise").astype(int)
-    target["week"] = pd.to_numeric(target["week"], errors="raise").astype(int)
-    target["game_id"] = target["game_id"].map(clean)
-    target["player_id"] = target["player_id"].map(common.normalize_player_id)
-    target["team"] = target["team"].map(normalize_team)
-    target["position"] = target["position"].map(normalize_position)
-    target["position_group"] = [
-        normalize_position_group(g, p)
-        for g, p in zip(target["position_group"], target["position"])
-    ]
+    normalize_identity_columns(target)
     target["_history_team"] = target["team"].map(history_team)
     target["_kickoff"] = pd.to_datetime(
         target["kickoff_timestamp"], utc=True, errors="raise"
@@ -272,16 +284,7 @@ def load_opportunity_source(config: dict, target: pd.DataFrame) -> pd.DataFrame:
     required = BASE_ID_COLUMNS + BASE_METRICS
     source = common.read_parquet_required(path, required).copy()
 
-    source["season"] = pd.to_numeric(source["season"], errors="raise").astype(int)
-    source["week"] = pd.to_numeric(source["week"], errors="raise").astype(int)
-    source["game_id"] = source["game_id"].map(clean)
-    source["player_id"] = source["player_id"].map(common.normalize_player_id)
-    source["team"] = source["team"].map(normalize_team)
-    source["position"] = source["position"].map(normalize_position)
-    source["position_group"] = [
-        normalize_position_group(g, p)
-        for g, p in zip(source["position_group"], source["position"])
-    ]
+    normalize_identity_columns(source)
 
     kickoff = (
         target[["season", "week", "game_id", "_kickoff"]]
@@ -332,15 +335,7 @@ def load_prehistory_source(config: dict) -> pd.DataFrame:
             raise RuntimeError(f"No regular-season prehistory rows for {season}: {path}")
 
         raw["season"] = season
-        raw["week"] = pd.to_numeric(raw["week"], errors="raise").astype(int)
-        raw["game_id"] = raw["game_id"].map(clean)
-        raw["player_id"] = raw["player_id"].map(common.normalize_player_id)
-        raw["team"] = raw["team"].map(normalize_team)
-        raw["position"] = raw["position"].map(normalize_position)
-        raw["position_group"] = [
-            normalize_position_group(g, p)
-            for g, p in zip(raw["position_group"], raw["position"])
-        ]
+        normalize_identity_columns(raw)
 
         # Team denominators are built before blank player IDs are removed so that
         # unresolved player rows remain part of the team opportunity total.

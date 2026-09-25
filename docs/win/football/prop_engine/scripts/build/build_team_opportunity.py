@@ -373,6 +373,38 @@ def normalize_week_team_frame(
     return output
 
 
+def regular_season_rows(
+    frame: pd.DataFrame,
+    *,
+    season: int,
+    path: Path,
+    row_label: str = "",
+) -> pd.DataFrame:
+    working = frame.loc[
+        pd.to_numeric(
+            frame["season"],
+            errors="coerce",
+        ).eq(season)
+        & frame["season_type"]
+        .astype(str)
+        .str.upper()
+        .eq("REG")
+    ].copy()
+
+    if working.empty:
+        label = f"{row_label} " if row_label else ""
+        raise RuntimeError(
+            f"{path}: no regular-season {label}rows for {season}."
+        )
+
+    working["season"] = season
+    working["week"] = pd.to_numeric(
+        working["week"],
+        errors="raise",
+    ).astype(int)
+    return working
+
+
 def build_stats_game_tables(
     source: pd.DataFrame,
     *,
@@ -407,29 +439,11 @@ def build_stats_game_tables(
         str(path),
     )
 
-    working = source.loc[
-        pd.to_numeric(
-            source["season"],
-            errors="coerce",
-        ).eq(season)
-        &
-        source["season_type"]
-        .astype(str)
-        .str.upper()
-        .eq("REG")
-    ].copy()
-
-    if working.empty:
-        raise RuntimeError(
-            f"{path}: no regular-season rows for {season}."
-        )
-
-    working["season"] = season
-
-    working["week"] = pd.to_numeric(
-        working["week"],
-        errors="raise",
-    ).astype(int)
+    working = regular_season_rows(
+        source,
+        season=season,
+        path=path,
+    )
 
     working["game_id"] = (
         working["game_id"]
@@ -788,29 +802,12 @@ def build_pbp_tables(
 
     drive_col = get_drive_column(pbp)
 
-    working = pbp.loc[
-        pd.to_numeric(
-            pbp["season"],
-            errors="coerce",
-        ).eq(season)
-        &
-        pbp["season_type"]
-        .astype(str)
-        .str.upper()
-        .eq("REG")
-    ].copy()
-
-    if working.empty:
-        raise RuntimeError(
-            f"{path}: no regular-season PBP rows for {season}."
-        )
-
-    working["season"] = season
-
-    working["week"] = pd.to_numeric(
-        working["week"],
-        errors="raise",
-    ).astype(int)
+    working = regular_season_rows(
+        pbp,
+        season=season,
+        path=path,
+        row_label="PBP",
+    )
 
     working["game_id"] = working["game_id"].map(clean)
     working["posteam"] = working["posteam"].map(canonical_team)
