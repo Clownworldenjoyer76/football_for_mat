@@ -159,8 +159,8 @@ def build_crosswalk_maps(
     )
     working = crosswalk.copy()
     working["gsis_id"] = working["gsis_id"].map(common.normalize_player_id)
-    working["pfr_id"] = working["pfr_id"].map(clean)
-    names = working["normalized_name"].map(clean)
+    working["pfr_id"] = working["pfr_id"].map(common.clean_text)
+    names = working["normalized_name"].map(common.clean_text)
     if "display_name" in working.columns:
         fallback = working["display_name"].map(common.normalize_name)
         names = names.where(names.ne(""), fallback)
@@ -197,7 +197,7 @@ def prepare_stats(
 
     working["season"] = season
     working["week"] = pd.to_numeric(working["week"], errors="raise").astype(int)
-    working["game_id"] = working["game_id"].map(clean)
+    working["game_id"] = working["game_id"].map(common.clean_text)
     working["player_id"] = working["player_id"].map(common.normalize_player_id)
     working["team"] = working["team"].map(canonical_team)
 
@@ -268,8 +268,8 @@ def prepare_stats(
         "tackles", "sacks", "qb_hits",
     ]
     result = working[base_columns].copy()
-    result["position"] = result["position"].map(clean).str.upper()
-    result["position_group"] = result["position_group"].map(clean).str.upper()
+    result["position"] = result["position"].map(common.clean_text).str.upper()
+    result["position_group"] = result["position_group"].map(common.clean_text).str.upper()
     return result, team_denominators, diagnostics
 
 
@@ -312,10 +312,10 @@ def prepare_snaps(
 
     working["season"] = season
     working["week"] = pd.to_numeric(working["week"], errors="raise").astype(int)
-    working["game_id"] = working["game_id"].map(clean)
+    working["game_id"] = working["game_id"].map(common.clean_text)
     working["_snap_team"] = working["team"].map(canonical_team)
 
-    pfr = working["pfr_player_id"].map(clean)
+    pfr = working["pfr_player_id"].map(common.clean_text)
     names = working["player"].map(common.normalize_name)
     resolved = pfr.map(pfr_map)
     fallback = names.map(name_map)
@@ -526,7 +526,7 @@ def build_pbp_rich(
 
     working["season"] = season
     working["week"] = pd.to_numeric(working["week"], errors="raise").astype(int)
-    working["game_id"] = working["game_id"].map(clean)
+    working["game_id"] = working["game_id"].map(common.clean_text)
     working["team"] = working["posteam"].map(canonical_team)
 
     for column in ["pass_attempt", "qb_dropback", "rush_attempt", "qb_kneel"]:
