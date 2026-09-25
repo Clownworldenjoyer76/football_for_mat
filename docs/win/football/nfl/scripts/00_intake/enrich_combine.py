@@ -8,12 +8,10 @@ No weights are applied. The exact 118-column combined contract is preserved.
 from __future__ import annotations
 import argparse
 import csv
-import os
 import re
 import shutil
 import sys
 import tempfile
-import uuid
 from pathlib import Path
 from typing import Any, Never
 
@@ -23,6 +21,7 @@ NFL_ROOT = SCRIPT_PATH.parents[2]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 from pipeline_reporter import PipelineReporter
+from publication_contract import publish_staged_directory
 from enrichment_contract import TOTALS_APPENDED_FIELDS
 
 ENRICHED_ROOT = NFL_ROOT / "00_intake" / "predictions" / "enriched"
@@ -615,26 +614,18 @@ def build_staged_root(week_outputs: dict[int, tuple[Any,Any,Any,Any]]) -> Path:
         shutil.rmtree(stage_root, ignore_errors=True)
         raise
 
-def publish_staged_root(stage_root: Path, *, reporter: PipelineReporter) -> None:
-    backup_root = OUTPUT_DIR.parent / f".{OUTPUT_DIR.name}_backup_{uuid.uuid4().hex}"
-    try:
-        if OUTPUT_DIR.exists():
-            os.replace(OUTPUT_DIR, backup_root)
-        os.replace(stage_root, OUTPUT_DIR)
-    except Exception:
-        if OUTPUT_DIR.exists():
-            shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
-        if backup_root.exists():
-            os.replace(backup_root, OUTPUT_DIR)
-        raise
-    if backup_root.exists():
-        try:
-            shutil.rmtree(backup_root)
-        except Exception as exc:
-            reporter.warning(
-                "Combined enrichment published but temporary backup cleanup failed",
-                backup_path=str(backup_root), error_type=type(exc).__name__, error=str(exc),
-            )
+def publish_staged_root(
+    stage_root: Path,
+    *,
+    reporter: PipelineReporter,
+) -> None:
+    publish_staged_directory(
+        stage_root,
+        output_dir=OUTPUT_DIR,
+        reporter=reporter,
+        cleanup_warning='Combined enrichment published but temporary backup cleanup failed',
+    )
+
 
 def run(reporter: PipelineReporter, *, season: int) -> None:
     import_pandas()

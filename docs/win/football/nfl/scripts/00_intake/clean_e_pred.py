@@ -23,7 +23,6 @@ import os
 import shutil
 import sys
 import tempfile
-import uuid
 from collections import defaultdict
 from decimal import Decimal, ROUND_DOWN
 from pathlib import Path
@@ -38,6 +37,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from publication_contract import publish_staged_directory
 from csv_contract import read_csv_contract
 from value_contract import finite_decimal_text
 
@@ -850,51 +850,12 @@ def publish_staged_root(
     *,
     reporter: PipelineReporter,
 ) -> None:
-    backup_root = (
-        OUT_DIR.parent
-        / (
-            f".{OUT_DIR.name}_backup_"
-            f"{uuid.uuid4().hex}"
-        )
+    publish_staged_directory(
+        stage_root,
+        output_dir=OUT_DIR,
+        reporter=reporter,
+        cleanup_warning='Clean predictions were published but the temporary backup directory could not be removed',
     )
-
-    try:
-        if OUT_DIR.exists():
-            os.replace(
-                OUT_DIR,
-                backup_root,
-            )
-
-        os.replace(
-            stage_root,
-            OUT_DIR,
-        )
-
-    except Exception:
-        if OUT_DIR.exists():
-            shutil.rmtree(
-                OUT_DIR,
-                ignore_errors=True,
-            )
-
-        if backup_root.exists():
-            os.replace(
-                backup_root,
-                OUT_DIR,
-            )
-        raise
-
-    if backup_root.exists():
-        try:
-            shutil.rmtree(backup_root)
-        except Exception as exc:
-            reporter.warning(
-                "Clean predictions were published but the "
-                "temporary backup directory could not be removed",
-                backup_path=str(backup_root),
-                error_type=type(exc).__name__,
-                error=str(exc),
-            )
 
 
 def write_legacy_log(

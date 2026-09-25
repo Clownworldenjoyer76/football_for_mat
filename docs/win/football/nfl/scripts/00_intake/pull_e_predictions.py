@@ -19,7 +19,6 @@ and one awayTeam row before any production prediction file is replaced.
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import shutil
 import sys
@@ -27,7 +26,6 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
-import uuid
 from datetime import datetime, timezone
 from collections import defaultdict
 
@@ -42,6 +40,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
+from publication_contract import publish_staged_directory
 from schedule_contract import schedule_target_key
 from http_json_contract import fetch_json_object
 from team_contract import build_team_name_maps
@@ -956,53 +955,12 @@ def publish_staged_root(
     *,
     reporter: PipelineReporter,
 ) -> None:
-    backup_root = (
-        OUTPUT_DIR.parent
-        / (
-            f".{OUTPUT_DIR.name}_backup_"
-            f"{uuid.uuid4().hex}"
-        )
+    publish_staged_directory(
+        stage_root,
+        output_dir=OUTPUT_DIR,
+        reporter=reporter,
+        cleanup_warning='Prediction files were published but the temporary backup directory could not be removed',
     )
-    had_existing = OUTPUT_DIR.exists()
-
-    try:
-        if had_existing:
-            os.replace(
-                OUTPUT_DIR,
-                backup_root,
-            )
-
-        os.replace(
-            stage_root,
-            OUTPUT_DIR,
-        )
-
-    except Exception:
-        if OUTPUT_DIR.exists():
-            shutil.rmtree(
-                OUTPUT_DIR,
-                ignore_errors=True,
-            )
-
-        if backup_root.exists():
-            os.replace(
-                backup_root,
-                OUTPUT_DIR,
-            )
-
-        raise
-
-    if backup_root.exists():
-        try:
-            shutil.rmtree(backup_root)
-        except Exception as exc:
-            reporter.warning(
-                "Prediction files were published but the "
-                "temporary backup directory could not be removed",
-                backup_path=str(backup_root),
-                error_type=type(exc).__name__,
-                error=str(exc),
-            )
 
 
 def append_legacy_log(
