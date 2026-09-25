@@ -217,8 +217,6 @@ def load_universe(season: int, week: int) -> pd.DataFrame:
         raise FileNotFoundError(f"Issue 29 current universe is missing: {path}")
     frame = pd.read_parquet(path)
     common.require_columns(frame, UNIVERSE_REQUIRED, "Issue 29 current universe")
-    if list(frame.columns)[:0] != []:
-        pass
     frame = frame.copy()
     frame["season"] = pd.to_numeric(frame["season"], errors="raise").astype(int)
     frame["week"] = pd.to_numeric(frame["week"], errors="raise").astype(int)
