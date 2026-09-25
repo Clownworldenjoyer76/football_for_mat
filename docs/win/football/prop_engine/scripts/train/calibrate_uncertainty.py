@@ -826,27 +826,27 @@ def coverage_rows(
     actual = frame["actual"].to_numpy(dtype="float64")
 
     def append_group(
-        interval_name: str,
-        lower_name: str,
-        upper_name: str,
-        expected: float,
-        mask: np.ndarray,
-        position_group: str,
+        group_interval_name: str,
+        group_lower_name: str,
+        group_upper_name: str,
+        group_expected: float,
+        group_mask: np.ndarray,
+        group_position: str,
         usage_bucket: str,
     ) -> None:
-        if not mask.any():
+        if not group_mask.any():
             return
-        lower = quantiles[lower_name][mask]
-        upper = quantiles[upper_name][mask]
-        y = actual[mask]
+        lower = quantiles[group_lower_name][group_mask]
+        upper = quantiles[group_upper_name][group_mask]
+        y = actual[group_mask]
         rows.append(
             {
                 "target": target,
-                "interval": interval_name,
-                "expected_coverage": float(expected),
+                "interval": group_interval_name,
+                "expected_coverage": float(group_expected),
                 "actual_coverage": coverage(y, lower, upper),
                 "mean_interval_width": float(np.mean(upper - lower)),
-                "position_group": position_group,
+                "position_group": group_position,
                 "usage_bucket": usage_bucket,
             }
         )
@@ -1203,21 +1203,21 @@ def fit_point_prediction_blend(
             def rushing_yards_robust_margin(
                 item: dict[str, Any],
             ) -> tuple[float, float, float, float]:
-                abs_bias = float(item["validation_absolute_bias"])
-                candidate_mae = float(item["validation_mae"])
-                improvement = float(
+                item_abs_bias = float(item["validation_absolute_bias"])
+                item_mae = float(item["validation_mae"])
+                item_improvement = float(
                     item["validation_improvement_vs_baseline_pct"]
                 )
                 robust_margin = min(
-                    (max_bias - abs_bias) / max_bias,
-                    (max_mae - candidate_mae) / max_mae,
-                    (improvement - min_improvement)
+                    (max_bias - item_abs_bias) / max_bias,
+                    (max_mae - item_mae) / max_mae,
+                    (item_improvement - min_improvement)
                     / max(abs(min_improvement), 1.0),
                 )
                 return (
                     -robust_margin,
-                    candidate_mae,
-                    abs_bias,
+                    item_mae,
+                    item_abs_bias,
                     float(item["calibrated_weight"]),
                 )
 

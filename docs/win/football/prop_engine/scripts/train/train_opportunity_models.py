@@ -69,11 +69,11 @@ import yaml
 
 try:
     import lightgbm as lgb
-except ModuleNotFoundError as exc:
+except ModuleNotFoundError as import_error:
     raise SystemExit(
         "Issue 22 requires LightGBM. Install it in the active Python "
         "environment with: python -m pip install lightgbm"
-    ) from exc
+    ) from import_error
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent

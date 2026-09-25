@@ -55,9 +55,9 @@ import pandas as pd
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
 VALIDATE_DIR = SCRIPTS_ROOT / "validate"
-for value in (SCRIPTS_ROOT, VALIDATE_DIR):
-    if str(value) not in sys.path:
-        sys.path.insert(0, str(value))
+for search_path in (SCRIPTS_ROOT, VALIDATE_DIR):
+    if str(search_path) not in sys.path:
+        sys.path.insert(0, str(search_path))
 
 import common
 from validate import audit_market_exclusion

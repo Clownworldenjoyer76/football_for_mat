@@ -260,10 +260,10 @@ def validate_model_schemas(
         if architecture in {"direct", "direct_component_blend"}:
             direct_info = selected.get("direct_variant") or {}
             model_rel = clean(direct_info.get("model_file"))
-            model_path = (common.repo_root() / model_rel).resolve() if model_rel else prop / "models" / target / "direct_model.txt"
+            selected_model_path = (common.repo_root() / model_rel).resolve() if model_rel else prop / "models" / target / "direct_model.txt"
             verify_model(
                 f"direct/{target}",
-                model_path,
+                selected_model_path,
                 prop / "models" / target / "feature_manifest.json",
             )
 
@@ -284,12 +284,12 @@ def validate_model_schemas(
             )
             continue
         if (efficiency_dir / "feature_manifest.json").is_file():
-            manifest = read_json(efficiency_dir / "feature_manifest.json")
-            canonical_features = list(manifest.get("canonical_features", []))
+            efficiency_manifest = read_json(efficiency_dir / "feature_manifest.json")
+            canonical_features = list(efficiency_manifest.get("canonical_features", []))
             if not canonical_features:
                 # Older/alternate manifests: model features minus explicitly derived fields.
-                all_features = list(manifest.get("numeric_features", [])) + list(manifest.get("categorical_features", []))
-                derived = set(manifest.get("derived_features", []))
+                all_features = list(efficiency_manifest.get("numeric_features", [])) + list(efficiency_manifest.get("categorical_features", []))
+                derived = set(efficiency_manifest.get("derived_features", []))
                 canonical_features = [f for f in all_features if f not in derived]
             verify_model(
                 f"efficiency/{dep}",
@@ -360,9 +360,9 @@ def main() -> int:
     frames: dict[str, pd.DataFrame] = {}
     required_error: Exception | None = None
     try:
-        missing = [str(p) for p in paths.values() if not p.is_file()]
-        if missing:
-            raise FileNotFoundError(f"Missing required current-week artifact(s): {missing}")
+        missing_paths = [str(p) for p in paths.values() if not p.is_file()]
+        if missing_paths:
+            raise FileNotFoundError(f"Missing required current-week artifact(s): {missing_paths}")
         frames["schedule"] = pd.read_csv(paths["schedule"], low_memory=False)
         frames["team_master"] = pd.read_csv(paths["team_master"], low_memory=False)
         frames["universe"] = canonical_ids(pd.read_parquet(paths["universe"]))
@@ -373,11 +373,11 @@ def main() -> int:
         frames["long"] = canonical_ids(pd.read_csv(paths["long"], low_memory=False))
         frames["active"] = canonical_ids(pd.read_csv(paths["active"], low_memory=False))
         frames["wide"] = canonical_ids(pd.read_csv(paths["wide"], low_memory=False))
-        for label, frame in frames.items():
-            if label not in {"schedule", "team_master"}:
-                ensure_week(frame, season, week, label)
-    except Exception as exc:
-        required_error = exc
+        for frame_label, loaded_frame in frames.items():
+            if frame_label not in {"schedule", "team_master"}:
+                ensure_week(loaded_frame, season, week, frame_label)
+    except Exception as load_error:
+        required_error = load_error
 
     def required_inputs() -> dict[str, Any]:
         if required_error is not None:

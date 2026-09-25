@@ -1595,7 +1595,7 @@ def main() -> int:
         metrics = candidate_metrics_for_frame(config, target, frame)
         selected = min(
             CANDIDATES,
-            key=lambda candidate: selection_key(metrics[candidate], candidate),
+            key=lambda candidate_name: selection_key(metrics[candidate_name], candidate_name),
         )
         validation_frames[target] = frame
         validation_metrics_by_target[target] = metrics

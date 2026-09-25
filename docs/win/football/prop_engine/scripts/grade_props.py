@@ -881,22 +881,22 @@ def build_reports(
     )
     outputs.append(overall_path)
 
-    fields, report = grouped_report(bets, "prop_type", lambda row: row.get("prop_type"))
+    fields, report = grouped_report(bets, "prop_type", lambda report_row: report_row.get("prop_type"))
     by_prop_type_path = report_dir / "by_prop_type.csv"
     write_csv(by_prop_type_path, fields, report)
     outputs.append(by_prop_type_path)
 
-    fields, report = grouped_report(bets, "probability_bucket", lambda row: probability_bucket(row.get("pick_prob")))
+    fields, report = grouped_report(bets, "probability_bucket", lambda report_row: probability_bucket(report_row.get("pick_prob")))
     by_probability_path = report_dir / "by_probability.csv"
     write_csv(by_probability_path, fields, report)
     outputs.append(by_probability_path)
 
-    fields, report = grouped_report(bets, "pick", lambda row: clean(row.get("pick")).casefold())
+    fields, report = grouped_report(bets, "pick", lambda report_row: clean(report_row.get("pick")).casefold())
     by_pick_path = report_dir / "by_pick_direction.csv"
     write_csv(by_pick_path, fields, report)
     outputs.append(by_pick_path)
 
-    fields, report = grouped_report(bets, "week", lambda row: row.get("week"))
+    fields, report = grouped_report(bets, "week", lambda report_row: report_row.get("week"))
     by_week_path = report_dir / "by_week.csv"
     write_csv(by_week_path, fields, report)
     outputs.append(by_week_path)

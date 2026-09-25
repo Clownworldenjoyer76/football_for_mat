@@ -1172,17 +1172,17 @@ def build_category_rows(
 
     return sorted(
         rows.values(),
-        key=lambda row: (
-            row[
+        key=lambda result_row: (
+            result_row[
                 "game_date"
             ],
-            row[
+            result_row[
                 "game_id"
             ],
-            row[
+            result_row[
                 "player_name"
             ],
-            row[
+            result_row[
                 "player_id"
             ],
         ),

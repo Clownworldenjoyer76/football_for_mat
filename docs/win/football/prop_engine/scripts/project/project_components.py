@@ -52,9 +52,9 @@ except ModuleNotFoundError as exc:
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
 TRAIN_DIR = SCRIPTS_ROOT / "train"
-for p in (SCRIPTS_ROOT, TRAIN_DIR):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
+for search_path in (SCRIPTS_ROOT, TRAIN_DIR):
+    if str(search_path) not in sys.path:
+        sys.path.insert(0, str(search_path))
 
 import common
 from train import train_opportunity_models as opportunity

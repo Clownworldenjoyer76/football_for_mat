@@ -325,7 +325,7 @@ def build_wide(source: pd.DataFrame, targets: list[str]) -> pd.DataFrame:
             f"sample={counts[bad_count].head(10).to_dict()}"
         )
     expected_targets = set(targets)
-    bad_set = counts.map(lambda values: set(map(str, values)) != expected_targets)
+    bad_set = counts.map(lambda target_values: set(map(str, target_values)) != expected_targets)
     if bad_set.any():
         raise ValueError(
             "Issue 37 target coverage mismatch per player-game; "

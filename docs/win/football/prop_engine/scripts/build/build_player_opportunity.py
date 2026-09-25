@@ -580,10 +580,10 @@ def build_pbp_rich(
 
     player_keys = [*GRAIN, "team"]
     player_frame = pd.DataFrame(columns=player_keys)
-    for mask, id_column, output_column in event_specs:
+    for event_mask, id_column, output_column in event_specs:
         event = group_player_event(
             working,
-            mask=mask,
+            mask=event_mask,
             id_column=id_column,
             output_column=output_column,
         )
