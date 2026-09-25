@@ -33,6 +33,8 @@ import logging
 import math
 import os
 import re
+import subprocess
+import sys
 import tempfile
 import unicodedata
 from pathlib import Path
@@ -131,6 +133,17 @@ def prop_root() -> Path:
         raise FileNotFoundError(f"Prop Engine root does not exist: {path}")
 
     return path
+
+
+def run_market_exclusion_preflight() -> None:
+    """Require the canonical market-exclusion audit to pass before training."""
+    audit = prop_root() / "scripts" / "validate" / "audit_market_exclusion.py"
+    result = subprocess.run(
+        [sys.executable, str(audit), "--preflight"],
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("Issue 28 market-exclusion preflight failed.")
 
 
 def _resolve_repo_path(path: str | os.PathLike[str]) -> Path:
