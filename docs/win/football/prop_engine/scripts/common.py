@@ -28,6 +28,7 @@ MARKET POLICY:
 
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import math
@@ -546,6 +547,46 @@ def write_parquet_atomic(
             temp_path.unlink()
 
         raise
+
+
+def read_csv_dict_rows(
+    path: str | os.PathLike[str],
+) -> tuple[list[dict[str, str]], list[str]]:
+    source = Path(path)
+    if not source.is_file():
+        raise FileNotFoundError(f"Missing input file: {source}")
+    with source.open("r", newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        rows = [dict(row) for row in reader]
+        return rows, list(reader.fieldnames or [])
+
+
+def write_csv_dict_rows_atomic(
+    path: str | os.PathLike[str],
+    fieldnames: list[str],
+    rows: list[dict[str, str]],
+) -> None:
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        newline="",
+        encoding="utf-8",
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=destination.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+    try:
+        with handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(temp_path, destination)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 
 def write_csv_atomic(

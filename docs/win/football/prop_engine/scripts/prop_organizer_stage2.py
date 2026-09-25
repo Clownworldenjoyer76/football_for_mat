@@ -3,10 +3,7 @@
 
 from __future__ import annotations
 
-import csv
 import math
-import os
-import tempfile
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
@@ -121,46 +118,6 @@ IDENTITY_COLUMNS = [
     "espn_player_id",
     "prop_engine_player_id",
 ]
-
-
-def read_csv(path: Path) -> tuple[list[dict[str, str]], list[str]]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Missing input file: {path}")
-
-    with path.open("r", newline="", encoding="utf-8-sig") as handle:
-        reader = csv.DictReader(handle)
-        rows = [dict(row) for row in reader]
-        return rows, list(reader.fieldnames or [])
-
-
-def write_csv(
-    path: Path,
-    fieldnames: list[str],
-    rows: list[dict[str, str]],
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        newline="",
-        encoding="utf-8",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-
-    try:
-        with handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-
-        os.replace(temp_path, path)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
 
 
 def require_columns(
@@ -585,7 +542,7 @@ def process_file(
         / f"week_{week_number}_{filename_suffix}.csv"
     )
 
-    rows, fieldnames = read_csv(input_path)
+    rows, fieldnames = common.read_csv_dict_rows(input_path)
 
     required_columns = [
         *IDENTITY_COLUMNS,
@@ -689,7 +646,7 @@ def process_file(
             }
         )
 
-    write_csv(
+    common.write_csv_dict_rows_atomic(
         output_path,
         output_columns,
         output_rows,

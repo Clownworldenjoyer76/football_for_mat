@@ -4,9 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import os
-import tempfile
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -80,52 +77,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def read_csv(path: Path) -> tuple[list[dict[str, str]], list[str]]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Missing input file: {path}")
-
-    with path.open("r", newline="", encoding="utf-8-sig") as handle:
-        reader = csv.DictReader(handle)
-        rows = [dict(row) for row in reader]
-        return rows, list(reader.fieldnames or [])
-
-
 def require_columns(path: Path, fieldnames: list[str], required: list[str]) -> None:
     missing = [column for column in required if column not in fieldnames]
     if missing:
         raise RuntimeError(
             f"{path} is missing required columns: {', '.join(missing)}"
         )
-
-
-def write_csv(
-    path: Path,
-    fieldnames: list[str],
-    rows: list[dict[str, str]],
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        newline="",
-        encoding="utf-8",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-
-    try:
-        with handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-
-        os.replace(temp_path, path)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
 
 
 def add_values(left: str, right: str) -> str:
@@ -179,7 +136,7 @@ def build_simple_output(
     config = SIMPLE_OUTPUTS[category]
     input_path = simple_input_path(season, week, category)
     reporter.add_input(input_path)
-    rows, fieldnames = read_csv(input_path)
+    rows, fieldnames = common.read_csv_dict_rows(input_path)
 
     output_columns = [
         "game_date",
@@ -202,7 +159,7 @@ def build_simple_output(
     ]
 
     output_path = simple_output_path(season, week, category)
-    write_csv(
+    common.write_csv_dict_rows_atomic(
         output_path,
         output_columns,
         output_rows,
@@ -235,7 +192,7 @@ def build_combo_outputs(
 ) -> dict[str, object]:
     input_path = simple_input_path(season, week, "combo")
     reporter.add_input(input_path)
-    rows, fieldnames = read_csv(input_path)
+    rows, fieldnames = common.read_csv_dict_rows(input_path)
 
     required = [
         *IDENTITY_COLUMNS,
@@ -306,7 +263,7 @@ def build_combo_outputs(
         / "pass_rush_yds"
         / f"week_{week}_pass_rush_yds.csv"
     )
-    write_csv(pass_rush_path, pass_rush_columns, pass_rush_rows)
+    common.write_csv_dict_rows_atomic(pass_rush_path, pass_rush_columns, pass_rush_rows)
     reporter.add_output(pass_rush_path)
 
     rec_rush_columns = [
@@ -362,7 +319,7 @@ def build_combo_outputs(
         / "rec_rush_yds"
         / f"week_{week}_rec_rush_yds.csv"
     )
-    write_csv(rec_rush_path, rec_rush_columns, rec_rush_rows)
+    common.write_csv_dict_rows_atomic(rec_rush_path, rec_rush_columns, rec_rush_rows)
     reporter.add_output(rec_rush_path)
 
     pass_rush_missing_engine = sum(
