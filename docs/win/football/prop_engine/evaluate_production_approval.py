@@ -53,27 +53,6 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    return "" if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"} else text
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    value = json.loads(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected JSON object: {path}")
-    return value
-
-
 def load_yaml(path: Path) -> dict[str, Any]:
     if not path.is_file():
         raise FileNotFoundError(path)
@@ -174,11 +153,11 @@ def calibration_integrity(
     if payload.get("target") != target:
         problems.append("calibration_target_mismatch")
 
-    selected_arch = clean(
+    selected_arch = common.clean_text(
         selected.get("selected_architecture")
         or selected.get("selected_candidate")
     )
-    if clean(payload.get("selected_architecture")) != selected_arch:
+    if common.clean_text(payload.get("selected_architecture")) != selected_arch:
         problems.append("calibration_architecture_mismatch")
 
     if payload.get("market_features_used") is not False:
@@ -190,7 +169,7 @@ def calibration_integrity(
     if not isinstance(source, dict):
         problems.append("calibration_source_missing")
     else:
-        if clean(source.get("split")) != "validation":
+        if common.clean_text(source.get("split")) != "validation":
             problems.append("calibration_not_from_validation")
         try:
             source_season = int(source.get("season"))
@@ -226,7 +205,7 @@ def production_calibrated_values(
     - count / quantiles_and_count: count_outputs -> expected_count + calibrated p1+
     - quantiles only: selected point + residual q50
     """
-    mode = clean(calibration.get("calibration_mode"))
+    mode = common.clean_text(calibration.get("calibration_mode"))
     if mode in {"count", "quantiles_and_count"}:
         out = common.calibrated_count_outputs(raw_selected, calibration)
         base_point = np.asarray(out["expected_count"], dtype="float64")
@@ -250,7 +229,7 @@ def production_calibrated_values(
 
 
 def training_rows(target: str) -> int:
-    metadata = load_json(HERE / "models" / target / "metadata.json")
+    metadata = common.load_json_mapping(HERE / "models" / target / "metadata.json")
     rows = metadata.get("rows", {})
     if not isinstance(rows, dict):
         raise ValueError(f"{target}: metadata.rows missing")
@@ -400,10 +379,10 @@ def main() -> int:
         calibration_path = (
             HERE / "models" / "calibration" / f"{target}_calibration.json"
         )
-        selected = load_json(selected_path)
-        calibration = load_json(calibration_path)
+        selected = common.load_json_mapping(selected_path)
+        calibration = common.load_json_mapping(calibration_path)
 
-        architecture = clean(
+        architecture = common.clean_text(
             selected.get("selected_architecture")
             or selected.get("selected_candidate")
         )
@@ -558,7 +537,7 @@ def main() -> int:
         row = {
             "target": target,
             "selected_architecture": architecture,
-            "calibration_mode": clean(calibration.get("calibration_mode")),
+            "calibration_mode": common.clean_text(calibration.get("calibration_mode")),
             "calibration_method": calibration_method,
             "test_season": test_season,
             "test_rows": int(len(actual)),

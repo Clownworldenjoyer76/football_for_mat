@@ -111,27 +111,6 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    return "" if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"} else text
-
-
-def read_json(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    value = json.loads(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected JSON object: {path}")
-    return value
-
-
 def numeric(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan).astype("float64")
 
@@ -306,8 +285,8 @@ def selected_rows(config: dict[str, Any], audit: pd.DataFrame, split: str) -> tu
     architectures: dict[str, str] = {}
     for target in config["targets"]:
         selected_path = common.prop_root() / "models" / target / "selected_model.json"
-        selected = read_json(selected_path)
-        architecture = clean(selected.get("selected_architecture") or selected.get("selected_candidate"))
+        selected = common.load_json_mapping(selected_path)
+        architecture = common.clean_text(selected.get("selected_architecture") or selected.get("selected_candidate"))
         if architecture not in SELECTED_PROJECTION_COLUMNS:
             raise ValueError(f"{target}: invalid selected architecture {architecture!r}")
         if bool(selected.get("test_used_for_selection", False)):
@@ -337,7 +316,7 @@ def load_context(config: dict[str, Any], selected: pd.DataFrame) -> tuple[pd.Dat
     if not path.is_file():
         raise FileNotFoundError(path)
     manifest_path = path.with_name("feature_manifest.json")
-    manifest = read_json(manifest_path)
+    manifest = common.load_json_mapping(manifest_path)
     schema = set(manifest.get("leading_columns", []))
     families = manifest.get("column_families", {})
     if isinstance(families, dict):
