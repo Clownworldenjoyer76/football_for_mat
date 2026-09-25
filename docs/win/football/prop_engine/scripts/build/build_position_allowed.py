@@ -548,7 +548,7 @@ def build_tackles_generated(
 
         pbp["game_id"] = (
             pbp["game_id"]
-            .map(clean)
+            .map(common.clean_text)
         )
 
         pbp["posteam"] = (
