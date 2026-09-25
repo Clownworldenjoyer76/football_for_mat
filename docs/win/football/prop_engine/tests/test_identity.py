@@ -32,7 +32,8 @@ universe = load_module(
 
 
 class IdentityTests(unittest.TestCase):
-    def crosswalk(self) -> pd.DataFrame:
+    @staticmethod
+    def crosswalk() -> pd.DataFrame:
         return pd.DataFrame(
             [
                 {

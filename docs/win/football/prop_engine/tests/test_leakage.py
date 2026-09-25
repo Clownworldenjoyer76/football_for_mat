@@ -62,7 +62,8 @@ class LeakageTests(unittest.TestCase):
         self.assertEqual(values["pass_attempts_roll3_mean"], 15.0)
         self.assertNotEqual(values["pass_attempts_roll3_mean"], (10 + 20 + 999) / 3)
 
-    def _role_fixture(self):
+    @staticmethod
+    def _role_fixture():
         target_time = pd.Timestamp("2024-09-15T17:00:00Z")
         base = pd.DataFrame(
             {
