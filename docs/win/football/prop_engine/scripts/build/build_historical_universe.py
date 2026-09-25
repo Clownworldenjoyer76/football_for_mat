@@ -1768,6 +1768,59 @@ def apply_depth_candidates(
                 ]
 
 
+def build_player_week_history(
+    current,
+):
+    by_player_week = {}
+
+    for (
+        season,
+        week,
+        _team,
+        player_id,
+    ), value in current.items():
+        key = (
+            player_id,
+            season,
+            week,
+        )
+
+        previous = by_player_week.get(
+            key,
+            (0.0, 0.0),
+        )
+
+        by_player_week[key] = (
+            max(previous[0], value[0]),
+            max(previous[1], value[1]),
+        )
+
+    history = defaultdict(list)
+
+    for (
+        player_id,
+        season,
+        week,
+    ), (
+        offense,
+        defense,
+    ) in by_player_week.items():
+        history[player_id].append(
+            (
+                (season, week),
+                offense,
+                defense,
+            )
+        )
+
+    for values in history.values():
+        values.sort(
+            key=lambda item: item[0]
+        )
+
+    return dict(history)
+
+
 def load_snap_data(
     *,
     seasons,
@@ -2391,76 +2444,7 @@ def load_snap_data(
                     key
                 )
 
-    by_player_week = {}
-
-    for (
-        season,
-        week,
-        _team,
-        player_id,
-    ), value in current.items():
-        key = (
-            player_id,
-            season,
-            week,
-        )
-
-        previous = (
-            by_player_week.get(
-                key,
-                (
-                    0.0,
-                    0.0,
-                ),
-            )
-        )
-
-        by_player_week[
-            key
-        ] = (
-            max(
-                previous[0],
-                value[0],
-            ),
-            max(
-                previous[1],
-                value[1],
-            ),
-        )
-
-    history = defaultdict(
-        list
-    )
-
-    for (
-        player_id,
-        season,
-        week,
-    ), (
-        offense,
-        defense,
-    ) in (
-        by_player_week.items()
-    ):
-        history[
-            player_id
-        ].append(
-            (
-                (
-                    season,
-                    week,
-                ),
-                offense,
-                defense,
-            )
-        )
-
-    for player_id in history:
-        history[
-            player_id
-        ].sort(
-            key=lambda item: item[0]
-        )
+    history = build_player_week_history(current)
 
     return (
         current,
@@ -2782,76 +2766,7 @@ def load_participation_data(
         current
     )
 
-    by_player_week = {}
-
-    for (
-        season,
-        week,
-        _team,
-        player_id,
-    ), value in current.items():
-        key = (
-            player_id,
-            season,
-            week,
-        )
-
-        previous = (
-            by_player_week.get(
-                key,
-                (
-                    0.0,
-                    0.0,
-                ),
-            )
-        )
-
-        by_player_week[
-            key
-        ] = (
-            max(
-                previous[0],
-                value[0],
-            ),
-            max(
-                previous[1],
-                value[1],
-            ),
-        )
-
-    history = defaultdict(
-        list
-    )
-
-    for (
-        player_id,
-        season,
-        week,
-    ), (
-        offense,
-        defense,
-    ) in (
-        by_player_week.items()
-    ):
-        history[
-            player_id
-        ].append(
-            (
-                (
-                    season,
-                    week,
-                ),
-                offense,
-                defense,
-            )
-        )
-
-    for player_id in history:
-        history[
-            player_id
-        ].sort(
-            key=lambda item: item[0]
-        )
+    history = build_player_week_history(current)
 
     return (
         current,
