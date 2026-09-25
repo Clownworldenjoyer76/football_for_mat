@@ -1531,7 +1531,9 @@ def main() -> int:
         stage="historical_build",
         report_root=common.prop_root() / "logs" / "pipeline_reports",
     ) as reporter:
-        return _run(reporter)
+        result = _run(reporter)
+
+    return result
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 from zoneinfo import ZoneInfo
 
 import yaml
@@ -87,7 +87,7 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     raise RuntimeError(message)
 
 
