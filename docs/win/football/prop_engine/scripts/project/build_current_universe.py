@@ -465,12 +465,12 @@ def new_candidate(team: str) -> dict[str, Any]:
 
 def candidate_key(team: str, espn_id: str, gsis_id: str, name: str) -> tuple[str, str, str]:
     if espn_id:
-        return (team, "espn", espn_id)
+        return team, "espn", espn_id
     if gsis_id:
-        return (team, "gsis", gsis_id)
+        return team, "gsis", gsis_id
     normalized = common.normalize_name(name)
     if normalized:
-        return (team, "name", normalized)
+        return team, "name", normalized
     raise ValueError(f"Cannot key candidate for team={team}: no ID or name")
 
 

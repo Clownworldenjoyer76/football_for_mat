@@ -396,7 +396,7 @@ def build_recent_kick_usage(config: dict, universe: pd.DataFrame, season: int, w
 
 def kicker_sort_score(rank: float, recent_attempts: float, starter: int) -> tuple[float, float, float]:
     rank_value = rank if math.isfinite(rank) else 999.0
-    return (-rank_value, float(starter), float(recent_attempts))
+    return -rank_value, float(starter), float(recent_attempts)
 
 
 def select_primary_kicker(team_all: pd.DataFrame, usage: dict[str, dict[str, float]]) -> tuple[str, float, str, set[str], dict[str, Any]]:
