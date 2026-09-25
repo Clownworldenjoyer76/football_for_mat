@@ -139,6 +139,18 @@ KICKING_USAGE_COMPONENTS = [
 ]
 
 
+HISTORICAL_RELOCATION_ALIASES = {
+    "SD": "LAC",
+    "OAK": "LV",
+    "STL": "LAR",
+}
+
+_NFLVERSE_OPPONENT_GAME_ID_RE = re.compile(
+    r"^(?P<season>\d{4})_(?P<week>\d{1,2})_"
+    r"(?P<away>[A-Za-z0-9]+)_(?P<home>[A-Za-z0-9]+)$"
+)
+
+
 _NFLVERSE_GAME_ID_RE = re.compile(
     r"^(?P<season>\d{4})_(?P<week>\d{1,2})_"
     r"(?P<away>[A-Za-z]{2,3})_(?P<home>[A-Za-z]{2,3})$"
@@ -1049,6 +1061,36 @@ def normalize_name(value: Any) -> str:
     return " ".join(
         text.split()
     )
+
+
+def opponent_from_nflverse_game_id(
+    game_id: Any,
+    team: Any,
+    *,
+    invalid_message: str,
+    mismatch_message: str,
+) -> str:
+    text = clean_text(game_id)
+    match = _NFLVERSE_OPPONENT_GAME_ID_RE.fullmatch(text)
+
+    if not match:
+        raise ValueError(invalid_message)
+
+    def canonical(value: Any) -> str:
+        normalized = normalize_team(value)
+        return HISTORICAL_RELOCATION_ALIASES.get(normalized, normalized)
+
+    away = canonical(match.group("away"))
+    home = canonical(match.group("home"))
+    club = canonical(team)
+
+    if club == away:
+        return home
+
+    if club == home:
+        return away
+
+    raise ValueError(mismatch_message)
 
 
 def parse_game_id(value: Any) -> str:

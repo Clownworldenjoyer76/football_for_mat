@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-import re
 import sys
 
 import numpy as np
@@ -209,75 +208,21 @@ RATE_COLUMNS = [
     "red_zone_td_rate_allowed",
 ]
 
-HISTORICAL_FRANCHISE_ALIASES = {
-    "SD": "LAC",
-    "OAK": "LV",
-    "STL": "LAR",
-}
-
-GAME_ID_RE = re.compile(
-    r"^(?P<season>\d{4})_(?P<week>\d{1,2})_"
-    r"(?P<away>[A-Za-z0-9]+)_(?P<home>[A-Za-z0-9]+)$"
-)
-
-
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-
-    text = str(value).strip()
-
-    if text.casefold() in {
-        "",
-        "nan",
-        "none",
-        "null",
-        "<na>",
-        "nat",
-    }:
-        return ""
-
-    return text
-
-
-def canonical_team(value: Any) -> str:
-    team = common.normalize_team(value)
-    return HISTORICAL_FRANCHISE_ALIASES.get(team, team)
-
-
 def opponent_from_game_id(
     game_id: Any,
     team: Any,
 ) -> str:
-    text = clean(game_id)
-    match = GAME_ID_RE.fullmatch(text)
-
-    if not match:
-        raise ValueError(
+    return common.opponent_from_nflverse_game_id(
+        game_id,
+        team,
+        invalid_message=(
             f"Unsupported nflverse game_id for opponent mapping: {game_id!r}"
-        )
-
-    away = canonical_team(match.group("away"))
-    home = canonical_team(match.group("home"))
-    club = canonical_team(team)
-
-    if club == away:
-        return home
-
-    if club == home:
-        return away
-
-    raise ValueError(
-        f"Team {team!r} does not belong to game_id {game_id!r} "
-        f"after franchise normalization."
+        ),
+        mismatch_message=(
+            f"Team {team!r} does not belong to game_id {game_id!r} "
+            f"after franchise normalization."
+        ),
     )
-
 
 def numeric_series(
     series: pd.Series,
