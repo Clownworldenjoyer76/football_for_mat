@@ -272,17 +272,20 @@ def metric_values(frame: pd.DataFrame, *, count_target: bool) -> dict[str, Any]:
     if count_target:
         if np.any(y < 0.0):
             raise ValueError("Negative actual found in count target")
-        lam = np.maximum(p, 1e-12)
-        terms = np.empty_like(y)
-        zero = y <= 0.0
-        terms[zero] = lam[zero]
-        nz = ~zero
-        terms[nz] = y[nz] * np.log(y[nz] / lam[nz]) - (y[nz] - lam[nz])
-        poisson = float(2.0 * np.mean(terms))
-        prob = np.clip(1.0 - np.exp(-np.maximum(p, 0.0)), 1e-12, 1.0 - 1e-12)
+        poisson = common.poisson_deviance(y, p)
+        prob = np.clip(
+            1.0 - np.exp(-np.maximum(p, 0.0)),
+            1e-12,
+            1.0 - 1e-12,
+        )
         event = (y >= 1.0).astype("float64")
-        brier = float(np.mean(np.square(prob - event)))
-        logloss = float(-np.mean(event * np.log(prob) + (1.0 - event) * np.log(1.0 - prob)))
+        brier = common.brier_1plus(y, prob)
+        logloss = float(
+            -np.mean(
+                event * np.log(prob)
+                + (1.0 - event) * np.log(1.0 - prob)
+            )
+        )
 
     return {
         "sample_size": int(n),

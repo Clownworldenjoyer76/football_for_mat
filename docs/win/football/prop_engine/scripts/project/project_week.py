@@ -509,17 +509,6 @@ def usage_signal(frame: pd.DataFrame, source: dict[str, Any]) -> np.ndarray:
     return numeric(frame["selected_point_prediction"]).to_numpy(dtype="float64")
 
 
-def apply_usage_buckets(values: np.ndarray, thresholds: dict[str, Any]) -> np.ndarray:
-    low = float(thresholds["low_max"])
-    medium = float(thresholds["medium_max"])
-    labels = np.full(len(values), "low", dtype=object)
-    finite = np.isfinite(values)
-    labels[finite & (values > low)] = "medium"
-    labels[finite & (values > medium)] = "high"
-    labels[~finite] = "low"
-    return labels
-
-
 def risk_flags(frame: pd.DataFrame, threshold: int) -> dict[str, np.ndarray]:
     rookie = numeric(frame["history_no_nfl_history_flag"]).fillna(0).to_numpy(dtype="float64") >= 0.5
     promotion = numeric(frame["role_starter_promotion_flag"]).fillna(0).to_numpy(dtype="float64") >= 0.5
@@ -573,44 +562,7 @@ def quantile_outputs(frame: pd.DataFrame, payload: dict[str, Any]) -> dict[str, 
         out[upper_name] = np.maximum(lower, upper)
     if bool(qcal.get("floor_at_zero")):
         out["q50"] = np.maximum(out["q50"], 0.0)
-    matrix = np.column_stack([out[name] for name in ["q10", "q25", "q50", "q75", "q90"]])
-    matrix = np.maximum.accumulate(matrix, axis=1)
-    for i, name in enumerate(["q10", "q25", "q50", "q75", "q90"]):
-        out[name] = matrix[:, i]
-    return out
-
-
-def apply_mapping(values: np.ndarray, mapping: dict[str, Any]) -> np.ndarray:
-    xp = np.asarray(mapping["knots_x"], dtype="float64")
-    fp = np.asarray(mapping["knots_y"], dtype="float64")
-    out = np.interp(
-        np.asarray(values, dtype="float64"),
-        xp,
-        fp,
-        left=float(mapping["left_value"]),
-        right=float(mapping["right_value"]),
-    )
-    bounds = mapping.get("output_bounds", [None, None])
-    if bounds[0] is not None:
-        out = np.maximum(out, float(bounds[0]))
-    if bounds[1] is not None:
-        out = np.minimum(out, float(bounds[1]))
-    return out
-
-
-def count_outputs(frame: pd.DataFrame, payload: dict[str, Any]) -> dict[str, np.ndarray]:
-    ccal = payload["count_calibration"]
-    raw = np.maximum(numeric(frame["selected_point_prediction"]).to_numpy(dtype="float64"), 0.0)
-    expected = apply_mapping(raw, ccal["expected_count"]["mapping"])
-    poisson_p1 = 1.0 - np.exp(-expected)
-    poisson_p2 = 1.0 - np.exp(-expected) * (1.0 + expected)
-    p1 = apply_mapping(poisson_p1, ccal["probability_1_plus"]["mapping"])
-    p2 = apply_mapping(poisson_p2, ccal["probability_2_plus"]["mapping"])
-    return {
-        "expected_count": np.maximum(expected, 0.0),
-        "probability_1_plus": np.clip(p1, 0.0, 1.0),
-        "probability_2_plus": np.clip(p2, 0.0, 1.0),
-    }
+    return common.enforce_monotone_quantiles(out)
 
 
 def apply_point_prediction_blend(
@@ -642,7 +594,10 @@ def calibrate_current_target(
     frame["selected_point_prediction"] = numeric(point).to_numpy(dtype="float64")
     frame["position_group"] = normalize_position_group(frame["position_group"])
     usage = usage_signal(frame, calibration["usage_bucket"]["source"])
-    frame["usage_bucket"] = apply_usage_buckets(usage, calibration["usage_bucket"]["thresholds"])
+    frame["usage_bucket"] = common.apply_usage_buckets(
+        usage,
+        calibration["usage_bucket"]["thresholds"],
+    )
 
     result = pd.DataFrame(index=frame.index)
     result["low"] = np.nan
@@ -658,7 +613,10 @@ def calibrate_current_target(
         result["low"] = qout["q10"]
         result["high"] = qout["q90"]
     if mode in {"count", "quantiles_and_count"}:
-        cout = count_outputs(frame, calibration)
+        cout = common.calibrated_count_outputs(
+            frame["selected_point_prediction"].to_numpy(dtype="float64"),
+            calibration,
+        )
         result["probability_1_plus"] = cout["probability_1_plus"]
         result["probability_2_plus"] = cout["probability_2_plus"]
 

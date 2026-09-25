@@ -138,44 +138,6 @@ def numeric(values: Any) -> np.ndarray:
     return pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(dtype="float64")
 
 
-def apply_mapping(values: np.ndarray, mapping: dict[str, Any]) -> np.ndarray:
-    """Exact mapping logic used by scripts/project/project_week.py."""
-    xp = np.asarray(mapping["knots_x"], dtype="float64")
-    fp = np.asarray(mapping["knots_y"], dtype="float64")
-    out = np.interp(
-        np.asarray(values, dtype="float64"),
-        xp,
-        fp,
-        left=float(mapping["left_value"]),
-        right=float(mapping["right_value"]),
-    )
-    bounds = mapping.get("output_bounds", [None, None])
-    if bounds[0] is not None:
-        out = np.maximum(out, float(bounds[0]))
-    if bounds[1] is not None:
-        out = np.minimum(out, float(bounds[1]))
-    return out
-
-
-def count_outputs(
-    raw_selected: np.ndarray,
-    payload: dict[str, Any],
-) -> dict[str, np.ndarray]:
-    """Exact point/probability calibration math used by production."""
-    ccal = payload["count_calibration"]
-    raw = np.maximum(np.asarray(raw_selected, dtype="float64"), 0.0)
-    expected = apply_mapping(raw, ccal["expected_count"]["mapping"])
-    poisson_p1 = 1.0 - np.exp(-expected)
-    poisson_p2 = 1.0 - np.exp(-expected) * (1.0 + expected)
-    p1 = apply_mapping(poisson_p1, ccal["probability_1_plus"]["mapping"])
-    p2 = apply_mapping(poisson_p2, ccal["probability_2_plus"]["mapping"])
-    return {
-        "expected_count": np.maximum(expected, 0.0),
-        "probability_1_plus": np.clip(p1, 0.0, 1.0),
-        "probability_2_plus": np.clip(p2, 0.0, 1.0),
-    }
-
-
 def apply_point_prediction_blend(
     raw_selected: np.ndarray,
     calibrated_point: np.ndarray,
@@ -199,25 +161,6 @@ def mae(actual: np.ndarray, predicted: np.ndarray) -> float:
 
 def bias(actual: np.ndarray, predicted: np.ndarray) -> float:
     return float(np.mean(predicted - actual))
-
-
-def poisson_deviance(actual: np.ndarray, predicted: np.ndarray) -> float:
-    y = np.asarray(actual, dtype="float64")
-    lam = np.maximum(np.asarray(predicted, dtype="float64"), 1e-12)
-    if np.any(y < 0):
-        raise ValueError("Poisson deviance cannot be computed with negative actual values.")
-    terms = np.empty_like(y)
-    zero = y <= 0.0
-    terms[zero] = lam[zero]
-    nz = ~zero
-    terms[nz] = y[nz] * np.log(y[nz] / lam[nz]) - (y[nz] - lam[nz])
-    return float(2.0 * np.mean(terms))
-
-
-def brier_1plus(actual: np.ndarray, probability: np.ndarray) -> float:
-    event = (np.asarray(actual, dtype="float64") >= 1.0).astype("float64")
-    p = np.clip(np.asarray(probability, dtype="float64"), 0.0, 1.0)
-    return float(np.mean(np.square(p - event)))
 
 
 def calibration_integrity(
@@ -285,7 +228,7 @@ def production_calibrated_values(
     """
     mode = clean(calibration.get("calibration_mode"))
     if mode in {"count", "quantiles_and_count"}:
-        out = count_outputs(raw_selected, calibration)
+        out = common.calibrated_count_outputs(raw_selected, calibration)
         base_point = np.asarray(out["expected_count"], dtype="float64")
         point = apply_point_prediction_blend(raw_selected, base_point, calibration)
         p1 = np.asarray(out["probability_1_plus"], dtype="float64")
@@ -587,8 +530,8 @@ def main() -> int:
                     "calibrated_production_point"
                 )
 
-            brier = brier_1plus(actual, p1)
-            poisson = poisson_deviance(actual, production)
+            brier = common.brier_1plus(actual, p1)
+            poisson = common.poisson_deviance(actual, production)
             gate_brier = (
                 brier <= float(section["maximum_brier_1plus"]) + 1e-12
             )

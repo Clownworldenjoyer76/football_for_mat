@@ -523,20 +523,6 @@ def fit_usage_buckets(values: np.ndarray) -> dict[str, float]:
     return {"low_max": float(low), "medium_max": float(medium)}
 
 
-def apply_usage_buckets(
-    values: np.ndarray,
-    thresholds: dict[str, float],
-) -> np.ndarray:
-    low = float(thresholds["low_max"])
-    medium = float(thresholds["medium_max"])
-    labels = np.full(len(values), "low", dtype=object)
-    finite = np.isfinite(values)
-    labels[finite & (values > low)] = "medium"
-    labels[finite & (values > medium)] = "high"
-    labels[~finite] = "low"
-    return labels
-
-
 def centered_scale(residual: np.ndarray, center: float) -> float:
     if len(residual) == 0:
         return 0.0
@@ -808,13 +794,7 @@ def quantile_values(
         output["q50"] = np.maximum(output["q50"], 0.0)
     # Defensive monotonicity enforcement after flooring and independently
     # calibrated interval widening.
-    matrix = np.column_stack(
-        [output[name] for name in ["q10", "q25", "q50", "q75", "q90"]]
-    )
-    matrix = np.maximum.accumulate(matrix, axis=1)
-    for i, name in enumerate(["q10", "q25", "q50", "q75", "q90"]):
-        output[name] = matrix[:, i]
-    return output
+    return common.enforce_monotone_quantiles(output)
 
 
 def coverage_rows(
@@ -1002,24 +982,6 @@ def fit_monotone_mapping(
     }
 
 
-def apply_mapping(x: np.ndarray, mapping: dict[str, Any]) -> np.ndarray:
-    xp = np.asarray(mapping["knots_x"], dtype="float64")
-    fp = np.asarray(mapping["knots_y"], dtype="float64")
-    output = np.interp(
-        np.asarray(x, dtype="float64"),
-        xp,
-        fp,
-        left=float(mapping["left_value"]),
-        right=float(mapping["right_value"]),
-    )
-    bounds = mapping.get("output_bounds", [None, None])
-    if bounds[0] is not None:
-        output = np.maximum(output, float(bounds[0]))
-    if bounds[1] is not None:
-        output = np.minimum(output, float(bounds[1]))
-    return output
-
-
 def fit_count_calibration(frame: pd.DataFrame) -> dict[str, Any]:
     raw = np.maximum(
         frame["selected_point_prediction"].to_numpy(dtype="float64"),
@@ -1027,7 +989,7 @@ def fit_count_calibration(frame: pd.DataFrame) -> dict[str, Any]:
     )
     actual = np.maximum(frame["actual"].to_numpy(dtype="float64"), 0.0)
     expected_mapping = fit_monotone_mapping(raw, actual, probability=False)
-    calibrated_lambda = apply_mapping(raw, expected_mapping)
+    calibrated_lambda = common.apply_calibration_mapping(raw, expected_mapping)
     poisson_p1 = 1.0 - np.exp(-calibrated_lambda)
     poisson_p2 = 1.0 - np.exp(-calibrated_lambda) * (1.0 + calibrated_lambda)
     p1_mapping = fit_monotone_mapping(
@@ -1068,25 +1030,6 @@ def _point_bias(actual: np.ndarray, prediction: np.ndarray) -> float:
     return float(np.mean(prediction - actual))
 
 
-def _point_poisson_deviance(actual: np.ndarray, prediction: np.ndarray) -> float:
-    y = np.asarray(actual, dtype="float64")
-    lam = np.maximum(np.asarray(prediction, dtype="float64"), 1e-12)
-    if np.any(y < 0.0):
-        raise ValueError("Negative actual in point-calibration Poisson gate.")
-    terms = np.empty_like(y)
-    zero = y <= 0.0
-    terms[zero] = lam[zero]
-    nz = ~zero
-    terms[nz] = y[nz] * np.log(y[nz] / lam[nz]) - (y[nz] - lam[nz])
-    return float(2.0 * np.mean(terms))
-
-
-def _point_brier_1plus(actual: np.ndarray, probability: np.ndarray) -> float:
-    event = (np.asarray(actual, dtype="float64") >= 1.0).astype("float64")
-    p = np.clip(np.asarray(probability, dtype="float64"), 0.0, 1.0)
-    return float(np.mean(np.square(p - event)))
-
-
 def _base_calibrated_point(
     frame: pd.DataFrame,
     payload: dict[str, Any],
@@ -1096,7 +1039,7 @@ def _base_calibrated_point(
     raw = frame["selected_point_prediction"].to_numpy(dtype="float64")
     if "count_calibration" in payload:
         mapping = payload["count_calibration"]["expected_count"]["mapping"]
-        return np.maximum(apply_mapping(np.maximum(raw, 0.0), mapping), 0.0)
+        return np.maximum(common.apply_calibration_mapping(np.maximum(raw, 0.0), mapping), 0.0)
     qcal = payload.get("quantile_calibration")
     if not isinstance(qcal, dict):
         raise ValueError("Point calibration has no count or quantile calibration.")
@@ -1114,13 +1057,13 @@ def _base_probability_1plus(
     raw = frame["selected_point_prediction"].to_numpy(dtype="float64")
     if "count_calibration" in payload:
         ccal = payload["count_calibration"]
-        expected = apply_mapping(
+        expected = common.apply_calibration_mapping(
             np.maximum(raw, 0.0),
             ccal["expected_count"]["mapping"],
         )
         poisson_p1 = 1.0 - np.exp(-np.maximum(expected, 0.0))
         return np.clip(
-            apply_mapping(poisson_p1, ccal["probability_1_plus"]["mapping"]),
+            common.apply_calibration_mapping(poisson_p1, ccal["probability_1_plus"]["mapping"]),
             0.0,
             1.0,
         )
@@ -1166,8 +1109,14 @@ def fit_point_prediction_blend(
         brier = None
         poisson = None
         if "maximum_brier_1plus" in acceptance and "maximum_poisson_deviance" in acceptance:
-            brier = _point_brier_1plus(actual, p1)
-            poisson = _point_poisson_deviance(actual, prediction)
+            brier = common.brier_1plus(actual, p1)
+            poisson = common.poisson_deviance(
+                actual,
+                prediction,
+                negative_actual_message=(
+                    "Negative actual in point-calibration Poisson gate."
+                ),
+            )
             gates["brier_1plus"] = brier <= float(acceptance["maximum_brier_1plus"]) + 1e-12
             gates["poisson_deviance"] = poisson <= float(acceptance["maximum_poisson_deviance"]) + 1e-12
 
@@ -1270,7 +1219,7 @@ def build_target_calibration(
     signal = usage_signal(frame, usage_source)
     thresholds = fit_usage_buckets(signal)
     frame = frame.copy().reset_index(drop=True)
-    frame["usage_bucket"] = apply_usage_buckets(signal, thresholds)
+    frame["usage_bucket"] = common.apply_usage_buckets(signal, thresholds)
 
     payload: dict[str, Any] = {
         "target": target,

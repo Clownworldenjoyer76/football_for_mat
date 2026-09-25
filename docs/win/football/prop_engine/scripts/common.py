@@ -40,6 +40,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+import numpy as np
 import pandas as pd
 import yaml
 
@@ -622,6 +623,117 @@ def lightgbm_regression_params(seed: int) -> dict[str, Any]:
         "force_col_wise": True,
         "num_threads": 1,
     }
+
+def apply_calibration_mapping(
+    values: np.ndarray,
+    mapping: Mapping[str, Any],
+) -> np.ndarray:
+    """Apply a persisted monotone calibration mapping."""
+    xp = np.asarray(mapping["knots_x"], dtype="float64")
+    fp = np.asarray(mapping["knots_y"], dtype="float64")
+    output = np.interp(
+        np.asarray(values, dtype="float64"),
+        xp,
+        fp,
+        left=float(mapping["left_value"]),
+        right=float(mapping["right_value"]),
+    )
+    bounds = mapping.get("output_bounds", [None, None])
+    if bounds[0] is not None:
+        output = np.maximum(output, float(bounds[0]))
+    if bounds[1] is not None:
+        output = np.minimum(output, float(bounds[1]))
+    return output
+
+
+def calibrated_count_outputs(
+    raw_selected: np.ndarray,
+    payload: Mapping[str, Any],
+) -> dict[str, np.ndarray]:
+    """Apply persisted count calibration to point predictions."""
+    count_calibration = payload["count_calibration"]
+    raw = np.maximum(np.asarray(raw_selected, dtype="float64"), 0.0)
+    expected = apply_calibration_mapping(
+        raw,
+        count_calibration["expected_count"]["mapping"],
+    )
+    poisson_p1 = 1.0 - np.exp(-expected)
+    poisson_p2 = 1.0 - np.exp(-expected) * (1.0 + expected)
+    p1 = apply_calibration_mapping(
+        poisson_p1,
+        count_calibration["probability_1_plus"]["mapping"],
+    )
+    p2 = apply_calibration_mapping(
+        poisson_p2,
+        count_calibration["probability_2_plus"]["mapping"],
+    )
+    return {
+        "expected_count": np.maximum(expected, 0.0),
+        "probability_1_plus": np.clip(p1, 0.0, 1.0),
+        "probability_2_plus": np.clip(p2, 0.0, 1.0),
+    }
+
+
+def apply_usage_buckets(
+    values: np.ndarray,
+    thresholds: Mapping[str, Any],
+) -> np.ndarray:
+    """Assign low/medium/high usage buckets using persisted thresholds."""
+    low = float(thresholds["low_max"])
+    medium = float(thresholds["medium_max"])
+    labels = np.full(len(values), "low", dtype=object)
+    finite = np.isfinite(values)
+    labels[finite & (values > low)] = "medium"
+    labels[finite & (values > medium)] = "high"
+    labels[~finite] = "low"
+    return labels
+
+
+def enforce_monotone_quantiles(
+    output: dict[str, np.ndarray],
+) -> dict[str, np.ndarray]:
+    """Ensure q10 <= q25 <= q50 <= q75 <= q90 row-wise."""
+    names = ("q10", "q25", "q50", "q75", "q90")
+    matrix = np.column_stack([output[name] for name in names])
+    matrix = np.maximum.accumulate(matrix, axis=1)
+    for index, name in enumerate(names):
+        output[name] = matrix[:, index]
+    return output
+
+
+def poisson_deviance(
+    actual: np.ndarray,
+    predicted: np.ndarray,
+    *,
+    negative_actual_message: str = (
+        "Poisson deviance cannot be computed with negative actual values."
+    ),
+) -> float:
+    """Return mean Poisson deviance using a strictly positive prediction floor."""
+    y = np.asarray(actual, dtype="float64")
+    lam = np.maximum(np.asarray(predicted, dtype="float64"), 1e-12)
+    if np.any(y < 0.0):
+        raise ValueError(negative_actual_message)
+    terms = np.empty_like(y)
+    zero = y <= 0.0
+    terms[zero] = lam[zero]
+    nonzero = ~zero
+    terms[nonzero] = (
+        y[nonzero] * np.log(y[nonzero] / lam[nonzero])
+        - (y[nonzero] - lam[nonzero])
+    )
+    return float(2.0 * np.mean(terms))
+
+
+def brier_1plus(
+    actual: np.ndarray,
+    probability: np.ndarray,
+) -> float:
+    """Return Brier score for the event actual >= 1."""
+    event = (np.asarray(actual, dtype="float64") >= 1.0).astype("float64")
+    clipped = np.clip(np.asarray(probability, dtype="float64"), 0.0, 1.0)
+    return float(np.mean(np.square(clipped - event)))
+
 
 def _is_missing_scalar(value: Any) -> bool:
     if value is None:
