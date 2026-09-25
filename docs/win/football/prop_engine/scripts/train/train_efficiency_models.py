@@ -1563,38 +1563,22 @@ def train_model(
     frame: pd.DataFrame,
     config: dict[str, Any],
 ) -> dict[str, Any]:
-    selection_train = frame.loc[
-        frame["season"].le(
+    (
+        selection_train,
+        validation,
+        final_train,
+    ) = common.temporal_training_splits(
+        frame,
+        label=model_name,
+        model_selection_train_end_season=(
             MODEL_SELECTION_TRAIN_END
-        )
-    ].copy()
-
-    validation = frame.loc[
-        frame["season"].eq(
+        ),
+        development_validation_season=(
             DEVELOPMENT_VALIDATION_SEASON
-        )
-    ].copy()
-
-    final_train = frame.loc[
-        frame["season"].le(
-            FINAL_TRAIN_END
-        )
-    ].copy()
-
-    if selection_train.empty:
-        raise ValueError(
-            f"{model_name}: empty selection training set."
-        )
-
-    if validation.empty:
-        raise ValueError(
-            f"{model_name}: empty 2024 validation set."
-        )
-
-    if final_train.empty:
-        raise ValueError(
-            f"{model_name}: empty final training set."
-        )
+        ),
+        final_train_end_season=FINAL_TRAIN_END,
+        empty_noun="set",
+    )
 
     x_train = feature_matrix(
         selection_train,

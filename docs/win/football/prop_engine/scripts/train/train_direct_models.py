@@ -955,36 +955,22 @@ def main() -> int:
             source,
         )
 
-        selection_train = frame.loc[
-            frame["season"].le(
+        (
+            selection_train,
+            validation,
+            final_train,
+        ) = common.temporal_training_splits(
+            frame,
+            label=target,
+            model_selection_train_end_season=(
                 MODEL_SELECTION_TRAIN_END
-            )
-        ].copy()
-
-        validation = frame.loc[
-            frame["season"].eq(
+            ),
+            development_validation_season=(
                 DEVELOPMENT_VALIDATION_SEASON
-            )
-        ].copy()
-
-        final_train = frame.loc[
-            frame["season"].le(
-                FINAL_TRAIN_END
-            )
-        ].copy()
-
-        if selection_train.empty:
-            raise ValueError(
-                f"{target}: empty selection training rows."
-            )
-        if validation.empty:
-            raise ValueError(
-                f"{target}: empty 2024 validation rows."
-            )
-        if final_train.empty:
-            raise ValueError(
-                f"{target}: empty final training rows."
-            )
+            ),
+            final_train_end_season=FINAL_TRAIN_END,
+            empty_noun="rows",
+        )
 
         target_dir = (
             common.prop_root()

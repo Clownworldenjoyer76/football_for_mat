@@ -882,6 +882,41 @@ def enforce_monotone_quantiles(
     return output
 
 
+def temporal_training_splits(
+    frame: pd.DataFrame,
+    *,
+    label: str,
+    model_selection_train_end_season: int,
+    development_validation_season: int,
+    final_train_end_season: int,
+    empty_noun: str = "rows",
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    selection_train = frame.loc[
+        frame["season"].le(model_selection_train_end_season)
+    ].copy()
+    validation = frame.loc[
+        frame["season"].eq(development_validation_season)
+    ].copy()
+    final_train = frame.loc[
+        frame["season"].le(final_train_end_season)
+    ].copy()
+
+    if selection_train.empty:
+        raise ValueError(
+            f"{label}: empty selection training {empty_noun}."
+        )
+    if validation.empty:
+        raise ValueError(
+            f"{label}: empty {development_validation_season} "
+            f"validation {empty_noun}."
+        )
+    if final_train.empty:
+        raise ValueError(
+            f"{label}: empty final training {empty_noun}."
+        )
+
+    return selection_train, validation, final_train
+
 def regression_metrics(
     actual: np.ndarray,
     predicted: np.ndarray,
