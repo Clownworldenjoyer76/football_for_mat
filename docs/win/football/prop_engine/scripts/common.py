@@ -722,6 +722,40 @@ def stable_json_bytes(value: dict[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
+def write_json_default_str_atomic(
+    path: str | os.PathLike[str],
+    value: dict[str, Any],
+) -> None:
+    # Preserve legacy sorted/indented JSON with default=str.
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        newline="\n",
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=destination.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+
+    try:
+        with handle:
+            json.dump(
+                value,
+                handle,
+                indent=2,
+                sort_keys=True,
+                default=str,
+            )
+            handle.write("\n")
+        os.replace(temp_path, destination)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
 def write_json_atomic(
     path: str | os.PathLike[str],
     value: dict[str, Any],

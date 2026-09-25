@@ -22,11 +22,8 @@ RULES:
 
 from __future__ import annotations
 
-import json
-import os
 import re
 import sys
-import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
@@ -482,48 +479,6 @@ def truthy(value: Any) -> bool:
         "y",
         "starter",
     }
-
-
-def write_json_atomic(
-    payload: dict[str, Any],
-    path: Path,
-) -> None:
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        newline="\n",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
-    )
-
-    temp_path = Path(handle.name)
-
-    try:
-        with handle:
-            json.dump(
-                payload,
-                handle,
-                indent=2,
-                sort_keys=True,
-                default=str,
-            )
-            handle.write("\n")
-
-        os.replace(
-            temp_path,
-            path,
-        )
-
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
 
 
 def merge_current(
@@ -1993,9 +1948,9 @@ def main() -> int:
         "unresolved_identity_policy": "skip_and_continue",
     }
 
-    write_json_atomic(
-        payload,
+    common.write_json_default_str_atomic(
         log_path,
+        payload,
     )
 
     common.log_run(

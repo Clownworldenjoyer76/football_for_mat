@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
-import os
 import shutil
 import sys
 import tempfile
@@ -660,46 +659,10 @@ def write_json_atomic(
         prop_root,
         label="JSON log path",
     )
-
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
+    common.write_json_default_str_atomic(
+        path,
+        payload,
     )
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        newline="\n",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
-    )
-
-    temp_path = Path(
-        handle.name
-    )
-
-    try:
-        with handle:
-            json.dump(
-                payload,
-                handle,
-                indent=2,
-                sort_keys=True,
-                default=str,
-            )
-            handle.write("\n")
-
-        os.replace(
-            temp_path,
-            path,
-        )
-
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
-
 
 def refresh_family(
     *,
