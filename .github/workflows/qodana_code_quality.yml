@@ -55,6 +55,7 @@ jobs:
             --within-docker false
             --only-directory docs/win/football/nfl
             --config qodana-nfl.yaml
+            --baseline .qodana/baseline.sarif.json
           pr-mode: false
           artifact-name: qodana-nfl
           primary-cache-key: qodana-2026.2-nfl-${{ github.ref }}-${{ github.sha }}
