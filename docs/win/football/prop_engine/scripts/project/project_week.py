@@ -55,15 +55,9 @@ import numpy as np
 import pandas as pd
 import yaml
 
-try:
-    import lightgbm as lgb
-except ModuleNotFoundError as exc:
-    raise SystemExit("Issue 36 requires LightGBM in the active environment.") from exc
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
-TRAIN_DIR = SCRIPTS_ROOT / "train"
-for search_path in (SCRIPTS_ROOT, TRAIN_DIR, SCRIPT_DIR):
+for search_path in (SCRIPTS_ROOT, SCRIPT_DIR):
     if str(search_path) not in sys.path:
         sys.path.insert(0, str(search_path))
 
@@ -71,8 +65,6 @@ import common
 
 _CONFIG_CONTRACT = common.load_config()
 import project_components as pc
-from train import train_opportunity_models as opportunity
-from train import train_efficiency_models as efficiency
 
 GRAIN = ["season", "week", "game_id", "player_id"]
 TEAM_GRAIN = ["season", "week", "game_id", "team"]
@@ -408,174 +400,6 @@ def resolve_registry_versions(
     if not production_targets:
         raise ValueError("No approved production targets in registry.")
     return versions, sources, production_targets, deferred_targets
-
-
-TEAM_OPPONENT_CURRENT_SOURCE = {
-    "player_defensive_opponent_plays_roll3": "team_offensive_plays_roll3_mean",
-    "player_defensive_opponent_dropbacks_roll3": "team_dropbacks_roll3_mean",
-    "player_defensive_opponent_rush_rate_roll3": "team_rush_rate_roll3_mean",
-    "player_defensive_opponent_pass_rate_roll3": "team_pass_rate_roll3_mean",
-}
-TEAM_DEF_SACK_FEATURE = "player_defensive_team_def_sack_rate_roll3"
-
-
-def strict_prior_team_def_sack_rate(
-    config: dict[str, Any],
-    repo: Path,
-    season: int,
-) -> pd.DataFrame:
-    path = repo / str(config["paths"]["opponent_opportunity"])
-    raw = common.read_parquet_required(
-        path,
-        ["season", "week", "team", "sacks", "opponent_dropbacks"],
-    ).copy()
-    raw["season"] = pd.to_numeric(raw["season"], errors="raise").astype(int)
-    raw["week"] = pd.to_numeric(raw["week"], errors="raise").astype(int)
-    raw = raw.loc[raw["season"].lt(season)].copy()
-    raw["_team_key"] = raw["team"].map(opportunity.canonical_team)
-    raw["_sacks"] = numeric(raw["sacks"])
-    raw["_dropbacks"] = numeric(raw["opponent_dropbacks"])
-    raw["_rate"] = np.where(
-        raw["_sacks"].notna() & raw["_dropbacks"].notna() & raw["_dropbacks"].ne(0.0),
-        raw["_sacks"] / raw["_dropbacks"],
-        np.nan,
-    )
-    raw = raw.sort_values(["_team_key", "season", "week"], kind="mergesort")
-    records: list[dict[str, Any]] = []
-    for team, frame in raw.groupby("_team_key", sort=False):
-        rates = frame["_rate"].dropna().to_numpy(dtype="float64")
-        records.append({
-            "_team_key": team,
-            TEAM_DEF_SACK_FEATURE: (float(np.mean(rates[-3:])) if len(rates) else np.nan),
-        })
-    out = pd.DataFrame(records)
-    common.ensure_unique(out, ["_team_key"], "Issue 36 strict-prior team defensive sack rate")
-    return out
-
-
-def team_opponent_inference_rows(
-    features: pd.DataFrame,
-    feature_names: list[str],
-    team_def_rate: pd.DataFrame,
-) -> pd.DataFrame:
-    reconstructed = set(TEAM_OPPONENT_CURRENT_SOURCE) | {TEAM_DEF_SACK_FEATURE}
-    passthrough = [name for name in feature_names if name not in reconstructed]
-    common.require_columns(
-        features,
-        [*TEAM_GRAIN, "opponent", *passthrough, *TEAM_OPPONENT_CURRENT_SOURCE.values()],
-        "Issue 36 current team-opponent features",
-    )
-
-    # These are genuine team-game fields and must remain invariant.
-    opportunity.check_team_feature_invariance(features, passthrough)
-    rows = opportunity.team_rows_from_features(features, passthrough)
-
-    # Issue 15 defined player_defensive_opponent_* from the defender's
-    # opponent team_form. Reconstruct that definition by joining the opposing
-    # team's current lagged team-form values, rather than aggregating player rows.
-    source_cols = list(TEAM_OPPONENT_CURRENT_SOURCE.values())
-    opportunity.check_team_feature_invariance(features, source_cols)
-    opponent_context = opportunity.team_rows_from_features(features, source_cols)
-    opponent_context = opponent_context.rename(
-        columns={
-            "team": "_context_team",
-            **{source: target for target, source in TEAM_OPPONENT_CURRENT_SOURCE.items()},
-        }
-    )
-    rows = rows.merge(
-        opponent_context[[
-            "season", "week", "game_id", "_context_team",
-            *TEAM_OPPONENT_CURRENT_SOURCE.keys(),
-        ]],
-        left_on=["season", "week", "game_id", "opponent"],
-        right_on=["season", "week", "game_id", "_context_team"],
-        how="left",
-        validate="one_to_one",
-    )
-
-    rows["_team_key"] = rows["team"].map(opportunity.canonical_team)
-    rows = rows.merge(team_def_rate, on="_team_key", how="left", validate="many_to_one")
-    common.ensure_unique(rows, TEAM_GRAIN, "Issue 36 reconstructed team-opponent rows")
-    return rows
-
-
-def score_opportunity_component(
-    prop: Path,
-    features: pd.DataFrame,
-    eligibility: dict[str, Any],
-    component: str,
-    team_def_rate: pd.DataFrame,
-) -> pd.DataFrame:
-    booster, _manifest, feature_names = pc.validate_booster_manifest(prop, "components", component)
-    spec = opportunity.COMPONENTS[component]
-    scope = str(spec["scope"])
-    if scope == "team":
-        opportunity.check_team_feature_invariance(features, feature_names)
-        rows = opportunity.team_rows_from_features(features, feature_names)
-    elif scope == "team_opponent":
-        rows = team_opponent_inference_rows(features, feature_names, team_def_rate)
-    elif scope == "player":
-        rule = str(spec["eligible_rule"])
-        positions = {str(x).strip().upper() for x in eligibility[rule]["eligible_positions"]}
-        pos = features["position"].fillna("").astype(str).str.strip().str.upper()
-        rows = features.loc[pos.isin(positions)].copy()
-    else:
-        raise ValueError(f"{component}: unsupported opportunity scope {scope!r}")
-    model_input = opportunity.numeric_frame(rows, feature_names)
-    pred = opportunity.transform_prediction(booster.predict(model_input), component)
-    if not np.isfinite(pred).all():
-        raise ValueError(f"{component}: nonfinite persisted-model prediction")
-    key = GRAIN if scope == "player" else TEAM_GRAIN
-    out = rows[key].copy()
-    out[component] = pred
-    common.ensure_unique(out, key, f"Issue 36 {component}")
-    return out
-
-
-def efficiency_history_columns(model_names: list[str]) -> list[str]:
-    cols = [*GRAIN, "kickoff_timestamp", "position", "position_group"]
-    for name in model_names:
-        for f in efficiency.FEATURES[name]:
-            if f not in efficiency.DERIVED_FEATURES and f not in cols:
-                cols.append(f)
-    return cols
-
-
-def prepare_efficiency_raw_histories(
-    config: dict[str, Any],
-    history: pd.DataFrame,
-    eligibility: dict[str, Any],
-    model_names: list[str],
-) -> dict[str, pd.DataFrame]:
-    label_base = efficiency.prepare_label_base(config, history)
-    result: dict[str, pd.DataFrame] = {}
-    for name in model_names:
-        raw = efficiency.build_component_label(label_base, name)
-        raw = efficiency.apply_eligibility(raw, name, eligibility)
-        result[name] = raw
-    return result
-
-
-def score_efficiency_model(
-    prop: Path,
-    current: pd.DataFrame,
-    raw_history: pd.DataFrame,
-    eligibility: dict[str, Any],
-    model_name: str,
-) -> pd.DataFrame:
-    booster, _manifest, feature_names = pc.validate_booster_manifest(prop, "efficiency", model_name)
-    rows = pc.efficiency_inference_frame(current, raw_history, model_name, eligibility)
-    expected = list(efficiency.FEATURES[model_name])
-    if feature_names != expected:
-        raise ValueError(f"{model_name}: efficiency manifest differs from trainer order")
-    model_input = efficiency.feature_matrix(rows, model_name)
-    pred = efficiency.transform_prediction(booster.predict(model_input), model_name)
-    if not np.isfinite(pred).all():
-        raise ValueError(f"{model_name}: nonfinite persisted-model prediction")
-    out = rows[GRAIN].copy()
-    out[model_name] = pred
-    common.ensure_unique(out, GRAIN, f"Issue 36 {model_name}")
-    return out
 
 
 def normalize_share_for_target(
