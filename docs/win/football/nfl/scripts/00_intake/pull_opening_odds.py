@@ -28,6 +28,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from pipeline_reporter import PipelineReporter
 from csv_contract import read_csv_contract
+from odds_contract import EXPECTED_MARKET_SIDES
 
 WEEKLY_DIR = NFL_ROOT / "00_intake" / "schedule" / "weekly"
 OPENERS_DIR = NFL_ROOT / "00_intake" / "odds" / "openers"
@@ -88,14 +89,6 @@ SNAPSHOT_REQUIRED_COLUMNS = [
     "bookmaker",
 ]
 
-EXPECTED_MARKET_SIDES = {
-    ("h2h", "home"),
-    ("h2h", "away"),
-    ("spreads", "home"),
-    ("spreads", "away"),
-    ("totals", "over"),
-    ("totals", "under"),
-}
 
 
 class OpeningOddsError(RuntimeError):

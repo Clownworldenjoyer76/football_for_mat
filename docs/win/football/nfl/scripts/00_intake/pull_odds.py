@@ -21,6 +21,10 @@ SCRIPTS_DIR = SCRIPT_PATH.parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 from pipeline_reporter import PipelineReporter
+from odds_contract import (
+    EXPECTED_MARKET_SIDES,
+    ODDS_OUTPUT_COLUMNS as OUTPUT_COLUMNS,
+)
 BASE_DIR = Path('docs/win/football/nfl')
 ODDS_DIR = BASE_DIR / '00_intake' / 'odds'
 RAW_ODDS_DIR = ODDS_DIR / 'raw'
@@ -34,8 +38,6 @@ HTTP_RETRIES = 4
 HTTP_TIMEOUT = 45
 WORKERS = max(1, min(int(os.getenv('NFL_ODDS_WORKERS', '8')), 16))
 TARGET_WEEK_GRACE = timedelta(hours=5)
-OUTPUT_COLUMNS = ['snapshot_id', 'snapshot_fetched_at', 'game_id', 'commence_time', 'home_team', 'away_team', 'bookmaker', 'market_type', 'bet_side', 'line', 'odds_american', 'odds_decimal', 'last_update', 'home_moneyline_american', 'away_moneyline_american', 'home_spread', 'away_spread', 'home_spread_american', 'away_spread_american', 'total', 'over_american', 'under_american']
-EXPECTED_MARKET_SIDES = {('h2h', 'home'), ('h2h', 'away'), ('spreads', 'home'), ('spreads', 'away'), ('totals', 'over'), ('totals', 'under')}
 
 class OddsError(RuntimeError):
     pass

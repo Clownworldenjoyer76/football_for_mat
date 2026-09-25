@@ -594,6 +594,10 @@ def enrichment_process_week(*, season, season_type, week, schedule_rows, drat_by
 # QODANA_SHARED_ENRICHMENT_CORE_V2_BEGIN
 import re as _enrichment_re
 from functools import partial as _enrichment_partial_v2
+from odds_contract import (
+    EXPECTED_MARKET_SIDES as ENRICHMENT_EXPECTED_MARKET_SIDES,
+    ODDS_OUTPUT_COLUMNS as ENRICHMENT_ODDS_HEADERS,
+)
 
 ENRICHMENT_WEEKLY_FILENAME_RE = _enrichment_re.compile('week_(\\d+)_NFL_weekly_schedule\\.csv')
 
@@ -603,9 +607,6 @@ ENRICHMENT_DRAT_HEADERS = ['season', 'week', 'game_id', 'commence_time_utc', 'ho
 
 ENRICHMENT_EPRED_HEADERS = ['game_id', 'game_date', 'game_time', 'home_team', 'away_team', 'matchupQuality', 'home_prob', 'away_prob', 'tie_prob', 'away_projected_pts', 'home_projected_pts', 'total_projected_pts', 'home_PtDiff', 'away_PtDiff', 'home_rating', 'away_rating', 'game_name', 'season', 'season_type', 'week', 'sport', 'league']
 
-ENRICHMENT_ODDS_HEADERS = ['snapshot_id', 'snapshot_fetched_at', 'game_id', 'commence_time', 'home_team', 'away_team', 'bookmaker', 'market_type', 'bet_side', 'line', 'odds_american', 'odds_decimal', 'last_update', 'home_moneyline_american', 'away_moneyline_american', 'home_spread', 'away_spread', 'home_spread_american', 'away_spread_american', 'total', 'over_american', 'under_american']
-
-ENRICHMENT_EXPECTED_MARKET_SIDES = {('h2h', 'home'), ('h2h', 'away'), ('spreads', 'home'), ('spreads', 'away'), ('totals', 'over'), ('totals', 'under')}
 
 def enrichment_validate_weekly_schedule(rows, *, path, season, season_type, week, weekly_filename_re, fail, parse_int_text, s, same_text):
     match = weekly_filename_re.fullmatch(path.name)
