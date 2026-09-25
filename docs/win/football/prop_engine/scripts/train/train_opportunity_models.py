@@ -843,52 +843,6 @@ def transform_prediction(
     raise KeyError(f"Unknown component transform: {component}")
 
 
-def stable_json_bytes(value: dict[str, Any]) -> bytes:
-    return (
-        json.dumps(
-            value,
-            sort_keys=True,
-            indent=2,
-            ensure_ascii=False,
-        )
-        + "\n"
-    ).encode("utf-8")
-
-
-def write_json_atomic(
-    path: Path,
-    value: dict[str, Any],
-) -> None:
-    root = common.prop_root().resolve()
-    destination = path.resolve()
-
-    try:
-        destination.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(
-            f"Refusing to write outside Prop Engine root: {destination}"
-        ) from exc
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="wb",
-        prefix=f".{destination.name}.",
-        suffix=".tmp",
-        dir=destination.parent,
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-
-    try:
-        with handle:
-            handle.write(stable_json_bytes(value))
-        os.replace(temp_path, destination)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
-
-
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -1467,28 +1421,7 @@ def train_component(
             f"{component}: every 2024 validation row has all features missing."
         )
 
-    params = {
-        "objective": "regression",
-        "metric": "rmse",
-        "boosting_type": "gbdt",
-        "learning_rate": 0.03,
-        "num_leaves": 31,
-        "min_data_in_leaf": 40,
-        "feature_fraction": 1.0,
-        "bagging_fraction": 1.0,
-        "bagging_freq": 0,
-        "lambda_l1": 0.0,
-        "lambda_l2": 0.0,
-        "max_bin": 255,
-        "verbosity": -1,
-        "seed": SEED,
-        "feature_fraction_seed": SEED,
-        "bagging_seed": SEED,
-        "data_random_seed": SEED,
-        "deterministic": True,
-        "force_col_wise": True,
-        "num_threads": 1,
-    }
+    params = common.lightgbm_regression_params(SEED)
 
     select_set = lgb.Dataset(
         x_select,
@@ -1612,7 +1545,7 @@ def train_component(
         "forbidden_features": config["forbidden_features"],
     }
 
-    write_json_atomic(
+    common.write_json_atomic(
         manifest_path,
         feature_manifest,
     )
@@ -1704,7 +1637,7 @@ def train_component(
         "model_sha256": sha256_file(model_path),
     }
 
-    write_json_atomic(
+    common.write_json_atomic(
         metadata_path,
         metadata,
     )

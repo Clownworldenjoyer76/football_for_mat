@@ -411,52 +411,6 @@ def normalize_position_group(
     return group
 
 
-def stable_json_bytes(value: dict[str, Any]) -> bytes:
-    return (
-        json.dumps(
-            value,
-            sort_keys=True,
-            indent=2,
-            ensure_ascii=False,
-        )
-        + "\n"
-    ).encode("utf-8")
-
-
-def write_json_atomic(
-    path: Path,
-    value: dict[str, Any],
-) -> None:
-    root = common.prop_root().resolve()
-    destination = path.resolve()
-
-    try:
-        destination.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(
-            f"Refusing to write outside Prop Engine root: {destination}"
-        ) from exc
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="wb",
-        prefix=f".{destination.name}.",
-        suffix=".tmp",
-        dir=destination.parent,
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-
-    try:
-        with handle:
-            handle.write(stable_json_bytes(value))
-        os.replace(temp_path, destination)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
-
-
 def save_model_atomic(
     model: lgb.Booster,
     path: Path,
@@ -1697,28 +1651,7 @@ def train_model(
         final_train["_label"]
     )
 
-    params = {
-        "objective": "regression",
-        "metric": "rmse",
-        "boosting_type": "gbdt",
-        "learning_rate": 0.03,
-        "num_leaves": 31,
-        "min_data_in_leaf": 40,
-        "feature_fraction": 1.0,
-        "bagging_fraction": 1.0,
-        "bagging_freq": 0,
-        "lambda_l1": 0.0,
-        "lambda_l2": 0.0,
-        "max_bin": 255,
-        "verbosity": -1,
-        "seed": SEED,
-        "feature_fraction_seed": SEED,
-        "bagging_seed": SEED,
-        "data_random_seed": SEED,
-        "deterministic": True,
-        "force_col_wise": True,
-        "num_threads": 1,
-    }
+    params = common.lightgbm_regression_params(SEED)
 
     train_set = lgb.Dataset(
         x_train,
@@ -1866,7 +1799,7 @@ def train_model(
         "forbidden_features": config["forbidden_features"],
     }
 
-    write_json_atomic(
+    common.write_json_atomic(
         manifest_path,
         manifest,
     )
@@ -2011,7 +1944,7 @@ def train_model(
             sha256_file(manifest_path),
     }
 
-    write_json_atomic(
+    common.write_json_atomic(
         metadata_path,
         metadata,
     )

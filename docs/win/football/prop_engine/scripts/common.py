@@ -560,6 +560,69 @@ def write_csv_atomic(
         raise
 
 
+
+def stable_json_bytes(value: dict[str, Any]) -> bytes:
+    """Serialize a JSON object deterministically as UTF-8 with a final newline."""
+    return (
+        json.dumps(
+            value,
+            sort_keys=True,
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def write_json_atomic(
+    path: str | os.PathLike[str],
+    value: dict[str, Any],
+) -> None:
+    """Write deterministic JSON atomically inside the Prop Engine root."""
+    destination = _resolve_prop_output_path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    handle = tempfile.NamedTemporaryFile(
+        mode="wb",
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=destination.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+    try:
+        with handle:
+            handle.write(stable_json_bytes(value))
+        _atomic_replace(temp_path, destination)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+def lightgbm_regression_params(seed: int) -> dict[str, Any]:
+    """Return the deterministic regression parameters shared by component trainers."""
+    return {
+        "objective": "regression",
+        "metric": "rmse",
+        "boosting_type": "gbdt",
+        "learning_rate": 0.03,
+        "num_leaves": 31,
+        "min_data_in_leaf": 40,
+        "feature_fraction": 1.0,
+        "bagging_fraction": 1.0,
+        "bagging_freq": 0,
+        "lambda_l1": 0.0,
+        "lambda_l2": 0.0,
+        "max_bin": 255,
+        "verbosity": -1,
+        "seed": seed,
+        "feature_fraction_seed": seed,
+        "bagging_seed": seed,
+        "data_random_seed": seed,
+        "deterministic": True,
+        "force_col_wise": True,
+        "num_threads": 1,
+    }
+
 def _is_missing_scalar(value: Any) -> bool:
     if value is None:
         return True
