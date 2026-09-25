@@ -57,6 +57,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from pipeline_reporter import PipelineReporter
 from csv_contract import validate_csv_header_names
+from value_contract import bind_optional_numeric_parsers
 np: Any
 pd: Any
 yaml: Any
@@ -227,27 +228,7 @@ def clean(value: Any) -> str:
     return text
 
 
-def parse_float(value: Any) -> float | None:
-    text = clean(value)
-
-    if not text:
-        return None
-
-    try:
-        number = float(text)
-    except (TypeError, ValueError):
-        return None
-
-    return number if math.isfinite(number) else None
-
-
-def parse_int(value: Any) -> int | None:
-    number = parse_float(value)
-
-    if number is None or not float(number).is_integer():
-        return None
-
-    return int(number)
+parse_float, parse_int = bind_optional_numeric_parsers(clean)
 
 
 def parse_bool(value: Any, *, key: str) -> bool:

@@ -34,6 +34,12 @@ import yaml
 SCRIPT_DIR = Path(__file__).resolve().parent
 NFL_ROOT = SCRIPT_DIR.parents[1]
 REPO_ROOT = NFL_ROOT.parents[3]
+SCRIPTS_DIR = NFL_ROOT / "scripts"
+
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from value_contract import bind_optional_numeric_parsers
 
 DEFAULT_CONFIG_PATH = SCRIPT_DIR / "markets.yaml"
 
@@ -102,22 +108,7 @@ def clean(value: Any) -> str:
     return text
 
 
-def parse_float(value: Any) -> float | None:
-    text = clean(value)
-    if not text:
-        return None
-    try:
-        number = float(text)
-    except (TypeError, ValueError):
-        return None
-    return number if math.isfinite(number) else None
-
-
-def parse_int(value: Any) -> int | None:
-    number = parse_float(value)
-    if number is None or not float(number).is_integer():
-        return None
-    return int(number)
+parse_float, parse_int = bind_optional_numeric_parsers(clean)
 
 
 def parse_bool(value: Any, *, key: str) -> bool:
