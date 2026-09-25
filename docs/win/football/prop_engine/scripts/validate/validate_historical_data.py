@@ -287,6 +287,33 @@ def target_training_counts(
     return training_end, minimum, counts
 
 
+def normalize_grain_columns(
+    frame: pd.DataFrame,
+    *,
+    include_player_id: bool = False,
+) -> None:
+    frame["season"] = pd.to_numeric(
+        frame["season"],
+        errors="raise",
+    ).astype(int)
+    frame["week"] = pd.to_numeric(
+        frame["week"],
+        errors="raise",
+    ).astype(int)
+    frame["game_id"] = (
+        frame["game_id"]
+        .astype("string")
+        .str.strip()
+    )
+
+    if include_player_id:
+        frame["player_id"] = (
+            frame["player_id"]
+            .astype("string")
+            .str.strip()
+        )
+
+
 def build_report() -> tuple[dict[str, Any], int]:
     config = common.load_config()
     feature_path = repo_path(config["paths"]["historical_features"])
@@ -360,9 +387,9 @@ def build_report() -> tuple[dict[str, Any], int]:
                 f"Historical games have duplicated regular-season game grain: {int(game_dup.sum())} rows"
             )
         probe = frame[["season", "week", "game_id", "team", "opponent"]].copy()
-        probe["season"] = pd.to_numeric(probe["season"], errors="raise").astype(int)
-        probe["week"] = pd.to_numeric(probe["week"], errors="raise").astype(int)
-        probe["game_id"] = probe["game_id"].astype("string").str.strip()
+        normalize_grain_columns(
+            probe,
+        )
         probe["_team"] = probe["team"].map(canonical_team)
         probe["_opponent"] = probe["opponent"].map(canonical_team)
         probe = probe.merge(
@@ -631,14 +658,14 @@ def build_report() -> tuple[dict[str, Any], int]:
         universe = pd.read_parquet(universe_path, columns=GRAIN)
         universe_dup = universe.duplicated(GRAIN, keep=False)
         feature_keys = frame[GRAIN].copy()
-        feature_keys["season"] = pd.to_numeric(feature_keys["season"], errors="raise").astype(int)
-        feature_keys["week"] = pd.to_numeric(feature_keys["week"], errors="raise").astype(int)
-        universe["season"] = pd.to_numeric(universe["season"], errors="raise").astype(int)
-        universe["week"] = pd.to_numeric(universe["week"], errors="raise").astype(int)
-        universe["game_id"] = universe["game_id"].astype("string").str.strip()
-        universe["player_id"] = universe["player_id"].astype("string").str.strip()
-        feature_keys["game_id"] = feature_keys["game_id"].astype("string").str.strip()
-        feature_keys["player_id"] = feature_keys["player_id"].astype("string").str.strip()
+        normalize_grain_columns(
+            feature_keys,
+            include_player_id=True,
+        )
+        normalize_grain_columns(
+            universe,
+            include_player_id=True,
+        )
 
         exact_rows = len(feature_keys) == len(universe)
         manifest_rows = int(manifest.get("row_count", -1)) == len(feature_keys)
