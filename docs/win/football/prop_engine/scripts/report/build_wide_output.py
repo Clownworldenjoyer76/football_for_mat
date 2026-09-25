@@ -220,25 +220,10 @@ def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
         path.relative_to(root)
     except ValueError as exc:
         raise ValueError(f"Refusing write outside Prop Engine: {path}") from exc
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        newline="\n",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
+    common.write_json_strict_atomic(
+        path,
+        payload,
     )
-    temp = Path(handle.name)
-    try:
-        with handle:
-            json.dump(payload, handle, indent=2, sort_keys=True, allow_nan=False)
-            handle.write("\n")
-        os.replace(temp, path)
-    finally:
-        if temp.exists():
-            temp.unlink()
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:

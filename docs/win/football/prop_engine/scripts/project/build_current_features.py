@@ -44,10 +44,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -219,25 +217,10 @@ def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
         path.relative_to(prop)
     except ValueError as exc:
         raise ValueError(f"Refusing write outside Prop Engine: {path}") from exc
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        newline="\n",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
+    common.write_json_default_str_atomic(
+        path,
+        value,
     )
-    temp = Path(handle.name)
-    try:
-        with handle:
-            json.dump(value, handle, indent=2, sort_keys=True, default=str)
-            handle.write("\n")
-        os.replace(temp, path)
-    finally:
-        if temp.exists():
-            temp.unlink()
 
 
 def run_market_audit(repo: Path) -> dict[str, Any]:
