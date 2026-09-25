@@ -278,6 +278,39 @@ def load_yaml_mapping(
     return value
 
 
+def read_regular_season_pbp(
+    path: str | os.PathLike[str],
+    *,
+    usecols: list[str],
+    season: int,
+    missing_message: str,
+) -> pd.DataFrame:
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise FileNotFoundError(missing_message)
+
+    frame = pd.read_csv(
+        resolved,
+        usecols=usecols,
+        low_memory=False,
+    )
+
+    frame = frame.loc[
+        frame["season_type"]
+        .astype(str)
+        .str.upper()
+        .eq("REG")
+    ].copy()
+
+    frame["season"] = int(season)
+    frame["week"] = pd.to_numeric(
+        frame["week"],
+        errors="raise",
+    ).astype(int)
+
+    return frame
+
+
 def load_config() -> dict:
     """Load and validate the shared Prop Engine YAML contract."""
     path = repo_root() / _CONFIG_RELATIVE_PATH

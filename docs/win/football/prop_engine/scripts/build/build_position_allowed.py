@@ -521,30 +521,14 @@ def build_tackles_generated(
             )
         )
 
-        if not path.is_file():
-            raise FileNotFoundError(
-                f"Rich-season PBP missing: {path}"
-            )
-
-        pbp = pd.read_csv(
+        pbp = common.read_regular_season_pbp(
             path,
             usecols=usecols,
-            low_memory=False,
+            season=season,
+            missing_message=(
+                f"Rich-season PBP missing: {path}"
+            ),
         )
-
-        pbp = pbp.loc[
-            pbp["season_type"]
-            .astype(str)
-            .str.upper()
-            .eq("REG")
-        ].copy()
-
-        pbp["season"] = season
-
-        pbp["week"] = pd.to_numeric(
-            pbp["week"],
-            errors="raise",
-        ).astype(int)
 
         pbp["game_id"] = (
             pbp["game_id"]

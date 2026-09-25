@@ -591,11 +591,6 @@ def build_exact_conditional_td_labels(
     ):
         path = root / pattern.format(season=season)
 
-        if not path.is_file():
-            raise FileNotFoundError(
-                f"Required rich-feature PBP is missing: {path}"
-            )
-
         usecols = [
             "season_type",
             "week",
@@ -609,24 +604,14 @@ def build_exact_conditional_td_labels(
             "pass_touchdown",
         ]
 
-        pbp = pd.read_csv(
+        pbp = common.read_regular_season_pbp(
             path,
             usecols=usecols,
-            low_memory=False,
+            season=season,
+            missing_message=(
+                f"Required rich-feature PBP is missing: {path}"
+            ),
         )
-
-        pbp = pbp.loc[
-            pbp["season_type"]
-            .astype(str)
-            .str.upper()
-            .eq("REG")
-        ].copy()
-
-        pbp["season"] = season
-        pbp["week"] = pd.to_numeric(
-            pbp["week"],
-            errors="raise",
-        ).astype(int)
 
         pbp["game_id"] = (
             pbp["game_id"]
