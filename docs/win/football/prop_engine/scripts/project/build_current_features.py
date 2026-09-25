@@ -863,7 +863,7 @@ def overlay_position_allowed_final_week(
     return out
 
 
-def current_role_overrides(out: pd.DataFrame, universe_all: pd.DataFrame, roles: pd.DataFrame) -> None:
+def current_role_overrides(out: pd.DataFrame, universe_all: pd.DataFrame) -> None:
     # Current depth/injury data overrides historical role state.
     depth = as_num(out["depth_rank"])
     if "role_depth_rank_pregame" in out:
@@ -1585,7 +1585,7 @@ def main() -> int:
         if season_to_date_columns:
             out.loc[:, season_to_date_columns] = np.nan
 
-    current_role_overrides(out, universe_all, roles)
+    current_role_overrides(out, universe_all)
 
     # The historical player/team/opponent prior overlays intentionally do not
     # carry target-game environment forward. Materialize the canonical

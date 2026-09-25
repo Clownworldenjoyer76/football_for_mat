@@ -218,12 +218,12 @@ def relevant_slice(source: str, df: pd.DataFrame, season: int, week: int) -> tup
     return df.loc[wv.eq(week)].copy(), latest
 
 
-def universe_counts(prop: Path, season: int, week: int) -> tuple[int, int, int]:
+def universe_counts(prop: Path, season: int, week: int) -> tuple[int, int]:
     p = prop / "data" / "current" / f"{season}_week_{week}_universe.parquet"
     if not p.is_file():
-        return 0, 0, 0
-    u = pd.read_parquet(p, columns=["game_id", "team", "player_id"])
-    return int(u["game_id"].astype(str).nunique()), int(u["team"].astype(str).nunique()), int(len(u))
+        return 0, 0
+    u = pd.read_parquet(p, columns=["game_id"])
+    return int(u["game_id"].astype(str).nunique()), int(len(u))
 
 
 # WEEKLY_ROSTER_IDENTITY_GATE
@@ -343,7 +343,7 @@ def duplicate_key_count(source: str, df: pd.DataFrame) -> tuple[int, str]:
 
 
 def expected_rows_for(source: str, raw: pd.DataFrame, relevant: pd.DataFrame, week: int,
-                      games: int, teams: int, universe_rows: int,
+                      games: int, universe_rows: int,
                       schedule_raw: pd.DataFrame, season: int) -> tuple[int, str]:
     if source == "schedule": return games, "current-universe unique game count"
     if source == "weather": return games, "one weather row per scheduled game"
@@ -387,7 +387,7 @@ def main() -> int:
     repo, prop = common.repo_root().resolve(), common.prop_root().resolve()
     run_date = datetime.now(timezone.utc).date().isoformat(); market_ok = run_market_preflight()
     paths = source_paths(repo, prop, config, season, week)
-    games, teams, universe_rows = universe_counts(prop, season, week)
+    games, universe_rows = universe_counts(prop, season, week)
     identity_gate_ok, identity_critical_unresolved, identity_gate_status = (
         player_identity_gate_status(prop)
     )
@@ -397,7 +397,7 @@ def main() -> int:
 
     for source in SOURCES:
         raw, existing_paths = load_source(source, paths[source]); relevant, latest = relevant_slice(source, raw, season, week)
-        expected, basis = expected_rows_for(source, raw, relevant, week, games, teams, universe_rows, schedule_raw, season)
+        expected, basis = expected_rows_for(source, raw, relevant, week, games, universe_rows, schedule_raw, season)
         pid = best_col(relevant, PLAYER_ID_ALIASES)
         team = best_col(relevant, TEAM_ALIASES)
 

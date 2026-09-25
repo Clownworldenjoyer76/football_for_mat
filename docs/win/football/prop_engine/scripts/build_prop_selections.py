@@ -687,7 +687,6 @@ def union_headers(
 
 def build_category(
     *,
-    season: int,
     week: int,
     category: str,
     props_root: Path,
@@ -1054,7 +1053,6 @@ def _run(reporter: PipelineReporter) -> None:
 
     for category in CATEGORIES:
         unmatched_rows, stats = build_category(
-            season=season,
             week=week,
             category=category,
             props_root=props_root,
