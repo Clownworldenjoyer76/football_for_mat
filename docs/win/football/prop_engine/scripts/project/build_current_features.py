@@ -657,7 +657,7 @@ def load_prior_reference(
             columns=columns,
             filters=[("season", "==", prior_season)],
         )
-    except Exception:
+    except (OSError, TypeError, ValueError, NotImplementedError):
         # Some parquet engines cannot push filters through every local file.
         frame = pd.read_parquet(historical_path, columns=columns)
         frame = frame.loc[as_num(frame["season"]).eq(prior_season)].copy()

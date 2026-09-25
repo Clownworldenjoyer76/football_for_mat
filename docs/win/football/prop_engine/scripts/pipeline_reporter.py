@@ -484,7 +484,7 @@ class PipelineReporter:
                 temp_path.unlink(
                     missing_ok=True
                 )
-            except Exception:
+            except OSError:
                 pass
 
             raise

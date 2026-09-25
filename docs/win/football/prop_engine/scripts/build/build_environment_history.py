@@ -545,7 +545,7 @@ def build_environment(
                 west_to_east.append(w2e)
                 travel_missing.append(0)
 
-            except Exception:
+            except (KeyError, TypeError, ValueError, OverflowError):
                 miles.append(float("nan"))
                 zones.append(float("nan"))
                 east_to_west.append(0)
