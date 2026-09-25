@@ -36,7 +36,7 @@ import tempfile
 import unicodedata
 from collections import Counter
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 import pandas as pd
 
@@ -228,7 +228,7 @@ PROP_KEY_FIELDS = {
 }
 
 
-def normalize_id(value: object) -> str:
+def normalize_id(value: Any) -> str:
     text = str(value or "").strip()
 
     if text.lower() in {
@@ -246,7 +246,7 @@ def normalize_id(value: object) -> str:
     return text
 
 
-def normalize_name(value: object) -> str:
+def normalize_name(value: Any) -> str:
     text = str(value or "").strip()
 
     if not text:

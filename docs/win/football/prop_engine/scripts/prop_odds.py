@@ -33,6 +33,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
@@ -195,7 +196,7 @@ CATEGORY_CONFIG = {
 }
 
 
-def secure_ref(value: object) -> str:
+def secure_ref(value: Any) -> str:
     text = str(value or "").strip()
     if not text:
         return ""
@@ -216,7 +217,7 @@ def secure_ref(value: object) -> str:
     return text
 
 
-def clean_value(value: object) -> str:
+def clean_value(value: Any) -> str:
     if value is None:
         return ""
 
@@ -281,7 +282,7 @@ def http_get_json(url: str) -> object:
     )
 
 
-def parse_datetime(value: object) -> datetime | None:
+def parse_datetime(value: Any) -> datetime | None:
     text = str(value or "").strip()
 
     if not text:

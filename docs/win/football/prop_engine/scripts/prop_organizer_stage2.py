@@ -8,6 +8,7 @@ import math
 import os
 import tempfile
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 import common
 from pipeline_reporter import PipelineReporter
@@ -21,7 +22,32 @@ Z_90 = 1.2815515655446004
 PROBABILITY_DECIMALS = 4
 
 
-FILE_CONFIGS = (
+class FileConfig(TypedDict):
+    relative_path: Path
+    filename_suffix: str
+    actual: str
+    engine: str
+    low: str
+    high: str
+    model: str
+
+
+class FileStats(TypedDict):
+    status: str
+    season: str
+    week: str
+    filename_suffix: str
+    input_file: str
+    input_rows: int
+    output_rows: int
+    pick_counts: dict[str, int]
+    missing_or_invalid_numeric_inputs: int
+    invalid_probability_inputs: int
+    model: NotRequired[str]
+    output_file: NotRequired[str]
+
+
+FILE_CONFIGS: tuple[FileConfig, ...] = (
     {
         "relative_path": Path("combo/pass_rush_yds"),
         "filename_suffix": "pass_rush_yds",
@@ -502,21 +528,21 @@ def build_pick_fields(
 def process_file(
     season: str,
     week_name: str,
-    config: dict[str, object],
+    config: FileConfig,
     reporter: PipelineReporter,
-) -> dict[str, object]:
+) -> FileStats:
     stage_1_root = FINAL_ROOT / season / "stage_1" / week_name
     stage_2_root = FINAL_ROOT / season / "stage_2" / week_name
 
     week_number = week_name.removeprefix("week_")
 
     relative_path = config["relative_path"]
-    filename_suffix = str(config["filename_suffix"])
-    actual_column = str(config["actual"])
-    engine_column = str(config["engine"])
-    low_column = str(config["low"])
-    high_column = str(config["high"])
-    model = str(config["model"])
+    filename_suffix = config["filename_suffix"]
+    actual_column = config["actual"]
+    engine_column = config["engine"]
+    low_column = config["low"]
+    high_column = config["high"]
+    model = config["model"]
 
     if not isinstance(relative_path, Path):
         raise TypeError("relative_path must be a Path")
@@ -738,7 +764,7 @@ def _run(reporter: PipelineReporter) -> None:
             f"No Stage 1 week folders found under {FINAL_ROOT}"
         )
 
-    file_stats: dict[str, dict[str, object]] = {}
+    file_stats: dict[str, FileStats] = {}
 
     for season, week_name in stage_1_weeks:
         for config in FILE_CONFIGS:
