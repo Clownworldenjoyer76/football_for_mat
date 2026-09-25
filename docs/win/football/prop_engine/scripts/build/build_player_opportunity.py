@@ -79,20 +79,6 @@ GAME_RE = re.compile(
 HISTORICAL_FRANCHISE_ALIASES = {"SD": "LAC", "OAK": "LV", "STL": "LAR"}
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
-        return ""
-    return text
-
-
 def canonical_team(value: Any) -> str:
     team = common.normalize_team(value)
     return HISTORICAL_FRANCHISE_ALIASES.get(team, team)
@@ -127,14 +113,14 @@ def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
 
 
 def extract_gsis_ids(value: Any) -> list[str]:
-    text = clean(value)
+    text = common.clean_text(value)
     if not text:
         return []
     return list(dict.fromkeys(GSIS_RE.findall(text)))
 
 
 def parse_game_context(game_id: Any) -> tuple[int, int, str, str]:
-    text = clean(game_id)
+    text = common.clean_text(game_id)
     match = GAME_RE.fullmatch(text)
     if not match:
         raise ValueError(f"Unsupported nflverse game_id: {game_id!r}")
@@ -152,7 +138,7 @@ def unique_crosswalk_map(
 ) -> dict[str, str]:
     grouped: dict[str, set[str]] = defaultdict(set)
     for key_value, gsis_value in zip(crosswalk[key_column], crosswalk["gsis_id"]):
-        key = clean(key_value)
+        key = common.clean_text(key_value)
         gsis = common.normalize_player_id(gsis_value)
         if key and gsis:
             grouped[key].add(gsis)
@@ -394,7 +380,7 @@ def build_participation(
     valid_rows = 0
 
     for row in source.itertuples(index=False):
-        game_id = clean(getattr(row, "nflverse_game_id"))
+        game_id = common.clean_text(getattr(row, "nflverse_game_id"))
         if not game_id:
             continue
         try:

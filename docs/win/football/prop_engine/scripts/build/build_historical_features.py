@@ -201,27 +201,13 @@ ENVIRONMENT_REQUIRED_COLUMNS = [
 ]
 
 
-def clean_text(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
-        return ""
-    return text
-
-
 def canonical_franchise(value: Any) -> str:
     team = common.normalize_team(value)
     return HISTORICAL_FRANCHISE_ALIASES.get(team, team)
 
 
 def normalize_position_group(value: Any) -> str:
-    return clean_text(value).upper()
+    return common.clean_text(value).upper()
 
 
 def require_config_path(config: dict, key: str) -> str:

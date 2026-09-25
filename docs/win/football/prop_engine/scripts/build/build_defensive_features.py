@@ -136,38 +136,13 @@ HISTORICAL_FRANCHISE_ALIASES = {
 }
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-
-    text = str(value).strip()
-
-    if text.casefold() in {
-        "",
-        "nan",
-        "none",
-        "null",
-        "<na>",
-        "nat",
-    }:
-        return ""
-
-    return text
-
-
 def canonical_team(value: Any) -> str:
     team = common.normalize_team(value)
     return HISTORICAL_FRANCHISE_ALIASES.get(team, team)
 
 
 def normalize_position(value: Any) -> str:
-    return clean(value).upper().replace(" ", "")
+    return common.clean_text(value).upper().replace(" ", "")
 
 
 def safe_rate(

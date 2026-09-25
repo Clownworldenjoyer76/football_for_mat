@@ -118,20 +118,6 @@ def repo_path(value: str | os.PathLike[str]) -> Path:
     return path.resolve()
 
 
-def clean_text(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
-        return ""
-    return text
-
-
 def canonical_team(value: Any) -> str:
     team = common.normalize_team(value)
     return HISTORICAL_TEAM_ALIASES.get(team, team)

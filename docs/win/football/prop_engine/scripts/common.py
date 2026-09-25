@@ -750,6 +750,21 @@ def _is_missing_scalar(value: Any) -> bool:
     return False
 
 
+def clean_text(value: Any) -> str:
+    # Preserve the exact nullable-text semantics used by Prop Engine scripts.
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
+        return ""
+    return text
+
+
 def normalize_team(value: Any) -> str:
     """Normalize a team code using Prop Engine aliases."""
     if _is_missing_scalar(value):
