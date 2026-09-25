@@ -765,6 +765,71 @@ def clean_text(value: Any) -> str:
     return text
 
 
+def numeric_series_required(
+    series: pd.Series,
+    *,
+    label: str,
+    fill_zero: bool = False,
+    invalid_description: str = "non-numeric values found",
+    examples_label: str = "Examples",
+) -> pd.Series:
+    converted = pd.to_numeric(series, errors="coerce")
+    invalid = (
+        series.notna()
+        & series.astype(str).str.strip().ne("")
+        & converted.isna()
+    )
+    if invalid.any():
+        examples = series.loc[invalid].astype(str).head(10).tolist()
+        raise ValueError(
+            f"{label}: {invalid_description}. "
+            f"{examples_label}={examples}"
+        )
+    converted = converted.astype(float)
+    return converted.fillna(0.0) if fill_zero else converted
+
+
+def safe_divide_nonzero(
+    numerator: pd.Series,
+    denominator: pd.Series,
+    *,
+    replace_infinite: bool = False,
+) -> pd.Series:
+    num = pd.to_numeric(numerator, errors="coerce").astype("float64")
+    den = pd.to_numeric(denominator, errors="coerce").astype("float64")
+    if replace_infinite:
+        num = num.replace([np.inf, -np.inf], np.nan)
+        den = den.replace([np.inf, -np.inf], np.nan)
+    result = pd.Series(np.nan, index=num.index, dtype="float64")
+    valid = num.notna() & den.notna() & den.ne(0.0)
+    result.loc[valid] = num.loc[valid] / den.loc[valid]
+    return result
+
+
+def safe_divide_positive(
+    numerator: pd.Series,
+    denominator: pd.Series,
+    *,
+    replace_result_infinite: bool = True,
+) -> pd.Series:
+    num = (
+        pd.to_numeric(numerator, errors="coerce")
+        .replace([np.inf, -np.inf], np.nan)
+        .astype("float64")
+    )
+    den = (
+        pd.to_numeric(denominator, errors="coerce")
+        .replace([np.inf, -np.inf], np.nan)
+        .astype("float64")
+    )
+    result = pd.Series(np.nan, index=num.index, dtype="float64")
+    valid = num.notna() & den.notna() & den.gt(0.0)
+    result.loc[valid] = num.loc[valid] / den.loc[valid]
+    if replace_result_infinite:
+        result = result.replace([np.inf, -np.inf], np.nan)
+    return result
+
+
 def normalize_team(value: Any) -> str:
     """Normalize a team code using Prop Engine aliases."""
     if _is_missing_scalar(value):

@@ -343,28 +343,7 @@ def safe_rate(
     numerator: pd.Series,
     exposure: pd.Series,
 ) -> pd.Series:
-    num = numeric(numerator)
-    exp = numeric(exposure)
-
-    result = pd.Series(
-        np.nan,
-        index=num.index,
-        dtype="float64",
-    )
-
-    valid = (
-        num.notna()
-        & exp.notna()
-        & exp.gt(0.0)
-    )
-
-    result.loc[valid] = (
-        num.loc[valid]
-        / exp.loc[valid]
-    )
-
-    return result.replace([np.inf, -np.inf], np.nan)
-
+    return common.safe_divide_positive(numerator, exposure)
 
 def normalize_position_group(
     position: pd.Series,

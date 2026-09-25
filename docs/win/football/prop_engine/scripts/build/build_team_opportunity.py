@@ -285,71 +285,17 @@ def numeric_series(
     label: str,
     fill_zero: bool = False,
 ) -> pd.Series:
-    converted = pd.to_numeric(
+    return common.numeric_series_required(
         series,
-        errors="coerce",
+        label=label,
+        fill_zero=fill_zero,
     )
-
-    invalid = (
-        series.notna()
-        & series.astype(str).str.strip().ne("")
-        & converted.isna()
-    )
-
-    if invalid.any():
-        examples = (
-            series.loc[invalid]
-            .astype(str)
-            .head(10)
-            .tolist()
-        )
-
-        raise ValueError(
-            f"{label}: non-numeric values found. "
-            f"Examples={examples}"
-        )
-
-    converted = converted.astype(float)
-
-    if fill_zero:
-        converted = converted.fillna(0.0)
-
-    return converted
-
 
 def safe_divide(
     numerator: pd.Series,
     denominator: pd.Series,
 ) -> pd.Series:
-    num = pd.to_numeric(
-        numerator,
-        errors="coerce",
-    ).astype(float)
-
-    den = pd.to_numeric(
-        denominator,
-        errors="coerce",
-    ).astype(float)
-
-    valid = (
-        num.notna()
-        & den.notna()
-        & den.ne(0.0)
-    )
-
-    result = pd.Series(
-        float("nan"),
-        index=num.index,
-        dtype="float64",
-    )
-
-    result.loc[valid] = (
-        num.loc[valid]
-        / den.loc[valid]
-    )
-
-    return result
-
+    return common.safe_divide_nonzero(numerator, denominator)
 
 def normalize_week_team_frame(
     df: pd.DataFrame,

@@ -147,28 +147,11 @@ def safe_ratio(
     numerator: pd.Series,
     denominator: pd.Series,
 ) -> pd.Series:
-    num = numeric(numerator)
-    den = numeric(denominator)
-
-    result = pd.Series(
-        np.nan,
-        index=num.index,
-        dtype="float64",
+    return common.safe_divide_positive(
+        numerator,
+        denominator,
+        replace_result_infinite=False,
     )
-
-    valid = (
-        num.notna()
-        & den.notna()
-        & den.gt(0.0)
-    )
-
-    result.loc[valid] = (
-        num.loc[valid]
-        / den.loc[valid]
-    )
-
-    return result
-
 
 def depth_role_score(value: Any) -> int:
     """

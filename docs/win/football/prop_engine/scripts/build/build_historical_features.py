@@ -240,13 +240,7 @@ def safe_divide(
     numerator: pd.Series,
     denominator: pd.Series,
 ) -> pd.Series:
-    num = pd.to_numeric(numerator, errors="coerce").astype("float64")
-    den = pd.to_numeric(denominator, errors="coerce").astype("float64")
-    result = pd.Series(np.nan, index=num.index, dtype="float64")
-    valid = num.notna() & den.notna() & den.ne(0.0)
-    result.loc[valid] = num.loc[valid] / den.loc[valid]
-    return result
-
+    return common.safe_divide_nonzero(numerator, denominator)
 
 def safe_product(
     left: pd.Series,

@@ -90,27 +90,17 @@ def numeric_series(
     label: str,
     fill_zero: bool = False,
 ) -> pd.Series:
-    converted = pd.to_numeric(series, errors="coerce")
-    invalid = (
-        series.notna()
-        & series.astype(str).str.strip().ne("")
-        & converted.isna()
+    return common.numeric_series_required(
+        series,
+        label=label,
+        fill_zero=fill_zero,
     )
-    if invalid.any():
-        examples = series.loc[invalid].astype(str).head(10).tolist()
-        raise ValueError(f"{label}: non-numeric values found. Examples={examples}")
-    converted = converted.astype(float)
-    return converted.fillna(0.0) if fill_zero else converted
 
-
-def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
-    num = pd.to_numeric(numerator, errors="coerce").astype(float)
-    den = pd.to_numeric(denominator, errors="coerce").astype(float)
-    valid = num.notna() & den.notna() & den.ne(0.0)
-    result = pd.Series(float("nan"), index=num.index, dtype="float64")
-    result.loc[valid] = num.loc[valid] / den.loc[valid]
-    return result
-
+def safe_divide(
+    numerator: pd.Series,
+    denominator: pd.Series,
+) -> pd.Series:
+    return common.safe_divide_nonzero(numerator, denominator)
 
 def extract_gsis_ids(value: Any) -> list[str]:
     text = common.clean_text(value)

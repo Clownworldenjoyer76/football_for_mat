@@ -267,28 +267,7 @@ def safe_divide(
     numerator: pd.Series,
     denominator: pd.Series,
 ) -> pd.Series:
-    numerator = numeric(numerator)
-    denominator = numeric(denominator)
-
-    result = pd.Series(
-        np.nan,
-        index=numerator.index,
-        dtype="float64",
-    )
-
-    valid = (
-        numerator.notna()
-        & denominator.notna()
-        & denominator.gt(0.0)
-    )
-
-    result.loc[valid] = (
-        numerator.loc[valid]
-        / denominator.loc[valid]
-    )
-
-    return result.replace([np.inf, -np.inf], np.nan)
-
+    return common.safe_divide_positive(numerator, denominator)
 
 def season_week_mask(
     frame: pd.DataFrame,

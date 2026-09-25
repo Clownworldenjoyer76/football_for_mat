@@ -251,32 +251,11 @@ def numeric_series(
     *,
     label: str,
 ) -> pd.Series:
-    converted = pd.to_numeric(
+    return common.numeric_series_required(
         series,
-        errors="coerce",
+        label=label,
+        invalid_description="non-numeric target values found",
     )
-
-    invalid = (
-        series.notna()
-        & series.astype(str).str.strip().ne("")
-        & converted.isna()
-    )
-
-    if invalid.any():
-        examples = (
-            series.loc[invalid]
-            .astype(str)
-            .head(10)
-            .tolist()
-        )
-
-        raise ValueError(
-            f"{label}: non-numeric target values found. "
-            f"Examples={examples}"
-        )
-
-    return converted.astype(float)
-
 
 def configured_direct_columns(
     config: dict,

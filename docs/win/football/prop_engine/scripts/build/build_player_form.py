@@ -206,14 +206,15 @@ def numeric(series: pd.Series, *, fill_zero: bool = False) -> pd.Series:
     return result
 
 
-def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
-    num = numeric(numerator)
-    den = numeric(denominator)
-    result = pd.Series(np.nan, index=num.index, dtype="float64")
-    valid = num.notna() & den.notna() & den.ne(0.0)
-    result.loc[valid] = num.loc[valid] / den.loc[valid]
-    return result
-
+def safe_divide(
+    numerator: pd.Series,
+    denominator: pd.Series,
+) -> pd.Series:
+    return common.safe_divide_nonzero(
+        numerator,
+        denominator,
+        replace_infinite=True,
+    )
 
 def feature_columns() -> list[str]:
     return [

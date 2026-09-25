@@ -314,34 +314,12 @@ def numeric(
     *,
     label: str,
 ) -> pd.Series:
-    converted = pd.to_numeric(
+    return common.numeric_series_required(
         series,
-        errors="coerce",
+        label=label,
+        invalid_description="non-numeric values",
+        examples_label="Sample",
     )
-
-    invalid = (
-        series.notna()
-        & series.astype(str).str.strip().ne("")
-        & converted.isna()
-    )
-
-    if invalid.any():
-        sample = (
-            series.loc[invalid]
-            .astype(str)
-            .head(10)
-            .tolist()
-        )
-
-        raise ValueError(
-            f"{label}: non-numeric values. "
-            f"Sample={sample}"
-        )
-
-    return converted.astype(
-        float
-    )
-
 
 def max_available(
     left: Any,

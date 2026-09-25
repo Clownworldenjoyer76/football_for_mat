@@ -197,32 +197,7 @@ def numeric_series(
     *,
     label: str,
 ) -> pd.Series:
-    converted = pd.to_numeric(
-        series,
-        errors="coerce",
-    )
-
-    invalid = (
-        series.notna()
-        & series.astype(str).str.strip().ne("")
-        & converted.isna()
-    )
-
-    if invalid.any():
-        examples = (
-            series.loc[invalid]
-            .astype(str)
-            .head(10)
-            .tolist()
-        )
-
-        raise ValueError(
-            f"{label}: non-numeric values found. "
-            f"Examples={examples}"
-        )
-
-    return converted.astype(float)
-
+    return common.numeric_series_required(series, label=label)
 
 def get_position_allowed_config(
     config: dict,
