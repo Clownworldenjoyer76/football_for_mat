@@ -66,64 +66,6 @@ SELECTED_PROJECTION_COLUMNS = {
 }
 
 # Exact reporting usage context follows the accepted Issue 26 calibration policy.
-USAGE_CANDIDATES = {
-    "passing_yards": [
-        "player_pass_attempts_roll3_mean",
-        "player_pass_attempts_roll5_mean",
-        "player_pass_attempts_ewm5",
-        "player_pass_attempts_career_prior",
-    ],
-    "passing_tds": [
-        "player_pass_attempts_roll3_mean",
-        "player_pass_attempts_roll5_mean",
-        "player_pass_attempts_ewm5",
-        "player_pass_attempts_career_prior",
-    ],
-    "rushing_yards": [
-        "player_carries_roll3_mean",
-        "player_carries_roll5_mean",
-        "player_carries_ewm5",
-        "player_carries_career_prior",
-    ],
-    "rushing_tds": [
-        "player_goal_line_carries_roll3_mean",
-        "player_goal_line_carries_roll5_mean",
-        "player_carries_roll3_mean",
-        "player_carries_career_prior",
-    ],
-    "receiving_yards": [
-        "player_targets_roll3_mean",
-        "player_targets_roll5_mean",
-        "player_targets_ewm5",
-        "player_targets_career_prior",
-    ],
-    "receiving_tds": [
-        "player_red_zone_targets_roll3_mean",
-        "player_red_zone_targets_roll5_mean",
-        "player_targets_roll3_mean",
-        "player_targets_career_prior",
-    ],
-    "kicking_points": [
-        "player_field_goal_attempts_roll3_mean",
-        "player_field_goal_attempts_roll5_mean",
-        "player_field_goal_attempts_career_prior",
-    ],
-    "tackles": [
-        "player_defense_participation_roll3_mean",
-        "role_participation_roll3",
-        "player_defense_participation_career_prior",
-    ],
-    "sacks": [
-        "player_defense_participation_roll3_mean",
-        "role_participation_roll3",
-        "player_defense_participation_career_prior",
-    ],
-}
-KICKING_USAGE_COMPONENTS = [
-    "player_field_goal_attempts_roll3_mean",
-    "player_extra_point_attempts_roll3_mean",
-]
-
 BASE_CONTEXT_REQUIRED = [
     *GRAIN,
     "position",
@@ -319,14 +261,14 @@ def rank_bucket(series: pd.Series, buckets: int, prefix: str) -> pd.Series:
 
 
 def coalesce_usage(frame: pd.DataFrame, target: str, available: set[str]) -> tuple[pd.Series, str]:
-    if target == "kicking_points" and all(c in available for c in KICKING_USAGE_COMPONENTS):
-        a = numeric(frame[KICKING_USAGE_COMPONENTS[0]])
-        b = numeric(frame[KICKING_USAGE_COMPONENTS[1]])
+    if target == "kicking_points" and all(c in available for c in common.KICKING_USAGE_COMPONENTS):
+        a = numeric(frame[common.KICKING_USAGE_COMPONENTS[0]])
+        b = numeric(frame[common.KICKING_USAGE_COMPONENTS[1]])
         value = a + b
         value = value.where(a.notna() | b.notna())
-        return value, "+".join(KICKING_USAGE_COMPONENTS)
+        return value, "+".join(common.KICKING_USAGE_COMPONENTS)
 
-    candidates = [c for c in USAGE_CANDIDATES[target] if c in available]
+    candidates = [c for c in common.USAGE_CANDIDATES[target] if c in available]
     if not candidates:
         raise ValueError(f"No canonical pregame usage feature available for {target}")
     out = pd.Series(np.nan, index=frame.index, dtype="float64")
@@ -408,8 +350,8 @@ def load_context(config: dict[str, Any], selected: pd.DataFrame) -> tuple[pd.Dat
     if missing:
         raise ValueError(f"Historical feature table missing reporting context: {missing}")
 
-    optional = set(INJURY_STATUS_CANDIDATES + INJURY_FLAG_COLUMNS + KICKING_USAGE_COMPONENTS)
-    for candidates in USAGE_CANDIDATES.values():
+    optional = set(INJURY_STATUS_CANDIDATES + INJURY_FLAG_COLUMNS + common.KICKING_USAGE_COMPONENTS)
+    for candidates in common.USAGE_CANDIDATES.values():
         optional.update(candidates)
     columns = list(dict.fromkeys(BASE_CONTEXT_REQUIRED + sorted(optional & schema)))
     context = pd.read_parquet(path, columns=columns)

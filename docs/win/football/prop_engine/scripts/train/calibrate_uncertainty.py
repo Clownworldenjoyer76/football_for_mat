@@ -105,65 +105,6 @@ CONTEXT_REQUIRED = [
 
 # Ordered fallbacks. The first available pregame feature is used. Kicking has
 # a special two-column sum when both FG and XP attempt form fields are present.
-USAGE_CANDIDATES = {
-    "passing_yards": [
-        "player_pass_attempts_roll3_mean",
-        "player_pass_attempts_roll5_mean",
-        "player_pass_attempts_ewm5",
-        "player_pass_attempts_career_prior",
-    ],
-    "passing_tds": [
-        "player_pass_attempts_roll3_mean",
-        "player_pass_attempts_roll5_mean",
-        "player_pass_attempts_ewm5",
-        "player_pass_attempts_career_prior",
-    ],
-    "rushing_yards": [
-        "player_carries_roll3_mean",
-        "player_carries_roll5_mean",
-        "player_carries_ewm5",
-        "player_carries_career_prior",
-    ],
-    "rushing_tds": [
-        "player_goal_line_carries_roll3_mean",
-        "player_goal_line_carries_roll5_mean",
-        "player_carries_roll3_mean",
-        "player_carries_career_prior",
-    ],
-    "receiving_yards": [
-        "player_targets_roll3_mean",
-        "player_targets_roll5_mean",
-        "player_targets_ewm5",
-        "player_targets_career_prior",
-    ],
-    "receiving_tds": [
-        "player_red_zone_targets_roll3_mean",
-        "player_red_zone_targets_roll5_mean",
-        "player_targets_roll3_mean",
-        "player_targets_career_prior",
-    ],
-    "kicking_points": [
-        "player_field_goal_attempts_roll3_mean",
-        "player_field_goal_attempts_roll5_mean",
-        "player_field_goal_attempts_career_prior",
-    ],
-    "tackles": [
-        "player_defense_participation_roll3_mean",
-        "role_participation_roll3",
-        "player_defense_participation_career_prior",
-    ],
-    "sacks": [
-        "player_defense_participation_roll3_mean",
-        "role_participation_roll3",
-        "player_defense_participation_career_prior",
-    ],
-}
-
-KICKING_USAGE_COMPONENTS = [
-    "player_field_goal_attempts_roll3_mean",
-    "player_extra_point_attempts_roll3_mean",
-]
-
 LOW_HISTORY_GAMES = 4
 MIN_RISK_MULTIPLIERS = {
     "rookie": 1.25,
@@ -412,19 +353,19 @@ def context_columns_for_schema(
 
     for target in targets:
         if target == "kicking_points" and all(
-            column in schema for column in KICKING_USAGE_COMPONENTS
+            column in schema for column in common.KICKING_USAGE_COMPONENTS
         ):
             chosen[target] = {
                 "method": "sum",
-                "columns": list(KICKING_USAGE_COMPONENTS),
-                "label": "+".join(KICKING_USAGE_COMPONENTS),
+                "columns": list(common.KICKING_USAGE_COMPONENTS),
+                "label": "+".join(common.KICKING_USAGE_COMPONENTS),
             }
-            columns.extend(KICKING_USAGE_COMPONENTS)
+            columns.extend(common.KICKING_USAGE_COMPONENTS)
             continue
 
         available = [
             column
-            for column in USAGE_CANDIDATES[target]
+            for column in common.USAGE_CANDIDATES[target]
             if column in schema
         ]
         if available:

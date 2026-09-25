@@ -79,6 +79,66 @@ _TEAM_ALIASES = {
     "JAC": "JAX",
 }
 
+USAGE_CANDIDATES = {
+    "passing_yards": [
+        "player_pass_attempts_roll3_mean",
+        "player_pass_attempts_roll5_mean",
+        "player_pass_attempts_ewm5",
+        "player_pass_attempts_career_prior",
+    ],
+    "passing_tds": [
+        "player_pass_attempts_roll3_mean",
+        "player_pass_attempts_roll5_mean",
+        "player_pass_attempts_ewm5",
+        "player_pass_attempts_career_prior",
+    ],
+    "rushing_yards": [
+        "player_carries_roll3_mean",
+        "player_carries_roll5_mean",
+        "player_carries_ewm5",
+        "player_carries_career_prior",
+    ],
+    "rushing_tds": [
+        "player_goal_line_carries_roll3_mean",
+        "player_goal_line_carries_roll5_mean",
+        "player_carries_roll3_mean",
+        "player_carries_career_prior",
+    ],
+    "receiving_yards": [
+        "player_targets_roll3_mean",
+        "player_targets_roll5_mean",
+        "player_targets_ewm5",
+        "player_targets_career_prior",
+    ],
+    "receiving_tds": [
+        "player_red_zone_targets_roll3_mean",
+        "player_red_zone_targets_roll5_mean",
+        "player_targets_roll3_mean",
+        "player_targets_career_prior",
+    ],
+    "kicking_points": [
+        "player_field_goal_attempts_roll3_mean",
+        "player_field_goal_attempts_roll5_mean",
+        "player_field_goal_attempts_career_prior",
+    ],
+    "tackles": [
+        "player_defense_participation_roll3_mean",
+        "role_participation_roll3",
+        "player_defense_participation_career_prior",
+    ],
+    "sacks": [
+        "player_defense_participation_roll3_mean",
+        "role_participation_roll3",
+        "player_defense_participation_career_prior",
+    ],
+}
+
+KICKING_USAGE_COMPONENTS = [
+    "player_field_goal_attempts_roll3_mean",
+    "player_extra_point_attempts_roll3_mean",
+]
+
+
 _NFLVERSE_GAME_ID_RE = re.compile(
     r"^(?P<season>\d{4})_(?P<week>\d{1,2})_"
     r"(?P<away>[A-Za-z]{2,3})_(?P<home>[A-Za-z]{2,3})$"
