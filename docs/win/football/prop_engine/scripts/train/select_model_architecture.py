@@ -339,6 +339,16 @@ def metric_values(
     return result
 
 
+def required_metric(
+    metrics: dict[str, float | None],
+    name: str,
+) -> float:
+    value = metrics[name]
+    if value is None:
+        raise ValueError(f"Required metric is unavailable: {name}")
+    return float(value)
+
+
 def resolve_folds(folds: pd.DataFrame) -> dict[str, Any]:
     common.require_columns(
         folds,
@@ -1594,7 +1604,7 @@ def main() -> int:
         print(
             f"  {target}: selected={selected}, "
             f"blend_direct_weight={weight:.2f}, "
-            f"validation_mae={metrics[selected]['mae']:.6f}"
+            f"validation_mae={required_metric(metrics[selected], 'mae'):.6f}"
         )
 
     # Architecture and blend decisions are frozen before test scoring begins.
@@ -1639,7 +1649,7 @@ def main() -> int:
         selected_metrics = validation_metrics_by_target[target][selected]
         reason = (
             f"selected on chronological validation only: {selected} had the "
-            f"lowest validation MAE={selected_metrics['mae']:.12g}; "
+            f"lowest validation MAE={required_metric(selected_metrics, 'mae'):.12g}; "
             "RMSE, median AE, then fixed candidate order are tie-breakers; "
             f"{policy['test_season']} metrics are reporting-only"
         )
@@ -1658,7 +1668,7 @@ def main() -> int:
             else:
                 row_reason = (
                     f"not selected on validation; selected={selected} with "
-                    f"validation_mae={selected_metrics['mae']:.12g}"
+                    f"validation_mae={required_metric(selected_metrics, 'mae'):.12g}"
                 )
 
             rows.append(
