@@ -592,29 +592,29 @@ def final_component_points(
         "passing_yards": numeric(base["component_passing_yards"]),
         "passing_tds": numeric(base["component_passing_tds"]),
         "kicking_points": numeric(base["component_kicking_points"]),
+        "rushing_yards": _scale_component_for_allocated_exposure(
+            base["component_rushing_yards"],
+            base["projected_player_carries"],
+            allocated_carries,
+            fallback_unit_rate=base["projected_yards_per_carry"],
+        ),
+        "receiving_yards": _scale_component_for_allocated_exposure(
+            base["component_receiving_yards"],
+            base["projected_targets"],
+            allocated_targets,
+            fallback_unit_rate=base["projected_yards_per_target"],
+        ),
+        "rushing_tds": _scale_component_for_allocated_exposure(
+            base["component_rushing_tds"],
+            base["projected_goal_line_carries"],
+            allocated_gl_carries,
+        ),
+        "receiving_tds": _scale_component_for_allocated_exposure(
+            base["component_receiving_tds"],
+            base["projected_red_zone_targets"],
+            allocated_rz_targets,
+        ),
     }
-    points["rushing_yards"] = _scale_component_for_allocated_exposure(
-        base["component_rushing_yards"],
-        base["projected_player_carries"],
-        allocated_carries,
-        fallback_unit_rate=base["projected_yards_per_carry"],
-    )
-    points["receiving_yards"] = _scale_component_for_allocated_exposure(
-        base["component_receiving_yards"],
-        base["projected_targets"],
-        allocated_targets,
-        fallback_unit_rate=base["projected_yards_per_target"],
-    )
-    points["rushing_tds"] = _scale_component_for_allocated_exposure(
-        base["component_rushing_tds"],
-        base["projected_goal_line_carries"],
-        allocated_gl_carries,
-    )
-    points["receiving_tds"] = _scale_component_for_allocated_exposure(
-        base["component_receiving_tds"],
-        base["projected_red_zone_targets"],
-        allocated_rz_targets,
-    )
 
     tackle_unit = zero_safe_product(
         base["projected_opponent_plays"],
