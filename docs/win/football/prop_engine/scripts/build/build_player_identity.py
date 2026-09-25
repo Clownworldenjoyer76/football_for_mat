@@ -363,6 +363,22 @@ def add_canonical(
     record["sources"].add(source)
 
 
+def split_candidate_ids(
+    candidates: dict[str, set[str]],
+) -> tuple[dict[str, str], dict[str, list[str]]]:
+    unique = {
+        key: next(iter(gsis_ids))
+        for key, gsis_ids in candidates.items()
+        if len(gsis_ids) == 1
+    }
+    ambiguous = {
+        key: sorted(gsis_ids)
+        for key, gsis_ids in candidates.items()
+        if len(gsis_ids) > 1
+    }
+    return unique, ambiguous
+
+
 def unique_alias_index(
     canonical: dict[str, dict[str, Any]],
     field: str,
@@ -382,21 +398,7 @@ def unique_alias_index(
                     gsis_id
                 )
 
-    unique = {
-        alias: next(iter(gsis_ids))
-        for alias, gsis_ids
-        in candidates.items()
-        if len(gsis_ids) == 1
-    }
-
-    conflicts = {
-        alias: sorted(gsis_ids)
-        for alias, gsis_ids
-        in candidates.items()
-        if len(gsis_ids) > 1
-    }
-
-    return unique, conflicts
+    return split_candidate_ids(candidates)
 
 
 def authoritative_espn_index(
@@ -425,21 +427,7 @@ def authoritative_espn_index(
                 gsis_id
             )
 
-    unique = {
-        alias: next(iter(gsis_ids))
-        for alias, gsis_ids
-        in candidates.items()
-        if len(gsis_ids) == 1
-    }
-
-    conflicts = {
-        alias: sorted(gsis_ids)
-        for alias, gsis_ids
-        in candidates.items()
-        if len(gsis_ids) > 1
-    }
-
-    return unique, conflicts
+    return split_candidate_ids(candidates)
 
 
 def unique_name_index(
@@ -464,21 +452,7 @@ def unique_name_index(
                     normalized
                 ].add(gsis_id)
 
-    unique = {
-        normalized: next(iter(gsis_ids))
-        for normalized, gsis_ids
-        in candidates.items()
-        if len(gsis_ids) == 1
-    }
-
-    ambiguous = {
-        normalized: sorted(gsis_ids)
-        for normalized, gsis_ids
-        in candidates.items()
-        if len(gsis_ids) > 1
-    }
-
-    return unique, ambiguous
+    return split_candidate_ids(candidates)
 
 
 def parse_optional_season(

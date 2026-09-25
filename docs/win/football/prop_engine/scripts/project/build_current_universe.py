@@ -955,6 +955,19 @@ def merge_resolved_records(records: list[dict[str, Any]]) -> dict[str, Any]:
     return merged
 
 
+def multi_team_conflicts(
+    resolved_groups: dict[tuple[str, str], list[dict[str, Any]]],
+) -> dict[str, list[str]]:
+    player_teams: dict[str, set[str]] = defaultdict(set)
+    for team, gsis_id in resolved_groups:
+        player_teams[gsis_id].add(team)
+    return {
+        gsis_id: sorted(teams)
+        for gsis_id, teams in player_teams.items()
+        if len(teams) > 1
+    }
+
+
 def reconcile_multi_team_resolutions(
     resolved_groups: dict[tuple[str, str], list[dict[str, Any]]],
     resolution_methods: dict[tuple[str, str], set[str]],
@@ -962,15 +975,7 @@ def reconcile_multi_team_resolutions(
     resolver: IdentityResolver,
     abbreviations: set[str],
 ) -> list[dict[str, Any]]:
-    player_teams: dict[str, set[str]] = defaultdict(set)
-    for team, gsis_id in resolved_groups:
-        player_teams[gsis_id].add(team)
-
-    conflicts = {
-        gsis_id: sorted(teams)
-        for gsis_id, teams in player_teams.items()
-        if len(teams) > 1
-    }
+    conflicts = multi_team_conflicts(resolved_groups)
 
     reconciled: list[dict[str, Any]] = []
     unresolved: dict[str, dict[str, Any]] = {}
@@ -1025,15 +1030,7 @@ def reconcile_multi_team_resolutions(
             f"{dict(list(unresolved.items())[:10])}"
         )
 
-    post_teams: dict[str, set[str]] = defaultdict(set)
-    for team, gsis_id in resolved_groups:
-        post_teams[gsis_id].add(team)
-
-    remaining = {
-        gsis_id: sorted(teams)
-        for gsis_id, teams in post_teams.items()
-        if len(teams) > 1
-    }
+    remaining = multi_team_conflicts(resolved_groups)
 
     if remaining:
         raise ValueError(
