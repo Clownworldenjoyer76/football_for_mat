@@ -35,10 +35,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -148,35 +146,6 @@ def parse_args() -> argparse.Namespace:
 
 def repo_relative(path: Path) -> str:
     return str(path.resolve().relative_to(common.repo_root().resolve()))
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    return common.load_json_mapping(
-        path,
-        missing_message=f"Required JSON missing: {path}",
-    )
-
-def load_yaml(path: Path) -> dict[str, Any]:
-    return common.load_yaml_mapping(
-        path,
-        missing_message=f"Required YAML missing: {path}",
-    )
-
-def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    h = tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", newline="\n",
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, delete=False,
-    )
-    temp = Path(h.name)
-    try:
-        with h:
-            json.dump(payload, h, indent=2, sort_keys=True, ensure_ascii=False, default=str)
-            h.write("\n")
-        os.replace(temp, path)
-    finally:
-        if temp.exists():
-            temp.unlink()
 
 
 def run_market_preflight() -> dict[str, Any]:
@@ -411,8 +380,8 @@ def validate_and_load_model(
         if not p.is_file():
             raise FileNotFoundError(f"{target}: required direct-model artifact missing: {p}")
 
-    manifest = load_json(manifest_path)
-    metadata = load_json(metadata_path)
+    manifest = common.load_json_mapping(manifest_path)
+    metadata = common.load_json_mapping(metadata_path)
     if str(manifest.get("target")) != target or str(metadata.get("target")) != target:
         raise ValueError(f"{target}: target mismatch in direct-model artifacts")
     if str(metadata.get("status")) != "trained":
@@ -488,8 +457,8 @@ def main() -> int:
     roles = pd.read_parquet(roles_path)
     universe = pd.read_parquet(universe_path)
     allocated = pd.read_parquet(allocated_path)
-    issue34_log = load_json(issue34_log_path)
-    eligibility = load_yaml(eligibility_path)
+    issue34_log = common.load_json_mapping(issue34_log_path)
+    eligibility = common.load_yaml_mapping(eligibility_path)
 
     if str(issue34_log.get("status")) != "passed":
         raise ValueError("Issue 35 requires passed Issue 34 allocation log")
@@ -599,7 +568,11 @@ def main() -> int:
             "market_exclusion_preflight": True,
         },
     }
-    write_json_atomic(log_payload, log_path)
+    common.write_json_default_str_atomic(
+        log_path,
+        log_payload,
+        ensure_ascii=False,
+    )
     print(json.dumps({"script": Path(__file__).name, "payload": payload}, sort_keys=True, separators=(",", ":")))
     print("DIRECT PROJECTIONS BUILD: PASS")
     return 0

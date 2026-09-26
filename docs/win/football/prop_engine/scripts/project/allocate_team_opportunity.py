@@ -40,16 +40,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
-import yaml
 
 try:
     import lightgbm as lgb
@@ -149,48 +146,6 @@ def repo_relative(path: Path) -> str:
     return str(path.resolve().relative_to(common.repo_root().resolve()))
 
 
-def load_yaml(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Required YAML missing: {path}")
-    with path.open("r", encoding="utf-8-sig") as h:
-        value = yaml.safe_load(h)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected YAML mapping: {path}")
-    return value
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Required JSON missing: {path}")
-    with path.open("r", encoding="utf-8-sig") as h:
-        value = json.load(h)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected JSON object: {path}")
-    return value
-
-
-def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    h = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        newline="\n",
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-        delete=False,
-    )
-    temp = Path(h.name)
-    try:
-        with h:
-            json.dump(payload, h, indent=2, sort_keys=True, ensure_ascii=False, default=str)
-            h.write("\n")
-        os.replace(temp, path)
-    finally:
-        if temp.exists():
-            temp.unlink()
-
-
 def run_market_preflight() -> dict[str, Any]:
     path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
     if not path.is_file():
@@ -265,7 +220,7 @@ def score_component(
         raise ValueError(f"Issue 34 expected player-scope component: {component}")
 
     model_dir = prop_root / "models" / "components" / component
-    manifest = load_json(model_dir / "feature_manifest.json")
+    manifest = common.load_json_mapping(model_dir / "feature_manifest.json")
     model_path = model_dir / "model.txt"
     if not model_path.is_file():
         raise FileNotFoundError(f"Required component model missing: {model_path}")
@@ -467,8 +422,8 @@ def main() -> int:
     features = pd.read_parquet(features_path)
     roles = pd.read_parquet(roles_path)
     universe_all = pd.read_parquet(universe_path)
-    eligibility = load_yaml(eligibility_path)
-    issue33 = load_json(issue33_log)
+    eligibility = common.load_yaml_mapping(eligibility_path)
+    issue33 = common.load_json_mapping(issue33_log)
 
     common.require_columns(component, COMPONENT_REQUIRED, "Issue 33 component projections")
     common.require_columns(features, FEATURE_REQUIRED, "Issue 31 current features")
@@ -531,13 +486,13 @@ def main() -> int:
     if eligible_universe["injury_game_status"].fillna("").astype(str).str.casefold().eq("out").any():
         raise ValueError("Issue 34 eligible allocation pool contains an Out player")
 
-    target_manifest = load_json(
+    target_manifest = common.load_json_mapping(
         prop / "models" / "components" / "player_target_share" / "feature_manifest.json"
     )
-    carry_manifest = load_json(
+    carry_manifest = common.load_json_mapping(
         prop / "models" / "components" / "player_carry_share" / "feature_manifest.json"
     )
-    def_manifest = load_json(
+    def_manifest = common.load_json_mapping(
         prop / "models" / "components" / "player_defensive_participation" / "feature_manifest.json"
     )
     if not bool(target_manifest.get("reconcile_during_current_week_allocation", False)):
@@ -799,7 +754,11 @@ def main() -> int:
             "market_exclusion_preflight": True,
         },
     }
-    write_json_atomic(log_payload, log_path)
+    common.write_json_default_str_atomic(
+        log_path,
+        log_payload,
+        ensure_ascii=False,
+    )
     print(json.dumps({"script": Path(__file__).name, "payload": payload}, sort_keys=True, separators=(",", ":")))
     print("TEAM OPPORTUNITY ALLOCATION: PASS")
     return 0

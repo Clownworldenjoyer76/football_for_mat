@@ -33,16 +33,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
-import yaml
 
 try:
     import lightgbm as lgb
@@ -124,43 +121,6 @@ def repo_relative(path: Path) -> str:
     return str(path.resolve().relative_to(common.repo_root().resolve()))
 
 
-def load_yaml(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Required YAML missing: {path}")
-    with path.open("r", encoding="utf-8-sig") as h:
-        value = yaml.safe_load(h)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected YAML mapping: {path}")
-    return value
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(f"Required JSON missing: {path}")
-    with path.open("r", encoding="utf-8-sig") as h:
-        value = json.load(h)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected JSON object: {path}")
-    return value
-
-
-def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    h = tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", newline="\n", prefix=f".{path.name}.",
-        suffix=".tmp", dir=path.parent, delete=False,
-    )
-    temp = Path(h.name)
-    try:
-        with h:
-            json.dump(payload, h, indent=2, sort_keys=True, ensure_ascii=False, default=str)
-            h.write("\n")
-        os.replace(temp, path)
-    finally:
-        if temp.exists():
-            temp.unlink()
-
-
 def run_market_preflight() -> dict[str, Any]:
     path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
     if not path.is_file():
@@ -194,7 +154,7 @@ def coalesce_numeric(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
 
 def validate_booster_manifest(root: Path, family: str, name: str) -> tuple[lgb.Booster, dict[str, Any], list[str]]:
     model_dir = root / "models" / family / name
-    manifest = load_json(model_dir / "feature_manifest.json")
+    manifest = common.load_json_mapping(model_dir / "feature_manifest.json")
     model_path = model_dir / "model.txt"
     if not model_path.is_file():
         raise FileNotFoundError(f"Required model missing: {model_path}")
@@ -953,7 +913,7 @@ def main() -> int:
     if set(features["season"]) != {season} or set(features["week"]) != {week}:
         raise ValueError("Issue 33 current feature season/week mismatch")
 
-    eligibility = load_yaml(eligibility_path)
+    eligibility = common.load_yaml_mapping(eligibility_path)
     opp_pred, opp_audit = score_opportunity(
         prop,
         features,
@@ -1370,7 +1330,11 @@ def main() -> int:
             "market_exclusion_preflight": True,
         },
     }
-    write_json_atomic(log_payload, log_path)
+    common.write_json_default_str_atomic(
+        log_path,
+        log_payload,
+        ensure_ascii=False,
+    )
     print(
         json.dumps(
             {
