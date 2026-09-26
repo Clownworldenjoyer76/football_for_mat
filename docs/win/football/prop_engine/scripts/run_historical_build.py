@@ -252,6 +252,7 @@ def _exit_code_from_system_exit(exc: SystemExit) -> int:
     return 1
 
 
+# noinspection PyBroadException
 def execute_script(
     *,
     step_number: int,
@@ -292,7 +293,6 @@ def execute_script(
                 exit_code = _exit_code_from_system_exit(exc)
                 if exit_code != 0:
                     status = "failed"
-            # noinspection PyBroadException
             except Exception:
                 status = "failed"
                 exit_code = 1
