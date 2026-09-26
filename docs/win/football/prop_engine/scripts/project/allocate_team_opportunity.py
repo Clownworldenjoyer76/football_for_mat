@@ -163,10 +163,6 @@ def clip01(series: pd.Series) -> pd.Series:
     return numeric(series).clip(lower=0.0, upper=1.0)
 
 
-def normalized_position(series: pd.Series) -> pd.Series:
-    return series.fillna("").astype(str).str.strip().str.upper()
-
-
 def weighted_row_mean(frame: pd.DataFrame, columns: list[str], weights: list[float]) -> pd.Series:
     if len(columns) != len(weights):
         raise ValueError("weighted_row_mean columns/weights length mismatch")
@@ -224,7 +220,7 @@ def score_component(
 
     rule = str(spec["eligible_rule"])
     positions = {str(x).strip().upper() for x in eligibility[rule]["eligible_positions"]}
-    pos = normalized_position(features["position"])
+    pos = common.normalize_position_series(features["position"])
     rows = features.loc[pos.isin(positions)].copy()
     if rows.empty:
         raise ValueError(f"{component}: no current eligible rows")
@@ -455,8 +451,8 @@ def main() -> int:
         | context["_role_team"].isna()
         | context["team"].astype(str).ne(context["_feature_team"].astype(str))
         | context["team"].astype(str).ne(context["_role_team"].astype(str))
-        | normalized_position(context["position"]).ne(normalized_position(context["_feature_position"]))
-        | normalized_position(context["position"]).ne(normalized_position(context["_role_position"]))
+        | common.normalize_position_series(context["position"]).ne(common.normalize_position_series(context["_feature_position"]))
+        | common.normalize_position_series(context["position"]).ne(common.normalize_position_series(context["_role_position"]))
     )
     if bad_context.any():
         raise ValueError(
@@ -597,7 +593,7 @@ def main() -> int:
         raise ValueError("Issue 34 raw target share disagrees with Issue 33 projected_targets")
 
     work = add_role_signals(work)
-    pos = normalized_position(work["position"])
+    pos = common.normalize_position_series(work["position"])
     receiver_positions = {str(x).upper() for x in eligibility["receiving_yards"]["eligible_positions"]}
     rusher_positions = {str(x).upper() for x in eligibility["rushing_yards"]["eligible_positions"]}
     defender_positions = {str(x).upper() for x in eligibility["tackles"]["eligible_positions"]}
@@ -659,8 +655,8 @@ def main() -> int:
     for _, group in work.groupby(TEAM_GRAIN, sort=True):
         pass_volume = max(float(numeric(group["projected_team_pass_attempts"]).dropna().iloc[0]), 0.0)
         rush_volume = max(float(numeric(group["projected_team_rush_attempts"]).dropna().iloc[0]), 0.0)
-        target_alloc = float(group.loc[normalized_position(group["position"]).isin(receiver_positions), "allocated_target_share"].sum())
-        carry_alloc = float(group.loc[normalized_position(group["position"]).isin(rusher_positions), "allocated_carry_share"].sum())
+        target_alloc = float(group.loc[common.normalize_position_series(group["position"]).isin(receiver_positions), "allocated_target_share"].sum())
+        carry_alloc = float(group.loc[common.normalize_position_series(group["position"]).isin(rusher_positions), "allocated_carry_share"].sum())
         if pass_volume > EPS:
             target_volume_error = max(target_volume_error, abs(pass_volume * target_alloc - pass_volume))
         if rush_volume > EPS:

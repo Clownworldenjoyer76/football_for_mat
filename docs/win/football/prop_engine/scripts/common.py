@@ -1327,6 +1327,18 @@ def safe_divide_positive(
     return result
 
 
+def normalize_position_series(
+    series: pd.Series,
+) -> pd.Series:
+    return (
+        series
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
+
+
 def normalized_position_mask(
     series: pd.Series,
     eligible_positions: Iterable[Any],
@@ -1335,14 +1347,7 @@ def normalized_position_mask(
         str(value).strip().upper()
         for value in eligible_positions
     }
-    normalized = (
-        series
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-    return normalized.isin(positions)
+    return normalize_position_series(series).isin(positions)
 
 
 def normalize_team(value: Any) -> str:

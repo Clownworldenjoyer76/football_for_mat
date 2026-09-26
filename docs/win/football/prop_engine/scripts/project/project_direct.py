@@ -165,10 +165,6 @@ def flag(series: pd.Series) -> pd.Series:
     return numeric(series).fillna(0.0).gt(0.0)
 
 
-def normalized_position(series: pd.Series) -> pd.Series:
-    return series.fillna("").astype(str).str.strip().str.upper()
-
-
 def any_positive(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
     missing = [c for c in columns if c not in frame.columns]
     if missing:
@@ -285,12 +281,12 @@ def build_current_context(
     if len(work) != len(features):
         raise ValueError("Issue 35 context join changed row count")
 
-    pos = normalized_position(work["position"])
+    pos = common.normalize_position_series(work["position"])
     bad = (
         work["team"].astype(str).ne(work["_role_team"].astype(str))
         | work["team"].astype(str).ne(work["_universe_team"].astype(str))
-        | pos.ne(normalized_position(work["_role_position"]))
-        | pos.ne(normalized_position(work["_universe_position"]))
+        | pos.ne(common.normalize_position_series(work["_role_position"]))
+        | pos.ne(common.normalize_position_series(work["_universe_position"]))
     )
     if bad.any():
         raise ValueError(
@@ -322,7 +318,7 @@ def eligibility_mask(
     if positions != manifest_positions or not positions:
         raise ValueError(f"{target}: eligible positions disagree between eligibility config and model manifest")
 
-    pos_ok = normalized_position(work["position"]).isin(set(positions))
+    pos_ok = common.normalize_position_series(work["position"]).isin(set(positions))
 
     if expected_requirement == "identified_qb_role":
         role_ok = flag(work["primary_qb_flag"])
