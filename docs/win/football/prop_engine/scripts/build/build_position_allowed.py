@@ -210,7 +210,7 @@ def build_dense_grid(
 
     base["defense_team"] = (
         base["team"]
-        .map(canonical_team)
+        .map(common.normalize_team)
     )
 
     base = (
@@ -311,7 +311,7 @@ def build_allowed_totals(
 
     working["team"] = (
         working["team"]
-        .map(canonical_team)
+        .map(common.normalize_team)
     )
 
     working["position_group"] = (
@@ -537,12 +537,12 @@ def build_tackles_generated(
 
         pbp["posteam"] = (
             pbp["posteam"]
-            .map(canonical_team)
+            .map(common.normalize_team)
         )
 
         pbp["defteam"] = (
             pbp["defteam"]
-            .map(canonical_team)
+            .map(common.normalize_team)
         )
 
         for column in [
