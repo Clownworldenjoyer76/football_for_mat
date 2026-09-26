@@ -247,6 +247,7 @@ def run_market_audit(repo: Path) -> dict[str, Any]:
         / "docs/win/football/prop_engine/evaluation/market_exclusion_audit.json"
     )
     audit = read_json(audit_path)
+    # noinspection PySimplifyBooleanCheck
     if audit.get("passed") is not True:
         raise RuntimeError("Issue 28 market exclusion audit did not pass.")
     return audit

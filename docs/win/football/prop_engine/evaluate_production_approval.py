@@ -182,6 +182,7 @@ def calibration_integrity(
     if isinstance(policy, dict):
         if policy.get("test_rows_used_for_calibration") is not False:
             problems.append("test_rows_used_for_calibration")
+        # noinspection PySimplifyBooleanCheck
         if policy.get("test_reporting_only_preserved") is not True:
             problems.append("test_reporting_only_not_preserved")
     else:

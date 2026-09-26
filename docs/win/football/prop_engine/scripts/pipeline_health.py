@@ -440,6 +440,7 @@ def collect_artifact_health(
             fatals.append("run_manifest: week does not match settings")
         if manifest.get("status") != "success":
             fatals.append(f"run_manifest: status={manifest.get('status')!r}")
+        # noinspection PySimplifyBooleanCheck
         if manifest.get("validation_passed") is not True:
             fatals.append("run_manifest: validation_passed is not true")
         if manifest.get("market_data_used") is not False:
@@ -840,6 +841,7 @@ def publish_outputs(payload: dict[str, Any]) -> None:
 
 
 def write_fallback_log(exc: BaseException) -> None:
+    # noinspection PyBroadException
     try:
         LOG.parent.mkdir(parents=True, exist_ok=True)
         LOG.write_text(
@@ -899,6 +901,7 @@ def main() -> int:
 
     except Exception as exc:
         reporter.record_exception(exc)
+        # noinspection PyBroadException
         try:
             reporter.write_report(status="FAILED", exit_code=1)
         except Exception:

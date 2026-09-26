@@ -471,6 +471,7 @@ def _run(
     except Exception as exc:
         failure = f'{type(exc).__name__}: {exc}'
         print(f'WEEKLY PIPELINE: FAIL - {failure}', file=sys.stderr)
+        # noinspection PyBroadException
         try:
             _, model_versions = registry_state(prop_root, targets)
         except Exception:

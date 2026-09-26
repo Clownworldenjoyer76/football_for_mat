@@ -105,6 +105,7 @@ def production_target_state(prop: Path) -> tuple[list[str], list[str]]:
         entry = registry[target]
         if not isinstance(entry, dict):
             raise AssertionError(f"{target}: invalid production registry entry")
+        # noinspection PySimplifyBooleanCheck
         if entry.get("production_approved") is True:
             version = entry.get("version")
             if not isinstance(version, str) or not version.strip():
@@ -190,6 +191,7 @@ def run_market_audit(prop: Path) -> dict[str, Any]:
         )
     audit_path = prop / "evaluation" / "market_exclusion_audit.json"
     audit = read_json(audit_path)
+    # noinspection PySimplifyBooleanCheck
     if audit.get("passed") is not True:
         raise AssertionError("Market audit JSON is not passed=true")
     if audit.get("forbidden_source_references") not in ([], None):
@@ -620,6 +622,7 @@ def main() -> int:
                 log = read_json(prop / "logs" / log_name)
                 if log.get("market_features_used") is not False:
                     raise AssertionError(f"{log_name}: market_features_used must be false")
+                # noinspection PySimplifyBooleanCheck
                 if log.get("market_exclusion_passed") is not True:
                     raise AssertionError(f"{log_name}: market_exclusion_passed must be true")
             details["weekly_logs_checked"] = 2

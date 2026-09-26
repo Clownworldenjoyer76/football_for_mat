@@ -364,6 +364,7 @@ def game_is_final(payload: dict[str, Any]) -> bool:
         status_type = competition.get("status", {}).get("type", {})
         if not isinstance(status_type, dict):
             continue
+        # noinspection PySimplifyBooleanCheck
         if status_type.get("completed") is True:
             return True
         state = clean(status_type.get("state")).casefold()

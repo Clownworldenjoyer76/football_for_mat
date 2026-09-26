@@ -1047,6 +1047,7 @@ def main() -> int:
     config = common.load_config()
 
     market_audit = audit_market_exclusion.run_production_audit(write_output=True)
+    # noinspection PySimplifyBooleanCheck
     if market_audit.get("passed") is not True:
         raise RuntimeError(f"Issue 28 market exclusion preflight failed: {market_audit}")
 

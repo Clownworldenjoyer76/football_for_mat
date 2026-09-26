@@ -588,6 +588,7 @@ def _sanitize_json_value(
         ]
 
     if hasattr(value, "item"):
+        # noinspection PyBroadException
         try:
             scalar = value.item()
 
@@ -616,6 +617,7 @@ def _json_default(
         )
 
     if hasattr(value, "item"):
+        # noinspection PyBroadException
         try:
             scalar = value.item()
 
@@ -676,6 +678,7 @@ def _emit_reporting_failure(
     report_exception: BaseException,
     original_exception: BaseException,
 ) -> None:
+    # noinspection PyBroadException
     try:
         sys.stderr.write(
             "\nPIPELINE REPORTING FAILURE\n"

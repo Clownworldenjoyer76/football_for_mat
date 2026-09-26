@@ -160,6 +160,7 @@ def production_target_state(prop: Path) -> tuple[list[str], list[str]]:
         entry = registry[target]
         if not isinstance(entry, dict):
             raise ValueError(f"{target}: invalid registry entry")
+        # noinspection PySimplifyBooleanCheck
         if entry.get("production_approved") is True:
             version = entry.get("version")
             if not isinstance(version, str) or not version.strip():

@@ -346,6 +346,7 @@ def resolve_registry_versions(
 
         approved = entry.get("production_approved")
         version = entry.get("version")
+        # noinspection PySimplifyBooleanCheck
         if approved is True:
             version_text = common.clean_text(version)
             if not version_text:

@@ -539,6 +539,7 @@ def main() -> int:
     }
     log_path = common.repo_root() / REPORT_LOG_REL
     write_json_atomic(payload, log_path)
+    # noinspection PyBroadException
     try:
         common.log_run(Path(__file__).name, payload)
     except Exception:

@@ -149,6 +149,7 @@ def execute_script(*, step_number, script, scripts_root, repo_root, training_see
             except SystemExit as exc:
                 code = _exit_code(exc)
                 if code != 0: status = 'failed'
+            # noinspection PyBroadException
             except Exception:
                 status, code = 'failed', 1
                 traceback.print_exc(file=err)

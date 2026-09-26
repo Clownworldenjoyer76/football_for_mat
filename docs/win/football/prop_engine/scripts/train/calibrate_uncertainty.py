@@ -219,6 +219,7 @@ def load_selected_contracts(
             )
         if payload.get("test_used_for_selection") is not False:
             raise ValueError(f"{path}: 2025/test was used for selection.")
+        # noinspection PySimplifyBooleanCheck
         if payload.get("test_reporting_only") is not True:
             raise ValueError(f"{path}: test_reporting_only must be true.")
         if payload.get("market_features_used") is not False:
@@ -1408,6 +1409,7 @@ def main() -> int:
         "interval_coverage_rows": int(len(coverage_table)),
         "results": summaries,
     }
+    # noinspection PyBroadException
     try:
         common.log_run("calibrate_uncertainty.py", run_payload)
     except Exception:
