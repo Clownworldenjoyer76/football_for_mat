@@ -45,6 +45,7 @@ try:
 except ModuleNotFoundError as exc:
     raise SystemExit("Issue 33 requires LightGBM in the active environment.") from exc
 
+# noinspection DuplicatedCode
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
 TRAIN_DIR = SCRIPTS_ROOT / "train"

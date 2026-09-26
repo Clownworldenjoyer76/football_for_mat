@@ -71,6 +71,7 @@ except ModuleNotFoundError as import_error:
     ) from import_error
 
 
+# noinspection DuplicatedCode
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
 if str(SCRIPTS_ROOT) not in sys.path:

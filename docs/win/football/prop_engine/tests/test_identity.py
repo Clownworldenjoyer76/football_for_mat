@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
+# noinspection DuplicatedCode
 PROP = Path(__file__).resolve().parents[1]
 SCRIPTS = PROP / "scripts"
 if str(SCRIPTS) not in sys.path:

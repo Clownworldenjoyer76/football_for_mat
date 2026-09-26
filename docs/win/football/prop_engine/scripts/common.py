@@ -1033,6 +1033,7 @@ def write_json_default_str_atomic(
     ensure_ascii: bool = True,
 ) -> None:
     # Preserve legacy sorted/indented JSON with default=str.
+    # noinspection DuplicatedCode
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1069,6 +1070,7 @@ def write_json_strict_atomic(
     value: dict[str, Any],
 ) -> None:
     # Preserve sorted/indented JSON while rejecting NaN/Infinity.
+    # noinspection DuplicatedCode
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1103,6 +1105,7 @@ def write_json_preserve_order_atomic(
     value: dict[str, Any],
 ) -> None:
     # Preserve insertion order and UTF-8 literals.
+    # noinspection DuplicatedCode
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
 

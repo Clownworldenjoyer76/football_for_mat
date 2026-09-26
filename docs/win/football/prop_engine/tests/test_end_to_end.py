@@ -11,6 +11,7 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
+# noinspection DuplicatedCode
 PROP = Path(__file__).resolve().parents[1]
 SCRIPTS = PROP / "scripts"
 if str(SCRIPTS) not in sys.path:

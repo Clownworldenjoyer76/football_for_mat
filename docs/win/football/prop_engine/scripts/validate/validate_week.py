@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
+# noinspection DuplicatedCode
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
 if str(SCRIPTS_ROOT) not in sys.path:

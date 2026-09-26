@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
+# noinspection DuplicatedCode
 PROP = Path(__file__).resolve().parents[1]
 SCRIPTS = PROP / "scripts"
 if str(SCRIPTS) not in sys.path:
