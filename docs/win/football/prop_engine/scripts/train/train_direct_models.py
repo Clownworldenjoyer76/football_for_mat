@@ -247,29 +247,13 @@ def numeric(series: pd.Series) -> pd.Series:
     )
 
 
-def clean_category(series: pd.Series) -> pd.Series:
-    result = (
-        series
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    result = result.mask(
-        result.str.casefold().isin(
-            {"", "nan", "none", "null", "<na>", "nat"}
-        ),
-        "",
-    )
-    return result
-
-
 def categorical_levels(
     frame: pd.DataFrame,
     categorical_features: list[str],
 ) -> dict[str, list[str]]:
     levels: dict[str, list[str]] = {}
     for feature in categorical_features:
-        values = clean_category(frame[feature])
+        values = common.clean_category_series(frame[feature])
         observed = sorted(
             value
             for value in values.unique().tolist()
@@ -291,7 +275,7 @@ def model_matrix(
         data[feature] = numeric(frame[feature])
 
     for feature in categorical_features:
-        values = clean_category(frame[feature])
+        values = common.clean_category_series(frame[feature])
         category = pd.Categorical(
             values.where(values.ne(""), None),
             categories=levels[feature],

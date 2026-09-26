@@ -168,14 +168,6 @@ def any_positive(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
     return result
 
 
-def clean_category(series: pd.Series) -> pd.Series:
-    result = series.fillna("").astype(str).str.strip()
-    return result.mask(
-        result.str.casefold().isin({"", "nan", "none", "null", "<na>", "nat"}),
-        "",
-    )
-
-
 def model_matrix(
     frame: pd.DataFrame,
     numeric_features: list[str],
@@ -188,7 +180,7 @@ def model_matrix(
     for feature in categorical_features:
         if feature not in levels or not isinstance(levels[feature], list):
             raise ValueError(f"Missing persisted categorical levels for {feature}")
-        values = clean_category(frame[feature])
+        values = common.clean_category_series(frame[feature])
         category = pd.Categorical(
             values.where(values.ne(""), None),
             categories=[str(v) for v in levels[feature]],

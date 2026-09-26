@@ -1346,6 +1346,23 @@ def _is_missing_scalar(value: Any) -> bool:
     return False
 
 
+def clean_category_series(
+    series: pd.Series,
+) -> pd.Series:
+    result = (
+        series
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+    return result.mask(
+        result.str.casefold().isin(
+            {"", "nan", "none", "null", "<na>", "nat"}
+        ),
+        "",
+    )
+
+
 def clean_text(value: Any) -> str:
     # Preserve the exact nullable-text semantics used by Prop Engine scripts.
     if value is None:
