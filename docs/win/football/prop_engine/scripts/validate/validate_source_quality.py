@@ -66,12 +66,12 @@ def best_col(df: pd.DataFrame, aliases: list[str]) -> str | None:
         candidates = [lower[c.casefold()] for c in aliases if c.casefold() in lower]
     if not candidates:
         return None
-    return max(candidates, key=lambda c: int(df[c].map(clean).ne("").sum()))
+    return max(candidates, key=lambda c: int(df[c].map(common.clean_text).ne("").sum()))
 
 def pct_missing(df: pd.DataFrame, column: str | None) -> float | None:
     if column is None or len(df) == 0:
         return None
-    return float(100.0 * df[column].map(clean).eq("").mean())
+    return float(100.0 * df[column].map(common.clean_text).eq("").mean())
 
 
 def player_stats_identity_rows(
@@ -119,7 +119,7 @@ def player_stats_identity_rows(
     )
 
     for column in identity_columns:
-        player_mask |= df[column].map(clean).ne("")
+        player_mask |= df[column].map(common.clean_text).ne("")
 
     return df.loc[player_mask].copy()
 
@@ -326,7 +326,7 @@ def duplicate_key_count(source: str, df: pd.DataFrame) -> tuple[int, str]:
         return 0, "not_applicable"
     usable = df.copy()
     for c in keys:
-        usable = usable.loc[usable[c].map(clean).ne("")]
+        usable = usable.loc[usable[c].map(common.clean_text).ne("")]
     return int(usable.duplicated(keys, keep=False).sum()), "+".join(keys)
 
 

@@ -413,7 +413,7 @@ def build_environment(
     # Preserve the historical source game_id exactly so this table joins
     # directly to the historical player-game universe. Validate format without
     # replacing the source ID with common.parse_game_id's normalized rendering.
-    games["game_id"] = games["game_id"].map(clean)
+    games["game_id"] = games["game_id"].map(common.clean_text)
 
     if games["game_id"].eq("").any():
         raise ValueError(f"{games_path}: blank modeled game_id.")
@@ -573,14 +573,14 @@ def build_environment(
             "season": games["season"].astype(int),
             "week": games["week"].astype(int),
             "game_id": games["game_id"],
-            "gameday": games["gameday"].map(clean),
+            "gameday": games["gameday"].map(common.clean_text),
             "home_team": games["home_team"],
             "away_team": games["away_team"],
             "divisional_game_flag": games["divisional_game_flag"],
             "neutral_site_flag": games["neutral_site_flag"],
-            "stadium": games["stadium"].map(clean),
-            "stadium_id": games["stadium_id"].map(clean),
-            "roof": games["roof"].map(clean),
+            "stadium": games["stadium"].map(common.clean_text),
+            "stadium_id": games["stadium_id"].map(common.clean_text),
+            "roof": games["roof"].map(common.clean_text),
             "surface": games["surface"].map(
                 lambda value: common.clean_text(value) or None
             ),

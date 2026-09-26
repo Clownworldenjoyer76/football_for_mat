@@ -49,7 +49,7 @@ def canonical_ids(frame: pd.DataFrame) -> pd.DataFrame:
     if "week" in out.columns:
         out["week"] = pd.to_numeric(out["week"], errors="raise").astype(int)
     if "game_id" in out.columns:
-        out["game_id"] = out["game_id"].map(clean)
+        out["game_id"] = out["game_id"].map(common.clean_text)
     if "player_id" in out.columns:
         out["player_id"] = out["player_id"].map(common.normalize_player_id)
     if "team" in out.columns:
@@ -387,7 +387,7 @@ def main() -> int:
             for label in ("universe", "roles", "component", "allocation", "features", "long", "active", "wide"):
                 frame = frames[label]
                 if "game_id" in frame.columns:
-                    bad = sorted(set(frame["game_id"].map(clean)) - schedule_game_ids)
+                    bad = sorted(set(frame["game_id"].map(common.clean_text)) - schedule_game_ids)
                     if bad:
                         raise AssertionError(f"{label}: game IDs not in schedule: {bad[:10]}")
             bad_context = []
