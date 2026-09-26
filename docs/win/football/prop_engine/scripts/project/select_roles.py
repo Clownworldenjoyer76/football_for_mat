@@ -30,8 +30,6 @@ import json
 import math
 import subprocess
 import sys
-import tempfile
-import os
 from pathlib import Path
 from typing import Any
 
@@ -153,25 +151,11 @@ def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
         destination.relative_to(prop_root)
     except ValueError as exc:
         raise ValueError(f"Role log must remain under Prop Engine: {destination}") from exc
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        newline="\n",
-        prefix=f".{destination.name}.",
-        suffix=".tmp",
-        dir=destination.parent,
-        delete=False,
+    common.write_json_default_str_atomic(
+        destination,
+        payload,
+        ensure_ascii=False,
     )
-    temp_path = Path(handle.name)
-    try:
-        with handle:
-            json.dump(payload, handle, indent=2, sort_keys=True, ensure_ascii=False, default=str)
-            handle.write("\n")
-        os.replace(temp_path, destination)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
 
 
 def run_market_preflight() -> dict[str, Any]:

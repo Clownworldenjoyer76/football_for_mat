@@ -15,8 +15,6 @@ from pathlib import Path
 from typing import Any, Iterable
 import argparse
 import json
-import os
-import tempfile
 import sys
 
 import pyarrow.parquet as pq
@@ -382,27 +380,10 @@ def write_json_atomic(payload: dict, path: Path) -> None:
         destination.relative_to(root)
     except ValueError as exc:
         raise ValueError(f"Issue 28 output must remain under Prop Engine: {destination}") from exc
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        newline="\n",
-        prefix=f".{destination.name}.",
-        suffix=".tmp",
-        dir=destination.parent,
-        delete=False,
+    common.write_json_preserve_order_atomic(
+        destination,
+        payload,
     )
-    temp_path = Path(handle.name)
-    try:
-        with handle:
-            json.dump(payload, handle, indent=2, sort_keys=False, ensure_ascii=False)
-            handle.write("\n")
-        os.replace(temp_path, destination)
-    except Exception:
-        if temp_path.exists():
-            temp_path.unlink()
-        raise
 
 
 def run_production_audit(*, write_output: bool = True) -> dict:
