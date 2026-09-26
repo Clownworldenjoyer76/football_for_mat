@@ -554,15 +554,12 @@ def prepare_direct_frames(
     manifest: dict[str, Any],
     policy: dict[str, Any],
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    positions = {
-        str(value).strip().upper()
-        for value in manifest["eligible_positions"]
-    }
-    position = (
-        features["position"].fillna("").astype(str).str.strip().str.upper()
+    position_eligible = common.normalized_position_mask(
+        features["position"],
+        manifest["eligible_positions"],
     )
     actual = numeric(features[f"target_{target}"])
-    eligible = position.isin(positions) & actual.notna()
+    eligible = position_eligible & actual.notna()
 
     train = features.loc[
         eligible
@@ -728,14 +725,11 @@ def component_inference_rows(
     if scope == "player":
         frame = features.copy()
         rule = str(spec["eligible_rule"])
-        positions = {
-            str(value).strip().upper()
-            for value in eligibility[rule]["eligible_positions"]
-        }
-        position = (
-            frame["position"].fillna("").astype(str).str.strip().str.upper()
+        mask = common.normalized_position_mask(
+            frame["position"],
+            eligibility[rule]["eligible_positions"],
         )
-        return frame.loc[position.isin(positions)].copy()
+        return frame.loc[mask].copy()
 
     opportunity.check_team_feature_invariance(features, component_features)
     return opportunity.team_rows_from_features(features, component_features)

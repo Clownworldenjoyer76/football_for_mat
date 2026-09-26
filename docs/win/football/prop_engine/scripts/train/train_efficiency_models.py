@@ -1353,21 +1353,13 @@ def apply_eligibility(
     eligibility: dict[str, Any],
 ) -> pd.DataFrame:
     rule = ELIGIBILITY_RULE[model_name]
-    positions = {
-        str(value).strip().upper()
-        for value in eligibility[rule]["eligible_positions"]
-    }
-
-    pos = (
-        frame["position"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
+    mask = common.normalized_position_mask(
+        frame["position"],
+        eligibility[rule]["eligible_positions"],
     )
 
     return frame.loc[
-        pos.isin(positions)
+        mask
     ].copy()
 
 
@@ -1384,25 +1376,17 @@ def build_efficiency_inference_frame(
     missing_canonical_prefix: str | None = None,
 ) -> pd.DataFrame:
     rule = ELIGIBILITY_RULE[model_name]
-    positions = {
-        str(value).strip().upper()
-        for value in eligibility[rule]["eligible_positions"]
-    }
-
     target = current
     if season is not None:
         target = target.loc[
             pd.to_numeric(target["season"]).eq(int(season))
         ].copy()
 
-    position = (
-        target["position"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
+    position_eligible = common.normalized_position_mask(
+        target["position"],
+        eligibility[rule]["eligible_positions"],
     )
-    target = target.loc[position.isin(positions)].copy()
+    target = target.loc[position_eligible].copy()
     if target.empty:
         raise ValueError(empty_message)
 

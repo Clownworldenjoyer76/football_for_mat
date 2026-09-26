@@ -1235,6 +1235,24 @@ def safe_divide_positive(
     return result
 
 
+def normalized_position_mask(
+    series: pd.Series,
+    eligible_positions: Iterable[Any],
+) -> pd.Series:
+    positions = {
+        str(value).strip().upper()
+        for value in eligible_positions
+    }
+    normalized = (
+        series
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
+    return normalized.isin(positions)
+
+
 def normalize_team(value: Any) -> str:
     """Normalize a team code using Prop Engine aliases."""
     if _is_missing_scalar(value):

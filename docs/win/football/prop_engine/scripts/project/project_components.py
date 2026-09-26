@@ -697,18 +697,11 @@ def component_inference_rows(
                 f"{component}: missing current feature(s): {missing[:30]}"
             )
         rule = str(spec["eligible_rule"])
-        positions = {
-            str(x).strip().upper()
-            for x in eligibility[rule]["eligible_positions"]
-        }
-        pos = (
-            features["position"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .str.upper()
+        mask = common.normalized_position_mask(
+            features["position"],
+            eligibility[rule]["eligible_positions"],
         )
-        return features.loc[pos.isin(positions)].copy()
+        return features.loc[mask].copy()
     raise ValueError(
         f"{component}: unsupported opportunity scope {scope!r}"
     )
