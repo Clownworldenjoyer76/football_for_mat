@@ -47,9 +47,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -74,12 +72,10 @@ import common
 
 
 _CONFIG_CONTRACT = common.load_config()
-_TRAINING_CONTRACT = _CONFIG_CONTRACT["training"]
 SEED = 24024
-MODEL_SELECTION_TRAIN_END = int(_TRAINING_CONTRACT["model_selection_train_end_season"])
-DEVELOPMENT_VALIDATION_SEASON = int(_TRAINING_CONTRACT["development_validation_season"])
-FINAL_TRAIN_END = int(_TRAINING_CONTRACT["final_train_end_season"])
-UNTOUCHED_TEST_SEASON = int(_TRAINING_CONTRACT["untouched_test_season"])
+MODEL_SELECTION_TRAIN_END, DEVELOPMENT_VALIDATION_SEASON, FINAL_TRAIN_END, UNTOUCHED_TEST_SEASON = (
+    common.training_policy_seasons(_CONFIG_CONTRACT)
+)
 
 FEATURE_CONFIG_ROOT = (
     "docs/win/football/prop_engine/config/features"
@@ -168,34 +164,6 @@ def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
         destination,
         value,
     )
-
-
-def save_model_atomic(
-    booster: lgb.Booster,
-    path: Path,
-    num_iteration: int,
-) -> None:
-    destination = prop_output_destination(path)
-
-    handle = tempfile.NamedTemporaryFile(
-        mode="wb",
-        dir=destination.parent,
-        prefix=f".{destination.name}.",
-        suffix=".tmp",
-        delete=False,
-    )
-    temp_path = Path(handle.name)
-    handle.close()
-
-    try:
-        booster.save_model(
-            str(temp_path),
-            num_iteration=num_iteration,
-        )
-        os.replace(temp_path, destination)
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
 
 
 def sha256_file(path: Path) -> str:
@@ -700,7 +668,7 @@ def train_candidate(
         ],
     )
 
-    save_model_atomic(
+    common.save_lightgbm_model_atomic(
         final_model,
         output_path,
         best_iteration,

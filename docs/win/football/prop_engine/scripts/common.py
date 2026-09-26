@@ -603,6 +603,21 @@ def load_config() -> dict:
 
 
 
+
+def training_policy_seasons(
+    config: Mapping[str, Any] | None = None,
+) -> tuple[int, int, int, int]:
+    # Canonical train/validation/final/test season cutoffs.
+    active = load_config() if config is None else config
+    training = active["training"]
+    return (
+        int(training["model_selection_train_end_season"]),
+        int(training["development_validation_season"]),
+        int(training["final_train_end_season"]),
+        int(training["untouched_test_season"]),
+    )
+
+
 def forbidden_input_paths(
     config: Mapping[str, Any] | None = None,
 ) -> tuple[tuple[Path, bool, str], ...]:
@@ -1137,6 +1152,37 @@ def write_json_atomic(
         with handle:
             handle.write(stable_json_bytes(value))
         _atomic_replace(temp_path, destination)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+
+def save_lightgbm_model_atomic(
+    model: Any,
+    path: str | os.PathLike[str],
+    num_iteration: int,
+) -> None:
+    # Persist a LightGBM-compatible model atomically inside Prop Engine.
+    destination = _resolve_prop_output_path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    handle = tempfile.NamedTemporaryFile(
+        mode="wb",
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=destination.parent,
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+    handle.close()
+
+    try:
+        model.save_model(
+            str(temp_path),
+            num_iteration=num_iteration,
+        )
+        os.replace(temp_path, destination)
     finally:
         if temp_path.exists():
             temp_path.unlink()
