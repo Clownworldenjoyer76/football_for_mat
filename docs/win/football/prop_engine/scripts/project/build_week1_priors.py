@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -184,27 +183,16 @@ def resolve_season(args: argparse.Namespace, config: dict) -> int:
 
 
 def run_market_preflight() -> dict[str, Any]:
-    audit_path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
-    if not audit_path.is_file():
-        raise FileNotFoundError(f"Issue 28 market-exclusion validator missing: {audit_path}")
-    completed = subprocess.run(
-        [sys.executable, str(audit_path)],
-        cwd=common.repo_root(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if completed.returncode != 0 or "MARKET EXCLUSION AUDIT: PASS" not in completed.stdout:
-        raise RuntimeError(
+    return common.run_market_exclusion_audit(
+        missing_message=(
+            "Issue 28 market-exclusion validator missing: {path}"
+        ),
+        failure_prefix=(
             "Market-exclusion preflight failed before Week 1 priors. "
-            f"stdout={completed.stdout[-2000:]!r} stderr={completed.stderr[-2000:]!r}"
-        )
-    return {
-        "passed": True,
-        "validator": common.repo_relative_posix_path(audit_path),
-        "pass_marker": "MARKET EXCLUSION AUDIT: PASS",
-    }
-
+        ),
+        validator_posix=True,
+        include_pass_marker=True,
+    )
 
 def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
     destination = path.resolve()

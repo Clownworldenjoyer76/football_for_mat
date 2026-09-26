@@ -44,7 +44,6 @@ import argparse
 import hashlib
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -228,23 +227,14 @@ def sha256_file(path: Path) -> str:
 
 
 def run_market_preflight() -> dict[str, Any]:
-    path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
-    if not path.is_file():
-        raise FileNotFoundError(f"Issue 28 market validator missing: {path}")
-    cp = subprocess.run(
-        [sys.executable, str(path)],
-        cwd=common.repo_root(),
-        capture_output=True,
-        text=True,
-        check=False,
+    return common.run_market_exclusion_audit(
+        missing_message="Issue 28 market validator missing: {path}",
+        failure_prefix=(
+            "Market-exclusion preflight failed before "
+            "final weekly projection. "
+        ),
+        validator_posix=True,
     )
-    if cp.returncode != 0 or "MARKET EXCLUSION AUDIT: PASS" not in cp.stdout:
-        raise RuntimeError(
-            "Market-exclusion preflight failed before final weekly projection. "
-            f"stdout={cp.stdout[-2000:]!r} stderr={cp.stderr[-2000:]!r}"
-        )
-    return {"passed": True, "validator": common.repo_relative_posix_path(path)}
-
 
 def numeric(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan).astype("float64")

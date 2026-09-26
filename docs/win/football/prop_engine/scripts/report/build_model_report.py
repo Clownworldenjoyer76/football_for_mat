@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -155,19 +154,12 @@ def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
 
 
 def run_market_preflight() -> dict[str, Any]:
-    script = common.prop_root() / "scripts" / "validate" / "audit_market_exclusion.py"
-    if not script.is_file():
-        raise FileNotFoundError(f"Market audit script missing: {script}")
-    cp = subprocess.run(
-        [sys.executable, str(script)], cwd=common.repo_root(), capture_output=True, text=True, check=False
-    )
-    if cp.returncode != 0 or "MARKET EXCLUSION AUDIT: PASS" not in cp.stdout:
-        raise RuntimeError(
+    return common.run_market_exclusion_audit(
+        missing_message="Market audit script missing: {path}",
+        failure_prefix=(
             "Market-exclusion preflight failed before model reporting. "
-            f"stdout={cp.stdout[-2000:]!r} stderr={cp.stderr[-2000:]!r}"
-        )
-    return {"passed": True, "validator": str(script.relative_to(common.repo_root()))}
-
+        ),
+    )
 
 def target_is_count(config: dict[str, Any], target: str) -> bool:
     # Match Issue 25 exactly. derived_count (kicking_points) is not evaluated as Poisson.

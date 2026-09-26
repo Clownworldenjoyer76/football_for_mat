@@ -21,7 +21,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -254,23 +253,12 @@ def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:
 
 
 def run_market_preflight() -> dict[str, Any]:
-    path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
-    if not path.is_file():
-        raise FileNotFoundError(f"Issue 28 market validator missing: {path}")
-    cp = subprocess.run(
-        [sys.executable, str(path)],
-        cwd=common.repo_root(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if cp.returncode != 0 or "MARKET EXCLUSION AUDIT: PASS" not in cp.stdout:
-        raise RuntimeError(
+    return common.run_market_exclusion_audit(
+        missing_message="Issue 28 market validator missing: {path}",
+        failure_prefix=(
             "Market-exclusion preflight failed before Issue 37 reporting. "
-            f"stdout={cp.stdout[-2000:]!r} stderr={cp.stderr[-2000:]!r}"
-        )
-    return {"passed": True, "validator": repo_relative(path)}
-
+        ),
+    )
 
 def normalize_grain(frame: pd.DataFrame, label: str) -> pd.DataFrame:
     out = frame.copy()

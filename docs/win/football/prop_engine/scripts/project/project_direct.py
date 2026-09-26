@@ -35,7 +35,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -146,20 +145,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_market_preflight() -> dict[str, Any]:
-    path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
-    if not path.is_file():
-        raise FileNotFoundError(f"Issue 28 market validator missing: {path}")
-    cp = subprocess.run(
-        [sys.executable, str(path)], cwd=common.repo_root(),
-        capture_output=True, text=True, check=False,
+    return common.run_market_exclusion_audit(
+        missing_message="Issue 28 market validator missing: {path}",
+        failure_prefix=(
+            "Market-exclusion preflight failed before "
+            "direct projection. "
+        ),
     )
-    if cp.returncode != 0 or "MARKET EXCLUSION AUDIT: PASS" not in cp.stdout:
-        raise RuntimeError(
-            "Market-exclusion preflight failed before direct projection. "
-            f"stdout={cp.stdout[-2000:]!r} stderr={cp.stderr[-2000:]!r}"
-        )
-    return {"passed": True, "validator": common.repo_relative_path(path)}
-
 
 def numeric(series: pd.Series) -> pd.Series:
     return (

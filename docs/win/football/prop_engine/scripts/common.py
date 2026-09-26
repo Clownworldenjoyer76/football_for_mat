@@ -209,6 +209,64 @@ def prop_root() -> Path:
     return path
 
 
+def run_market_exclusion_audit(
+    *,
+    missing_message: str,
+    failure_prefix: str,
+    validator_posix: bool = False,
+    include_pass_marker: bool = False,
+    missing_pass_message: str | None = None,
+) -> dict[str, Any]:
+    audit = (
+        prop_root()
+        / "scripts"
+        / "validate"
+        / "audit_market_exclusion.py"
+    )
+    if not audit.is_file():
+        raise FileNotFoundError(
+            missing_message.format(path=audit)
+        )
+
+    completed = subprocess.run(
+        [sys.executable, str(audit)],
+        cwd=repo_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    pass_marker = "MARKET EXCLUSION AUDIT: PASS"
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"{failure_prefix}"
+            f"stdout={completed.stdout[-2000:]!r} "
+            f"stderr={completed.stderr[-2000:]!r}"
+        )
+
+    if pass_marker not in completed.stdout:
+        if missing_pass_message is not None:
+            raise RuntimeError(missing_pass_message)
+        raise RuntimeError(
+            f"{failure_prefix}"
+            f"stdout={completed.stdout[-2000:]!r} "
+            f"stderr={completed.stderr[-2000:]!r}"
+        )
+
+    validator = (
+        repo_relative_posix_path(audit)
+        if validator_posix
+        else repo_relative_path(audit)
+    )
+    result: dict[str, Any] = {
+        "passed": True,
+        "validator": validator,
+    }
+    if include_pass_marker:
+        result["pass_marker"] = pass_marker
+    return result
+
+
 def run_market_exclusion_preflight() -> None:
     """Require the canonical market-exclusion audit to pass before training."""
     audit = prop_root() / "scripts" / "validate" / "audit_market_exclusion.py"
