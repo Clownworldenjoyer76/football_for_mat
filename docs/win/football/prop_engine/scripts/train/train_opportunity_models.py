@@ -771,18 +771,6 @@ COMPONENTS: dict[str, dict[str, Any]] = {
 }
 
 
-def load_json(path: Path) -> dict[str, Any]:
-    return common.load_json_mapping(
-        path,
-        missing_message=f"Required JSON does not exist: {path}",
-    )
-
-def load_yaml(path: Path) -> dict[str, Any]:
-    return common.load_yaml_mapping(
-        path,
-        missing_message=f"Required YAML does not exist: {path}",
-    )
-
 def canonical_team(value: Any) -> str:
     team = common.normalize_team(value)
     return HISTORICAL_FRANCHISE_ALIASES.get(team, team)
@@ -1612,21 +1600,16 @@ def train_component(
 
 
 def main() -> int:
-    common.run_market_exclusion_preflight()
-
-    config = common.load_config()
-    root = common.repo_root()
-
-    eligibility = load_yaml(
-        root / ELIGIBILITY_PATH
-    )
-
-    canonical_manifest = load_json(
-        root / FEATURE_MANIFEST_PATH
-    )
-
-    folds = common.read_parquet_required(
-        FOLDS_PATH
+    (
+        config,
+        root,
+        eligibility,
+        canonical_manifest,
+        folds,
+    ) = common.load_training_context(
+        eligibility_path=ELIGIBILITY_PATH,
+        feature_manifest_path=FEATURE_MANIFEST_PATH,
+        folds_path=FOLDS_PATH,
     )
 
     verify_backtest_policy(folds)

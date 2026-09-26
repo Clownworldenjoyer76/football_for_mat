@@ -309,19 +309,6 @@ PROHIBITED_SHARE_TOKENS = (
 )
 
 
-def load_json(path: Path) -> dict[str, Any]:
-    return common.load_json_mapping(
-        path,
-        missing_message=f"Required JSON does not exist: {path}",
-    )
-
-def load_yaml(path: Path) -> dict[str, Any]:
-    return common.load_yaml_mapping(
-        path,
-        missing_message=f"Required YAML does not exist: {path}",
-    )
-
-
 def safe_rate(
     numerator: pd.Series,
     exposure: pd.Series,
@@ -2023,21 +2010,16 @@ def train_model(
 
 
 def main() -> int:
-    common.run_market_exclusion_preflight()
-
-    config = common.load_config()
-    root = common.repo_root()
-
-    eligibility = load_yaml(
-        root / ELIGIBILITY_PATH
-    )
-
-    canonical_manifest = load_json(
-        root / FEATURE_MANIFEST_PATH
-    )
-
-    folds = common.read_parquet_required(
-        FOLDS_PATH
+    (
+        config,
+        root,
+        eligibility,
+        canonical_manifest,
+        folds,
+    ) = common.load_training_context(
+        eligibility_path=ELIGIBILITY_PATH,
+        feature_manifest_path=FEATURE_MANIFEST_PATH,
+        folds_path=FOLDS_PATH,
     )
 
     verify_backtest_policy(

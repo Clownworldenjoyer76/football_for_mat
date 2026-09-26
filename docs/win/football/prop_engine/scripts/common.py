@@ -336,6 +336,49 @@ def load_yaml_mapping(
     return value
 
 
+def load_training_context(
+    *,
+    eligibility_path: str | os.PathLike[str],
+    feature_manifest_path: str | os.PathLike[str],
+    folds_path: str | os.PathLike[str],
+) -> tuple[
+    dict[str, Any],
+    Path,
+    dict[str, Any],
+    dict[str, Any],
+    pd.DataFrame,
+]:
+    run_market_exclusion_preflight()
+
+    config = load_config()
+    root = repo_root()
+
+    eligibility_file = root / Path(eligibility_path)
+    manifest_file = root / Path(feature_manifest_path)
+
+    eligibility = load_yaml_mapping(
+        eligibility_file,
+        missing_message=(
+            f"Required YAML does not exist: {eligibility_file}"
+        ),
+    )
+    canonical_manifest = load_json_mapping(
+        manifest_file,
+        missing_message=(
+            f"Required JSON does not exist: {manifest_file}"
+        ),
+    )
+    folds = read_parquet_required(folds_path)
+
+    return (
+        config,
+        root,
+        eligibility,
+        canonical_manifest,
+        folds,
+    )
+
+
 def read_regular_season_pbp(
     path: str | os.PathLike[str],
     *,
