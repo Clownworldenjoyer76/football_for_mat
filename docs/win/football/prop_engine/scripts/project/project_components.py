@@ -117,9 +117,6 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def repo_relative(path: Path) -> str:
-    return str(path.resolve().relative_to(common.repo_root().resolve()))
-
 
 def run_market_preflight() -> dict[str, Any]:
     path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
@@ -134,7 +131,7 @@ def run_market_preflight() -> dict[str, Any]:
             "Market-exclusion preflight failed before component projection. "
             f"stdout={cp.stdout[-2000:]!r} stderr={cp.stderr[-2000:]!r}"
         )
-    return {"passed": True, "validator": repo_relative(path)}
+    return {"passed": True, "validator": common.repo_relative_path(path)}
 
 
 def numeric(s: pd.Series) -> pd.Series:
@@ -1293,19 +1290,19 @@ def main() -> int:
         "primary_kickers": int(kicker_primary.sum()),
         "market_exclusion_passed": bool(market["passed"]),
         "market_features_used": False,
-        "output": repo_relative(output_path),
-        "log": repo_relative(log_path),
+        "output": common.repo_relative_path(output_path),
+        "log": common.repo_relative_path(log_path),
     }
     log_payload = {
         **payload,
         "inputs": {
-            "features": repo_relative(features_path),
-            "roles": repo_relative(roles_path),
-            "historical_features": repo_relative(historical_path),
-            "eligibility": repo_relative(eligibility_path),
+            "features": common.repo_relative_path(features_path),
+            "roles": common.repo_relative_path(roles_path),
+            "historical_features": common.repo_relative_path(historical_path),
+            "eligibility": common.repo_relative_path(eligibility_path),
             **(
                 {
-                    "week1_priors": repo_relative(
+                    "week1_priors": common.repo_relative_path(
                         prop
                         / "data"
                         / "current"

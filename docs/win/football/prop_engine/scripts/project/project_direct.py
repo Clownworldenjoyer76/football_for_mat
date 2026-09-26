@@ -144,9 +144,6 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def repo_relative(path: Path) -> str:
-    return str(path.resolve().relative_to(common.repo_root().resolve()))
-
 
 def run_market_preflight() -> dict[str, Any]:
     path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
@@ -161,7 +158,7 @@ def run_market_preflight() -> dict[str, Any]:
             "Market-exclusion preflight failed before direct projection. "
             f"stdout={cp.stdout[-2000:]!r} stderr={cp.stderr[-2000:]!r}"
         )
-    return {"passed": True, "validator": repo_relative(path)}
+    return {"passed": True, "validator": common.repo_relative_path(path)}
 
 
 def numeric(series: pd.Series) -> pd.Series:
@@ -542,18 +539,18 @@ def main() -> int:
         "internal_rounding": False,
         "market_exclusion_passed": bool(market["passed"]),
         "market_features_used": False,
-        "output": repo_relative(output_path),
-        "log": repo_relative(log_path),
+        "output": common.repo_relative_path(output_path),
+        "log": common.repo_relative_path(log_path),
     }
     log_payload = {
         **payload,
         "inputs": {
-            "features": repo_relative(features_path),
-            "roles": repo_relative(roles_path),
-            "universe": repo_relative(universe_path),
-            "allocated_opportunity_sequence_gate": repo_relative(allocated_path),
-            "issue34_log": repo_relative(issue34_log_path),
-            "target_eligibility": repo_relative(eligibility_path),
+            "features": common.repo_relative_path(features_path),
+            "roles": common.repo_relative_path(roles_path),
+            "universe": common.repo_relative_path(universe_path),
+            "allocated_opportunity_sequence_gate": common.repo_relative_path(allocated_path),
+            "issue34_log": common.repo_relative_path(issue34_log_path),
+            "target_eligibility": common.repo_relative_path(eligibility_path),
         },
         "models": model_audit,
         "policy": {

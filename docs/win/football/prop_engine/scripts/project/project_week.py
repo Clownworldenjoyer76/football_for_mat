@@ -180,9 +180,6 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def repo_relative(path: Path) -> str:
-    return str(path.resolve().relative_to(common.repo_root().resolve())).replace("\\", "/")
-
 
 def load_json(path: Path) -> dict[str, Any]:
     return common.load_json_mapping(
@@ -246,7 +243,7 @@ def run_market_preflight() -> dict[str, Any]:
             "Market-exclusion preflight failed before final weekly projection. "
             f"stdout={cp.stdout[-2000:]!r} stderr={cp.stderr[-2000:]!r}"
         )
-    return {"passed": True, "validator": repo_relative(path)}
+    return {"passed": True, "validator": common.repo_relative_posix_path(path)}
 
 
 def numeric(series: pd.Series) -> pd.Series:
@@ -946,27 +943,27 @@ def main() -> int:
         "registry_version_sources": version_sources,
         "market_exclusion_passed": bool(market["passed"]),
         "market_features_used": False,
-        "audit_output": repo_relative(audit_output_path),
-        "active_output": repo_relative(active_output_path),
-        "log": repo_relative(log_path),
+        "audit_output": common.repo_relative_posix_path(audit_output_path),
+        "active_output": common.repo_relative_posix_path(active_output_path),
+        "log": common.repo_relative_posix_path(log_path),
         "component_runtime": component_audit,
     }
     log_payload = {
         **payload,
         "inputs": {
-            "universe": repo_relative(universe_path),
-            "component_projections": repo_relative(component_path),
-            "direct_projections": repo_relative(direct_path),
-            "allocated_opportunity": repo_relative(allocation_path),
-            "current_features": repo_relative(features_path),
-            "production_registry": repo_relative(registry_path),
-            "target_eligibility": repo_relative(eligibility_path),
+            "universe": common.repo_relative_posix_path(universe_path),
+            "component_projections": common.repo_relative_posix_path(component_path),
+            "direct_projections": common.repo_relative_posix_path(direct_path),
+            "allocated_opportunity": common.repo_relative_posix_path(allocation_path),
+            "current_features": common.repo_relative_posix_path(features_path),
+            "production_registry": common.repo_relative_posix_path(registry_path),
+            "target_eligibility": common.repo_relative_posix_path(eligibility_path),
             "selected_models": {
-                target: repo_relative(prop / "models" / target / "selected_model.json")
+                target: common.repo_relative_posix_path(prop / "models" / target / "selected_model.json")
                 for target in production_targets
             },
             "calibrations": {
-                target: repo_relative(prop / "models" / "calibration" / f"{target}_calibration.json")
+                target: common.repo_relative_posix_path(prop / "models" / "calibration" / f"{target}_calibration.json")
                 for target in production_targets
             },
         },

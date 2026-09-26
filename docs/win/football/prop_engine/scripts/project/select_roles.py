@@ -140,9 +140,6 @@ def resolve_season(args: argparse.Namespace, config: dict) -> int:
     return season
 
 
-def repo_relative(path: Path) -> str:
-    return str(path.resolve().relative_to(common.repo_root().resolve())).replace("\\", "/")
-
 
 def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
     prop_root = common.prop_root().resolve()
@@ -178,7 +175,7 @@ def run_market_preflight() -> dict[str, Any]:
         raise RuntimeError("Market-exclusion validator returned zero without PASS marker.")
     return {
         "passed": True,
-        "validator": repo_relative(audit_path),
+        "validator": common.repo_relative_posix_path(audit_path),
         "pass_marker": "MARKET EXCLUSION AUDIT: PASS",
     }
 
@@ -640,8 +637,8 @@ def main() -> int:
         "ambiguous_kicker_teams": audit["ambiguous_kicker_teams"],
         "market_exclusion_passed": bool(market["passed"]),
         "market_features_used": False,
-        "output": repo_relative(destination),
-        "log": repo_relative(log_path(season, week)),
+        "output": common.repo_relative_posix_path(destination),
+        "log": common.repo_relative_posix_path(log_path(season, week)),
     }
     log_payload = {
         **payload,

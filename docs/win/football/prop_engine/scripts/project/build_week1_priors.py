@@ -169,9 +169,6 @@ def norm_position_group(position: Any, group: Any) -> str:
     return POSITION_GROUP_ALIASES.get(p, p)
 
 
-def repo_relative(path: Path) -> str:
-    return str(path.resolve().relative_to(common.repo_root().resolve())).replace("\\", "/")
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build explicit NFL Week 1 priors.")
@@ -204,7 +201,7 @@ def run_market_preflight() -> dict[str, Any]:
         )
     return {
         "passed": True,
-        "validator": repo_relative(audit_path),
+        "validator": common.repo_relative_posix_path(audit_path),
         "pass_marker": "MARKET EXCLUSION AUDIT: PASS",
     }
 
@@ -653,16 +650,16 @@ def main() -> int:
         "uncertainty_widened_rows": int(priors["week1_uncertainty_multiplier"].gt(1.0).sum()),
         "market_exclusion_passed": bool(market["passed"]),
         "market_features_used": False,
-        "output": repo_relative(output_path),
-        "log": repo_relative(log_path),
+        "output": common.repo_relative_posix_path(output_path),
+        "log": common.repo_relative_posix_path(log_path),
     }
     log_payload = {
         **payload,
         "inputs": {
-            "roles": repo_relative(roles_path),
-            "features": repo_relative(features_path),
-            "historical_universe": repo_relative(historical_path),
-            "historical_features": repo_relative(historical_features_path),
+            "roles": common.repo_relative_posix_path(roles_path),
+            "features": common.repo_relative_posix_path(features_path),
+            "historical_universe": common.repo_relative_posix_path(historical_path),
+            "historical_features": common.repo_relative_posix_path(historical_features_path),
         },
         "policy": {
             "returning_player_recent_plus_career": True,

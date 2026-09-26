@@ -334,6 +334,24 @@ def require_current_week_frame(
         raise ValueError(mismatch_message)
 
 
+def repo_relative_path(
+    path: str | os.PathLike[str],
+) -> str:
+    relative = Path(path).resolve().relative_to(
+        repo_root().resolve()
+    )
+    return str(relative)
+
+
+def repo_relative_posix_path(
+    path: str | os.PathLike[str],
+) -> str:
+    relative = Path(path).resolve().relative_to(
+        repo_root().resolve()
+    )
+    return relative.as_posix()
+
+
 def resolve_projection_season_week(
     requested_season: int | None,
     requested_week: int,

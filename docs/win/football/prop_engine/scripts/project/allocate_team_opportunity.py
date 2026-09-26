@@ -142,9 +142,6 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def repo_relative(path: Path) -> str:
-    return str(path.resolve().relative_to(common.repo_root().resolve()))
-
 
 def run_market_preflight() -> dict[str, Any]:
     path = SCRIPTS_ROOT / "validate" / "audit_market_exclusion.py"
@@ -162,7 +159,7 @@ def run_market_preflight() -> dict[str, Any]:
             "Market-exclusion preflight failed before opportunity allocation. "
             f"stdout={cp.stdout[-2000:]!r} stderr={cp.stderr[-2000:]!r}"
         )
-    return {"passed": True, "validator": repo_relative(path)}
+    return {"passed": True, "validator": common.repo_relative_path(path)}
 
 
 def numeric(series: pd.Series) -> pd.Series:
@@ -714,18 +711,18 @@ def main() -> int:
         "equal_split_default_used": False,
         "market_exclusion_passed": bool(market["passed"]),
         "market_features_used": False,
-        "output": repo_relative(output_path),
-        "log": repo_relative(log_path),
+        "output": common.repo_relative_path(output_path),
+        "log": common.repo_relative_path(log_path),
     }
     log_payload = {
         **payload,
         "inputs": {
-            "component_projections": repo_relative(component_path),
-            "features": repo_relative(features_path),
-            "roles": repo_relative(roles_path),
-            "universe": repo_relative(universe_path),
-            "eligibility": repo_relative(eligibility_path),
-            "issue33_log": repo_relative(issue33_log),
+            "component_projections": common.repo_relative_path(component_path),
+            "features": common.repo_relative_path(features_path),
+            "roles": common.repo_relative_path(roles_path),
+            "universe": common.repo_relative_path(universe_path),
+            "eligibility": common.repo_relative_path(eligibility_path),
+            "issue33_log": common.repo_relative_path(issue33_log),
         },
         "raw_component_models": {
             "player_target_share": {
