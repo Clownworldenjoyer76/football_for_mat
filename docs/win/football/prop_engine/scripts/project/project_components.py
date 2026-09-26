@@ -791,54 +791,26 @@ def prepare_efficiency_history(config: dict[str, Any], hist: pd.DataFrame, eligi
     return result
 
 
-def efficiency_inference_frame(current: pd.DataFrame, raw_history: pd.DataFrame, model_name: str, eligibility: dict[str, Any]) -> pd.DataFrame:
-    rule = efficiency.ELIGIBILITY_RULE[model_name]
-    positions = {str(x).strip().upper() for x in eligibility[rule]["eligible_positions"]}
-    pos = current["position"].fillna("").astype(str).str.strip().str.upper()
-    target = current.loc[pos.isin(positions)].copy()
-    if target.empty:
-        raise ValueError(f"{model_name}: no current eligible rows")
-
-    prior_columns = [
-        *GRAIN, "kickoff_timestamp", "position", "position_group",
-        "_prior_position_group", "_numerator", "_exposure", "_label",
-    ]
-    missing = [c for c in prior_columns if c not in raw_history.columns]
-    if missing:
-        raise ValueError(f"{model_name}: raw prior history missing {missing}")
-    history = raw_history[prior_columns].copy()
-    history["_inference_marker"] = 0
-    placeholder = target[[*GRAIN, "kickoff_timestamp", "position", "position_group"]].copy()
-    placeholder["_prior_position_group"] = efficiency.normalize_position_group(
-        placeholder["position"], placeholder["position_group"]
-    )
-    placeholder["_numerator"] = np.nan
-    placeholder["_exposure"] = np.nan
-    placeholder["_label"] = np.nan
-    placeholder["_inference_marker"] = 1
-    combined = pd.concat([history, placeholder], ignore_index=True, sort=False)
-    enriched = efficiency.add_strict_prior_features(combined, model_name)
-    inference_rows = enriched.loc[enriched["_inference_marker"].eq(1)].copy()
-
-    canonical = [f for f in efficiency.FEATURES[model_name] if f not in efficiency.DERIVED_FEATURES]
-    missing = [c for c in canonical if c not in target.columns]
-    if missing:
-        raise ValueError(f"{model_name}: missing current canonical efficiency features: {missing}")
-    inference_rows = inference_rows.merge(
-        target[[*GRAIN, *canonical]], on=GRAIN, how="left", validate="one_to_one",
-        suffixes=("", "_canonical"),
-    )
-    common.ensure_unique(inference_rows, GRAIN, f"Issue 33 {model_name} inference")
-    return inference_rows
-
-
 def score_efficiency(root: Path, current: pd.DataFrame, history: pd.DataFrame, eligibility: dict[str, Any], config: dict[str, Any]) -> tuple[dict[str, pd.DataFrame], dict[str, Any]]:
     raw_histories = prepare_efficiency_history(config, history, eligibility)
     predictions: dict[str, pd.DataFrame] = {}
     audits: dict[str, Any] = {}
     for name in EFFICIENCY_NEEDED:
         booster, manifest, feature_names = validate_booster_manifest(root, "efficiency", name)
-        rows = efficiency_inference_frame(current, raw_histories[name], name, eligibility)
+        rows = efficiency.build_efficiency_inference_frame(
+            current,
+            raw_histories[name],
+            name,
+            eligibility,
+            empty_message=f"{name}: no current eligible rows",
+            unique_label=f"Issue 33 {name} inference",
+            missing_history_prefix=(
+                f"{name}: raw prior history missing"
+            ),
+            missing_canonical_prefix=(
+                f"{name}: missing current canonical efficiency features:"
+            ),
+        )
         expected = list(efficiency.FEATURES[name])
         if feature_names != expected:
             raise ValueError(f"{name}: manifest differs from trainer efficiency feature order")

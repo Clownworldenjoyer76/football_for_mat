@@ -848,75 +848,6 @@ def raw_efficiency_histories(
     return history_features, histories
 
 
-def efficiency_inference_frame(
-    eff_features: pd.DataFrame,
-    raw_history: pd.DataFrame,
-    model_name: str,
-    year: int,
-    eligibility: dict[str, Any],
-) -> pd.DataFrame:
-    rule = efficiency.ELIGIBILITY_RULE[model_name]
-    positions = {
-        str(value).strip().upper()
-        for value in eligibility[rule]["eligible_positions"]
-    }
-    target_rows = eff_features.loc[
-        pd.to_numeric(eff_features["season"]).eq(year)
-    ].copy()
-    position = (
-        target_rows["position"].fillna("").astype(str).str.strip().str.upper()
-    )
-    target_rows = target_rows.loc[position.isin(positions)].copy()
-    if target_rows.empty:
-        raise ValueError(f"{model_name}: empty inference rows for {year}.")
-
-    prior_columns = [
-        *GRAIN,
-        "kickoff_timestamp",
-        "position",
-        "position_group",
-        "_prior_position_group",
-        "_numerator",
-        "_exposure",
-        "_label",
-    ]
-    history = raw_history[prior_columns].copy()
-    history["_inference_marker"] = 0
-
-    placeholder = target_rows[
-        [*GRAIN, "kickoff_timestamp", "position", "position_group"]
-    ].copy()
-    placeholder["_prior_position_group"] = efficiency.normalize_position_group(
-        placeholder["position"], placeholder["position_group"]
-    )
-    placeholder["_numerator"] = np.nan
-    placeholder["_exposure"] = np.nan
-    placeholder["_label"] = np.nan
-    placeholder["_inference_marker"] = 1
-
-    combined = pd.concat([history, placeholder], ignore_index=True, sort=False)
-    enriched = efficiency.add_strict_prior_features(combined, model_name)
-    inference_rows = enriched.loc[enriched["_inference_marker"].eq(1)].copy()
-
-    canonical_features = [
-        feature
-        for feature in efficiency.FEATURES[model_name]
-        if feature not in efficiency.DERIVED_FEATURES
-    ]
-    feature_join = target_rows[[*GRAIN, *canonical_features]].copy()
-    inference_rows = inference_rows.merge(
-        feature_join,
-        on=GRAIN,
-        how="left",
-        validate="one_to_one",
-        suffixes=("", "_canonical"),
-    )
-    common.ensure_unique(
-        inference_rows, GRAIN, f"{model_name} inference {year}"
-    )
-    return inference_rows
-
-
 def score_efficiency_models(
     config: dict[str, Any],
     root: Path,
@@ -972,12 +903,20 @@ def score_efficiency_models(
             rounds=int(metadata["best_iteration_selected_on_2024"]),
         )
 
-        valid_rows = efficiency_inference_frame(
+        valid_rows = efficiency.build_efficiency_inference_frame(
             eff_features,
             raw_history,
             model_name,
-            policy["validation_season"],
             eligibility,
+            season=policy["validation_season"],
+            empty_message=(
+                f"{model_name}: empty inference rows for "
+                f"{policy['validation_season']}."
+            ),
+            unique_label=(
+                f"{model_name} inference "
+                f"{policy['validation_season']}"
+            ),
         )
         valid_pred = efficiency.transform_prediction(
             model.predict(efficiency.feature_matrix(valid_rows, model_name)),
@@ -987,12 +926,20 @@ def score_efficiency_models(
         valid_output[model_name] = valid_pred
         validation_predictions[model_name] = valid_output
 
-        test_rows = efficiency_inference_frame(
+        test_rows = efficiency.build_efficiency_inference_frame(
             eff_features,
             raw_history,
             model_name,
-            policy["test_season"],
             eligibility,
+            season=policy["test_season"],
+            empty_message=(
+                f"{model_name}: empty inference rows for "
+                f"{policy['test_season']}."
+            ),
+            unique_label=(
+                f"{model_name} inference "
+                f"{policy['test_season']}"
+            ),
         )
         persisted = lgb.Booster(
             model_file=str(

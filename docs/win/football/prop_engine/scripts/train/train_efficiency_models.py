@@ -1371,6 +1371,129 @@ def apply_eligibility(
     ].copy()
 
 
+def build_efficiency_inference_frame(
+    current: pd.DataFrame,
+    raw_history: pd.DataFrame,
+    model_name: str,
+    eligibility: dict[str, Any],
+    *,
+    season: int | None = None,
+    empty_message: str,
+    unique_label: str,
+    missing_history_prefix: str | None = None,
+    missing_canonical_prefix: str | None = None,
+) -> pd.DataFrame:
+    rule = ELIGIBILITY_RULE[model_name]
+    positions = {
+        str(value).strip().upper()
+        for value in eligibility[rule]["eligible_positions"]
+    }
+
+    target = current
+    if season is not None:
+        target = target.loc[
+            pd.to_numeric(target["season"]).eq(int(season))
+        ].copy()
+
+    position = (
+        target["position"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
+    target = target.loc[position.isin(positions)].copy()
+    if target.empty:
+        raise ValueError(empty_message)
+
+    prior_columns = [
+        *GRAIN,
+        "kickoff_timestamp",
+        "position",
+        "position_group",
+        "_prior_position_group",
+        "_numerator",
+        "_exposure",
+        "_label",
+    ]
+    if missing_history_prefix is not None:
+        missing = [
+            column
+            for column in prior_columns
+            if column not in raw_history.columns
+        ]
+        if missing:
+            raise ValueError(
+                f"{missing_history_prefix} {missing}"
+            )
+
+    history = raw_history[prior_columns].copy()
+    history["_inference_marker"] = 0
+
+    placeholder = target[
+        [
+            *GRAIN,
+            "kickoff_timestamp",
+            "position",
+            "position_group",
+        ]
+    ].copy()
+    placeholder["_prior_position_group"] = normalize_position_group(
+        placeholder["position"],
+        placeholder["position_group"],
+    )
+    placeholder["_numerator"] = np.nan
+    placeholder["_exposure"] = np.nan
+    placeholder["_label"] = np.nan
+    placeholder["_inference_marker"] = 1
+
+    combined = pd.concat(
+        [history, placeholder],
+        ignore_index=True,
+        sort=False,
+    )
+    enriched = add_strict_prior_features(
+        combined,
+        model_name,
+    )
+    inference_rows = enriched.loc[
+        enriched["_inference_marker"].eq(1)
+    ].copy()
+
+    canonical_features = [
+        feature
+        for feature in FEATURES[model_name]
+        if feature not in DERIVED_FEATURES
+    ]
+    if missing_canonical_prefix is not None:
+        missing = [
+            column
+            for column in canonical_features
+            if column not in target.columns
+        ]
+        if missing:
+            raise ValueError(
+                f"{missing_canonical_prefix} {missing}"
+            )
+
+    feature_join = target[
+        [*GRAIN, *canonical_features]
+    ].copy()
+    inference_rows = inference_rows.merge(
+        feature_join,
+        on=GRAIN,
+        how="left",
+        validate="one_to_one",
+        suffixes=("", "_canonical"),
+    )
+    common.ensure_unique(
+        inference_rows,
+        GRAIN,
+        unique_label,
+    )
+    return inference_rows
+
+
 def feature_matrix(
     frame: pd.DataFrame,
     model_name: str,
