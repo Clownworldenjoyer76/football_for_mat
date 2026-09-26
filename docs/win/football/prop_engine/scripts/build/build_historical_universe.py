@@ -142,31 +142,6 @@ SPECIAL_TEAMS_POSITIONS = {
 }
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-
-    text = str(value).strip()
-
-    if text.casefold() in {
-        "",
-        "nan",
-        "none",
-        "null",
-        "<na>",
-        "nat",
-    }:
-        return ""
-
-    return text
-
-
 def choose_column(
     df: pd.DataFrame,
     aliases: Iterable[str],
@@ -192,7 +167,7 @@ def choose_column(
 def parse_int(
     value: Any,
 ) -> int | None:
-    text = clean(value)
+    text = common.clean_text(value)
 
     if not text:
         return None
@@ -215,7 +190,7 @@ def normalize_position(
     value: Any,
 ) -> str:
     raw = (
-        clean(value)
+        common.clean_text(value)
         .upper()
         .replace(" ", "")
     )
@@ -265,7 +240,7 @@ def infer_position_group(
 def normalize_percentage(
     value: Any,
 ) -> float:
-    text = clean(value).replace(
+    text = common.clean_text(value).replace(
         "%",
         "",
     )
@@ -296,7 +271,7 @@ def normalize_percentage(
 def positive_numeric(
     value: Any,
 ) -> bool:
-    text = clean(value)
+    text = common.clean_text(value)
 
     if not text:
         return False
@@ -379,11 +354,11 @@ class IdentityResolver:
                         row["pfr_id"]
                     )
                 ),
-                "display_name": clean(
+                "display_name": common.clean_text(
                     row["display_name"]
                 ),
                 "normalized_name": (
-                    clean(
+                    common.clean_text(
                         row[
                             "normalized_name"
                         ]
@@ -398,7 +373,7 @@ class IdentityResolver:
                     )
                 ),
                 "position_group": (
-                    clean(
+                    common.clean_text(
                         row[
                             "position_group"
                         ]
@@ -542,7 +517,7 @@ def parse_nflverse_game_id(
     str,
 ] | None:
     match = GAME_ID_PATTERN.match(
-        clean(value)
+        common.clean_text(value)
     )
 
     if not match:
@@ -565,7 +540,7 @@ def extract_gsis_ids(
 ) -> set[str]:
     return set(
         GSIS_PATTERN.findall(
-            clean(value)
+            common.clean_text(value)
         )
     )
 
@@ -582,7 +557,7 @@ def conservative_depth_cutoff(
     timestamp is unavailable.
     """
     return pd.Timestamp(
-        clean(
+        common.clean_text(
             game["gameday"]
         ),
         tz="UTC",
@@ -678,14 +653,14 @@ def load_games(
             continue
 
         if (
-            clean(
+            common.clean_text(
                 row[type_col]
             ).upper()
             != "REG"
         ):
             continue
 
-        game_id = clean(
+        game_id = common.clean_text(
             row["game_id"]
         )
 
@@ -737,7 +712,7 @@ def load_games(
             "season_type": "REG",
             "week": week,
             "game_id": game_id,
-            "gameday": clean(
+            "gameday": common.clean_text(
                 row["gameday"]
             ),
             "kickoff_timestamp": (
@@ -964,7 +939,7 @@ def upsert_candidate(
     ):
         record[
             "player_name"
-        ] = clean(
+        ] = common.clean_text(
             player_name
         )
 
@@ -988,7 +963,7 @@ def upsert_candidate(
         ] = normalized_position
 
     group = (
-        clean(
+        common.clean_text(
             position_group
         ).upper()
     )
@@ -1213,7 +1188,7 @@ def merge_depth_entry(
     candidate = {
         "player_id": player_id,
         "player_name": (
-            clean(player_name)
+            common.clean_text(player_name)
         ),
         "position": (
             normalize_position(
@@ -1222,7 +1197,7 @@ def merge_depth_entry(
         ),
         "rank": rank,
         "slot": (
-            clean(slot).upper()
+            common.clean_text(slot).upper()
         ),
         "starter": int(
             rank == 1
@@ -1422,7 +1397,7 @@ def build_depth_provider(
         )
 
         player_name = (
-            clean(
+            common.clean_text(
                 row[name_col]
             )
             if name_col
@@ -1444,13 +1419,13 @@ def build_depth_provider(
         )
 
         slot_value = (
-            clean(
+            common.clean_text(
                 row[slot_col]
             ).upper()
         )
 
         group_value = (
-            clean(
+            common.clean_text(
                 row[group_col]
             ).upper()
             if group_col
@@ -1482,7 +1457,7 @@ def build_depth_provider(
         else:
             timestamp = (
                 pd.to_datetime(
-                    clean(
+                    common.clean_text(
                         row[
                             timestamp_col
                         ]
@@ -2173,7 +2148,7 @@ def load_snap_data(
             )
 
             snap_name = (
-                clean(
+                common.clean_text(
                     row[name_col]
                 )
                 if name_col
@@ -2545,7 +2520,7 @@ def load_participation_data(
                 orient="records"
             )
         ):
-            source_game_id = clean(
+            source_game_id = common.clean_text(
                 row[game_col]
             )
 
@@ -3032,7 +3007,7 @@ def validate_output(
                             "week"
                         ]
                     ),
-                    clean(
+                    common.clean_text(
                         row[
                             "team"
                         ]

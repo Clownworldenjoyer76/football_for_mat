@@ -105,31 +105,6 @@ OPPONENT_FORM_MAP = {
 }
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-
-    text = str(value).strip()
-
-    if text.casefold() in {
-        "",
-        "nan",
-        "none",
-        "null",
-        "<na>",
-        "nat",
-    }:
-        return ""
-
-    return text
-
-
 def canonical_team(value: Any) -> str:
     team = common.normalize_team(value)
     return TEAM_ALIASES.get(team, team)
@@ -160,7 +135,7 @@ def depth_role_score(value: Any) -> int:
     Explicit FG/K/PK depth roles beat kickoff-only, punter, or holder roles.
     Blank/unknown roles remain usable as fallbacks.
     """
-    text = clean(value).upper()
+    text = common.clean_text(value).upper()
     compact = re.sub(r"\s+", "", text)
 
     if not compact:

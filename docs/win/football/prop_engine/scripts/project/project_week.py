@@ -240,18 +240,6 @@ def numeric(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan).astype("float64")
 
 
-def clean_text(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    return "" if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"} else text
-
-
 def coalesce_numeric(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
     missing = [c for c in columns if c not in frame.columns]
     if missing:
@@ -283,7 +271,7 @@ def load_selected_contracts(
         payload = load_json(path)
         if payload.get("target") != target:
             raise ValueError(f"{path}: target mismatch")
-        architecture = clean_text(payload.get("selected_architecture") or payload.get("selected_candidate"))
+        architecture = common.clean_text(payload.get("selected_architecture") or payload.get("selected_candidate"))
         if architecture not in supported:
             raise ValueError(f"{target}: unsupported production architecture {architecture!r}")
         if payload.get("market_features_used") is not False:
@@ -317,7 +305,7 @@ def load_calibrations(
             raise ValueError(f"{target}: calibration architecture differs from selected model")
         if payload.get("market_features_used") is not False or payload.get("forbidden_features_used") is not False:
             raise ValueError(f"{target}: calibration violates market exclusion")
-        mode = clean_text(payload.get("calibration_mode"))
+        mode = common.clean_text(payload.get("calibration_mode"))
         if mode not in {"quantiles", "count", "quantiles_and_count"}:
             raise ValueError(f"{target}: unsupported calibration mode {mode!r}")
         result[target] = payload
@@ -326,11 +314,11 @@ def load_calibrations(
 
 def _entry_version(entry: Any) -> str:
     if isinstance(entry, str):
-        return clean_text(entry)
+        return common.clean_text(entry)
     if not isinstance(entry, dict):
         return ""
     for key in ("model_version", "production_version", "active_version", "version", "release"):
-        value = clean_text(entry.get(key))
+        value = common.clean_text(entry.get(key))
         if value:
             return value
     return ""
@@ -359,7 +347,7 @@ def resolve_registry_versions(
         approved = entry.get("production_approved")
         version = entry.get("version")
         if approved is True:
-            version_text = clean_text(version)
+            version_text = common.clean_text(version)
             if not version_text:
                 raise ValueError(f"{target}: approved target has blank production version.")
             versions[target] = version_text
@@ -465,7 +453,7 @@ def select_point_prediction(
 
 
 def usage_signal(frame: pd.DataFrame, source: dict[str, Any]) -> np.ndarray:
-    method = clean_text(source.get("method"))
+    method = common.clean_text(source.get("method"))
     columns = list(source.get("columns", []))
     if method == "sum":
         total = np.zeros(len(frame), dtype="float64")
@@ -614,10 +602,10 @@ def calibrate_current_target(
 
 def target_specific_reason(universe_row: pd.Series, target: str, eligible: bool) -> tuple[str, str]:
     if eligible:
-        reason = clean_text(universe_row.get("eligibility_reason")) or "eligible_target_role"
+        reason = common.clean_text(universe_row.get("eligibility_reason")) or "eligible_target_role"
         return "eligible", reason
-    base_status = clean_text(universe_row.get("eligibility_status")).casefold()
-    base_reason = clean_text(universe_row.get("eligibility_reason"))
+    base_status = common.clean_text(universe_row.get("eligibility_status")).casefold()
+    base_reason = common.clean_text(universe_row.get("eligibility_reason"))
     if base_status not in {"", "eligible", "active"} and base_reason:
         return "ineligible", base_reason
     return "ineligible", f"target_not_eligible_for_current_role_or_position:{target}"

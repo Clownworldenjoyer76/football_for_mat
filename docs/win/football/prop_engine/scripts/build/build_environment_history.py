@@ -144,31 +144,6 @@ INTERNATIONAL_GAME_KEYS = {
 }
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-
-    text = str(value).strip()
-
-    if text.casefold() in {
-        "",
-        "nan",
-        "none",
-        "null",
-        "<na>",
-        "nat",
-    }:
-        return ""
-
-    return text
-
-
 def normalized_output_team(value: Any) -> str:
     """
     Normalize only the repository-wide aliases used by common.py.
@@ -190,7 +165,7 @@ def travel_team(value: Any) -> str:
 
 
 def stadium_key(value: Any) -> str:
-    text = unicodedata.normalize("NFKD", clean(value))
+    text = unicodedata.normalize("NFKD", common.clean_text(value))
 
     text = "".join(
         character
@@ -237,7 +212,7 @@ def parse_binary(series: pd.Series, label: str) -> pd.Series:
 
 
 def parse_location_flag(value: Any) -> int:
-    text = clean(value).casefold()
+    text = common.clean_text(value).casefold()
 
     if text == "neutral":
         return 1
@@ -331,7 +306,7 @@ def load_team_lookup(path: Path) -> dict[str, dict[str, Any]]:
             pd.Series([row["longitude"]]),
             errors="coerce",
         ).iloc[0]
-        timezone_name = clean(row["timezone"])
+        timezone_name = common.clean_text(row["timezone"])
 
         if (
             pd.isna(lat)
@@ -347,8 +322,8 @@ def load_team_lookup(path: Path) -> dict[str, dict[str, Any]]:
             "latitude": float(lat),
             "longitude": float(lon),
             "timezone": timezone_name,
-            "venue_country": clean(row["venue_country"]).upper(),
-            "canonical_team": clean(row["canonical_team"]),
+            "venue_country": common.clean_text(row["venue_country"]).upper(),
+            "canonical_team": common.clean_text(row["canonical_team"]),
         }
 
         existing = lookup.get(abbr)
@@ -515,11 +490,11 @@ def build_environment(
 
                 away_offset = utc_offset_hours(
                     away["timezone"],
-                    clean(row.gameday),
+                    common.clean_text(row.gameday),
                 )
                 home_offset = utc_offset_hours(
                     home["timezone"],
-                    clean(row.gameday),
+                    common.clean_text(row.gameday),
                 )
 
                 zone_count = abs(
@@ -556,9 +531,9 @@ def build_environment(
             international_flag(
                 season=int(row.season),
                 week=int(row.week),
-                home_team=clean(row.home_team),
-                away_team=clean(row.away_team),
-                stadium=clean(row.stadium),
+                home_team=common.clean_text(row.home_team),
+                away_team=common.clean_text(row.away_team),
+                stadium=common.clean_text(row.stadium),
             )
         )
 
@@ -607,7 +582,7 @@ def build_environment(
             "stadium_id": games["stadium_id"].map(clean),
             "roof": games["roof"].map(clean),
             "surface": games["surface"].map(
-                lambda value: clean(value) or None
+                lambda value: common.clean_text(value) or None
             ),
             "temperature": games["temperature"],
             "wind": games["wind"],

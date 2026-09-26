@@ -42,18 +42,6 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    return "" if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"} else text
-
-
 def canonical_ids(frame: pd.DataFrame) -> pd.DataFrame:
     out = frame.copy()
     if "season" in out.columns:
@@ -142,14 +130,14 @@ def build_team_maps(team_master: pd.DataFrame) -> tuple[dict[str, str], set[str]
             continue
         abbrs.add(abbr)
         for c in source_cols:
-            value = clean(row.get(c))
+            value = common.clean_text(row.get(c))
             if value:
                 aliases.setdefault(value.casefold(), abbr)
     return aliases, abbrs
 
 
 def resolve_team(value: Any, aliases: dict[str, str], abbrs: set[str]) -> str:
-    text = clean(value)
+    text = common.clean_text(value)
     normalized = common.normalize_team(text)
     if normalized in abbrs:
         return normalized
@@ -168,7 +156,7 @@ def schedule_contract(schedule: pd.DataFrame, team_master: pd.DataFrame, season:
     team_map: dict[str, tuple[str, str]] = {}
     game_ids: set[str] = set()
     for row in frame.to_dict("records"):
-        gid = clean(row["game_id"])
+        gid = common.clean_text(row["game_id"])
         home = resolve_team(row["home_team"], aliases, abbrs)
         away = resolve_team(row["away_team"], aliases, abbrs)
         if not gid or not home or not away or home == away:
@@ -252,14 +240,14 @@ def validate_model_schemas(
     for target in production_targets:
         selected_path = prop / "models" / target / "selected_model.json"
         selected = read_json(selected_path)
-        architecture = clean(selected.get("selected_architecture") or selected.get("selected_candidate"))
+        architecture = common.clean_text(selected.get("selected_architecture") or selected.get("selected_candidate"))
         if architecture not in {"direct", "component", "direct_component_blend"}:
             raise AssertionError(f"{target}: unsupported selected architecture {architecture!r}")
         architectures[target] = architecture
 
         if architecture in {"direct", "direct_component_blend"}:
             direct_info = selected.get("direct_variant") or {}
-            model_rel = clean(direct_info.get("model_file"))
+            model_rel = common.clean_text(direct_info.get("model_file"))
             selected_model_path = (common.repo_root() / model_rel).resolve() if model_rel else prop / "models" / target / "direct_model.txt"
             verify_model(
                 f"direct/{target}",
@@ -269,7 +257,7 @@ def validate_model_schemas(
 
         if architecture in {"component", "direct_component_blend"}:
             for dep in selected.get("component_dependencies", []):
-                dependency = clean(dep)
+                dependency = common.clean_text(dep)
                 if dependency:
                     dependencies.add(dependency)
 
@@ -405,7 +393,7 @@ def main() -> int:
             bad_context = []
             for row in universe[["game_id", "team", "opponent", "player_id"]].to_dict("records"):
                 expected = schedule_map.get(common.normalize_team(row["team"]))
-                if expected is None or (clean(row["game_id"]), common.normalize_team(row["opponent"])) != expected:
+                if expected is None or (common.clean_text(row["game_id"]), common.normalize_team(row["opponent"])) != expected:
                     bad_context.append(row)
                     if len(bad_context) >= 10:
                         break

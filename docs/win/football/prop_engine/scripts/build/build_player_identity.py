@@ -182,33 +182,8 @@ SEASON_FROM_FILENAME = re.compile(
 )
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-
-    text = str(value).strip()
-
-    if text.casefold() in {
-        "",
-        "nan",
-        "none",
-        "null",
-        "<na>",
-        "nat",
-    }:
-        return ""
-
-    return text
-
-
 def normalize_position(value: Any) -> str:
-    return clean(value).upper()
+    return common.clean_text(value).upper()
 
 
 def choose_column(
@@ -307,7 +282,7 @@ def add_canonical(
         pfr_id
     )
 
-    display_name = clean(name)
+    display_name = common.clean_text(name)
     pos = normalize_position(position)
     pos_group = normalize_position(
         position_group
@@ -455,7 +430,7 @@ def unique_name_index(
 def parse_optional_season(
     value: Any,
 ) -> int | None:
-    text = clean(value)
+    text = common.clean_text(value)
 
     if not text:
         return None
@@ -472,7 +447,7 @@ def parse_optional_season(
 
 
 def truthy(value: Any) -> bool:
-    return clean(value).casefold() in {
+    return common.clean_text(value).casefold() in {
         "1",
         "true",
         "yes",
@@ -988,7 +963,7 @@ def main() -> int:
                 espn_id,
                 source="current_depth",
                 name=(
-                    clean(
+                    common.clean_text(
                         row[
                             depth_cols[
                                 "name"
@@ -1068,7 +1043,7 @@ def main() -> int:
             espn_id,
             source="current_roster",
             name=(
-                clean(
+                common.clean_text(
                     row[
                         current_roster_cols[
                             "name"
@@ -1108,7 +1083,7 @@ def main() -> int:
             ),
             team=team,
             status=(
-                clean(
+                common.clean_text(
                     row[
                         current_roster_cols[
                             "status"

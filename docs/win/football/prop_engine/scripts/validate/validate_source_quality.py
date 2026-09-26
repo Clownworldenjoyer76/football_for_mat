@@ -48,18 +48,6 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def clean(value: Any) -> str:
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    return "" if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"} else text
-
-
 def first_col(df: pd.DataFrame, aliases: list[str]) -> str | None:
     for c in aliases:
         if c in df.columns:
@@ -274,7 +262,7 @@ def player_identity_gate_status(
     except (TypeError, ValueError):
         critical_unresolved = -1
 
-    status = clean(
+    status = common.clean_text(
         payload.get("status")
     ).casefold()
 
