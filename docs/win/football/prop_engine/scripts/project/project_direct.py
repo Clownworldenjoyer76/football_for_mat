@@ -419,22 +419,36 @@ def main() -> int:
     prop = common.prop_root()
     market = run_market_preflight()
 
-    features_path = prop / "data" / "current" / "features" / f"{season}_week_{week}_features.parquet"
-    roles_path = prop / "data" / "current" / f"{season}_week_{week}_roles.parquet"
-    universe_path = prop / "data" / "current" / f"{season}_week_{week}_universe.parquet"
+    context_paths = common.current_projection_context_paths(
+        season,
+        week,
+    )
+    features_path = context_paths["features"]
+    roles_path = context_paths["roles"]
+    universe_path = context_paths["universe"]
     allocated_path = prop / "data" / "current" / f"{season}_week_{week}_allocated_opportunity.parquet"
     issue34_log_path = prop / "logs" / f"allocated_opportunity_{season}_week_{week}.json"
-    eligibility_path = prop / "config" / "target_eligibility.yaml"
+    eligibility_path = context_paths["eligibility"]
     output_path = prop / "data" / "current" / f"{season}_week_{week}_direct_projections.parquet"
     log_path = prop / "logs" / f"direct_projections_{season}_week_{week}.json"
 
-    for p in [features_path, roles_path, universe_path, allocated_path, issue34_log_path, eligibility_path]:
-        if not p.is_file():
-            raise FileNotFoundError(f"Issue 35 required input/sequence artifact missing: {p}")
+    common.require_existing_files(
+        [
+            features_path,
+            roles_path,
+            universe_path,
+            allocated_path,
+            issue34_log_path,
+            eligibility_path,
+        ],
+        missing_message=(
+            "Issue 35 required input/sequence artifact missing: {path}"
+        ),
+    )
 
-    features = pd.read_parquet(features_path)
-    roles = pd.read_parquet(roles_path)
-    universe = pd.read_parquet(universe_path)
+    features, roles, universe = common.read_current_projection_frames(
+        context_paths
+    )
     allocated = pd.read_parquet(allocated_path)
     issue34_log = common.load_json_mapping(issue34_log_path)
     eligibility = common.load_yaml_mapping(eligibility_path)

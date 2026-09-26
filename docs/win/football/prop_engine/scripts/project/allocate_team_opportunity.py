@@ -381,23 +381,35 @@ def main() -> int:
     prop = common.prop_root()
     market = run_market_preflight()
 
+    context_paths = common.current_projection_context_paths(
+        season,
+        week,
+    )
     component_path = prop / "data" / "current" / f"{season}_week_{week}_component_projections.parquet"
-    features_path = prop / "data" / "current" / "features" / f"{season}_week_{week}_features.parquet"
-    roles_path = prop / "data" / "current" / f"{season}_week_{week}_roles.parquet"
-    universe_path = prop / "data" / "current" / f"{season}_week_{week}_universe.parquet"
-    eligibility_path = prop / "config" / "target_eligibility.yaml"
+    features_path = context_paths["features"]
+    roles_path = context_paths["roles"]
+    universe_path = context_paths["universe"]
+    eligibility_path = context_paths["eligibility"]
     issue33_log = prop / "logs" / f"component_projections_{season}_week_{week}.json"
     output_path = prop / "data" / "current" / f"{season}_week_{week}_allocated_opportunity.parquet"
     log_path = prop / "logs" / f"allocated_opportunity_{season}_week_{week}.json"
 
-    for path in [component_path, features_path, roles_path, universe_path, eligibility_path, issue33_log]:
-        if not path.is_file():
-            raise FileNotFoundError(f"Issue 34 required input missing: {path}")
+    common.require_existing_files(
+        [
+            component_path,
+            features_path,
+            roles_path,
+            universe_path,
+            eligibility_path,
+            issue33_log,
+        ],
+        missing_message="Issue 34 required input missing: {path}",
+    )
 
     component = pd.read_parquet(component_path)
-    features = pd.read_parquet(features_path)
-    roles = pd.read_parquet(roles_path)
-    universe_all = pd.read_parquet(universe_path)
+    features, roles, universe_all = common.read_current_projection_frames(
+        context_paths
+    )
     eligibility = common.load_yaml_mapping(eligibility_path)
     issue33 = common.load_json_mapping(issue33_log)
 

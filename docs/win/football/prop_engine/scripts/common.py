@@ -410,6 +410,62 @@ def repo_relative_posix_path(
     return relative.as_posix()
 
 
+def current_projection_context_paths(
+    season: int,
+    week: int,
+) -> dict[str, Path]:
+    prop = prop_root()
+    return {
+        "features": (
+            prop
+            / "data"
+            / "current"
+            / "features"
+            / f"{int(season)}_week_{int(week)}_features.parquet"
+        ),
+        "roles": (
+            prop
+            / "data"
+            / "current"
+            / f"{int(season)}_week_{int(week)}_roles.parquet"
+        ),
+        "universe": (
+            prop
+            / "data"
+            / "current"
+            / f"{int(season)}_week_{int(week)}_universe.parquet"
+        ),
+        "eligibility": (
+            prop
+            / "config"
+            / "target_eligibility.yaml"
+        ),
+    }
+
+
+def require_existing_files(
+    paths: Iterable[str | os.PathLike[str]],
+    *,
+    missing_message: str,
+) -> None:
+    for candidate in paths:
+        path = Path(candidate)
+        if not path.is_file():
+            raise FileNotFoundError(
+                missing_message.format(path=path)
+            )
+
+
+def read_current_projection_frames(
+    paths: Mapping[str, Path],
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    return (
+        pd.read_parquet(paths["features"]),
+        pd.read_parquet(paths["roles"]),
+        pd.read_parquet(paths["universe"]),
+    )
+
+
 def resolve_projection_season_week(
     requested_season: int | None,
     requested_week: int,
