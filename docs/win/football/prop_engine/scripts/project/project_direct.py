@@ -432,10 +432,11 @@ def validate_and_load_model(
 def main() -> int:
     args = parse_args()
     config = common.load_config()
-    season = int(args.season) if args.season is not None else int(config["seasons"]["current"])
-    week = int(args.week)
-    if week < 1:
-        raise ValueError("week must be >= 1")
+    season, week = common.resolve_projection_season_week(
+        args.season,
+        args.week,
+        config,
+    )
 
     prop = common.prop_root()
     market = run_market_preflight()

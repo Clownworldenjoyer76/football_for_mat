@@ -334,6 +334,22 @@ def require_current_week_frame(
         raise ValueError(mismatch_message)
 
 
+def resolve_projection_season_week(
+    requested_season: int | None,
+    requested_week: int,
+    config: Mapping[str, Any],
+) -> tuple[int, int]:
+    season = (
+        int(requested_season)
+        if requested_season is not None
+        else int(config["seasons"]["current"])
+    )
+    week = int(requested_week)
+    if week < 1:
+        raise ValueError("week must be >= 1")
+    return season, week
+
+
 def load_config() -> dict:
     """Load and validate the shared Prop Engine YAML contract."""
     path = repo_root() / _CONFIG_RELATIVE_PATH
