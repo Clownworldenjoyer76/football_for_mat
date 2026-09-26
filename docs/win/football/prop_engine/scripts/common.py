@@ -1616,6 +1616,23 @@ def reject_forbidden_feature_columns(
         )
 
 
+def safe_numeric_float64(
+    series: pd.Series,
+) -> pd.Series:
+    # Preserve projection/training numeric coercion semantics.
+    return (
+        pd.to_numeric(
+            series,
+            errors="coerce",
+        )
+        .replace(
+            [np.inf, -np.inf],
+            np.nan,
+        )
+        .astype("float64")
+    )
+
+
 def safe_numeric(
     series: pd.Series,
 ) -> pd.Series:

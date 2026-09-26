@@ -151,16 +151,9 @@ def run_market_preflight() -> dict[str, Any]:
         ),
     )
 
-def numeric(series: pd.Series) -> pd.Series:
-    return (
-        pd.to_numeric(series, errors="coerce")
-        .replace([np.inf, -np.inf], np.nan)
-        .astype("float64")
-    )
-
 
 def clip01(series: pd.Series) -> pd.Series:
-    return numeric(series).clip(lower=0.0, upper=1.0)
+    return common.safe_numeric_float64(series).clip(lower=0.0, upper=1.0)
 
 
 def weighted_row_mean(frame: pd.DataFrame, columns: list[str], weights: list[float]) -> pd.Series:
@@ -182,7 +175,7 @@ def weighted_row_mean(frame: pd.DataFrame, columns: list[str], weights: list[flo
 
 
 def depth_score(depth_rank: pd.Series) -> pd.Series:
-    rank = numeric(depth_rank)
+    rank = common.safe_numeric_float64(depth_rank)
     out = pd.Series(0.10, index=rank.index, dtype="float64")
     out.loc[rank.le(4.0)] = 0.30
     out.loc[rank.le(3.0)] = 0.50
@@ -228,7 +221,7 @@ def score_component(
     # All persisted Issue 22 component features are numeric. Building the frame
     # in one operation avoids the fragmented-DataFrame warning from the trainer helper.
     model_input = pd.DataFrame(
-        {c: numeric(rows[c]).to_numpy() for c in feature_names},
+        {c: common.safe_numeric_float64(rows[c]).to_numpy() for c in feature_names},
         index=rows.index,
         columns=feature_names,
     )
@@ -271,13 +264,13 @@ def add_role_signals(work: pd.DataFrame) -> pd.DataFrame:
     out["_confidence"] = clip01(out["role_confidence"]).fillna(0.5)
     out["_backup"] = (
         out["role_status"].fillna("").astype(str).str.strip().str.casefold().eq("backup")
-        | numeric(out["depth_backup_flag"]).fillna(0.0).gt(0.0)
+        | common.safe_numeric_float64(out["depth_backup_flag"]).fillna(0.0).gt(0.0)
     ).astype("float64")
-    out["_teammate_out"] = numeric(out["role_teammate_out_count_position"]).fillna(0.0).clip(lower=0.0)
+    out["_teammate_out"] = common.safe_numeric_float64(out["role_teammate_out_count_position"]).fillna(0.0).clip(lower=0.0)
 
-    explicit_promotion = numeric(out["role_starter_promotion_flag"]).fillna(0.0).gt(0.0)
+    explicit_promotion = common.safe_numeric_float64(out["role_starter_promotion_flag"]).fillna(0.0).gt(0.0)
     contextual_promotion = out["_teammate_out"].gt(0.0) & (
-        out["_starter"].gt(0.0) | numeric(out["depth_rank"]).fillna(99.0).le(1.0)
+        out["_starter"].gt(0.0) | common.safe_numeric_float64(out["depth_rank"]).fillna(99.0).le(1.0)
     )
     out["_promotion"] = (explicit_promotion | contextual_promotion).astype("float64")
     out["_recent_backup"] = (out["_backup"] * out["_recent_offense"]).clip(0.0, 1.0)
@@ -321,7 +314,7 @@ def allocate_share_family(
     for key, idx in out.groupby(TEAM_GRAIN, sort=True).groups.items():
         loc = pd.Index(idx)
         cand_idx = loc[candidate_mask.loc[loc].to_numpy(dtype=bool)]
-        volume = numeric(out.loc[loc, volume_col])
+        volume = common.safe_numeric_float64(out.loc[loc, volume_col])
         finite_volume = volume.dropna()
         if finite_volume.empty:
             raise ValueError(f"{family}: missing team volume for {key}")
@@ -357,7 +350,7 @@ def allocate_share_family(
             out.loc[cand_idx, f"_{family}_reason"] = f"{family}:depth_participation_fallback_no_raw_mass"
             fallback_teams += 1
 
-        score = numeric(score).fillna(0.0).clip(lower=0.0)
+        score = common.safe_numeric_float64(score).fillna(0.0).clip(lower=0.0)
         total = float(score.sum())
         if total <= EPS:
             raise ValueError(f"{family}: deterministic role-weight fallback has zero mass: {key}")
@@ -518,8 +511,8 @@ def main() -> int:
         }
     )
 
-    rush_volume = numeric(work["projected_team_rush_attempts"]).clip(lower=0.0)
-    carry_volume = numeric(work["projected_player_carries"]).clip(lower=0.0)
+    rush_volume = common.safe_numeric_float64(work["projected_team_rush_attempts"]).clip(lower=0.0)
+    carry_volume = common.safe_numeric_float64(work["projected_player_carries"]).clip(lower=0.0)
     work["raw_projected_carry_share"] = 0.0
     positive_rush = rush_volume.gt(EPS)
     work.loc[positive_rush, "raw_projected_carry_share"] = (
@@ -570,23 +563,23 @@ def main() -> int:
 
     # Exact preservation check against the canonical Issue 33 carry volume.
     expected_carries = (
-        numeric(work["projected_team_rush_attempts"]).clip(lower=0.0)
+        common.safe_numeric_float64(work["projected_team_rush_attempts"]).clip(lower=0.0)
         * work["raw_projected_carry_share"]
     )
     if not np.allclose(
         expected_carries.to_numpy(),
-        numeric(work["projected_player_carries"]).fillna(0.0).to_numpy(),
+        common.safe_numeric_float64(work["projected_player_carries"]).fillna(0.0).to_numpy(),
         atol=1e-8,
         rtol=1e-8,
     ):
         raise ValueError("Issue 34 derived raw carry share disagrees with Issue 33 projected_player_carries")
     expected_targets = (
-        numeric(work["projected_team_pass_attempts"]).clip(lower=0.0)
+        common.safe_numeric_float64(work["projected_team_pass_attempts"]).clip(lower=0.0)
         * work["raw_projected_target_share"]
     )
     if not np.allclose(
         expected_targets.to_numpy(),
-        numeric(work["projected_targets"]).fillna(0.0).to_numpy(),
+        common.safe_numeric_float64(work["projected_targets"]).fillna(0.0).to_numpy(),
         atol=1e-8,
         rtol=1e-8,
     ):
@@ -653,8 +646,8 @@ def main() -> int:
     target_volume_error = 0.0
     carry_volume_error = 0.0
     for _, group in work.groupby(TEAM_GRAIN, sort=True):
-        pass_volume = max(float(numeric(group["projected_team_pass_attempts"]).dropna().iloc[0]), 0.0)
-        rush_volume = max(float(numeric(group["projected_team_rush_attempts"]).dropna().iloc[0]), 0.0)
+        pass_volume = max(float(common.safe_numeric_float64(group["projected_team_pass_attempts"]).dropna().iloc[0]), 0.0)
+        rush_volume = max(float(common.safe_numeric_float64(group["projected_team_rush_attempts"]).dropna().iloc[0]), 0.0)
         target_alloc = float(group.loc[common.normalize_position_series(group["position"]).isin(receiver_positions), "allocated_target_share"].sum())
         carry_alloc = float(group.loc[common.normalize_position_series(group["position"]).isin(rusher_positions), "allocated_carry_share"].sum())
         if pass_volume > EPS:

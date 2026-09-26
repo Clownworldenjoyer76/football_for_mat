@@ -126,9 +126,6 @@ def run_market_preflight() -> dict[str, Any]:
         ),
     )
 
-def numeric(s: pd.Series) -> pd.Series:
-    return pd.to_numeric(s, errors="coerce").replace([np.inf, -np.inf], np.nan).astype("float64")
-
 
 def coalesce_numeric(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
     missing = [c for c in columns if c not in frame.columns]
@@ -136,7 +133,7 @@ def coalesce_numeric(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
         raise ValueError(f"Missing deterministic volume proxy columns: {missing}")
     out = pd.Series(np.nan, index=frame.index, dtype="float64")
     for c in columns:
-        value = numeric(frame[c])
+        value = common.safe_numeric_float64(frame[c])
         out = out.where(out.notna(), value)
     return out
 
@@ -194,8 +191,8 @@ def strict_prior_team_def_sack_rate(
     raw["week"] = pd.to_numeric(raw["week"], errors="raise").astype(int)
     raw = raw.loc[raw["season"].lt(season)].copy()
     raw["_team_key"] = raw["team"].map(opportunity.canonical_team)
-    sacks = numeric(raw["sacks"])
-    dropbacks = numeric(raw["opponent_dropbacks"])
+    sacks = common.safe_numeric_float64(raw["sacks"])
+    dropbacks = common.safe_numeric_float64(raw["opponent_dropbacks"])
     raw["_rate"] = np.where(
         sacks.notna() & dropbacks.notna() & dropbacks.ne(0.0),
         sacks / dropbacks,
@@ -296,7 +293,7 @@ def team_opponent_inference_rows(
 def zero_safe_product(*series: pd.Series) -> pd.Series:
     if not series:
         raise ValueError("zero_safe_product requires at least one series")
-    values = [numeric(item) for item in series]
+    values = [common.safe_numeric_float64(item) for item in series]
     result = values[0].copy()
     for item in values[1:]:
         result = result * item
@@ -363,10 +360,10 @@ def add_raw_target_components(base: pd.DataFrame) -> pd.DataFrame:
         "component_tackles",
         "component_sacks",
     ]:
-        out[column] = numeric(out[column]).clip(lower=0.0)
+        out[column] = common.safe_numeric_float64(out[column]).clip(lower=0.0)
 
     for column in TARGET_COMPONENT_COLUMNS:
-        out[column] = numeric(out[column])
+        out[column] = common.safe_numeric_float64(out[column])
         if out[column].isna().any() or (~np.isfinite(out[column])).any():
             raise ValueError(
                 f"Issue 33 nonfinite target component projection: {column}"
@@ -380,13 +377,13 @@ def _normalized_component_exposure(
     team_volume: pd.Series,
     eligible_mask: pd.Series,
 ) -> pd.Series:
-    raw = numeric(raw_exposure).fillna(0.0).clip(lower=0.0)
+    raw = common.safe_numeric_float64(raw_exposure).fillna(0.0).clip(lower=0.0)
     raw.loc[~eligible_mask.to_numpy(dtype=bool)] = 0.0
     total = raw.groupby(
         [base[column] for column in TEAM_GRAIN],
         sort=False,
     ).transform("sum")
-    volume = numeric(team_volume).fillna(0.0).clip(lower=0.0)
+    volume = common.safe_numeric_float64(team_volume).fillna(0.0).clip(lower=0.0)
     out = pd.Series(0.0, index=base.index, dtype="float64")
     positive = total.gt(0.0)
     out.loc[positive] = (
@@ -404,9 +401,9 @@ def _scale_component_for_allocated_exposure(
     *,
     fallback_unit_rate: pd.Series | None = None,
 ) -> pd.Series:
-    component = numeric(raw_component)
-    raw = numeric(raw_exposure).fillna(0.0).clip(lower=0.0)
-    allocated = numeric(allocated_exposure).fillna(0.0).clip(lower=0.0)
+    component = common.safe_numeric_float64(raw_component)
+    raw = common.safe_numeric_float64(raw_exposure).fillna(0.0).clip(lower=0.0)
+    allocated = common.safe_numeric_float64(allocated_exposure).fillna(0.0).clip(lower=0.0)
     out = pd.Series(0.0, index=component.index, dtype="float64")
 
     positive_raw = raw.gt(1e-12)
@@ -423,7 +420,7 @@ def _scale_component_for_allocated_exposure(
                 "Allocated component exposure is positive where raw exposure "
                 "is zero and no canonical fallback rate is available."
             )
-        unit = numeric(fallback_unit_rate)
+        unit = common.safe_numeric_float64(fallback_unit_rate)
         if unit.loc[fallback].isna().any():
             raise ValueError(
                 "Canonical fallback component rate is missing for allocated "
@@ -507,12 +504,12 @@ def final_component_points(
         raise ValueError("rushing_td_eligible length mismatch")
 
     allocated_carries = (
-        numeric(base["projected_team_rush_attempts"]).clip(lower=0.0)
-        * numeric(base["allocated_carry_share"]).clip(0.0, 1.0)
+        common.safe_numeric_float64(base["projected_team_rush_attempts"]).clip(lower=0.0)
+        * common.safe_numeric_float64(base["allocated_carry_share"]).clip(0.0, 1.0)
     )
     allocated_targets = (
-        numeric(base["projected_team_pass_attempts"]).clip(lower=0.0)
-        * numeric(base["allocated_target_share"]).clip(0.0, 1.0)
+        common.safe_numeric_float64(base["projected_team_pass_attempts"]).clip(lower=0.0)
+        * common.safe_numeric_float64(base["allocated_target_share"]).clip(0.0, 1.0)
     )
 
     rz_volume = coalesce_numeric(
@@ -538,9 +535,9 @@ def final_component_points(
     )
 
     points: dict[str, pd.Series] = {
-        "passing_yards": numeric(base["component_passing_yards"]),
-        "passing_tds": numeric(base["component_passing_tds"]),
-        "kicking_points": numeric(base["component_kicking_points"]),
+        "passing_yards": common.safe_numeric_float64(base["component_passing_yards"]),
+        "passing_tds": common.safe_numeric_float64(base["component_passing_tds"]),
+        "kicking_points": common.safe_numeric_float64(base["component_kicking_points"]),
         "rushing_yards": _scale_component_for_allocated_exposure(
             base["component_rushing_yards"],
             base["projected_player_carries"],
@@ -594,10 +591,10 @@ def final_component_points(
         "tackles",
         "sacks",
     ]:
-        points[target] = numeric(points[target]).clip(lower=0.0)
+        points[target] = common.safe_numeric_float64(points[target]).clip(lower=0.0)
 
     for target, values in points.items():
-        values = numeric(values)
+        values = common.safe_numeric_float64(values)
         if values.isna().any() or (~np.isfinite(values)).any():
             raise ValueError(
                 f"Issue 36 canonical component adjustment is nonfinite: {target}"
@@ -1062,10 +1059,10 @@ def main() -> int:
         )
 
     qb_primary = (
-        numeric(base["primary_qb_flag"]).fillna(0).gt(0)
+        common.safe_numeric_float64(base["primary_qb_flag"]).fillna(0).gt(0)
     )
     kicker_primary = (
-        numeric(base["primary_kicker_flag"]).fillna(0).gt(0)
+        common.safe_numeric_float64(base["primary_kicker_flag"]).fillna(0).gt(0)
     )
     if int(qb_primary.sum()) != int(base["team"].nunique()):
         raise ValueError(
@@ -1080,7 +1077,7 @@ def main() -> int:
     base.loc[
         qb_primary,
         "projected_qb_pass_attempts",
-    ] = numeric(
+    ] = common.safe_numeric_float64(
         base.loc[qb_primary, "_raw_qb_pass_attempts"]
     ).to_numpy()
     if base.loc[
@@ -1092,32 +1089,32 @@ def main() -> int:
         )
 
     base["_raw_carry_share"] = (
-        numeric(base["_raw_carry_share"])
+        common.safe_numeric_float64(base["_raw_carry_share"])
         .fillna(0.0)
         .clip(0.0, 1.0)
     )
     base["projected_target_share"] = (
-        numeric(base["projected_target_share"])
+        common.safe_numeric_float64(base["projected_target_share"])
         .fillna(0.0)
         .clip(0.0, 1.0)
     )
     base["_raw_red_zone_target_share"] = (
-        numeric(base["_raw_red_zone_target_share"])
+        common.safe_numeric_float64(base["_raw_red_zone_target_share"])
         .fillna(0.0)
         .clip(0.0, 1.0)
     )
     base["_raw_goal_line_carry_share"] = (
-        numeric(base["_raw_goal_line_carry_share"])
+        common.safe_numeric_float64(base["_raw_goal_line_carry_share"])
         .fillna(0.0)
         .clip(0.0, 1.0)
     )
 
     base["projected_player_carries"] = (
-        numeric(base["projected_team_rush_attempts"]).clip(lower=0.0)
+        common.safe_numeric_float64(base["projected_team_rush_attempts"]).clip(lower=0.0)
         * base["_raw_carry_share"]
     )
     base["projected_targets"] = (
-        numeric(base["projected_team_pass_attempts"]).clip(lower=0.0)
+        common.safe_numeric_float64(base["projected_team_pass_attempts"]).clip(lower=0.0)
         * base["projected_target_share"]
     )
     rz_volume = coalesce_numeric(
@@ -1139,14 +1136,14 @@ def main() -> int:
     base.loc[
         kicker_primary,
         "projected_fg_attempts",
-    ] = numeric(
+    ] = common.safe_numeric_float64(
         base.loc[kicker_primary, "_team_fg_attempts"]
     ).to_numpy()
     base["projected_pat_attempts"] = 0.0
     base.loc[
         kicker_primary,
         "projected_pat_attempts",
-    ] = numeric(
+    ] = common.safe_numeric_float64(
         base.loc[kicker_primary, "_team_pat_attempts"]
     ).to_numpy()
 
@@ -1154,7 +1151,7 @@ def main() -> int:
     base.loc[
         kicker_primary,
         "projected_fg_make_probability",
-    ] = numeric(
+    ] = common.safe_numeric_float64(
         base.loc[
             kicker_primary,
             "_raw_fg_make_probability",
@@ -1164,7 +1161,7 @@ def main() -> int:
     base.loc[
         kicker_primary,
         "projected_pat_make_probability",
-    ] = numeric(
+    ] = common.safe_numeric_float64(
         base.loc[
             kicker_primary,
             "_raw_pat_make_probability",
@@ -1184,23 +1181,23 @@ def main() -> int:
             "Primary kicker is missing kicking component/efficiency prediction"
         )
 
-    base["projected_fg_make_probability"] = numeric(
+    base["projected_fg_make_probability"] = common.safe_numeric_float64(
         base["projected_fg_make_probability"]
     ).clip(0.0, 1.0)
-    base["projected_pat_make_probability"] = numeric(
+    base["projected_pat_make_probability"] = common.safe_numeric_float64(
         base["projected_pat_make_probability"]
     ).clip(0.0, 1.0)
 
     def_eligible = base["_raw_defensive_participation"].notna()
     base["projected_defensive_participation"] = (
-        numeric(base["_raw_defensive_participation"])
+        common.safe_numeric_float64(base["_raw_defensive_participation"])
         .fillna(0.0)
         .clip(0.0, 1.0)
     )
-    base["projected_tackle_rate"] = numeric(
+    base["projected_tackle_rate"] = common.safe_numeric_float64(
         base["projected_tackle_rate"]
     ).clip(0.0, 1.0)
-    base["projected_sack_rate"] = numeric(
+    base["projected_sack_rate"] = common.safe_numeric_float64(
         base["projected_sack_rate"]
     ).clip(0.0, 1.0)
     if base.loc[
@@ -1216,7 +1213,7 @@ def main() -> int:
         "_rushing_td_rate",
         "_receiving_td_rate",
     ]:
-        base[column] = numeric(base[column]).clip(0.0, 1.0)
+        base[column] = common.safe_numeric_float64(base[column]).clip(0.0, 1.0)
 
     nonnegative = [
         "projected_team_pass_attempts",
@@ -1234,7 +1231,7 @@ def main() -> int:
         "projected_defensive_participation",
     ]
     for column in nonnegative:
-        base[column] = numeric(base[column])
+        base[column] = common.safe_numeric_float64(base[column])
         if base[column].isna().any() or base[column].lt(0.0).any():
             raise ValueError(
                 f"Issue 33 invalid nonnegative projection column: {column}"

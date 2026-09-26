@@ -321,13 +321,6 @@ def load_yaml(path: Path) -> dict[str, Any]:
         missing_message=f"Required YAML does not exist: {path}",
     )
 
-def numeric(series: pd.Series) -> pd.Series:
-    return (
-        pd.to_numeric(series, errors="coerce")
-        .replace([np.inf, -np.inf], np.nan)
-        .astype("float64")
-    )
-
 
 def safe_rate(
     numerator: pd.Series,
@@ -619,19 +612,19 @@ def build_exact_conditional_td_labels(
             .str.strip()
         )
 
-        pbp["yardline_100"] = numeric(
+        pbp["yardline_100"] = common.safe_numeric_float64(
             pbp["yardline_100"]
         )
-        pbp["rush_attempt"] = numeric(
+        pbp["rush_attempt"] = common.safe_numeric_float64(
             pbp["rush_attempt"]
         ).fillna(0.0)
-        pbp["pass_attempt"] = numeric(
+        pbp["pass_attempt"] = common.safe_numeric_float64(
             pbp["pass_attempt"]
         ).fillna(0.0)
-        pbp["rush_touchdown"] = numeric(
+        pbp["rush_touchdown"] = common.safe_numeric_float64(
             pbp["rush_touchdown"]
         ).fillna(0.0)
-        pbp["pass_touchdown"] = numeric(
+        pbp["pass_touchdown"] = common.safe_numeric_float64(
             pbp["pass_touchdown"]
         ).fillna(0.0)
 
@@ -757,7 +750,7 @@ def build_exact_conditional_td_labels(
         "_red_zone_targets_pbp",
         "_red_zone_receiving_tds",
     ]:
-        output[column] = numeric(
+        output[column] = common.safe_numeric_float64(
             output[column]
         ).fillna(0.0)
 
@@ -886,14 +879,14 @@ def prepare_label_base(
         "_red_zone_targets_pbp",
         "_red_zone_receiving_tds",
     ]:
-        labels[column] = numeric(labels[column]).fillna(0.0)
+        labels[column] = common.safe_numeric_float64(labels[column]).fillna(0.0)
 
     rich = labels["season"].ge(
         int(config["seasons"]["rich_feature_start"])
     )
 
-    gl_opp = numeric(labels["goal_line_carries"])
-    rz_opp = numeric(labels["red_zone_targets"])
+    gl_opp = common.safe_numeric_float64(labels["goal_line_carries"])
+    rz_opp = common.safe_numeric_float64(labels["red_zone_targets"])
 
     gl_mismatch = (
         rich
@@ -957,52 +950,52 @@ def build_component_label(
     frame = labels.copy()
 
     if model_name == "passing_yards_per_attempt":
-        numerator = numeric(frame["passing_yards"])
-        exposure = numeric(frame["pass_attempts"])
+        numerator = common.safe_numeric_float64(frame["passing_yards"])
+        exposure = common.safe_numeric_float64(frame["pass_attempts"])
 
     elif model_name == "passing_td_rate":
-        numerator = numeric(frame["passing_tds"])
-        exposure = numeric(frame["pass_attempts"])
+        numerator = common.safe_numeric_float64(frame["passing_tds"])
+        exposure = common.safe_numeric_float64(frame["pass_attempts"])
 
     elif model_name == "rushing_yards_per_carry":
-        numerator = numeric(frame["rushing_yards"])
-        exposure = numeric(frame["carries"])
+        numerator = common.safe_numeric_float64(frame["rushing_yards"])
+        exposure = common.safe_numeric_float64(frame["carries"])
 
     elif model_name == "rushing_td_per_goal_line_carry":
-        numerator = numeric(
+        numerator = common.safe_numeric_float64(
             frame["_goal_line_rush_tds"]
         )
-        exposure = numeric(
+        exposure = common.safe_numeric_float64(
             frame["_goal_line_carries_pbp"]
         )
 
     elif model_name == "receiving_yards_per_target":
-        numerator = numeric(frame["receiving_yards"])
-        exposure = numeric(frame["targets"])
+        numerator = common.safe_numeric_float64(frame["receiving_yards"])
+        exposure = common.safe_numeric_float64(frame["targets"])
 
     elif model_name == "receiving_td_per_red_zone_target":
-        numerator = numeric(
+        numerator = common.safe_numeric_float64(
             frame["_red_zone_receiving_tds"]
         )
-        exposure = numeric(
+        exposure = common.safe_numeric_float64(
             frame["_red_zone_targets_pbp"]
         )
 
     elif model_name == "field_goal_conversion":
-        numerator = numeric(frame["field_goals_made"])
-        exposure = numeric(frame["field_goal_attempts"])
+        numerator = common.safe_numeric_float64(frame["field_goals_made"])
+        exposure = common.safe_numeric_float64(frame["field_goal_attempts"])
 
     elif model_name == "extra_point_conversion":
-        numerator = numeric(frame["extra_points_made"])
-        exposure = numeric(frame["extra_point_attempts"])
+        numerator = common.safe_numeric_float64(frame["extra_points_made"])
+        exposure = common.safe_numeric_float64(frame["extra_point_attempts"])
 
     elif model_name == "tackle_rate_per_defensive_play":
-        rate = numeric(frame["tackle_rate_per_def_play"])
-        exposure = numeric(
+        rate = common.safe_numeric_float64(frame["tackle_rate_per_def_play"])
+        exposure = common.safe_numeric_float64(
             frame["defense_snap_pct"]
         )
 
-        fallback = numeric(
+        fallback = common.safe_numeric_float64(
             frame["defense_participation"]
         )
         exposure = exposure.where(
@@ -1018,12 +1011,12 @@ def build_component_label(
         numerator = rate * exposure
 
     elif model_name == "sack_rate_per_defensive_play":
-        rate = numeric(frame["sack_rate_per_def_play"])
-        exposure = numeric(
+        rate = common.safe_numeric_float64(frame["sack_rate_per_def_play"])
+        exposure = common.safe_numeric_float64(
             frame["defense_snap_pct"]
         )
 
-        fallback = numeric(
+        fallback = common.safe_numeric_float64(
             frame["defense_participation"]
         )
         exposure = exposure.where(
@@ -1046,7 +1039,7 @@ def build_component_label(
         "tackle_rate_per_defensive_play",
         "sack_rate_per_defensive_play",
     }:
-        source_rate = numeric(
+        source_rate = common.safe_numeric_float64(
             frame[
                 {
                     "tackle_rate_per_defensive_play":
@@ -1276,7 +1269,7 @@ def add_strict_prior_features(
             "eff_position_prior_rate",
             "eff_league_prior_rate",
         ]:
-            work[column] = numeric(
+            work[column] = common.safe_numeric_float64(
                 work[column]
             ).clip(lower=0.0, upper=1.0)
 
@@ -1292,11 +1285,11 @@ def add_strict_prior_features(
         SHRINKAGE_EXPOSURE[model_name]
     )
 
-    player_exp = numeric(
+    player_exp = common.safe_numeric_float64(
         work["_player_exp_prior"]
     ).fillna(0.0)
 
-    player_num = numeric(
+    player_num = common.safe_numeric_float64(
         work["_player_num_prior"]
     ).fillna(0.0)
 
@@ -1486,7 +1479,7 @@ def feature_matrix(
 
     return pd.DataFrame(
         {
-            column: numeric(frame[column])
+            column: common.safe_numeric_float64(frame[column])
             for column in columns
         },
         index=frame.index,
@@ -1581,10 +1574,10 @@ def final_prior_snapshot(
     ].copy()
 
     league_num = float(
-        numeric(source["_numerator"]).sum()
+        common.safe_numeric_float64(source["_numerator"]).sum()
     )
     league_exp = float(
-        numeric(source["_exposure"]).sum()
+        common.safe_numeric_float64(source["_exposure"]).sum()
     )
 
     league_rate = (
@@ -1603,10 +1596,10 @@ def final_prior_snapshot(
 
     for position_group, group in grouped:
         numerator = float(
-            numeric(group["_numerator"]).sum()
+            common.safe_numeric_float64(group["_numerator"]).sum()
         )
         exposure = float(
-            numeric(group["_exposure"]).sum()
+            common.safe_numeric_float64(group["_exposure"]).sum()
         )
 
         positions[str(position_group)] = {
@@ -1676,7 +1669,7 @@ def train_model(
         selection_train,
         model_name,
     )
-    y_train = numeric(
+    y_train = common.safe_numeric_float64(
         selection_train["_label"]
     )
 
@@ -1684,7 +1677,7 @@ def train_model(
         validation,
         model_name,
     )
-    y_valid = numeric(
+    y_valid = common.safe_numeric_float64(
         validation["_label"]
     )
 
@@ -1692,7 +1685,7 @@ def train_model(
         final_train,
         model_name,
     )
-    y_final = numeric(
+    y_final = common.safe_numeric_float64(
         final_train["_label"]
     )
 

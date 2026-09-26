@@ -153,16 +153,9 @@ def run_market_preflight() -> dict[str, Any]:
         ),
     )
 
-def numeric(series: pd.Series) -> pd.Series:
-    return (
-        pd.to_numeric(series, errors="coerce")
-        .replace([np.inf, -np.inf], np.nan)
-        .astype("float64")
-    )
-
 
 def flag(series: pd.Series) -> pd.Series:
-    return numeric(series).fillna(0.0).gt(0.0)
+    return common.safe_numeric_float64(series).fillna(0.0).gt(0.0)
 
 
 def any_positive(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
@@ -171,7 +164,7 @@ def any_positive(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
         raise ValueError(f"Missing current eligibility signal(s): {missing}")
     result = pd.Series(False, index=frame.index, dtype=bool)
     for c in columns:
-        result |= numeric(frame[c]).fillna(0.0).gt(0.0)
+        result |= common.safe_numeric_float64(frame[c]).fillna(0.0).gt(0.0)
     return result
 
 
@@ -191,7 +184,7 @@ def model_matrix(
 ) -> pd.DataFrame:
     data: dict[str, pd.Series] = {}
     for feature in numeric_features:
-        data[feature] = numeric(frame[feature])
+        data[feature] = common.safe_numeric_float64(frame[feature])
     for feature in categorical_features:
         if feature not in levels or not isinstance(levels[feature], list):
             raise ValueError(f"Missing persisted categorical levels for {feature}")
@@ -328,7 +321,7 @@ def eligibility_mask(
         usage_cols = RUSH_USAGE_COLUMNS if target.startswith("rushing_") else RECEIVE_USAGE_COLUMNS
         recent_usage = any_positive(work, usage_cols)
         participation = any_positive(work, OFFENSE_PARTICIPATION_COLUMNS)
-        depth = numeric(work["depth_rank"])
+        depth = common.safe_numeric_float64(work["depth_rank"])
         plausible_depth = depth.notna() & depth.le(3.0)
         current_role = (
             flag(work["starter_flag"])
@@ -486,7 +479,7 @@ def main() -> int:
             raise ValueError(f"{target}: ineligible direct projection row is non-null")
         if output.loc[mask, OUTPUT_MAP[target]].isna().any():
             raise ValueError(f"{target}: eligible direct projection row is null")
-        if numeric(output.loc[mask, OUTPUT_MAP[target]]).lt(0.0).any():
+        if common.safe_numeric_float64(output.loc[mask, OUTPUT_MAP[target]]).lt(0.0).any():
             raise ValueError(f"{target}: negative direct projection after flooring")
 
         eligibility_counts[target] = eligible_rows

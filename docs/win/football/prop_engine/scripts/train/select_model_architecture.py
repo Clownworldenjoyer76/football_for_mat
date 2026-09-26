@@ -222,13 +222,6 @@ def finite_float(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def numeric(series: pd.Series) -> pd.Series:
-    return (
-        pd.to_numeric(series, errors="coerce")
-        .replace([np.inf, -np.inf], np.nan)
-        .astype("float64")
-    )
-
 
 
 def numeric_matrix(
@@ -261,7 +254,7 @@ def coalesce_numeric(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
     for column in columns:
         if column not in frame.columns:
             continue
-        candidate = numeric(frame[column])
+        candidate = common.safe_numeric_float64(frame[column])
         result = result.where(result.notna(), candidate)
     return result
 
@@ -457,7 +450,7 @@ def load_baseline_windows(
             [*GRAIN, "target"],
             f"baseline {label} target grain",
         )
-        actual_values = numeric(frame["actual"])
+        actual_values = common.safe_numeric_float64(frame["actual"])
         invalid_actual = frame["actual"].notna() & actual_values.isna()
         if invalid_actual.any() or actual_values.isna().any():
             raise ValueError(
@@ -465,7 +458,7 @@ def load_baseline_windows(
             )
         frame["actual"] = actual_values
 
-        baseline_values = numeric(frame["baseline_projection"])
+        baseline_values = common.safe_numeric_float64(frame["baseline_projection"])
         invalid_baseline = (
             frame["baseline_projection"].notna()
             & baseline_values.isna()
@@ -535,7 +528,7 @@ def train_fixed_booster(
         raise ValueError(f"Invalid boosting round count: {rounds}")
     dataset = lgb.Dataset(
         x,
-        label=numeric(y),
+        label=common.safe_numeric_float64(y),
         feature_name=feature_names,
         categorical_feature=categorical_features,
         free_raw_data=False,
@@ -558,7 +551,7 @@ def prepare_direct_frames(
         features["position"],
         manifest["eligible_positions"],
     )
-    actual = numeric(features[f"target_{target}"])
+    actual = common.safe_numeric_float64(features[f"target_{target}"])
     eligible = position_eligible & actual.notna()
 
     train = features.loc[
@@ -620,7 +613,7 @@ def score_direct_variants(
     x_valid = direct.model_matrix(
         validation, numeric_features, categorical_features, levels_selection
     )
-    y_train = numeric(train[f"target_{target}"])
+    y_train = common.safe_numeric_float64(train[f"target_{target}"])
 
     variants: list[dict[str, Any]] = [
         {
@@ -644,7 +637,7 @@ def score_direct_variants(
             }
         )
 
-    validation_actual = numeric(validation[f"target_{target}"]).to_numpy()
+    validation_actual = common.safe_numeric_float64(validation[f"target_{target}"]).to_numpy()
     variant_predictions: dict[str, np.ndarray] = {}
     variant_metrics: dict[str, dict[str, float | None]] = {}
 
@@ -775,7 +768,7 @@ def score_opportunity_models(
             )
         ].copy()
         x_train = numeric_matrix(train, feature_names)
-        y_train = numeric(train["_label"])
+        y_train = common.safe_numeric_float64(train["_label"])
         model = train_fixed_booster(
             x_train,
             y_train,
@@ -887,7 +880,7 @@ def score_efficiency_models(
             / "metadata.json"
         )
         x_train = efficiency.feature_matrix(train, model_name)
-        y_train = numeric(train["_label"])
+        y_train = common.safe_numeric_float64(train["_label"])
         model = train_fixed_booster(
             x_train,
             y_train,
@@ -969,7 +962,7 @@ def attach_team_and_reconcile_share(
     )
     if frame["team"].isna().any():
         raise ValueError(f"{column}: missing team during share reconciliation.")
-    raw = numeric(frame[column]).clip(lower=0.0, upper=1.0)
+    raw = common.safe_numeric_float64(frame[column]).clip(lower=0.0, upper=1.0)
     totals = raw.groupby(
         [frame[k] for k in TEAM_GRAIN],
         sort=False,
@@ -1133,7 +1126,7 @@ def align_target_predictions(
         "direct_projection",
         "component_projection",
     ]:
-        output[column] = numeric(output[column])
+        output[column] = common.safe_numeric_float64(output[column])
         if output[column].isna().any():
             sample = output.loc[output[column].isna(), GRAIN].head(10)
             raise ValueError(
