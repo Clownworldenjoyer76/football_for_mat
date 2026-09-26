@@ -257,9 +257,7 @@ def normalize_week_team_frame(
         errors="raise",
     ).astype(int)
 
-    output["team"] = output["team"].map(
-        canonical_team
-    )
+    output["team"] = output["team"].map(common.normalize_team)
 
     return output
 
@@ -338,12 +336,12 @@ def build_stats_game_tables(
 
     working["game_id"] = (
         working["game_id"]
-        .map(clean)
+        .map(common.clean_text)
     )
 
     working["team"] = (
         working["team"]
-        .map(canonical_team)
+        .map(common.normalize_team)
     )
 
     if working["game_id"].eq("").any():
@@ -700,10 +698,10 @@ def build_pbp_tables(
         row_label="PBP",
     )
 
-    working["game_id"] = working["game_id"].map(clean)
-    working["posteam"] = working["posteam"].map(canonical_team)
-    working["defteam"] = working["defteam"].map(canonical_team)
-    working["receiver_player_id"] = working["receiver_player_id"].map(clean)
+    working["game_id"] = working["game_id"].map(common.clean_text)
+    working["posteam"] = working["posteam"].map(common.normalize_team)
+    working["defteam"] = working["defteam"].map(common.normalize_team)
+    working["receiver_player_id"] = working["receiver_player_id"].map(common.clean_text)
 
     numeric_columns = [
         "yardline_100",
