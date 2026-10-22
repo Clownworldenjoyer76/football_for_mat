@@ -10,7 +10,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -66,7 +66,7 @@ EPSILON = 1e-9
 DISPLAY_RECONCILIATION_TOLERANCE = 0.150000001
 
 
-def fail(message) -> Never:
+def fail(message):
     raise RuntimeError(message)
 
 
@@ -155,59 +155,38 @@ def validate_header(path: Path, expected: list[str], label: str) -> None:
         )
 
 
-def _read_validated_rows(
-    path: Path,
-    *,
-    columns: list[str],
-    label: str,
-    read_error: str,
-    empty_error: str,
-) -> list[dict[str, str]]:
-    validate_header(path, columns, label)
+def read_input(path):
+    validate_header(
+        path,
+        INPUT_COLUMNS,
+        f"survivor input {path}",
+    )
 
     try:
         with path.open(
             "r",
             newline="",
             encoding="utf-8-sig",
-        ) as handle:
-            rows = list(csv.DictReader(handle))
+        ) as file:
+            reader = csv.DictReader(file)
+            rows = list(reader)
     except Exception as exc:
         fail(
-            f"{path}: {read_error}: "
+            f"{path}: unable to read CSV: "
             f"{type(exc).__name__}: {exc}"
         )
 
     if not rows:
-        fail(f"{path}: {empty_error}")
+        fail(f"{path}: input contains no rows")
 
-    malformed_row = next(
-        (
-            row_number
-            for row_number, row in enumerate(rows, start=2)
-            if None in row
-            or any(value is None for value in row.values())
-        ),
-        None,
-    )
-    if malformed_row is not None:
-        fail(
-            f"{path}: row {malformed_row} has malformed "
-            "CSV field count"
-        )
+    for row_number, row in enumerate(rows, start=2):
+        if None in row or any(value is None for value in row.values()):
+            fail(
+                f"{path}: row {row_number} has malformed "
+                "CSV field count"
+            )
 
     return rows
-
-
-def read_input(path):
-    return _read_validated_rows(
-        path,
-        columns=INPUT_COLUMNS,
-        label=f"survivor input {path}",
-        read_error="unable to read CSV",
-        empty_error="input contains no rows",
-    )
-
 
 
 def discover_inputs() -> list[tuple[int, Path]]:
@@ -250,26 +229,6 @@ def discover_inputs() -> list[tuple[int, Path]]:
     return discovered
 
 
-def _register_game_identity(
-    game_ids: set[str],
-    *,
-    game_id: str,
-    away_team: str,
-    home_team: str,
-    index: int,
-    input_path: Path,
-) -> None:
-    if not game_id:
-        fail(f"Row {index}: game_id is blank")
-    if game_id in game_ids:
-        fail(f"{input_path}: duplicate game_id {game_id}")
-    if not away_team:
-        fail(f"Row {index}: away_team is blank")
-    if not home_team:
-        fail(f"Row {index}: home_team is blank")
-    game_ids.add(game_id)
-
-
 def validate_input_rows(
     rows: list[dict[str, str]],
     week: int,
@@ -302,14 +261,22 @@ def validate_input_rows(
         away_team = clean(row["away_team"])
         home_team = clean(row["home_team"])
 
-        _register_game_identity(
-            game_ids,
-            game_id=game_id,
-            away_team=away_team,
-            home_team=home_team,
-            index=index,
-            input_path=input_path,
-        )
+        if not game_id:
+            fail(f"Row {index}: game_id is blank")
+
+        if game_id in game_ids:
+            fail(
+                f"{input_path}: duplicate game_id "
+                f"{game_id}"
+            )
+
+        game_ids.add(game_id)
+
+        if not away_team:
+            fail(f"Row {index}: away_team is blank")
+
+        if not home_team:
+            fail(f"Row {index}: home_team is blank")
 
         if away_team == home_team:
             fail(
@@ -410,14 +377,22 @@ def build_output(rows, week, input_path):
                 f"found {row_week!r}"
             )
 
-        _register_game_identity(
-            game_ids,
-            game_id=game_id,
-            away_team=away_team,
-            home_team=home_team,
-            index=index,
-            input_path=input_path,
-        )
+        if not game_id:
+            fail(f"Row {index}: game_id is blank")
+
+        if game_id in game_ids:
+            fail(
+                f"{input_path}: duplicate game_id "
+                f"{game_id}"
+            )
+
+        game_ids.add(game_id)
+
+        if not away_team:
+            fail(f"Row {index}: away_team is blank")
+
+        if not home_team:
+            fail(f"Row {index}: home_team is blank")
 
         home_spread = parse_float(
             row["predicted_home_spread"],
@@ -465,7 +440,7 @@ def build_output(rows, week, input_path):
         )
 
     output.sort(
-        key=lambda sort_row: sort_row["pt_diff"],
+        key=lambda row: row["pt_diff"],
         reverse=True,
     )
 
@@ -509,7 +484,7 @@ def expected_output_rows(
         )
 
     expected.sort(
-        key=lambda sort_row: sort_row["pt_diff"],
+        key=lambda row: row["pt_diff"],
         reverse=True,
     )
     return expected
@@ -617,14 +592,36 @@ def write_staged_output(
 
 
 def read_output(path: Path) -> list[dict[str, str]]:
-    return _read_validated_rows(
+    validate_header(
         path,
-        columns=OUTPUT_COLUMNS,
-        label=f"survivor output {path}",
-        read_error="unable to read survivor output",
-        empty_error="survivor output contains no rows",
+        OUTPUT_COLUMNS,
+        f"survivor output {path}",
     )
 
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            rows = list(csv.DictReader(handle))
+    except Exception as exc:
+        fail(
+            f"{path}: unable to read survivor output: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if not rows:
+        fail(f"{path}: survivor output contains no rows")
+
+    for row_number, row in enumerate(rows, start=2):
+        if None in row or any(value is None for value in row.values()):
+            fail(
+                f"{path}: row {row_number} has malformed "
+                "CSV field count"
+            )
+
+    return rows
 
 
 def validate_serialized_output(

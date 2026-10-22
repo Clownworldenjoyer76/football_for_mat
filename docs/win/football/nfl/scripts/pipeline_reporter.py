@@ -474,7 +474,7 @@ class PipelineReporter:
                 temp_path.unlink(
                     missing_ok=True
                 )
-            except OSError:
+            except Exception:
                 pass
 
             raise
@@ -556,7 +556,7 @@ def _json_default(
 
             return scalar
 
-        except (TypeError, ValueError):
+        except Exception:
             pass
 
     return str(value)
@@ -619,7 +619,7 @@ def _emit_reporting_failure(
 
         sys.stderr.flush()
 
-    except (OSError, ValueError, UnicodeError):
+    except Exception:
         pass
 
 

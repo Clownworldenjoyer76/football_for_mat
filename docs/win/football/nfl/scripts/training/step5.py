@@ -127,19 +127,17 @@ def require_columns(
         )
 
 
-def _validated_numeric_series(
+def normalize_integer_key(
     series: pd.Series,
     column_name: str,
-    *,
-    invalid_label: str,
 ) -> pd.Series:
-    converted = pd.to_numeric(
+    numeric = pd.to_numeric(
         series,
         errors="coerce",
     )
 
     bad = (
-        converted.isna()
+        numeric.isna()
         & series.notna()
         & series.astype(str).str.strip().ne("")
     )
@@ -154,21 +152,9 @@ def _validated_numeric_series(
         )
 
         raise ValueError(
-            f"{column_name}: {invalid_label}: "
+            f"{column_name}: invalid numeric key values: "
             + ", ".join(values)
         )
-
-    return converted
-
-def normalize_integer_key(
-    series: pd.Series,
-    column_name: str,
-) -> pd.Series:
-    numeric = _validated_numeric_series(
-        series,
-        column_name,
-        invalid_label='invalid numeric key values',
-    )
 
     non_integer = (
         numeric.notna()
@@ -207,11 +193,30 @@ def numeric_metric(
     series: pd.Series,
     column_name: str,
 ) -> pd.Series:
-    converted = _validated_numeric_series(
+    converted = pd.to_numeric(
         series,
-        column_name,
-        invalid_label='non-numeric metric values',
+        errors="coerce",
     )
+
+    bad = (
+        converted.isna()
+        & series.notna()
+        & series.astype(str).str.strip().ne("")
+    )
+
+    if bad.any():
+        values = (
+            series.loc[bad]
+            .astype(str)
+            .drop_duplicates()
+            .head(10)
+            .tolist()
+        )
+
+        raise ValueError(
+            f"{column_name}: non-numeric metric values: "
+            + ", ".join(values)
+        )
 
     return converted
 

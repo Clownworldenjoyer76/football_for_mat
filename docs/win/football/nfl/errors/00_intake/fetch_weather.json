@@ -1,62 +1,62 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-35914940242-attempt-1",
+  "run_id": "github-39761405104-attempt-1",
   "status": "WARNING",
   "exit_code": 0,
   "pipeline": "NFL",
   "league": "NFL",
   "stage": "00_intake",
   "script": "fetch_weather.py",
-  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/fetch_weather.py",
-  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/fetch_weather.json",
-  "started_at_utc": "2026-09-23T20:23:07.284436+00:00",
-  "finished_at_utc": "2026-09-23T20:23:41.758320+00:00",
-  "duration_seconds": 34.474,
+  "script_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/scripts/00_intake/fetch_weather.py",
+  "report_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/errors/00_intake/fetch_weather.json",
+  "started_at_utc": "2026-10-22T10:22:39.015407+00:00",
+  "finished_at_utc": "2026-10-22T10:23:05.838590+00:00",
+  "duration_seconds": 26.823,
   "environment": {
-    "hostname": "runnervmtr4k5",
-    "python_version": "3.11.16",
-    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "hostname": "runnervm8k3b6",
+    "python_version": "3.11.17",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.17/x64/bin/python",
     "platform": "linux",
-    "process_id": 2710,
-    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "35914940242",
+    "process_id": 2882,
+    "working_directory": "/home/runner/work/bet_tracker/bet_tracker",
+    "github_run_id": "39761405104",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "530bec1a26f1a740263681c6c8971a30be5c2ffb",
+    "github_sha": "5c45c69582d3567d738402837da5e39ca08657ad",
     "github_actor": "Clownworldenjoyer76",
-    "github_repository": "Clownworldenjoyer76/football_for_mat"
+    "github_repository": "Clownworldenjoyer76/bet_tracker"
   },
   "context": {
     "season": 2026,
-    "week": 3,
+    "week": 7,
     "component": "weather fetch"
   },
   "inputs": [
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/schedule/weekly/week_3_NFL_weekly_schedule.csv",
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv",
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/weather/week_3_NFL_weekly_weather.csv"
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/00_intake/schedule/weekly/week_7_NFL_weekly_schedule.csv",
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv",
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/data/weather/week_7_NFL_weekly_weather.csv"
   ],
   "outputs": [
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/weather/week_3_NFL_weekly_weather.csv",
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/fetch_weather.txt"
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/data/weather/week_7_NFL_weekly_weather.csv",
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/errors/00_intake/fetch_weather.txt"
   ],
-  "rows_in": 16,
-  "rows_out": 16,
+  "rows_in": 14,
+  "rows_out": 14,
   "warning_count": 1,
   "error_count": 0,
   "warnings": [
     {
-      "timestamp_utc": "2026-09-23T20:23:41.755849+00:00",
+      "timestamp_utc": "2026-10-22T10:23:05.836577+00:00",
       "message": "One or more games could not be fully joined to usable stadium coordinates",
       "details": {
         "count": 1,
         "examples": [
           {
-            "game_id": "401872960",
-            "stadium": "Maracanã Stadium",
-            "home_team": "Dallas Cowboys"
+            "game_id": "401873011",
+            "stadium": "Stade de France",
+            "home_team": "New Orleans Saints"
           }
         ]
       }
@@ -65,10 +65,10 @@
   "errors": [],
   "details": {
     "season": 2026,
-    "week": 3,
-    "schedule_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/schedule/weekly/week_3_NFL_weekly_schedule.csv",
-    "stadium_map_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv",
-    "output_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/weather/week_3_NFL_weekly_weather.csv",
+    "week": 7,
+    "schedule_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/00_intake/schedule/weekly/week_7_NFL_weekly_schedule.csv",
+    "stadium_map_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv",
+    "output_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/data/weather/week_7_NFL_weekly_weather.csv",
     "provider_endpoint": "https://api.met.no/weatherapi/locationforecast/2.0/complete",
     "request_attempts": 4,
     "request_timeout_seconds": 20,
@@ -76,19 +76,19 @@
     "publication_mode": "staged_atomic_replace",
     "publication_completed": true,
     "staged_roundtrip_verified": true,
-    "schedule_rows": 16,
-    "schedule_game_ids": 16,
-    "existing_weather_rows": 16,
+    "schedule_rows": 14,
+    "schedule_game_ids": 14,
+    "existing_weather_rows": 14,
     "past_rows_preserved": 0,
     "past_rows_created_without_fetch": 0,
-    "future_fetch_success": 15,
+    "future_fetch_success": 13,
     "forecast_unavailable": 0,
     "provider_failures": 0,
     "provider_failures_preserved_existing": 0,
     "missing_stadium_matches": 1,
     "missing_coordinates": 0,
-    "provider_request_attempts": 15,
-    "rows_published": 16,
+    "provider_request_attempts": 13,
+    "rows_published": 14,
     "legacy_log_written": true
   }
 }

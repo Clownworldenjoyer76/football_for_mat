@@ -2,6 +2,7 @@
 """Build cumulative NFL opening-odds and market-movement history."""
 
 from __future__ import annotations
+from typing import NoReturn
 
 import argparse
 import csv
@@ -15,7 +16,7 @@ import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -27,8 +28,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import read_csv_contract
-from odds_contract import EXPECTED_MARKET_SIDES
 
 WEEKLY_DIR = NFL_ROOT / "00_intake" / "schedule" / "weekly"
 OPENERS_DIR = NFL_ROOT / "00_intake" / "odds" / "openers"
@@ -89,6 +88,14 @@ SNAPSHOT_REQUIRED_COLUMNS = [
     "bookmaker",
 ]
 
+EXPECTED_MARKET_SIDES = {
+    ("h2h", "home"),
+    ("h2h", "away"),
+    ("spreads", "home"),
+    ("spreads", "away"),
+    ("totals", "over"),
+    ("totals", "under"),
+}
 
 
 class OpeningOddsError(RuntimeError):
@@ -109,7 +116,7 @@ def log(message: str) -> None:
         handle.write(f"[{utc_now_iso()}] {message}\n")
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> NoReturn:
     log(f"ERROR: {message}")
     raise OpeningOddsError(message)
 
@@ -155,15 +162,44 @@ def read_csv(
     allow_empty: bool = False,
     exact_columns: list[str] | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
-    return read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        required_columns=required_columns,
-        exact_columns=exact_columns,
-        allow_empty=allow_empty,
-    )
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
 
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    missing = [
+        column
+        for column in required_columns
+        if column not in fieldnames
+    ]
+    if missing:
+        fail(f"{label} missing columns: {missing}")
+
+    if exact_columns is not None and fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected headers: "
+            f"{fieldnames}; expected {exact_columns}"
+        )
+
+    if not rows and not allow_empty:
+        fail(f"{label} contains no data rows: {path}")
+
+    return fieldnames, rows
 
 
 def to_float(value: Any) -> float | None:

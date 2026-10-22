@@ -13,7 +13,7 @@ import sys
 import tempfile
 from datetime import date
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -97,7 +97,7 @@ TEAM_SCORE_LABELS = {
 }
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
@@ -385,13 +385,27 @@ def validate_source_rows(
             row_number,
         )
 
-        (
-            home_score,
-            away_score,
-            predicted_margin,
-            predicted_total,
-        ) = parse_projection_numbers(
-            row,
+        home_score = parse_number(
+            row.get("predicted_home_score"),
+            "predicted_home_score",
+            source_file,
+            row_number,
+        )
+        away_score = parse_number(
+            row.get("predicted_away_score"),
+            "predicted_away_score",
+            source_file,
+            row_number,
+        )
+        predicted_margin = parse_number(
+            row.get("predicted_margin"),
+            "predicted_margin",
+            source_file,
+            row_number,
+        )
+        predicted_total = parse_number(
+            row.get("predicted_total"),
+            "predicted_total",
             source_file,
             row_number,
         )
@@ -428,27 +442,6 @@ def validate_source_rows(
     }
 
 
-def parse_projection_numbers(
-    row: dict[str, str],
-    source_file: Path,
-    row_number: int,
-) -> tuple[float, float, float, float]:
-    fields = (
-        "predicted_home_score",
-        "predicted_away_score",
-        "predicted_margin",
-        "predicted_total",
-    )
-    return tuple(
-        parse_number(
-            row.get(field),
-            field,
-            source_file,
-            row_number,
-        )
-        for field in fields
-    )
-
 def build_output_row(
     row: dict[str, str],
     source_file: Path,
@@ -457,13 +450,27 @@ def build_output_row(
     away_team = clean(row.get("away_team"))
     home_team = clean(row.get("home_team"))
 
-    (
-        home_score,
-        away_score,
-        predicted_margin,
-        predicted_total,
-    ) = parse_projection_numbers(
-        row,
+    home_score = parse_number(
+        row.get("predicted_home_score"),
+        "predicted_home_score",
+        source_file,
+        row_number,
+    )
+    away_score = parse_number(
+        row.get("predicted_away_score"),
+        "predicted_away_score",
+        source_file,
+        row_number,
+    )
+    predicted_margin = parse_number(
+        row.get("predicted_margin"),
+        "predicted_margin",
+        source_file,
+        row_number,
+    )
+    predicted_total = parse_number(
+        row.get("predicted_total"),
+        "predicted_total",
         source_file,
         row_number,
     )

@@ -25,7 +25,7 @@ import sys
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 from zoneinfo import ZoneInfo
 
 
@@ -39,7 +39,7 @@ SETTINGS_PATH = NFL_ROOT / "config" / "settings.yaml"
 OUTPUT = NFL_ROOT / "pipeline_health.json"
 LOG = ERRORS / "pipeline_health.txt"
 FRONTEND_OUTPUT = REPO_ROOT / "frontend" / "data" / "pipeline_health" / "nfl.json"
-DASHBOARD_OUTPUT = REPO_ROOT / "frontend" / "nfl_dashboard.html"
+DASHBOARD_OUTPUT = REPO_ROOT / "frontend" / "data" / "dashboards" / "nfl.json"
 
 NY = ZoneInfo("America/New_York")
 WORKFLOW_KEY = "nfl_01"
@@ -103,7 +103,7 @@ REPORT_DIMENSIONS = {
 }
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
@@ -493,6 +493,47 @@ def collect_artifact_health(
                 )
 
     if projection is not None:
+        preserved_started_ids: set[str] = set()
+        schedule_path = artifact_specs(settings)["weekly_schedule"]["path"]
+
+        if scheduled is not None:
+            try:
+                _, schedule_rows = read_csv_rows(
+                    schedule_path,
+                    required_columns={
+                        "game_id", "game_date", "game_time", "game_timezone"
+                    },
+                    allow_empty=False,
+                )
+                now_utc = datetime.now(UTC)
+
+                for schedule_row in schedule_rows:
+                    game_id = clean(schedule_row["game_id"])
+                    if game_id in projection:
+                        continue
+
+                    game_date = clean(schedule_row["game_date"])
+                    game_time = clean(schedule_row["game_time"])
+                    game_timezone = clean(schedule_row["game_timezone"])
+
+                    if not game_date or not game_time or not game_timezone:
+                        fail(
+                            f"Missing kickoff metadata for preserved game_id={game_id}"
+                        )
+
+                    kickoff = datetime.strptime(
+                        f"{game_date} {game_time}",
+                        "%Y-%m-%d %H:%M",
+                    ).replace(tzinfo=ZoneInfo(game_timezone))
+
+                    if kickoff.astimezone(UTC) <= now_utc:
+                        preserved_started_ids.add(game_id)
+
+            except Exception as exc:
+                fatals.append(
+                    f"preserved_started_games: {type(exc).__name__}: {exc}"
+                )
+
         for name in (
             "selected_candidates",
             "root_picks",
@@ -503,14 +544,22 @@ def collect_artifact_health(
             ids = id_sets.get(name)
             if ids is None:
                 continue
+
             missing = sorted(projection - ids)
             extra = sorted(ids - projection)
+            allowed_preserved = sorted(set(extra) & preserved_started_ids)
+            unexpected = sorted(set(extra) - preserved_started_ids)
+
             artifacts[name]["missing_projection_game_ids"] = missing
             artifacts[name]["extra_projection_game_ids"] = extra
-            if missing or extra:
+            artifacts[name]["preserved_started_game_ids"] = allowed_preserved
+            artifacts[name]["unexpected_extra_game_ids"] = unexpected
+
+            if missing or unexpected:
                 fatals.append(
-                    f"{name}: game_id set does not match projection "
-                    f"(missing={len(missing)} extra={len(extra)})"
+                    f"{name}: current projection mismatch "
+                    f"(missing={len(missing)} "
+                    f"unexpected_extra={len(unexpected)})"
                 )
 
     root_picks = artifacts.get("root_picks", {})
@@ -743,7 +792,7 @@ def collect_structured_report_health(
                 continue
             try:
                 payload = read_json_object(path, required=True)
-            except RuntimeError:
+            except Exception:
                 continue
             if not report_is_current(
                 payload,
@@ -1030,7 +1079,7 @@ def main() -> int:
         )
         try:
             LOG.write_text(fallback, encoding="utf-8")
-        except (OSError, UnicodeError):
+        except Exception:
             pass
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 1

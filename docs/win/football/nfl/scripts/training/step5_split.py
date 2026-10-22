@@ -219,7 +219,7 @@ def split_source() -> tuple[
     total_rows = 0
 
     handles: dict[str, object] = {}
-    writers = {}
+    writers: dict[str, csv.writer] = {}
 
     try:
         with SOURCE_PATH.open(
@@ -301,7 +301,7 @@ def split_source() -> tuple[
         for handle in handles.values():
             try:
                 handle.close()
-            except OSError:
+            except Exception:
                 pass
 
     if total_rows == 0:
@@ -517,9 +517,9 @@ if __name__ == "__main__":
         raise SystemExit(
             main()
         )
-    except Exception as main_error:
+    except Exception as exc:
         print(
-            f"ERROR: {main_error}",
+            f"ERROR: {exc}",
             file=sys.stderr,
         )
         raise

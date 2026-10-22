@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Shared production inference for the market-independent NFL v4 models."""
 from __future__ import annotations
-from typing import Any
 
 import json
 from pathlib import Path
@@ -30,16 +29,17 @@ def load_json(path: Path) -> dict:
     if not path.is_file():
         raise FileNotFoundError(f"Missing v4 production artifact: {path}")
     with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        _qodana_return_value = json.load(handle)
+    return _qodana_return_value
 
 
-def clean_text(value: Any) -> str:
+def clean_text(value: object) -> str:
     if value is None:
         return ""
     try:
         if pd.isna(value):
             return ""
-    except (TypeError, ValueError):
+    except Exception:
         pass
     text = str(value).strip()
     if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:

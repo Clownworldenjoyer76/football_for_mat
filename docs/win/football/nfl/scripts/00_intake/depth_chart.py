@@ -6,6 +6,7 @@ the complete 32-team result, and publish atomically.
 """
 
 from __future__ import annotations
+from typing import NoReturn
 
 import argparse
 import csv
@@ -18,7 +19,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -28,8 +29,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import read_csv_contract
-from team_contract import build_team_abbr_map
 
 DEPTHCHART_URL_TEMPLATE = (
     "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/"
@@ -77,7 +76,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> NoReturn:
     raise DepthChartPullError(message)
 
 
@@ -195,24 +194,78 @@ def fetch_json(
 
 
 def load_canonical_teams() -> dict[str, str]:
-    _, rows = read_csv_contract(
-        TEAM_MAP_PATH,
-        label="team map",
-        fail=fail,
-        required_columns=[
-            "sport",
-            "league",
-            "team_id",
-            "team_abbr",
-        ],
-    )
-    return build_team_abbr_map(
-        rows,
-        path=TEAM_MAP_PATH,
-        clean=clean,
-        fail=fail,
-    )
+    if not TEAM_MAP_PATH.is_file():
+        fail(f"Missing team map: {TEAM_MAP_PATH}")
 
+    if TEAM_MAP_PATH.stat().st_size == 0:
+        fail(f"Zero-byte team map: {TEAM_MAP_PATH}")
+
+    with TEAM_MAP_PATH.open(
+        "r",
+        newline="",
+        encoding="utf-8-sig",
+    ) as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        rows = list(reader)
+
+    required = {
+        "sport",
+        "league",
+        "team_id",
+        "team_abbr",
+    }
+    missing = sorted(required - set(fieldnames))
+
+    if missing:
+        fail(
+            f"Team map missing required columns: {missing}"
+        )
+
+    by_id: dict[str, str] = {}
+    by_abbr: dict[str, str] = {}
+
+    for row in rows:
+        if clean(row.get("sport")).lower() != "football":
+            continue
+        if clean(row.get("league")).lower() != "nfl":
+            continue
+
+        team_id = clean(row.get("team_id"))
+        team_abbr = clean(row.get("team_abbr")).upper()
+
+        if not team_id or not team_abbr:
+            fail(
+                "NFL team map contains blank team_id/team_abbr"
+            )
+
+        previous_abbr = by_id.get(team_id)
+        if previous_abbr and previous_abbr != team_abbr:
+            fail(
+                "NFL team map has conflicting abbreviations "
+                f"for team_id={team_id}: "
+                f"{previous_abbr!r} vs {team_abbr!r}"
+            )
+
+        previous_id = by_abbr.get(team_abbr)
+        if previous_id and previous_id != team_id:
+            fail(
+                "NFL team map has conflicting team IDs "
+                f"for team_abbr={team_abbr}: "
+                f"{previous_id!r} vs {team_id!r}"
+            )
+
+        by_id[team_id] = team_abbr
+        by_abbr[team_abbr] = team_id
+
+    if len(by_id) != 32 or len(by_abbr) != 32:
+        fail(
+            "Canonical NFL team map must contain exactly "
+            f"32 unique teams; ids={len(by_id)} "
+            f"abbrs={len(by_abbr)}"
+        )
+
+    return by_id
 
 
 
@@ -434,6 +487,12 @@ def build_old_shape(
                         f"athlete_index={athlete_index}"
                     )
 
+                context = (
+                    f"team_id={team_id} "
+                    f"chart_id={chart_id} "
+                    f"position_key={pos_key} "
+                    f"athlete_index={athlete_index}"
+                )
                 rank = rank_value(
                     athlete_entry
                 )
@@ -690,6 +749,7 @@ def validate_flat_rows(
             )
 
         team_athlete_entries = 0
+        team_qb_entries = 0
 
         for id_column in athlete_id_columns:
             match = ATHLETE_ID_COLUMN_PATTERN.fullmatch(
@@ -698,8 +758,13 @@ def validate_flat_rows(
             if match is None:
                 continue
 
+            depth_num, position_key, _ = match.groups()
             player_id = clean(row.get(id_column))
             prefix = id_column[:-3]
+            position_column = (
+                f"depthchart.{depth_num}.positions."
+                f"{position_key}.position.abbreviation"
+            )
             name_column = f"{prefix}.displayName"
             guid_column = f"{prefix}.guid"
             uid_column = f"{prefix}.uid"
@@ -752,9 +817,19 @@ def validate_flat_rows(
             team_athlete_entries += 1
             athlete_entries += 1
 
+            if clean(row.get(position_column)).upper() == "QB":
+                team_qb_entries += 1
+
         if team_athlete_entries == 0:
             fail(
                 "Raw depth chart team row contains no athletes "
+                f"team_id={team_id} "
+                f"team_abbr={team_abbr}"
+            )
+
+        if team_qb_entries == 0:
+            fail(
+                "Raw depth chart team row contains no QB depth-chart rows "
                 f"team_id={team_id} "
                 f"team_abbr={team_abbr}"
             )
@@ -832,12 +907,22 @@ def write_staged_csv(
 def read_csv(
     path: Path,
 ) -> tuple[list[str], list[dict[str, str]]]:
-    return read_csv_contract(
-        path,
-        label="staged raw depth file",
-        fail=fail,
-    )
+    if not path.is_file():
+        fail(f"Staged raw depth file missing: {path}")
 
+    if path.stat().st_size == 0:
+        fail(f"Staged raw depth file is zero bytes: {path}")
+
+    with path.open(
+        "r",
+        newline="",
+        encoding="utf-8-sig",
+    ) as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        rows = list(reader)
+
+    return fieldnames, rows
 
 
 def main() -> None:

@@ -138,20 +138,17 @@ STEP6_COLUMNS = [
 
 
 def read_csv(path: Path) -> pd.DataFrame:
-    try:
-        path.stat()
-    except FileNotFoundError as file_error:
+    if not path.exists():
         raise FileNotFoundError(
             f"Missing input file: {path}"
-        ) from file_error
+        )
 
-    options = {
-        "dtype": str,
-        "encoding": "utf-8-sig",
-        "low_memory": False,
-    }
-    return pd.read_csv(path, **options)
-
+    return pd.read_csv(
+        path,
+        dtype=str,
+        encoding="utf-8-sig",
+        low_memory=False,
+    )
 
 
 def require_columns(
@@ -159,52 +156,42 @@ def require_columns(
     required: list[str],
     label: str,
 ) -> None:
-    missing = list(
-        filter(
-            lambda column: column not in df.columns,
-            required,
-        )
-    )
+    missing = [
+        column
+        for column in required
+        if column not in df.columns
+    ]
+
     if missing:
         raise ValueError(
             f"{label}: missing required columns: {missing}"
         )
 
 
-
-def _invalid_numeric_mask(
-    series: pd.Series,
-    converted: pd.Series,
-) -> pd.Series:
-    return (
-        converted.isna()
-        & series.notna()
-        & series.astype(str).str.strip().ne("")
-    )
-
-
-def _sample_invalid_values(
-    series: pd.Series,
-    mask: pd.Series,
-) -> list[str]:
-    return (
-        series.loc[mask]
-        .astype(str)
-        .drop_duplicates()
-        .head(10)
-        .tolist()
-    )
-
-
 def normalize_integer_key(
     series: pd.Series,
     column_name: str,
 ) -> pd.Series:
-    numeric = pd.to_numeric(series, errors="coerce")
-    bad = _invalid_numeric_mask(series, numeric)
+    numeric = pd.to_numeric(
+        series,
+        errors="coerce",
+    )
+
+    bad = (
+        numeric.isna()
+        & series.notna()
+        & series.astype(str).str.strip().ne("")
+    )
 
     if bad.any():
-        values = _sample_invalid_values(series, bad)
+        values = (
+            series.loc[bad]
+            .astype(str)
+            .drop_duplicates()
+            .head(10)
+            .tolist()
+        )
+
         raise ValueError(
             f"{column_name}: invalid numeric values: "
             + ", ".join(values)
@@ -214,18 +201,22 @@ def normalize_integer_key(
         numeric.notna()
         & ((numeric % 1).abs() > 1e-9)
     )
+
     if non_integer.any():
-        values = _sample_invalid_values(
-            series,
-            non_integer,
+        values = (
+            series.loc[non_integer]
+            .astype(str)
+            .drop_duplicates()
+            .head(10)
+            .tolist()
         )
+
         raise ValueError(
             f"{column_name}: non-integer values: "
             + ", ".join(values)
         )
 
     return numeric.astype("Int64")
-
 
 
 def normalize_player_id(
@@ -242,18 +233,32 @@ def numeric_metric(
     series: pd.Series,
     column_name: str,
 ) -> pd.Series:
-    converted = pd.to_numeric(series, errors="coerce")
-    bad = _invalid_numeric_mask(series, converted)
+    converted = pd.to_numeric(
+        series,
+        errors="coerce",
+    )
+
+    bad = (
+        converted.isna()
+        & series.notna()
+        & series.astype(str).str.strip().ne("")
+    )
 
     if bad.any():
-        values = _sample_invalid_values(series, bad)
+        values = (
+            series.loc[bad]
+            .astype(str)
+            .drop_duplicates()
+            .head(10)
+            .tolist()
+        )
+
         raise ValueError(
             f"{column_name}: non-numeric values: "
             + ", ".join(values)
         )
 
     return converted
-
 
 
 def load_qb_stats(

@@ -8,6 +8,7 @@ Endpoint:
 """
 
 from __future__ import annotations
+from typing import NoReturn
 
 import argparse
 import csv
@@ -20,7 +21,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -30,9 +31,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from team_contract import build_team_name_maps
-from csv_contract import write_csv_contract, normalize_csv_rows
-from csv_contract import read_csv_contract
 
 INJURIES_URL = (
     "https://site.api.espn.com/apis/site/v2/"
@@ -71,7 +69,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> NoReturn:
     raise InjuryPullError(message)
 
 
@@ -103,14 +101,51 @@ def read_csv(
     required_columns: list[str] | None = None,
     exact_columns: list[str] | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
-    return read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        required_columns=required_columns,
-        exact_columns=exact_columns,
-        allow_empty=True,
-    )
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
+
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
+
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if not fieldnames:
+        fail(f"{label} has no CSV header: {path}")
+
+    if len(fieldnames) != len(set(fieldnames)):
+        fail(f"{label} contains duplicate CSV columns: {path}")
+
+    if required_columns:
+        missing = [
+            column
+            for column in required_columns
+            if column not in fieldnames
+        ]
+        if missing:
+            fail(
+                f"{label} missing expected columns: {missing}"
+            )
+
+    if exact_columns is not None and fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected column order/schema. "
+            f"Expected={exact_columns} actual={fieldnames}"
+        )
+
+    return fieldnames, rows
 
 
 def load_canonical_team_names() -> set[str]:
@@ -124,14 +159,52 @@ def load_canonical_team_names() -> set[str]:
             "canonical_team",
         ],
     )
-    by_name, _ = build_team_name_maps(
-        rows,
-        path=TEAM_MAP_PATH,
-        clean=clean,
-        fail=fail,
-    )
-    return set(by_name)
 
+    by_id: dict[str, str] = {}
+    by_name: dict[str, str] = {}
+
+    for line_number, row in enumerate(rows, start=2):
+        sport = clean(row.get("sport")).casefold()
+        league = clean(row.get("league")).casefold()
+
+        if sport != "football" or league != "nfl":
+            continue
+
+        team_id = clean(row.get("team_id"))
+        canonical_team = clean(row.get("canonical_team"))
+
+        if not team_id or not canonical_team:
+            fail(
+                f"{TEAM_MAP_PATH} line {line_number} has "
+                "blank team_id/canonical_team"
+            )
+
+        previous_name = by_id.get(team_id)
+        if previous_name and previous_name != canonical_team:
+            fail(
+                f"{TEAM_MAP_PATH} has conflicting canonical team "
+                f"names for team_id={team_id}: "
+                f"{previous_name!r} vs {canonical_team!r}"
+            )
+
+        previous_id = by_name.get(canonical_team)
+        if previous_id and previous_id != team_id:
+            fail(
+                f"{TEAM_MAP_PATH} has conflicting team IDs for "
+                f"canonical_team={canonical_team!r}: "
+                f"{previous_id!r} vs {team_id!r}"
+            )
+
+        by_id[team_id] = canonical_team
+        by_name[canonical_team] = team_id
+
+    if len(by_id) != 32 or len(by_name) != 32:
+        fail(
+            "Canonical NFL team map must resolve exactly 32 teams; "
+            f"ids={len(by_id)} names={len(by_name)}"
+        )
+
+    return set(by_name)
 
 
 def fetch_json(
@@ -444,23 +517,31 @@ def write_csv(
     path: Path,
     rows: list[dict[str, str]],
 ) -> None:
-    write_csv_contract(
-        path,
-        rows,
-        fieldnames=OUTPUT_HEADERS,
-    )
-
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OUTPUT_HEADERS,
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def normalize_rows(
     rows: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-    return normalize_csv_rows(
-        rows,
-        fieldnames=OUTPUT_HEADERS,
-        clean=clean,
-    )
-
+    return [
+        {
+            column: clean(row.get(column))
+            for column in OUTPUT_HEADERS
+        }
+        for row in rows
+    ]
 
 
 def publish(

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Build the configured NFL weekly schedule from schedule and current odds."""
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import tempfile
 import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -23,10 +23,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from odds_contract import (
-    EXPECTED_MARKET_SIDES,
-    ODDS_OUTPUT_COLUMNS as ODDS_REQUIRED_COLUMNS,
-)
 
 SCHEDULE_DIR = NFL_ROOT / "00_intake" / "schedule"
 WEEKLY_DIR = SCHEDULE_DIR / "weekly"
@@ -91,6 +87,39 @@ SCHEDULE_REQUIRED_COLUMNS = [
     "game_timezone",
 ]
 
+ODDS_REQUIRED_COLUMNS = [
+    "snapshot_id",
+    "snapshot_fetched_at",
+    "game_id",
+    "commence_time",
+    "home_team",
+    "away_team",
+    "bookmaker",
+    "market_type",
+    "bet_side",
+    "line",
+    "odds_american",
+    "odds_decimal",
+    "last_update",
+    "home_moneyline_american",
+    "away_moneyline_american",
+    "home_spread",
+    "away_spread",
+    "home_spread_american",
+    "away_spread_american",
+    "total",
+    "over_american",
+    "under_american",
+]
+
+EXPECTED_MARKET_SIDES = {
+    ("h2h", "home"),
+    ("h2h", "away"),
+    ("spreads", "home"),
+    ("spreads", "away"),
+    ("totals", "over"),
+    ("totals", "under"),
+}
 
 OBSERVED_ODDS_TEAM_MAP = {
     "Arizona": "Arizona Cardinals",
@@ -146,7 +175,7 @@ def log(message: str) -> None:
         handle.write(f"[{utc_now_iso()}] {message}\n")
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     log(f"ERROR: {message}")
     raise WeeklyScheduleError(message)
 
@@ -206,27 +235,22 @@ def read_csv(
 
 
 def parse_iso_datetime(value: Any, label: str) -> datetime:
-    raw_text = clean(value)
-    if not raw_text:
+    text = clean(value)
+    if not text:
         fail(f"{label} is blank")
 
-    normalized_text = (
-        f"{raw_text[:-1]}+00:00"
-        if raw_text.endswith("Z")
-        else raw_text
-    )
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
 
     try:
-        timestamp = datetime.fromisoformat(normalized_text)
+        parsed = datetime.fromisoformat(text)
     except ValueError:
-        fail(
-            f"{label} is not a valid ISO timestamp: {value!r}"
-        )
+        fail(f"{label} is not a valid ISO timestamp: {value!r}")
 
-    if timestamp.utcoffset() is None:
+    if parsed.tzinfo is None:
         fail(f"{label} has no timezone: {value!r}")
 
-    return timestamp
+    return parsed
 
 
 def parse_date(value: Any):
@@ -338,7 +362,7 @@ def load_team_map() -> dict[str, str]:
     return mapping
 
 
-def resolve_canonical_team(value: Any, team_map: dict[str, str]) -> str:
+def canonical_team(value: Any, team_map: dict[str, str]) -> str:
     raw = clean(value)
     if not raw:
         return ""
@@ -435,7 +459,7 @@ def select_odds_capture(
 
         try:
             payload = json.loads(raw_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError):
+        except Exception:
             continue
 
         if not isinstance(payload, dict):
@@ -720,8 +744,8 @@ def build_schedule_index(
     index = {}
 
     for row in schedule_rows:
-        home = resolve_canonical_team(row.get("home_team"), team_map)
-        away = resolve_canonical_team(row.get("away_team"), team_map)
+        home = canonical_team(row.get("home_team"), team_map)
+        away = canonical_team(row.get("away_team"), team_map)
         game_date = parse_date(row.get("game_date"))
 
         if not home or not away or game_date is None:
@@ -748,8 +772,8 @@ def schedule_candidate_keys(
     raw_event: dict[str, Any],
     team_map: dict[str, str],
 ) -> list[tuple[str, str, str]]:
-    odds_home = resolve_canonical_team(raw_event.get("home"), team_map)
-    odds_away = resolve_canonical_team(raw_event.get("away"), team_map)
+    odds_home = canonical_team(raw_event.get("home"), team_map)
+    odds_away = canonical_team(raw_event.get("away"), team_map)
     odds_date = parse_date(raw_event.get("date"))
 
     if not odds_home or not odds_away or odds_date is None:
@@ -886,11 +910,11 @@ def build_output_rows(
         output_rows.append(row)
 
     output_rows.sort(
-        key=lambda sort_row: (
-            clean(sort_row.get("game_date")),
-            clean(sort_row.get("game_time")),
-            clean(sort_row.get("away_team")),
-            clean(sort_row.get("home_team")),
+        key=lambda row: (
+            clean(row.get("game_date")),
+            clean(row.get("game_time")),
+            clean(row.get("away_team")),
+            clean(row.get("home_team")),
         )
     )
 
@@ -1024,13 +1048,13 @@ def publish(
                 lineterminator="\n",
             )
             writer.writeheader()
-            writer.writerows(
-                {
-                    column: row.get(column, "")
-                    for column in OUTPUT_COLUMNS
-                }
-                for row in rows
-            )
+            for row in rows:
+                writer.writerow(
+                    {
+                        column: row.get(column, "")
+                        for column in OUTPUT_COLUMNS
+                    }
+                )
             handle.flush()
             os.fsync(handle.fileno())
 

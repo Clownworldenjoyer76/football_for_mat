@@ -37,6 +37,7 @@ Spread definitions:
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import os
 import re
@@ -45,7 +46,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -58,12 +59,12 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import validate_csv_header_names
-pd: Any
 
 
 DEFAULT_INPUT_DIR = NFL_ROOT / "02_select"
 DEFAULT_OUTPUT_DIR = NFL_ROOT / "03_picks" / "all_games"
+
+pd: Any = None
 
 SOURCE_FILENAME_PATTERN = re.compile(
     r"^week_(\d+)_NFL_selected\.csv$"
@@ -119,7 +120,7 @@ def load_runtime_dependencies(
     )
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
@@ -250,13 +251,53 @@ def validate_csv_header(
     path: Path,
     label: str,
 ) -> None:
-    validate_csv_header_names(
-        path,
-        label=label,
-        clean=clean,
-        fail=fail,
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as handle:
+            reader = csv.reader(handle)
+            header = next(reader, None)
+    except UnicodeDecodeError as exc:
+        fail(
+            f"{label}: invalid UTF-8 CSV: "
+            f"{path}: {exc}"
+        )
+
+    if not header:
+        fail(
+            f"{label}: missing CSV header: "
+            f"{path}"
+        )
+
+    normalized = [
+        clean(column)
+        for column in header
+    ]
+
+    if any(
+        not column
+        for column in normalized
+    ):
+        fail(
+            f"{label}: blank CSV column name "
+            f"found: {path}"
+        )
+
+    duplicates = sorted(
+        {
+            column
+            for column in normalized
+            if normalized.count(column) > 1
+        }
     )
 
+    if duplicates:
+        fail(
+            f"{label}: duplicate CSV column "
+            f"names: {duplicates}"
+        )
 
 
 def read_csv(

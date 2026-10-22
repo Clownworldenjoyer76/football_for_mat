@@ -19,6 +19,9 @@ and one awayTeam row before any production prediction file is replaced.
 from __future__ import annotations
 
 import argparse
+import csv
+import json
+import os
 import re
 import shutil
 import sys
@@ -26,11 +29,12 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 from collections import defaultdict
-
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -40,13 +44,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from publication_contract import publish_staged_directory
-from schedule_contract import schedule_target_key
-from http_json_contract import fetch_json_object
-from team_contract import build_team_name_maps
-from csv_contract import write_csv_contract
-from value_contract import finite_decimal_text
-from csv_contract import read_csv_contract
 
 SCHEDULE_DIR = NFL_ROOT / "00_intake" / "schedule"
 TEAM_MAP_PATH = NFL_ROOT / "config" / "mapping" / "team_map.csv"
@@ -137,7 +134,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise PredictionPullError(message)
 
 
@@ -169,13 +166,54 @@ def read_csv(
     required_columns: list[str] | None = None,
     exact_columns: list[str] | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
-    return read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        required_columns=required_columns,
-        exact_columns=exact_columns,
-    )
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
+
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
+
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if not fieldnames:
+        fail(f"{label} has no CSV header: {path}")
+
+    if len(fieldnames) != len(set(fieldnames)):
+        fail(f"{label} contains duplicate CSV columns: {path}")
+
+    if required_columns:
+        missing = [
+            column
+            for column in required_columns
+            if column not in fieldnames
+        ]
+        if missing:
+            fail(
+                f"{label} missing expected columns: {missing}"
+            )
+
+    if exact_columns is not None and fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected column order/schema. "
+            f"Expected={exact_columns} actual={fieldnames}"
+        )
+
+    if not rows:
+        fail(f"{label} contains no data rows: {path}")
+
+    return fieldnames, rows
 
 
 def load_team_map() -> dict[str, str]:
@@ -184,14 +222,57 @@ def load_team_map() -> dict[str, str]:
         label="NFL team map",
         required_columns=TEAM_MAP_REQUIRED_COLUMNS,
     )
-    by_name, _ = build_team_name_maps(
-        rows,
-        path=TEAM_MAP_PATH,
-        clean=clean,
-        fail=fail,
-    )
-    return by_name
 
+    by_name: dict[str, str] = {}
+    by_id: dict[str, str] = {}
+
+    for line_number, row in enumerate(rows, start=2):
+        sport = clean(row.get("sport")).casefold()
+        league = clean(row.get("league")).casefold()
+
+        if sport != "football" or league != "nfl":
+            continue
+
+        team_id = clean(row.get("team_id"))
+        canonical_team = clean(
+            row.get("canonical_team")
+        )
+
+        if not team_id or not canonical_team:
+            fail(
+                f"{TEAM_MAP_PATH} line {line_number} has "
+                "blank team_id/canonical_team"
+            )
+
+        previous_id = by_name.get(canonical_team)
+        if previous_id and previous_id != team_id:
+            fail(
+                f"{TEAM_MAP_PATH} has conflicting team IDs for "
+                f"canonical_team={canonical_team!r}: "
+                f"{previous_id!r} vs {team_id!r}"
+            )
+
+        previous_name = by_id.get(team_id)
+        if (
+            previous_name
+            and previous_name != canonical_team
+        ):
+            fail(
+                f"{TEAM_MAP_PATH} has conflicting canonical "
+                f"teams for team_id={team_id}: "
+                f"{previous_name!r} vs {canonical_team!r}"
+            )
+
+        by_name[canonical_team] = team_id
+        by_id[team_id] = canonical_team
+
+    if len(by_name) != 32 or len(by_id) != 32:
+        fail(
+            "NFL team map must resolve exactly 32 canonical "
+            f"teams; names={len(by_name)} ids={len(by_id)}"
+        )
+
+    return by_name
 
 
 def load_schedule(
@@ -305,13 +386,61 @@ def fetch_json(
             "User-Agent": "football_for_mat/1.0",
         },
     )
-    return fetch_json_object(
-        request,
-        timeout=timeout,
-        attempts=attempts,
-        retryable_http_codes=RETRYABLE_HTTP_CODES,
-    )
 
+    last_error = ""
+
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=timeout,
+            ) as response:
+                raw = response.read()
+
+            try:
+                payload = json.loads(
+                    raw.decode("utf-8")
+                )
+            except (
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+            ) as exc:
+                last_error = (
+                    "invalid UTF-8/JSON response: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            else:
+                if isinstance(payload, dict):
+                    return payload, attempt, ""
+
+                last_error = (
+                    "response root was not a JSON object"
+                )
+
+        except urllib.error.HTTPError as exc:
+            last_error = f"HTTP {exc.code}"
+
+            if exc.code not in RETRYABLE_HTTP_CODES:
+                return None, attempt, last_error
+
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+        ) as exc:
+            last_error = (
+                f"{type(exc).__name__}: {exc}"
+            )
+
+        except Exception as exc:
+            last_error = (
+                f"{type(exc).__name__}: {exc}"
+            )
+            return None, attempt, last_error
+
+        if attempt < attempts:
+            time.sleep(2 ** (attempt - 1))
+
+    return None, attempts, last_error
 
 
 def extract_team_id(ref_url: Any) -> str:
@@ -333,14 +462,24 @@ def validate_numeric(
     *,
     label: str,
 ) -> str:
-    text, _ = finite_decimal_text(
-        value,
-        label=label,
-        clean=clean,
-        fail=fail,
-    )
-    return text
+    text = clean(value)
 
+    if not text:
+        fail(f"{label} is blank")
+
+    try:
+        number = Decimal(text)
+    except InvalidOperation:
+        fail(
+            f"{label} must be numeric; received={text!r}"
+        )
+
+    if not number.is_finite():
+        fail(
+            f"{label} must be finite; received={text!r}"
+        )
+
+    return text
 
 
 def parse_side(
@@ -648,13 +787,15 @@ def validate_generation(
 
         schedule_row = schedule_by_id[game_id]
 
-        expected_target = schedule_target_key(
-            schedule_row,
-            clean=clean,
+        expected_target = (
+            clean(schedule_row.get("season")),
+            clean(schedule_row.get("season_type")),
+            clean(schedule_row.get("week")),
         )
-        actual_target = schedule_target_key(
-            row,
-            clean=clean,
+        actual_target = (
+            clean(row.get("season")),
+            clean(row.get("season_type")),
+            clean(row.get("week")),
         )
 
         if actual_target != expected_target:
@@ -739,15 +880,14 @@ def group_rows(
     ] = defaultdict(list)
 
     for row in rows:
-        grouped[
-            schedule_target_key(
-                row,
-                clean=clean,
-            )
-        ].append(row)
+        key = (
+            clean(row.get("season")),
+            clean(row.get("season_type")),
+            clean(row.get("week")),
+        )
+        grouped[key].append(row)
 
     return dict(grouped)
-
 
 
 def expected_output_paths(
@@ -785,13 +925,24 @@ def write_csv(
     path: Path,
     rows: list[dict[str, str]],
 ) -> None:
-    write_csv_contract(
-        path,
-        rows,
-        fieldnames=OUTPUT_HEADER,
-        mkdir=True,
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OUTPUT_HEADER,
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def normalize_rows(
@@ -879,9 +1030,22 @@ def build_staged_root(
             schedule_rows
         )
 
-        schedule_by_group = group_rows(
-            schedule_rows
-        )
+        schedule_by_group: dict[
+            tuple[str, str, str],
+            list[dict[str, str]],
+        ] = defaultdict(list)
+
+        for schedule_row in schedule_rows:
+            key = (
+                clean(schedule_row.get("season")),
+                clean(
+                    schedule_row.get("season_type")
+                ),
+                clean(schedule_row.get("week")),
+            )
+            schedule_by_group[key].append(
+                schedule_row
+            )
 
         if set(rows_by_group) != set(output_paths):
             fail(
@@ -955,12 +1119,53 @@ def publish_staged_root(
     *,
     reporter: PipelineReporter,
 ) -> None:
-    publish_staged_directory(
-        stage_root,
-        output_dir=OUTPUT_DIR,
-        reporter=reporter,
-        cleanup_warning='Prediction files were published but the temporary backup directory could not be removed',
+    backup_root = (
+        OUTPUT_DIR.parent
+        / (
+            f".{OUTPUT_DIR.name}_backup_"
+            f"{uuid.uuid4().hex}"
+        )
     )
+    had_existing = OUTPUT_DIR.exists()
+
+    try:
+        if had_existing:
+            os.replace(
+                OUTPUT_DIR,
+                backup_root,
+            )
+
+        os.replace(
+            stage_root,
+            OUTPUT_DIR,
+        )
+
+    except Exception:
+        if OUTPUT_DIR.exists():
+            shutil.rmtree(
+                OUTPUT_DIR,
+                ignore_errors=True,
+            )
+
+        if backup_root.exists():
+            os.replace(
+                backup_root,
+                OUTPUT_DIR,
+            )
+
+        raise
+
+    if backup_root.exists():
+        try:
+            shutil.rmtree(backup_root)
+        except Exception as exc:
+            reporter.warning(
+                "Prediction files were published but the "
+                "temporary backup directory could not be removed",
+                backup_path=str(backup_root),
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
 
 
 def append_legacy_log(
@@ -1091,8 +1296,8 @@ def run(
             "weekly_row_counts": {
                 (
                     f"{key[0]}_{key[1]}_{key[2]}"
-                ): len(rows_for_group)
-                for key, rows_for_group
+                ): len(group_rows)
+                for key, group_rows
                 in sorted(
                     rows_by_group.items(),
                     key=lambda item: (

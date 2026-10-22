@@ -22,6 +22,7 @@ Behavior:
 """
 
 from __future__ import annotations
+from typing import NoReturn
 
 import argparse
 import csv
@@ -32,7 +33,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -45,14 +46,15 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-np: Any
-pd: Any
-yaml: Any
 
 DEFAULT_INPUT_DIR = NFL_ROOT / "02_select"
 DEFAULT_MARKETS_PATH = NFL_ROOT / "config/markets.yaml"
 DEFAULT_OUTPUT_DIR = NFL_ROOT / "03_picks"
 DEFAULT_PATTERN = "*NFL_selected.csv"
+
+np: Any = None
+pd: Any = None
+yaml: Any = None
 
 def load_runtime_dependencies(
     reporter: PipelineReporter,
@@ -147,7 +149,7 @@ MARKETS = {
 }
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> NoReturn:
     raise RuntimeError(message)
 
 
@@ -1029,25 +1031,25 @@ def validate_input(
         str(path),
     )
 
-    game_ids = df["game_id"].map(clean)
+    game_ids = df[
+        "game_id"
+    ].map(clean)
 
-    blank_count = int(game_ids.eq("").sum())
-    if blank_count:
-        fail(f"{path} contains blank game_id values")
-
-    counts = game_ids.value_counts(dropna=False)
-    repeated = counts[counts.gt(1)].index
-    if len(repeated):
-        examples = (
-            game_ids.loc[game_ids.isin(repeated)]
-            .head(10)
-            .tolist()
+    if game_ids.eq("").any():
+        fail(
+            f"{path} contains "
+            "blank game_id values"
         )
+
+    if game_ids.duplicated().any():
+        examples = game_ids[
+            game_ids.duplicated(False)
+        ].head(10).tolist()
+
         fail(
             f"{path} contains duplicate "
             f"game_id values: {examples}"
         )
-
 
 
 

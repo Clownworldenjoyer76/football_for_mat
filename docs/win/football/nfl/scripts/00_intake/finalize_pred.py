@@ -28,10 +28,11 @@ import re
 import shutil
 import sys
 import tempfile
+import uuid
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -41,10 +42,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from publication_contract import publish_staged_directory
-from schedule_contract import schedule_target_key
-from csv_contract import read_csv_contract
-from value_contract import finite_decimal_text
 
 CLEANER_PATH = SCRIPT_PATH.with_name("clean_e_pred.py")
 WEEKLY_BUILDER_PATH = SCRIPT_PATH.with_name(
@@ -123,7 +120,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise FinalizePredictionError(message)
 
 
@@ -173,14 +170,37 @@ def read_csv(
     label: str,
     exact_columns: list[str],
 ) -> list[dict[str, str]]:
-    _, rows = read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        exact_columns=exact_columns,
-    )
-    return rows
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
 
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
+
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected column order/schema. "
+            f"Expected={exact_columns} actual={fieldnames}"
+        )
+
+    if not rows:
+        fail(f"{label} contains no data rows: {path}")
+
+    return rows
 
 
 def finite_decimal(
@@ -188,14 +208,23 @@ def finite_decimal(
     *,
     label: str,
 ) -> Decimal:
-    _, value = finite_decimal_text(
-        raw,
-        label=label,
-        clean=clean,
-        fail=fail,
-    )
-    return value
+    text = clean(raw)
+    if not text:
+        fail(f"{label} is blank")
 
+    try:
+        value = Decimal(text)
+    except InvalidOperation:
+        fail(
+            f"{label} must be numeric; received={text!r}"
+        )
+
+    if not value.is_finite():
+        fail(
+            f"{label} must be finite; received={text!r}"
+        )
+
+    return value
 
 
 def optional_decimal(
@@ -512,13 +541,15 @@ def validate_weekly_file(
             )
 
         schedule_row = schedule_index[game_id]
-        actual_target = schedule_target_key(
-            row,
-            clean=clean,
+        actual_target = (
+            clean(row.get("season")),
+            clean(row.get("season_type")),
+            clean(row.get("week")),
         )
-        expected_target = schedule_target_key(
-            schedule_row,
-            clean=clean,
+        expected_target = (
+            clean(schedule_row.get("season")),
+            clean(schedule_row.get("season_type")),
+            clean(schedule_row.get("week")),
         )
 
         if actual_target != expected_target:
@@ -1071,16 +1102,13 @@ def validate_final_rows(
 def normalize_rows(
     rows: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-    normalized: list[dict[str, str]] = []
-    for row in rows:
-        normalized.append(
-            dict(
-                (header, clean(row.get(header)))
-                for header in OUT_HEADERS
-            )
-        )
-    return normalized
-
+    return [
+        {
+            header: clean(row.get(header))
+            for header in OUT_HEADERS
+        }
+        for row in rows
+    ]
 
 
 def write_csv(
@@ -1092,8 +1120,6 @@ def write_csv(
         exist_ok=True,
     )
 
-    normalized = normalize_rows(rows)
-
     with path.open(
         "w",
         newline="",
@@ -1103,17 +1129,12 @@ def write_csv(
             handle,
             fieldnames=OUT_HEADERS,
         )
-        writer.writerow(
-            {
-                header: header
-                for header in OUT_HEADERS
-            }
+        writer.writeheader()
+        writer.writerows(
+            normalize_rows(rows)
         )
-        if normalized:
-            writer.writerows(normalized)
         handle.flush()
         os.fsync(handle.fileno())
-
 
 
 def build_staged_root(
@@ -1232,12 +1253,52 @@ def publish_staged_root(
     *,
     reporter: PipelineReporter,
 ) -> None:
-    publish_staged_directory(
-        stage_root,
-        output_dir=OUT_DIR,
-        reporter=reporter,
-        cleanup_warning='Final predictions were published but the temporary backup directory could not be removed',
+    backup_root = (
+        OUT_DIR.parent
+        / (
+            f".{OUT_DIR.name}_backup_"
+            f"{uuid.uuid4().hex}"
+        )
     )
+
+    try:
+        if OUT_DIR.exists():
+            os.replace(
+                OUT_DIR,
+                backup_root,
+            )
+
+        os.replace(
+            stage_root,
+            OUT_DIR,
+        )
+
+    except Exception:
+        if OUT_DIR.exists():
+            shutil.rmtree(
+                OUT_DIR,
+                ignore_errors=True,
+            )
+
+        if backup_root.exists():
+            os.replace(
+                backup_root,
+                OUT_DIR,
+            )
+
+        raise
+
+    if backup_root.exists():
+        try:
+            shutil.rmtree(backup_root)
+        except Exception as exc:
+            reporter.warning(
+                "Final predictions were published but the "
+                "temporary backup directory could not be removed",
+                backup_path=str(backup_root),
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
 
 
 def write_legacy_log(

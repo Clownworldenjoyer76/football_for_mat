@@ -1,32 +1,32 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-35745451860-attempt-1",
+  "run_id": "github-39461033216-attempt-1",
   "status": "WARNING",
   "exit_code": 0,
   "pipeline": "NFL",
   "league": "NFL",
   "stage": "00_intake",
   "script": "pull_qb_stats.py",
-  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/pull_qb_stats.py",
-  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/pull_qb_stats.json",
-  "started_at_utc": "2026-09-22T15:12:07.571496+00:00",
-  "finished_at_utc": "2026-09-22T15:12:07.885137+00:00",
-  "duration_seconds": 0.314,
+  "script_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/scripts/00_intake/pull_qb_stats.py",
+  "report_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/errors/00_intake/pull_qb_stats.json",
+  "started_at_utc": "2026-10-20T16:53:59.404965+00:00",
+  "finished_at_utc": "2026-10-20T16:54:00.223695+00:00",
+  "duration_seconds": 0.819,
   "environment": {
-    "hostname": "runnervmlun5p",
-    "python_version": "3.11.16",
-    "python_executable": "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python",
+    "hostname": "runnervmxehtw",
+    "python_version": "3.11.17",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.17/x64/bin/python",
     "platform": "linux",
-    "process_id": 2584,
-    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "35745451860",
+    "process_id": 2419,
+    "working_directory": "/home/runner/work/bet_tracker/bet_tracker",
+    "github_run_id": "39461033216",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "d2d505eed50e1fb1cd0dc7db0427951ce7aad4c6",
+    "github_sha": "ca62310504139c5cf7fa496962b1ae0a8c0cd5e4",
     "github_actor": "Clownworldenjoyer76",
-    "github_repository": "Clownworldenjoyer76/football_for_mat"
+    "github_repository": "Clownworldenjoyer76/bet_tracker"
   },
   "context": {
     "season": 2026,
@@ -34,23 +34,23 @@
     "component": "quarterback statistics"
   },
   "inputs": [
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/pbp/2026_pbp.csv.gz",
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/qb/2026_qb_stats.csv"
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/00_intake/pbp/2026_pbp.csv.gz",
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/00_intake/qb/2026_qb_stats.csv"
   ],
   "outputs": [
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/qb/2026_qb_stats.csv"
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/00_intake/qb/2026_qb_stats.csv"
   ],
-  "rows_in": 5489,
-  "rows_out": 77,
+  "rows_in": 16380,
+  "rows_out": 214,
   "warning_count": 1,
   "error_count": 0,
   "warnings": [
     {
-      "timestamp_utc": "2026-09-22T15:12:07.818649+00:00",
+      "timestamp_utc": "2026-10-20T16:54:00.148566+00:00",
       "message": "Excluded QB dropback/pass-attempt rows with incomplete passer identity from QB aggregation",
       "details": {
-        "excluded_rows": 140,
-        "dropback_rows": 140,
+        "excluded_rows": 355,
+        "dropback_rows": 355,
         "pass_attempt_rows": 0,
         "examples": [
           {
@@ -104,14 +104,14 @@
   ],
   "errors": [],
   "details": {
-    "pbp_rows": 5489,
-    "dropback_rows": 2300,
-    "pass_attempt_rows": 2168,
-    "identity_incomplete_qb_rows_excluded": 140,
-    "identity_incomplete_dropback_rows": 140,
+    "pbp_rows": 16380,
+    "dropback_rows": 7048,
+    "pass_attempt_rows": 6728,
+    "identity_incomplete_qb_rows_excluded": 355,
+    "identity_incomplete_dropback_rows": 355,
     "identity_incomplete_pass_attempt_rows": 0,
-    "output_rows": 77,
-    "existing_rows": 77,
+    "output_rows": 214,
+    "existing_rows": 214,
     "existing_readable": true,
     "completed_games_detected_for_empty_check": 0,
     "result_files_checked_for_empty_safety": 0,
@@ -121,7 +121,11 @@
     "publication_completed": true,
     "weeks_represented": [
       1,
-      2
+      2,
+      3,
+      4,
+      5,
+      6
     ],
     "teams_represented": [
       "ARI",

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+from typing import NoReturn
 
 import argparse
+import csv
 import hashlib
 import math
 import os
@@ -11,7 +13,7 @@ import tempfile
 import urllib.request
 import uuid
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -83,7 +85,7 @@ class ProjectionSourceRefreshError(RuntimeError):
     pass
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> NoReturn:
     raise ProjectionSourceRefreshError(message)
 
 
@@ -117,13 +119,13 @@ def import_pandas() -> None:
 
     try:
         import pandas as pandas_module
-        pd = pandas_module
-    except ImportError:
+    except ImportError as exc:
         fail(
             "This script requires pandas and a parquet engine. "
             "Install docs/win/football/nfl/requirements.txt."
         )
 
+    pd = pandas_module
 
 
 def clean(value: Any) -> str:
@@ -889,7 +891,7 @@ def publish_pair_with_rollback(
             try:
                 if target.exists():
                     target.unlink()
-            except OSError:
+            except Exception:
                 pass
 
         restore_errors = []

@@ -37,7 +37,6 @@ Examples:
 """
 
 from __future__ import annotations
-from typing import Any, Never
 
 import argparse
 import itertools
@@ -98,11 +97,11 @@ MARKET_SPECS = {
 }
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
-def normalize_game_id(value: Any) -> str:
+def normalize_game_id(value: object) -> str:
     if pd.isna(value):
         return ""
     text = str(value).strip()
@@ -686,6 +685,6 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except Exception as main_error:
-        print(f"ERROR: {main_error}", file=sys.stderr)
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         raise

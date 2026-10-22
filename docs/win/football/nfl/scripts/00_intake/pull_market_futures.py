@@ -22,7 +22,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import write_csv_contract
 
 FUTURES_URL_TEMPLATE = (
     "https://sports.core.api.espn.com/v2/sports/football/"
@@ -198,15 +197,6 @@ def extract_id(ref_url: Any, segment: str) -> str:
     return clean(match.group(1)) if match else ""
 
 
-def extract_entry_entity_id(
-    entry: dict[str, Any],
-    field: str,
-    segment: str,
-) -> str:
-    entity = entry.get(field)
-    ref = entity.get("$ref") if isinstance(entity, dict) else ""
-    return extract_id(ref, segment)
-
 def load_team_master_ids() -> tuple[set[str], int]:
     if not TEAM_MASTER_PATH.is_file():
         raise MarketFuturesError(
@@ -350,11 +340,27 @@ def build_rows(
                         "is not an object"
                     )
 
-                athlete_id = extract_entry_entity_id(
-                    book, "athlete", "athletes"
+                athlete = book.get("athlete")
+                team = book.get("team")
+
+                athlete_ref = (
+                    athlete.get("$ref")
+                    if isinstance(athlete, dict)
+                    else ""
                 )
-                team_id = extract_entry_entity_id(
-                    book, "team", "teams"
+                team_ref = (
+                    team.get("$ref")
+                    if isinstance(team, dict)
+                    else ""
+                )
+
+                athlete_id = extract_id(
+                    athlete_ref,
+                    "athletes",
+                )
+                team_id = extract_id(
+                    team_ref,
+                    "teams",
                 )
 
                 if bool(athlete_id) == bool(team_id):
@@ -490,13 +496,21 @@ def publish(
     ) as staging_dir:
         staged_path = Path(staging_dir) / output_path.name
 
-        write_csv_contract(
-            staged_path,
-            rows,
-            fieldnames=OUTPUT_HEADER,
-            extrasaction="ignore",
-            lineterminator="\n",
-        )
+        with staged_path.open(
+            "w",
+            newline="",
+            encoding="utf-8",
+        ) as handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=OUTPUT_HEADER,
+                extrasaction="ignore",
+                lineterminator="\n",
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+            handle.flush()
+            os.fsync(handle.fileno())
 
         if staged_path.stat().st_size == 0:
             raise MarketFuturesError(

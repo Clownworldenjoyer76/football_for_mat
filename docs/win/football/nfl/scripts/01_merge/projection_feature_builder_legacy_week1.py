@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Standalone Week 1 NFL projection for the Step 11 CatBoost models.
 
@@ -19,7 +19,6 @@ WRITES ONLY:
 """
 
 from __future__ import annotations
-from typing import Any
 
 from dataclasses import dataclass
 import json
@@ -130,14 +129,14 @@ def nfl_root() -> Path:
     return root
 
 
-def clean(value: Any) -> str:
+def clean(value: object) -> str:
     if value is None:
         return ""
     try:
         missing = pd.isna(value)
         if isinstance(missing, (bool, np.bool_)) and missing:
             return ""
-    except (TypeError, ValueError):
+    except Exception:
         pass
     text = str(value).strip()
     if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
@@ -216,7 +215,7 @@ def parse_timestamp(value: object) -> pd.Timestamp | None:
         return None
     try:
         ts = pd.to_datetime(text, utc=True, errors="coerce")
-    except (TypeError, ValueError, OverflowError):
+    except Exception:
         return None
     return None if pd.isna(ts) else ts
 
@@ -337,16 +336,16 @@ class TeamNormalizer:
                 continue
             self.canonical_abbrs.add(abbr)
 
-        def add_alias(value: object, alias_abbr: str) -> None:
+        def add_alias(value: object, abbr: str) -> None:
             key = normalize_name(value)
             if not key:
                 return
             previous = self.alias_to_abbr.get(key)
-            if previous is not None and previous != alias_abbr:
+            if previous is not None and previous != abbr:
                 raise ValueError(
-                    f"{path}: ambiguous team alias {clean(value)!r}: {previous} vs {alias_abbr}"
+                    f"{path}: ambiguous team alias {clean(value)!r}: {previous} vs {abbr}"
                 )
-            self.alias_to_abbr[key] = alias_abbr
+            self.alias_to_abbr[key] = abbr
 
         for _, row in df.iterrows():
             abbr = clean(row["team_abbr"]).upper()
@@ -706,44 +705,35 @@ class SnapProvider:
             for identity in identities:
                 self.series.setdefault((team, identity), []).append(item)
         for key in self.series:
-            self.series[key].sort(key=lambda series_entry: series_entry[0])
+            self.series[key].sort(key=lambda item: item[0])
 
-    def latest(
-        self,
-        team: str,
-        pfr_id: str,
-        name: str,
-    ) -> tuple[float, float, str] | None:
-        identities: list[str] = []
+    def latest(self, team: str, pfr_id: str, name: str) -> tuple[float, float, str] | None:
+        identities = []
         if pfr_id:
             identities.append(f"pfr:{pfr_id}")
-
         name_key = normalize_name(name)
         if name_key:
             identities.append(f"name:{name_key}")
 
+        # Prefer usage for the player's current team when that exists.
         for identity in identities:
             values = self.series.get((team, identity), [])
             if values:
-                _, offense, defense, position = values[-1]
-                return offense, defense, position
+                _, off, deff, pos = values[-1]
+                return off, deff, pos
 
+        # A player may have changed teams since the prior season.
         for identity in identities:
-            candidates = (
-                series_values[-1]
-                for (_source_team, source_identity), series_values
-                in self.series.items()
-                if source_identity == identity and series_values
-            )
-            best = max(
-                candidates,
-                key=lambda entry: entry[0],
-                default=None,
-            )
+            best: tuple[int, float, float, str] | None = None
+            for (_source_team, source_identity), values in self.series.items():
+                if source_identity != identity or not values:
+                    continue
+                candidate = values[-1]
+                if best is None or candidate[0] > best[0]:
+                    best = candidate
             if best is not None:
-                _, offense, defense, position = best
-                return offense, defense, position
-
+                _, off, deff, pos = best
+                return off, deff, pos
         return None
 
 
@@ -815,35 +805,27 @@ class ParticipationProvider:
         for (team, pid, week), (off, deff) in combined.items():
             self.series.setdefault((team, pid), []).append((week, off, deff))
         for key in self.series:
-            self.series[key].sort(key=lambda series_entry: series_entry[0])
+            self.series[key].sort(key=lambda item: item[0])
 
-    def latest(
-        self,
-        team: str,
-        gsis_id: str,
-    ) -> tuple[float, float] | None:
+    def latest(self, team: str, gsis_id: str) -> tuple[float, float] | None:
         if not gsis_id:
             return None
-
         values = self.series.get((team, gsis_id), [])
         if values:
-            _, offense, defense = values[-1]
-            return offense, defense
+            _, off, deff = values[-1]
+            return off, deff
 
-        candidates = [
-            player_values[-1]
-            for (_source_team, player_id), player_values
-            in self.series.items()
-            if player_id == gsis_id and player_values
-        ]
-        if not candidates:
+        best: tuple[int, float, float] | None = None
+        for (_source_team, pid), rows in self.series.items():
+            if pid != gsis_id or not rows:
+                continue
+            candidate = rows[-1]
+            if best is None or candidate[0] > best[0]:
+                best = candidate
+        if best is None:
             return None
-
-        _, offense, defense = max(
-            candidates,
-            key=lambda entry: entry[0],
-        )
-        return offense, defense
+        _, off, deff = best
+        return off, deff
 
 
 def compute_injury_features(
@@ -887,31 +869,17 @@ def compute_injury_features(
             values["inj_starter_out_count"] += 1.0
             if position == "QB":
                 values["inj_qb1_out"] = 1.0
+            if position in OFFENSIVE_LINE_POSITIONS:
+                values["inj_ol_starter_out_count"] += 1.0
+            if position in SKILL_POSITIONS:
+                values["inj_skill_starter_out_count"] += 1.0
+            if position in FRONT7_POSITIONS:
+                values["inj_front7_starter_out_count"] += 1.0
+            if position in SECONDARY_POSITIONS:
+                values["inj_secondary_starter_out_count"] += 1.0
 
-            starter_groups = (
-                (
-                    OFFENSIVE_LINE_POSITIONS,
-                    "inj_ol_starter_out_count",
-                ),
-                (
-                    SKILL_POSITIONS,
-                    "inj_skill_starter_out_count",
-                ),
-                (
-                    FRONT7_POSITIONS,
-                    "inj_front7_starter_out_count",
-                ),
-                (
-                    SECONDARY_POSITIONS,
-                    "inj_secondary_starter_out_count",
-                ),
-            )
-            for position_group, feature_name in starter_groups:
-                values[feature_name] += float(
-                    position in position_group
-                )
-
-        values["inj_top2_depth_out_count"] += float(is_top2)
+        if is_top2:
+            values["inj_top2_depth_out_count"] += 1.0
 
         snap_value = prior_snaps.latest(team, pfr, name)
         if snap_value is not None:
@@ -1006,10 +974,17 @@ def validate_week1_base(base: pd.DataFrame, season: int, label: str) -> None:
         str(schedule_path),
     )
 
-    week_schedule = select_week1_schedule(
-        schedule,
-        season=season,
-        path=schedule_path,
+    schedule_season = pd.to_numeric(schedule["season"], errors="coerce")
+    schedule_week = pd.to_numeric(schedule["week"], errors="coerce")
+
+    week_schedule = schedule[
+        (schedule_season == season)
+        & (schedule_week == WEEK)
+    ].copy()
+
+    require_unique_game_id(
+        week_schedule,
+        f"{schedule_path} season={season} week={WEEK}",
     )
 
     schedule_by_game = week_schedule.set_index("game_id")
@@ -1288,32 +1263,6 @@ def add_epred_features(
     return merge_game_source(work, source, columns, str(path))
 
 
-def select_week1_schedule(
-    schedule: pd.DataFrame,
-    *,
-    season: int,
-    path: Path,
-) -> pd.DataFrame:
-    season_values = pd.to_numeric(
-        schedule["season"],
-        errors="coerce",
-    )
-    week_values = pd.to_numeric(
-        schedule["week"],
-        errors="coerce",
-    )
-
-    selected = schedule[
-        (season_values == season)
-        & (week_values == WEEK)
-    ].copy()
-
-    require_unique_game_id(
-        selected,
-        f"{path} season={season} week={WEEK}",
-    )
-    return selected
-
 def load_schedule_week1(
     work: pd.DataFrame,
     root: Path,
@@ -1333,10 +1282,17 @@ def load_schedule_week1(
         str(path),
     )
 
-    week1 = select_week1_schedule(
-        schedule,
-        season=season,
-        path=path,
+    season_num = pd.to_numeric(schedule["season"], errors="coerce")
+    week_num = pd.to_numeric(schedule["week"], errors="coerce")
+
+    week1 = schedule[
+        (season_num == season)
+        & (week_num == WEEK)
+    ].copy()
+
+    require_unique_game_id(
+        week1,
+        f"{path} season={season} week={WEEK}",
     )
 
     validate_team_alignment(work, week1, teams, str(path))
@@ -2191,20 +2147,17 @@ def validate_probability_pair(
     b: np.ndarray,
     label: str,
 ) -> None:
-    probabilities = (a, b)
-
-    if any(
-        not np.isfinite(values).all()
-        for values in probabilities
-    ):
+    if not np.isfinite(a).all() or not np.isfinite(b).all():
         raise RuntimeError(
             f"{label}: non-finite probability values"
         )
 
-    if any(
-        ((values < 0.0) | (values > 1.0)).any()
-        for values in probabilities
-    ):
+    if (
+        (a < 0.0)
+        | (a > 1.0)
+        | (b < 0.0)
+        | (b > 1.0)
+    ).any():
         raise RuntimeError(
             f"{label}: probabilities outside [0, 1]"
         )
@@ -2218,7 +2171,6 @@ def validate_probability_pair(
         raise RuntimeError(
             f"{label}: complementary probabilities do not sum to 1"
         )
-
 
 
 def apply_models(
@@ -2374,20 +2326,16 @@ def apply_models(
 
     output = original.copy()
 
-    prediction_values = {
-        "predicted_margin": predicted_margin,
-        "predicted_total": predicted_total,
-        "predicted_home_score": predicted_home_score,
-        "predicted_away_score": predicted_away_score,
-        "home_win_probability": home_win,
-        "away_win_probability": away_win,
-        "home_cover_probability": home_cover,
-        "away_cover_probability": away_cover,
-        "over_probability": over,
-        "under_probability": under,
-    }
-    for column, values in prediction_values.items():
-        output[column] = values
+    output["predicted_margin"] = predicted_margin
+    output["predicted_total"] = predicted_total
+    output["predicted_home_score"] = predicted_home_score
+    output["predicted_away_score"] = predicted_away_score
+    output["home_win_probability"] = home_win
+    output["away_win_probability"] = away_win
+    output["home_cover_probability"] = home_cover
+    output["away_cover_probability"] = away_cover
+    output["over_probability"] = over
+    output["under_probability"] = under
 
     expected_columns = [
         *original.columns.tolist(),

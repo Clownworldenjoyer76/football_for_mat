@@ -102,11 +102,16 @@ def build_page_url(base_url: str, page: int) -> str:
     query["page"] = [str(page)]
 
     return urllib.parse.urlunparse(
-        parsed._replace(
-            query=urllib.parse.urlencode(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            urllib.parse.urlencode(
                 query,
                 doseq=True,
-            )
+            ),
+            parsed.fragment,
         )
     )
 

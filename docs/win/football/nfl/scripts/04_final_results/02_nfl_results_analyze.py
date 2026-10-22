@@ -3,14 +3,16 @@
 
 from __future__ import annotations
 
+import csv
 import math
 import os
 import shutil
 import sys
 import tempfile
+import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -23,7 +25,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import read_validated_csv_header
 
 
 pd = None
@@ -127,7 +128,7 @@ def load_runtime_dependencies(
     )
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
@@ -154,7 +155,7 @@ def to_float(value: Any) -> float | None:
     try:
         result = float(str(value).strip())
         return result if math.isfinite(result) else None
-    except (TypeError, ValueError):
+    except Exception:
         return None
 
 
@@ -241,13 +242,17 @@ def model_prob_bucket(value: Any) -> str:
 def spread_range_bucket(value: Any) -> str:
     value = to_float(value)
     if value is None: return "UNBUCKETED"
+    if value == 0: return "0.0"
+
+    prefix = "negative" if value < 0 else "positive"
     absolute = abs(value)
-    if absolute <= 2.5: return "0_to_2.5"
-    if absolute <= 3.5: return "3_to_3.5"
-    if absolute <= 6.5: return "4_to_6.5"
-    if absolute <= 9.5: return "7_to_9.5"
-    if absolute <= 13.5: return "10_to_13.5"
-    return "14_plus"
+
+    if absolute <= 2.5: return f"{prefix}_0_to_2.5"
+    if absolute <= 3.5: return f"{prefix}_3_to_3.5"
+    if absolute <= 6.5: return f"{prefix}_4_to_6.5"
+    if absolute <= 9.5: return f"{prefix}_7_to_9.5"
+    if absolute <= 13.5: return f"{prefix}_10_to_13.5"
+    return f"{prefix}_14_plus"
 
 
 def spread_line_bucket(value: Any) -> str:
@@ -329,7 +334,6 @@ def prepare(frame: pd.DataFrame) -> pd.DataFrame:
     return work
 
 
-
 def validate_csv_header(
     path: Path,
     *,
@@ -339,12 +343,49 @@ def validate_csv_header(
     if not path.is_file():
         fail(f"{label}: file not found: {path}")
 
-    header = read_validated_csv_header(
-        path,
-        label=label,
-        clean=clean,
-        fail=fail,
-    )
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            header = next(csv.reader(handle), [])
+    except UnicodeDecodeError as exc:
+        fail(
+            f"{label}: invalid UTF-8 CSV: "
+            f"{path}: {exc}"
+        )
+
+    if not header:
+        fail(
+            f"{label}: missing CSV header: "
+            f"{path}"
+        )
+
+    normalized = [
+        clean(column)
+        for column in header
+    ]
+
+    if any(not column for column in normalized):
+        fail(
+            f"{label}: blank CSV header "
+            f"column: {path}"
+        )
+
+    seen: set[str] = set()
+    duplicates: list[str] = []
+
+    for column in normalized:
+        if column in seen and column not in duplicates:
+            duplicates.append(column)
+        seen.add(column)
+
+    if duplicates:
+        fail(
+            f"{label}: duplicate header "
+            f"columns: {duplicates}"
+        )
 
     if header != expected:
         missing = [
@@ -390,41 +431,24 @@ def read_input() -> pd.DataFrame:
     return frame
 
 
-def _parse_integral_value(
-    value: Any,
-    *,
-    label: str,
-    minimum: int,
-    requirement: str,
-) -> float:
-    number = to_float(value)
-    invalid = (
-        number is None
-        or not number.is_integer()
-        or number < minimum
-    )
-    if invalid:
-        fail(
-            f"{label} must be {requirement}; "
-            f"found {value!r}"
-        )
-    return number
-
-
 def parse_positive_int(
     value: Any,
     *,
     label: str,
 ) -> int:
-    return int(
-        _parse_integral_value(
-            value,
-            label=label,
-            minimum=1,
-            requirement="a positive integer",
-        )
-    )
+    number = to_float(value)
 
+    if (
+        number is None
+        or not number.is_integer()
+        or number <= 0
+    ):
+        fail(
+            f"{label} must be a positive "
+            f"integer; found {value!r}"
+        )
+
+    return int(number)
 
 
 def parse_nonnegative_integer(
@@ -432,13 +456,19 @@ def parse_nonnegative_integer(
     *,
     label: str,
 ) -> float:
-    return _parse_integral_value(
-        value,
-        label=label,
-        minimum=0,
-        requirement="a nonnegative integer",
-    )
+    number = to_float(value)
 
+    if (
+        number is None
+        or number < 0
+        or not number.is_integer()
+    ):
+        fail(
+            f"{label} must be a nonnegative "
+            f"integer; found {value!r}"
+        )
+
+    return number
 
 
 def require_finite_if_present(

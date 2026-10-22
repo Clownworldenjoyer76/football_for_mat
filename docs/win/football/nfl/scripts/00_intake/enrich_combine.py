@@ -8,12 +8,14 @@ No weights are applied. The exact 118-column combined contract is preserved.
 from __future__ import annotations
 import argparse
 import csv
+import os
 import re
 import shutil
 import sys
 import tempfile
+import uuid
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -21,8 +23,6 @@ NFL_ROOT = SCRIPT_PATH.parents[2]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 from pipeline_reporter import PipelineReporter
-from publication_contract import publish_staged_directory
-from enrichment_contract import TOTALS_APPENDED_FIELDS
 
 ENRICHED_ROOT = NFL_ROOT / "00_intake" / "predictions" / "enriched"
 MONEYLINE_DIR = ENRICHED_ROOT / "moneyline"
@@ -201,7 +201,74 @@ SPREAD_APPENDED = ['drat_home_prob',
  'drat_epred_consensus_matched_rule_ids',
  'all3_consensus_matched_rule_count',
  'all3_consensus_matched_rule_ids']
-TOTALS_APPENDED = list(TOTALS_APPENDED_FIELDS)
+TOTALS_APPENDED = ['drat_home_prob',
+ 'drat_away_prob',
+ 'epred_home_prob_raw',
+ 'epred_away_prob_raw',
+ 'epred_home_prob',
+ 'epred_away_prob',
+ 'epred_home_rating',
+ 'epred_away_rating',
+ 'epred_matchupQuality',
+ 'market_bookmaker',
+ 'market_last_update',
+ 'market_home_moneyline_american',
+ 'market_away_moneyline_american',
+ 'market_home_spread',
+ 'market_away_spread',
+ 'market_total',
+ 'market_home_prob_novig',
+ 'market_away_prob_novig',
+ 'drat_pick',
+ 'epred_pick',
+ 'market_pick',
+ 'drat_epred_agree',
+ 'drat_market_agree',
+ 'epred_market_agree',
+ 'all_three_agree',
+ 'epred_rating_gap_home',
+ 'drat_epred_prob_diff_pp',
+ 'drat_market_edge_home_pp',
+ 'epred_market_edge_home_pp',
+ 'matched_rule_count',
+ 'matched_positive_rule_count',
+ 'matched_negative_rule_count',
+ 'matched_rule_ids',
+ 'matched_rule_conditions',
+ 'over_matched_rule_count',
+ 'over_matched_positive_rule_count',
+ 'over_matched_negative_rule_count',
+ 'over_matched_rule_ids',
+ 'over_strongest_positive_rule_id',
+ 'over_strongest_positive_hist_hit_rate_pct',
+ 'over_strongest_positive_lift_pp',
+ 'over_strongest_positive_games',
+ 'over_strongest_negative_rule_id',
+ 'over_strongest_negative_hist_hit_rate_pct',
+ 'over_strongest_negative_lift_pp',
+ 'over_strongest_negative_games',
+ 'under_matched_rule_count',
+ 'under_matched_positive_rule_count',
+ 'under_matched_negative_rule_count',
+ 'under_matched_rule_ids',
+ 'under_strongest_positive_rule_id',
+ 'under_strongest_positive_hist_hit_rate_pct',
+ 'under_strongest_positive_lift_pp',
+ 'under_strongest_positive_games',
+ 'under_strongest_negative_rule_id',
+ 'under_strongest_negative_hist_hit_rate_pct',
+ 'under_strongest_negative_lift_pp',
+ 'under_strongest_negative_games',
+ 'drat_matched_rule_count',
+ 'drat_matched_rule_ids',
+ 'epred_matched_rule_count',
+ 'epred_matched_rule_ids',
+ 'market_matched_rule_count',
+ 'market_matched_rule_ids',
+ 'drat_epred_consensus_matched_rule_count',
+ 'drat_epred_consensus_matched_rule_ids',
+ 'all3_consensus_matched_rule_count',
+ 'all3_consensus_matched_rule_ids']
 MONEYLINE_HEADERS = WEEKLY_COLUMNS + MONEYLINE_APPENDED
 SPREAD_HEADERS = WEEKLY_COLUMNS + SPREAD_APPENDED
 TOTALS_HEADERS = WEEKLY_COLUMNS + TOTALS_APPENDED
@@ -321,7 +388,7 @@ pd = None
 class CombineEnrichmentError(RuntimeError):
     pass
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise CombineEnrichmentError(message)
 
 def clean(value: Any) -> str:
@@ -341,9 +408,9 @@ def import_pandas() -> None:
         return
     try:
         import pandas as pandas_module
-        pd = pandas_module
-    except ImportError:
+    except ImportError as exc:
         fail("This script requires pandas. Install the repository requirements before running it.")
+    pd = pandas_module
 
 def read_raw_header(path: Path) -> list[str]:
     if not path.is_file():
@@ -614,18 +681,26 @@ def build_staged_root(week_outputs: dict[int, tuple[Any,Any,Any,Any]]) -> Path:
         shutil.rmtree(stage_root, ignore_errors=True)
         raise
 
-def publish_staged_root(
-    stage_root: Path,
-    *,
-    reporter: PipelineReporter,
-) -> None:
-    publish_staged_directory(
-        stage_root,
-        output_dir=OUTPUT_DIR,
-        reporter=reporter,
-        cleanup_warning='Combined enrichment published but temporary backup cleanup failed',
-    )
-
+def publish_staged_root(stage_root: Path, *, reporter: PipelineReporter) -> None:
+    backup_root = OUTPUT_DIR.parent / f".{OUTPUT_DIR.name}_backup_{uuid.uuid4().hex}"
+    try:
+        if OUTPUT_DIR.exists():
+            os.replace(OUTPUT_DIR, backup_root)
+        os.replace(stage_root, OUTPUT_DIR)
+    except Exception:
+        if OUTPUT_DIR.exists():
+            shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
+        if backup_root.exists():
+            os.replace(backup_root, OUTPUT_DIR)
+        raise
+    if backup_root.exists():
+        try:
+            shutil.rmtree(backup_root)
+        except Exception as exc:
+            reporter.warning(
+                "Combined enrichment published but temporary backup cleanup failed",
+                backup_path=str(backup_root), error_type=type(exc).__name__, error=str(exc),
+            )
 
 def run(reporter: PipelineReporter, *, season: int) -> None:
     import_pandas()

@@ -14,7 +14,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -24,8 +24,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from team_contract import build_team_abbr_map
-from csv_contract import read_csv_contract
 
 INPUT_PATH = NFL_ROOT / "data" / "raw" / "raw_depth.csv"
 OUTPUT_ROOT = NFL_ROOT / "data" / "master" / "depth_charts"
@@ -70,7 +68,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise DepthCleanupError(message)
 
 
@@ -81,13 +79,54 @@ def read_csv(
     required_columns: list[str] | None = None,
     exact_columns: list[str] | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
-    return read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        required_columns=required_columns,
-        exact_columns=exact_columns,
-    )
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
+
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
+
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if not fieldnames:
+        fail(f"{label} has no CSV header: {path}")
+
+    if len(fieldnames) != len(set(fieldnames)):
+        fail(f"{label} contains duplicate CSV columns: {path}")
+
+    if required_columns:
+        missing = [
+            column
+            for column in required_columns
+            if column not in fieldnames
+        ]
+        if missing:
+            fail(
+                f"{label} missing expected columns: {missing}"
+            )
+
+    if exact_columns is not None and fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected column order/schema. "
+            f"Expected={exact_columns} actual={fieldnames}"
+        )
+
+    if not rows:
+        fail(f"{label} contains no data rows: {path}")
+
+    return fieldnames, rows
 
 
 def load_canonical_teams() -> dict[str, str]:
@@ -101,13 +140,52 @@ def load_canonical_teams() -> dict[str, str]:
             "team_abbr",
         ],
     )
-    return build_team_abbr_map(
-        rows,
-        path=TEAM_MAP_PATH,
-        clean=clean,
-        fail=fail,
-    )
 
+    by_id: dict[str, str] = {}
+    by_abbr: dict[str, str] = {}
+
+    for line_number, row in enumerate(rows, start=2):
+        sport = clean(row.get("sport")).casefold()
+        league = clean(row.get("league")).casefold()
+
+        if sport != "football" or league != "nfl":
+            continue
+
+        team_id = clean(row.get("team_id"))
+        team_abbr = clean(row.get("team_abbr")).upper()
+
+        if not team_id or not team_abbr:
+            fail(
+                f"{TEAM_MAP_PATH} line {line_number} has "
+                "blank team_id/team_abbr"
+            )
+
+        previous_abbr = by_id.get(team_id)
+        if previous_abbr and previous_abbr != team_abbr:
+            fail(
+                f"{TEAM_MAP_PATH} has conflicting abbreviations "
+                f"for team_id={team_id}: "
+                f"{previous_abbr!r} vs {team_abbr!r}"
+            )
+
+        previous_id = by_abbr.get(team_abbr)
+        if previous_id and previous_id != team_id:
+            fail(
+                f"{TEAM_MAP_PATH} has conflicting team IDs "
+                f"for team_abbr={team_abbr}: "
+                f"{previous_id!r} vs {team_id!r}"
+            )
+
+        by_id[team_id] = team_abbr
+        by_abbr[team_abbr] = team_id
+
+    if len(by_id) != 32 or len(by_abbr) != 32:
+        fail(
+            "Canonical NFL team map must resolve exactly 32 teams; "
+            f"ids={len(by_id)} abbrs={len(by_abbr)}"
+        )
+
+    return by_id
 
 
 def validate_raw_input(
@@ -464,6 +542,7 @@ def validate_output_rows(
         seen_keys: set[
             tuple[str, str, str, str]
         ] = set()
+        team_qb_rows = 0
 
         for row_number, row in enumerate(
             rows,
@@ -547,6 +626,9 @@ def validate_output_rows(
                     f"backup={backup}"
                 )
 
+            if clean(row.get("position_abb")).upper() == "QB":
+                team_qb_rows += 1
+
             key = (
                 clean(row.get("team")),
                 clean(row.get("player_id")),
@@ -561,6 +643,12 @@ def validate_output_rows(
 
             seen_keys.add(key)
             total_rows += 1
+
+        if team_qb_rows == 0:
+            fail(
+                "Cleaned depth chart contains no QB depth-chart rows "
+                f"team={expected_abbr}"
+            )
 
     return total_rows
 

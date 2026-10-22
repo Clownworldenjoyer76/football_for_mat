@@ -98,12 +98,12 @@ BASE_FEATURES = [
 ]
 
 GENERATED_COLUMNS: list[str] = []
-for _generated_feature in BASE_FEATURES:
+for feature in BASE_FEATURES:
     GENERATED_COLUMNS.extend(
         [
-            f"home_{_generated_feature}",
-            f"away_{_generated_feature}",
-            f"{_generated_feature}_diff",
+            f"home_{feature}",
+            f"away_{feature}",
+            f"{feature}_diff",
         ]
     )
 
@@ -606,77 +606,6 @@ class ParticipationProvider:
         return offense, defense
 
 
-def _resolve_player_fields(
-    row: pd.Series,
-    *,
-    players: PlayerCrosswalk,
-    gsis_col: str | None,
-    alternate_id_col: str | None,
-    name_col: str | None,
-    position_col: str | None,
-) -> tuple[str, str, str, str]:
-    raw_gsis = clean(row[gsis_col]) if gsis_col else ""
-    raw_alternate = (
-        clean(row[alternate_id_col])
-        if alternate_id_col
-        else ""
-    )
-    name = clean(row[name_col]) if name_col else ""
-    resolved = players.resolve(
-        raw_gsis or raw_alternate,
-        name,
-    )
-
-    gsis_id = (
-        raw_gsis
-        if raw_gsis.startswith("00-")
-        else ""
-    )
-    if not gsis_id and resolved is not None:
-        gsis_id = resolved.gsis_id
-
-    position = (
-        normalize_position(row[position_col])
-        if position_col
-        else ""
-    )
-    if not position and resolved is not None:
-        position = resolved.position
-
-    return raw_alternate, name, gsis_id, position
-
-def _resolve_depth_player_fields(
-    row: pd.Series,
-    *,
-    players: PlayerCrosswalk,
-    rank_col: str,
-    position_col: str | None,
-    slot_col: str,
-    gsis_col: str | None,
-    espn_col: str | None,
-    name_col: str | None,
-) -> tuple[str, str, str, str, int] | None:
-    rank = parse_optional_int(row[rank_col])
-    if rank is None or rank < 1:
-        return None
-
-    raw_espn, name, gsis_id, position = _resolve_player_fields(
-        row,
-        players=players,
-        gsis_col=gsis_col,
-        alternate_id_col=espn_col,
-        name_col=name_col,
-        position_col=position_col,
-    )
-
-    return (
-        gsis_id,
-        name,
-        position,
-        clean(row[slot_col]).upper(),
-        rank,
-    )
-
 class DepthProvider:
     def __init__(
         self,
@@ -719,22 +648,21 @@ class DepthProvider:
         for _, row in df.iterrows():
             team = normalize_team(row[team_col])
             week = parse_optional_int(row[week_col])
-            if not team or week is None:
+            rank = parse_optional_int(row[rank_col])
+            if not team or week is None or rank is None or rank < 1:
                 continue
-            player_fields = _resolve_depth_player_fields(
-                row,
-                players=players,
-                rank_col=rank_col,
-                position_col=position_col,
-                slot_col=slot_col,
-                gsis_col=gsis_col,
-                espn_col=espn_col,
-                name_col=name_col,
-            )
-            if player_fields is None:
-                continue
-            gsis_id, name, position, slot_value, rank = player_fields
+            raw_gsis = clean(row[gsis_col]) if gsis_col else ""
+            raw_espn = clean(row[espn_col]) if espn_col else ""
+            name = clean(row[name_col]) if name_col else ""
+            resolved = players.resolve(raw_gsis or raw_espn, name)
+            gsis_id = raw_gsis if raw_gsis.startswith("00-") else ""
+            if not gsis_id and resolved is not None:
+                gsis_id = resolved.gsis_id
+            position = normalize_position(row[position_col]) if position_col else ""
+            if not position and resolved is not None:
+                position = resolved.position
             formation = clean(row[formation_col]).upper() if formation_col else ""
+            slot_value = clean(row[slot_col]).upper()
             slot = f"{formation}|{slot_value}" if formation else slot_value
             grouped.setdefault((team, week), []).append(
                 DepthPlayer(
@@ -771,22 +699,21 @@ class DepthProvider:
         for _, row in df.iterrows():
             team = normalize_team(row[team_col])
             timestamp = parse_timestamp(row[dt_col])
-            if not team or timestamp is None:
+            rank = parse_optional_int(row[rank_col])
+            if not team or timestamp is None or rank is None or rank < 1:
                 continue
-            player_fields = _resolve_depth_player_fields(
-                row,
-                players=players,
-                rank_col=rank_col,
-                position_col=position_col,
-                slot_col=slot_col,
-                gsis_col=gsis_col,
-                espn_col=espn_col,
-                name_col=name_col,
-            )
-            if player_fields is None:
-                continue
-            gsis_id, name, position, slot_value, rank = player_fields
+            raw_gsis = clean(row[gsis_col]) if gsis_col else ""
+            raw_espn = clean(row[espn_col]) if espn_col else ""
+            name = clean(row[name_col]) if name_col else ""
+            resolved = players.resolve(raw_gsis or raw_espn, name)
+            gsis_id = raw_gsis if raw_gsis.startswith("00-") else ""
+            if not gsis_id and resolved is not None:
+                gsis_id = resolved.gsis_id
+            position = normalize_position(row[position_col]) if position_col else ""
+            if not position and resolved is not None:
+                position = resolved.position
             group = clean(row[group_col]).upper() if group_col else ""
+            slot_value = clean(row[slot_col]).upper()
             slot = f"{group}|{slot_value}|{position}" if group else f"{slot_value}|{position}"
             grouped.setdefault((team, timestamp), []).append(
                 DepthPlayer(
@@ -900,7 +827,7 @@ def parse_timestamp(value: Any) -> pd.Timestamp | None:
         return None
     try:
         timestamp = pd.to_datetime(text, utc=True, errors="raise")
-    except (TypeError, ValueError, OverflowError):
+    except Exception:
         return None
     if isinstance(timestamp, pd.DatetimeIndex):
         return None
@@ -1055,14 +982,16 @@ def load_injuries(
         if status not in {"out", "doubtful", "questionable"}:
             continue
 
-        raw_player_id, name, gsis_id, position = _resolve_player_fields(
-            row,
-            players=players,
-            gsis_col=gsis_col,
-            alternate_id_col=player_id_col,
-            name_col=name_col,
-            position_col=position_col,
-        )
+        raw_gsis = clean(row[gsis_col]) if gsis_col else ""
+        raw_player_id = clean(row[player_id_col]) if player_id_col else ""
+        name = clean(row[name_col]) if name_col else ""
+        resolved = players.resolve(raw_gsis or raw_player_id, name)
+        gsis_id = raw_gsis if raw_gsis.startswith("00-") else ""
+        if not gsis_id and resolved is not None:
+            gsis_id = resolved.gsis_id
+        position = normalize_position(row[position_col]) if position_col else ""
+        if not position and resolved is not None:
+            position = resolved.position
 
         identity = gsis_id or raw_player_id or normalize_name(name)
         if not identity:
@@ -1598,6 +1527,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except Exception as main_error:
-        print(f"ERROR: {main_error}", file=sys.stderr)
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         raise

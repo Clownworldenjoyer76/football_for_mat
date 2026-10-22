@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
-from typing import Any
 
 import csv
 import os
@@ -22,7 +21,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import write_csv_contract
 
 
 DRAT_RAW_DIR = NFL_ROOT / "00_intake" / "predictions" / "drat" / "raw"
@@ -254,7 +252,7 @@ class RunLog:
             temporary_path.unlink(missing_ok=True)
 
 
-def clean_text(value: Any) -> str:
+def clean_text(value: object) -> str:
     if value is None:
         return ""
     return str(value).strip()
@@ -440,16 +438,31 @@ def write_clean_csv(
     output_path: Path,
     rows: list[dict[str, str]],
 ) -> None:
-    write_csv_contract(
-        output_path,
-        rows,
-        fieldnames=OUTPUT_HEADERS,
-        clean=clean_text,
-        mkdir=True,
-        extrasaction="ignore",
-        lineterminator="\n",
-    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    with output_path.open(
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OUTPUT_HEADERS,
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
+        writer.writeheader()
+
+        for row in rows:
+            writer.writerow(
+                {
+                    header: clean_text(row.get(header))
+                    for header in OUTPUT_HEADERS
+                }
+            )
+
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def transform_drat_rows(
@@ -1044,7 +1057,8 @@ def main() -> int:
             stale_managed_outputs_removed=stale_managed_outputs_removed,
         )
 
-    return 1 if log.has_errors else 0
+        _qodana_return_value = 1 if log.has_errors else 0
+    return _qodana_return_value
 
 
 if __name__ == "__main__":

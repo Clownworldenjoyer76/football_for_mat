@@ -33,8 +33,10 @@ Kelly is full Kelly capped at settings.yaml selection_defaults.max_kelly.
 """
 
 from __future__ import annotations
+from typing import NoReturn
 
 import argparse
+import csv
 import math
 import os
 import re
@@ -43,7 +45,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -56,13 +58,12 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import validate_csv_header_names
-from value_contract import bind_optional_numeric_parsers
-np: Any
-pd: Any
-yaml: Any
 
 DEFAULT_SETTINGS_PATH = NFL_ROOT / "config/settings.yaml"
+
+np: Any = None
+pd: Any = None
+yaml: Any = None
 
 def load_runtime_dependencies(
     reporter: PipelineReporter,
@@ -205,7 +206,7 @@ SEASON_TYPE_ALIASES = {
 }
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> NoReturn:
     raise RuntimeError(message)
 
 
@@ -228,7 +229,27 @@ def clean(value: Any) -> str:
     return text
 
 
-parse_float, parse_int = bind_optional_numeric_parsers(clean)
+def parse_float(value: Any) -> float | None:
+    text = clean(value)
+
+    if not text:
+        return None
+
+    try:
+        number = float(text)
+    except (TypeError, ValueError):
+        return None
+
+    return number if math.isfinite(number) else None
+
+
+def parse_int(value: Any) -> int | None:
+    number = parse_float(value)
+
+    if number is None or not float(number).is_integer():
+        return None
+
+    return int(number)
 
 
 def parse_bool(value: Any, *, key: str) -> bool:
@@ -326,13 +347,53 @@ def validate_csv_header(
     path: Path,
     label: str,
 ) -> None:
-    validate_csv_header_names(
-        path,
-        label=label,
-        clean=clean,
-        fail=fail,
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as handle:
+            reader = csv.reader(handle)
+            header = next(reader, None)
+    except UnicodeDecodeError as exc:
+        fail(
+            f"{label} is not valid UTF-8 CSV: "
+            f"{path}: {exc}"
+        )
+
+    if not header:
+        fail(
+            f"{label} has no CSV header: "
+            f"{path}"
+        )
+
+    normalized = [
+        clean(column)
+        for column in header
+    ]
+
+    if any(
+        not column
+        for column in normalized
+    ):
+        fail(
+            f"{label} contains blank "
+            f"column names: {path}"
+        )
+
+    duplicates = sorted(
+        {
+            column
+            for column in normalized
+            if normalized.count(column) > 1
+        }
     )
 
+    if duplicates:
+        fail(
+            f"{label} contains duplicate "
+            f"column names: {duplicates}"
+        )
 
 
 def read_csv(
@@ -1591,6 +1652,614 @@ def merge_schedule(
 
 
 
+
+def resolve_candidate_kickoffs(
+    schedule: pd.DataFrame,
+    season: int,
+    week: int,
+    season_type: str,
+    candidate_game_ids: set[str],
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    require_columns(
+        schedule,
+        [
+            "season",
+            "season_type",
+            "week",
+            "game_id",
+        ],
+        "weekly schedule",
+    )
+
+    frame = schedule.copy()
+
+    validate_unique_game_ids(
+        frame,
+        "weekly schedule",
+    )
+
+    season_values = pd.to_numeric(
+        frame["season"],
+        errors="coerce",
+    )
+
+    week_values = pd.to_numeric(
+        frame["week"],
+        errors="coerce",
+    )
+
+    type_values = frame[
+        "season_type"
+    ].map(
+        normalize_season_type
+    )
+
+    frame = frame.loc[
+        (
+            season_values
+            == season
+        )
+        & (
+            week_values
+            == week
+        )
+        & (
+            type_values
+            == season_type
+        )
+    ].copy()
+
+    if frame.empty:
+        fail(
+            "Weekly schedule has no rows for "
+            f"season={season}, "
+            f"week={week}, "
+            f"season_type={season_type}"
+        )
+
+    schedule_ids = set(
+        frame[
+            "game_id"
+        ].map(
+            normalize_game_id
+        )
+    )
+
+    missing_ids = sorted(
+        candidate_game_ids
+        - schedule_ids
+    )
+
+    if missing_ids:
+        fail(
+            "Weekly schedule is missing "
+            "candidate game_id values: "
+            f"{missing_ids[:10]}"
+        )
+
+    schedule_by_game = (
+        frame.set_index(
+            "game_id",
+            drop=False,
+        )
+    )
+
+    kickoff_by_game: dict[
+        str,
+        Any,
+    ] = {}
+
+    for game_id in sorted(
+        candidate_game_ids
+    ):
+        row = schedule_by_game.loc[
+            game_id
+        ]
+
+        kickoff = None
+
+        commence_time = clean(
+            row.get(
+                "commence_time",
+                "",
+            )
+        )
+
+        if commence_time:
+            kickoff = pd.to_datetime(
+                commence_time,
+                utc=True,
+                errors="coerce",
+            )
+
+            if pd.isna(kickoff):
+                fail(
+                    "Weekly schedule has invalid "
+                    "commence_time for "
+                    f"game_id={game_id}: "
+                    f"{commence_time!r}"
+                )
+
+        if kickoff is None:
+            for required_column in (
+                "game_date",
+                "game_time",
+                "game_timezone",
+            ):
+                if required_column not in frame.columns:
+                    fail(
+                        "Weekly schedule is missing "
+                        f"{required_column!r}, required "
+                        "when commence_time is blank"
+                    )
+
+            game_date = clean(
+                row.get(
+                    "game_date",
+                    "",
+                )
+            )
+
+            game_time = clean(
+                row.get(
+                    "game_time",
+                    "",
+                )
+            )
+
+            game_timezone = clean(
+                row.get(
+                    "game_timezone",
+                    "",
+                )
+            )
+
+            if (
+                not game_date
+                or not game_time
+                or not game_timezone
+            ):
+                fail(
+                    "Weekly schedule is missing "
+                    "kickoff date/time/timezone for "
+                    f"candidate game_id={game_id} "
+                    "and no usable commence_time exists"
+                )
+
+            kickoff = pd.to_datetime(
+                f"{game_date} {game_time}",
+                errors="coerce",
+            )
+
+            if pd.isna(kickoff):
+                fail(
+                    "Weekly schedule has invalid "
+                    "kickoff date/time for "
+                    f"game_id={game_id}: "
+                    f"date={game_date!r} "
+                    f"time={game_time!r}"
+                )
+
+            try:
+                kickoff = kickoff.tz_localize(
+                    game_timezone,
+                    ambiguous="raise",
+                    nonexistent="raise",
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    "Weekly schedule has invalid "
+                    f"game_timezone={game_timezone!r} "
+                    f"for game_id={game_id}"
+                ) from exc
+
+            kickoff = kickoff.tz_convert(
+                "UTC"
+            )
+
+        kickoff_by_game[
+            game_id
+        ] = kickoff
+
+    return (
+        frame,
+        kickoff_by_game,
+    )
+
+
+def merge_preserved_candidate_rows(
+    current_output: pd.DataFrame,
+    current_original: pd.DataFrame,
+    existing_output: pd.DataFrame | None,
+    schedule: pd.DataFrame,
+    season: int,
+    week: int,
+    season_type: str,
+    max_kelly: float,
+    reporter: PipelineReporter,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    source_columns = list(
+        current_original.columns
+    )
+
+    candidate_game_ids = set(
+        current_output[
+            "game_id"
+        ].map(
+            normalize_game_id
+        )
+    )
+
+    if (
+        existing_output is not None
+        and not existing_output.empty
+    ):
+        existing_ids = existing_output[
+            "game_id"
+        ].map(
+            normalize_game_id
+        )
+
+        if existing_ids.eq("").any():
+            fail(
+                "Existing candidate output contains "
+                "blank game_id values"
+            )
+
+        if existing_ids.duplicated().any():
+            fail(
+                "Existing candidate output contains "
+                "duplicate game_id values"
+            )
+
+        existing_output = (
+            existing_output.copy()
+        )
+
+        existing_output[
+            "game_id"
+        ] = existing_ids
+
+        candidate_game_ids.update(
+            existing_ids.tolist()
+        )
+
+    (
+        schedule_scope,
+        kickoff_by_game,
+    ) = resolve_candidate_kickoffs(
+        schedule,
+        season,
+        week,
+        season_type,
+        candidate_game_ids,
+    )
+
+    now_utc = pd.Timestamp.now(
+        tz="UTC"
+    )
+
+    started_ids = {
+        game_id
+        for game_id, kickoff
+        in kickoff_by_game.items()
+        if kickoff <= now_utc
+    }
+
+    expected_columns = (
+        source_columns
+        + SELECTION_COLUMNS
+        + CANDIDATE_COLUMNS
+    )
+
+    preserved_output = (
+        current_output.iloc[
+            0:0
+        ].copy()
+    )
+
+    preserved_original = (
+        current_original.iloc[
+            0:0
+        ].copy()
+    )
+
+    existing_rows = 0
+
+    if (
+        existing_output is not None
+        and not existing_output.empty
+    ):
+        existing_rows = len(
+            existing_output
+        )
+
+        missing_columns = [
+            column
+            for column in expected_columns
+            if column
+            not in existing_output.columns
+        ]
+
+        if missing_columns:
+            fail(
+                "Existing candidate output is "
+                "missing required columns: "
+                f"{missing_columns}"
+            )
+
+        extra_columns = [
+            column
+            for column
+            in existing_output.columns
+            if column
+            not in expected_columns
+        ]
+
+        if extra_columns:
+            fail(
+                "Existing candidate output has "
+                "unexpected columns: "
+                f"{extra_columns}"
+            )
+
+        existing_output = existing_output[
+            expected_columns
+        ].copy()
+
+        existing_original = existing_output[
+            source_columns
+        ].copy()
+
+        validate_combined(
+            existing_original,
+            season,
+            week,
+            season_type,
+            "existing candidate source rows",
+        )
+
+        validate_candidate_output(
+            existing_output,
+            existing_original,
+            max_kelly,
+            "existing candidate output",
+        )
+
+        preserve_mask = (
+            existing_output[
+                "game_id"
+            ].isin(
+                started_ids
+            )
+        )
+
+        preserved_output = (
+            existing_output.loc[
+                preserve_mask
+            ].copy()
+        )
+
+        preserved_original = (
+            existing_original.loc[
+                preserve_mask
+            ].copy()
+        )
+
+    preserved_ids = set(
+        preserved_output[
+            "game_id"
+        ].map(
+            normalize_game_id
+        )
+    )
+
+    current_keep_mask = (
+        ~current_output[
+            "game_id"
+        ]
+        .map(
+            normalize_game_id
+        )
+        .isin(
+            preserved_ids
+        )
+    )
+
+    current_output_kept = (
+        current_output.loc[
+            current_keep_mask
+        ].copy()
+    )
+
+    current_original_kept = (
+        current_original.loc[
+            current_keep_mask
+        ].copy()
+    )
+
+    output = pd.concat(
+        [
+            preserved_output,
+            current_output_kept,
+        ],
+        ignore_index=True,
+    )
+
+    validation_original = pd.concat(
+        [
+            preserved_original,
+            current_original_kept,
+        ],
+        ignore_index=True,
+    )
+
+    validate_unique_game_ids(
+        output,
+        "merged candidate output",
+    )
+
+    validate_unique_game_ids(
+        validation_original,
+        "merged candidate source rows",
+    )
+
+    output_ids = set(
+        output[
+            "game_id"
+        ].map(
+            normalize_game_id
+        )
+    )
+
+    original_ids = set(
+        validation_original[
+            "game_id"
+        ].map(
+            normalize_game_id
+        )
+    )
+
+    if output_ids != original_ids:
+        fail(
+            "Merged candidate/source game_id "
+            "sets do not match"
+        )
+
+    schedule_order = {
+        normalize_game_id(
+            game_id
+        ): index
+        for index, game_id
+        in enumerate(
+            schedule_scope[
+                "game_id"
+            ].tolist()
+        )
+    }
+
+    unexpected_ids = sorted(
+        output_ids
+        - set(
+            schedule_order
+        )
+    )
+
+    if unexpected_ids:
+        fail(
+            "Merged candidate output contains "
+            "game_id values not present in the "
+            f"weekly schedule: {unexpected_ids[:10]}"
+        )
+
+    output[
+        "_schedule_order"
+    ] = (
+        output[
+            "game_id"
+        ]
+        .map(
+            normalize_game_id
+        )
+        .map(
+            schedule_order
+        )
+    )
+
+    validation_original[
+        "_schedule_order"
+    ] = (
+        validation_original[
+            "game_id"
+        ]
+        .map(
+            normalize_game_id
+        )
+        .map(
+            schedule_order
+        )
+    )
+
+    if (
+        output[
+            "_schedule_order"
+        ].isna().any()
+        or validation_original[
+            "_schedule_order"
+        ].isna().any()
+    ):
+        fail(
+            "Unable to order merged candidate "
+            "rows by weekly schedule"
+        )
+
+    output = (
+        output.sort_values(
+            "_schedule_order",
+            kind="stable",
+        )
+        .drop(
+            columns=[
+                "_schedule_order"
+            ]
+        )
+        .reset_index(
+            drop=True
+        )
+    )
+
+    validation_original = (
+        validation_original.sort_values(
+            "_schedule_order",
+            kind="stable",
+        )
+        .drop(
+            columns=[
+                "_schedule_order"
+            ]
+        )
+        .reset_index(
+            drop=True
+        )
+    )
+
+    validate_candidate_output(
+        output,
+        validation_original,
+        max_kelly,
+        "merged candidate output",
+    )
+
+    reporter.update_details(
+        {
+            "candidate_persistence_mode": (
+                "preserve_started_refresh_unstarted"
+            ),
+            "candidate_snapshot_time_utc": (
+                now_utc.isoformat()
+            ),
+            "existing_candidate_rows": (
+                existing_rows
+            ),
+            "preserved_started_candidate_rows": len(
+                preserved_output
+            ),
+            "refreshed_candidate_rows": len(
+                current_output_kept
+            ),
+            "output_candidate_rows": len(
+                output
+            ),
+        }
+    )
+
+    return (
+        output,
+        validation_original,
+    )
+
+
+
 def build_output(
     original: pd.DataFrame,
     working: pd.DataFrame,
@@ -2747,17 +3416,44 @@ def run(
         sportsbook,
     )
 
-    output = build_output(
+    current_output = build_output(
         combined,
         working,
         max_kelly,
     )
 
     validate_candidate_output(
-        output,
+        current_output,
         combined,
         max_kelly,
-        "in-memory candidate output",
+        "current in-memory candidate output",
+    )
+
+    existing_output = None
+
+    if output_path.is_file():
+        reporter.add_input(
+            output_path
+        )
+
+        existing_output = read_csv(
+            output_path,
+            "existing candidate output",
+            optional=True,
+        )
+
+    output, validation_original = (
+        merge_preserved_candidate_rows(
+            current_output,
+            combined,
+            existing_output,
+            schedule,
+            season,
+            week,
+            season_type,
+            max_kelly,
+            reporter,
+        )
     )
 
     summary = candidate_summary(
@@ -2787,7 +3483,7 @@ def run(
     try:
         validate_serialized_candidate_csv(
             staged_path,
-            original=combined,
+            original=validation_original,
             max_kelly=max_kelly,
             label=(
                 "staged candidate output"
@@ -2801,7 +3497,7 @@ def run(
         publish_candidate_csv(
             staged_path,
             output_path,
-            original=combined,
+            original=validation_original,
             max_kelly=max_kelly,
             reporter=reporter,
         )

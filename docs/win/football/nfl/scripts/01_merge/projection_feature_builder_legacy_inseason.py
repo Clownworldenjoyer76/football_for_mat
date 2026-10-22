@@ -12,10 +12,10 @@ performance uses the latest same-season QB row with source week < N.
 """
 
 from __future__ import annotations
-from typing import Any
 
 from bisect import bisect_left
 from dataclasses import dataclass
+from datetime import datetime
 import json
 import math
 from pathlib import Path
@@ -120,7 +120,7 @@ def nfl_root() -> Path:
     return repo_root() / NFL_REL
 
 
-def clean(value: Any) -> str:
+def clean(value: object) -> str:
     if value is None or pd.isna(value):
         return ""
     text = str(value).strip()
@@ -343,7 +343,7 @@ def parse_timestamp(
             utc=True,
             errors="coerce",
         )
-    except (TypeError, ValueError, OverflowError):
+    except Exception:
         return None
 
     return (
@@ -381,7 +381,7 @@ def require_unique_game_id(
 
 def filter_unstarted_games(
     root: Path,
-    base: pd.DataFrame,
+    base: pd.DataFrame,
     season: int,
     week: int,
     label: str,
@@ -684,7 +684,7 @@ def load_team_name_lookup(
         if canonical:
             abbr_to_name[abbr] = canonical
 
-        values: list[Any] = [
+        values: list[object] = [
             row.get(c)
             for c in candidates
             if c in df.columns
@@ -920,7 +920,7 @@ class CurrentRoster:
                 encoding="utf-8-sig",
                 low_memory=False,
             )
-        except (OSError, UnicodeError, pd.errors.ParserError, pd.errors.EmptyDataError):
+        except Exception:
             return
 
         if df.empty:
@@ -3852,6 +3852,7 @@ def previous_game_kickoff(
 
 def add_injury_features(
     work: pd.DataFrame,
+    season: int,
     week1_mode: bool,
     full_schedule: pd.DataFrame,
     team_lookup: dict[str, str],
@@ -4132,6 +4133,54 @@ def prepare_week(
         ],
         str(weekly_schedule_path),
     )
+
+    market_spread = pd.to_numeric(
+        market["home_spread"],
+        errors="coerce",
+    )
+    market_total = pd.to_numeric(
+        market["total"],
+        errors="coerce",
+    )
+
+    usable_market_ids = set(
+        market.loc[
+            market_spread.notna()
+            & market_total.notna(),
+            "game_id",
+        ].astype(str)
+    )
+
+    missing_market_ids = [
+        str(game_id)
+        for game_id in base["game_id"]
+        if str(game_id) not in usable_market_ids
+    ]
+
+    if missing_market_ids:
+        print(
+            "INFO: skipping unstarted games without "
+            "required sportsbook spread/total: "
+            f"{missing_market_ids}"
+        )
+
+        base = base.loc[
+            base["game_id"].astype(str).isin(
+                usable_market_ids
+            )
+        ].copy()
+
+        original = original.loc[
+            original["game_id"].astype(str).isin(
+                usable_market_ids
+            )
+        ].copy()
+
+    if base.empty:
+        raise RuntimeError(
+            "No unstarted games have usable "
+            "sportsbook spread/total data"
+        )
 
     market[
         "hist_home_spread"
@@ -4670,6 +4719,7 @@ def prepare_week(
 
     add_injury_features(
         base,
+        season,
         week1_mode,
         full_schedule,
         team_lookup,

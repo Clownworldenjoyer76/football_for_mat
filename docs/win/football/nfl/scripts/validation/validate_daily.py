@@ -11,12 +11,15 @@ contract.
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib.util
+import json
 import sys
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -27,7 +30,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import read_csv_contract
 
 REPORT_ROOT = NFL_ROOT / "errors"
 TEAM_MAP_PATH = NFL_ROOT / "config" / "mapping" / "team_map.csv"
@@ -54,7 +56,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     print(f"VALIDATION FAILED: {message}", file=sys.stderr)
     raise DailyValidationError(message)
 
@@ -137,14 +139,52 @@ def read_csv(
 ) -> tuple[list[str], list[dict[str, str]]]:
     track_input(path)
 
-    fieldnames, rows = read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        required_columns=required_columns,
-        exact_columns=exact_columns,
-        allow_empty=allow_empty,
-    )
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
+
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
+
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if not fieldnames:
+        fail(f"{label} has no CSV header: {path}")
+
+    if len(fieldnames) != len(set(fieldnames)):
+        fail(f"{label} contains duplicate CSV columns: {path}")
+
+    if required_columns:
+        missing = [
+            column
+            for column in required_columns
+            if column not in fieldnames
+        ]
+        if missing:
+            fail(
+                f"{label} missing expected columns: {missing}"
+            )
+
+    if exact_columns is not None and fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected column order/schema. "
+            f"Expected={exact_columns} actual={fieldnames}"
+        )
+
+    if not rows and not allow_empty:
+        fail(f"{label} contains no data rows: {path}")
 
     if unique_by and rows:
         seen: set[tuple[str, ...]] = set()

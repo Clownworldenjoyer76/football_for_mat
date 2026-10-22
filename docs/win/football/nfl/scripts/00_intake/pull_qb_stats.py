@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Build weekly NFL quarterback statistics from one season of local nflverse PBP.
 
@@ -33,6 +33,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -163,14 +164,11 @@ def _blank_mask(series: pd.Series) -> pd.Series:
 
 
 def read_pbp(path: Path) -> pd.DataFrame:
-    try:
-        with path.open("rb") as handle:
-            if not handle.read(1):
-                return pd.DataFrame()
-    except FileNotFoundError as exc:
-        raise FileNotFoundError(
-            f"PBP input file not found: {path}"
-        ) from exc
+    if not path.exists():
+        raise FileNotFoundError(f"PBP input file not found: {path}")
+
+    if path.stat().st_size == 0:
+        return pd.DataFrame()
 
     try:
         return pd.read_csv(
@@ -205,44 +203,6 @@ def read_existing_output(
         return None, False
 
 
-def _completed_game_keys(
-    frame: pd.DataFrame,
-    path: Path,
-) -> set[str]:
-    normalized_status = (
-        frame["status"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.casefold()
-    )
-    completed_mask = normalized_status.str.contains(
-        "final|completed",
-        regex=True,
-    )
-
-    if not completed_mask.any():
-        return set()
-
-    if "game_id" not in frame.columns:
-        return {
-            f"{path.name}:{index}"
-            for index in frame.index[completed_mask].tolist()
-        }
-
-    return {
-        value
-        for value in (
-            frame.loc[completed_mask, "game_id"]
-            .dropna()
-            .astype(str)
-            .str.strip()
-            .tolist()
-        )
-        if value
-    }
-
-
 def count_completed_games(
     season: int,
     reporter: PipelineReporter,
@@ -274,12 +234,35 @@ def count_completed_games(
             )
             continue
 
-        completed.update(
-            _completed_game_keys(
-                frame,
-                path,
-            )
+        statuses = (
+            frame["status"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.casefold()
         )
+        done = (
+            statuses.str.contains("final", regex=False)
+            | statuses.str.contains("completed", regex=False)
+        )
+
+        if not done.any():
+            continue
+
+        if "game_id" in frame.columns:
+            ids = (
+                frame.loc[done, "game_id"]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .tolist()
+            )
+            completed.update(value for value in ids if value)
+        else:
+            completed.update(
+                f"{path.name}:{index}"
+                for index in frame.index[done].tolist()
+            )
 
     return len(completed), inspection_uncertain, len(paths)
 
@@ -660,13 +643,13 @@ def write_candidate_file(
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.NamedTemporaryFile(
+    file_descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{output_path.name}.",
         suffix=".tmp",
         dir=output_path.parent,
-        delete=False,
-    ) as handle:
-        temporary_path = Path(handle.name)
+    )
+    os.close(file_descriptor)
+    temporary_path = Path(temporary_name)
 
     try:
         df.to_csv(
@@ -756,6 +739,7 @@ def main() -> int:
             identity_incomplete_pass_attempt_rows = 0
             output_rows = 0
             existing_rows: int | None = None
+            existing_readable = True
             completed_games = 0
             result_files_checked = 0
             completed_game_inspection_uncertain = False

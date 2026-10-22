@@ -38,7 +38,6 @@ below so international_flag remains correct.
 """
 
 from __future__ import annotations
-from typing import Any
 
 from datetime import datetime
 from pathlib import Path
@@ -244,7 +243,7 @@ def require_columns(
 
 
 def clean(
-    value: Any,
+    value: object,
 ) -> str:
     if value is None:
         return ""
@@ -497,7 +496,7 @@ def utc_offset_hours(
 
 def load_team_lookup() -> dict[
     str,
-    dict[str, Any],
+    dict[str, object],
 ]:
     df = read_csv(
         TEAM_MASTER_PATH
@@ -511,7 +510,7 @@ def load_team_lookup() -> dict[
 
     lookup: dict[
         str,
-        dict[str, Any],
+        dict[str, object],
     ] = {}
 
     for index, row in df.iterrows():
@@ -805,7 +804,7 @@ def process_season(
     ],
     team_lookup: dict[
         str,
-        dict[str, Any],
+        dict[str, object],
     ],
 ) -> tuple[
     pd.DataFrame,
@@ -1348,9 +1347,9 @@ if __name__ == "__main__":
             main()
         )
 
-    except Exception as main_error:
+    except Exception as exc:
         print(
-            f"ERROR: {main_error}",
+            f"ERROR: {exc}",
             file=sys.stderr,
         )
         raise

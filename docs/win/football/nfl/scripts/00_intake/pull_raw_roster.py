@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 Pull the configured NFL season roster from ESPN Core and publish one flattened
@@ -5,10 +6,12 @@ raw CSV compatible with roster_cleanup.py.
 """
 
 from __future__ import annotations
+from typing import NoReturn
 
 import argparse
 import csv
 import json
+import math
 import os
 import sys
 import tempfile
@@ -17,7 +20,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 from urllib.parse import urlparse
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -28,9 +31,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import write_csv_contract
-from team_contract import is_nfl_mapping_row
-from roster_contract import COMPATIBILITY_COLUMNS, CORE_REQUIRED_FIELDS
 
 CORE_BASE = "https://sports.core.api.espn.com/v2"
 OUTPUT_PATH = NFL_ROOT / "data" / "raw" / "raw_roster.csv"
@@ -56,7 +56,74 @@ RETRYABLE_HTTP_CODES = {
     504,
 }
 
+COMPATIBILITY_COLUMNS = [
+    "age",
+    "alternateIds.sdr",
+    "birthPlace.city",
+    "birthPlace.country",
+    "birthPlace.state",
+    "college.abbrev",
+    "college.guid",
+    "college.id",
+    "college.name",
+    "college.shortName",
+    "contract.active",
+    "contract.bonus",
+    "contract.optionType",
+    "contract.salary",
+    "contract.salaryRemaining",
+    "contract.season.endDate",
+    "contract.season.startDate",
+    "contract.season.year",
+    "contract.signedThrough",
+    "dateOfBirth",
+    "debutYear",
+    "displayHeight",
+    "displayName",
+    "displayWeight",
+    "experience.years",
+    "firstName",
+    "fullName",
+    "guid",
+    "hand.abbreviation",
+    "hand.displayValue",
+    "hand.type",
+    "headshot.alt",
+    "headshot.href",
+    "height",
+    "id",
+    "injuries.0.date",
+    "injuries.0.status",
+    "jersey",
+    "lastName",
+    "position.abbreviation",
+    "position.displayName",
+    "position.id",
+    "position.leaf",
+    "position.name",
+    "position.parent.abbreviation",
+    "position.parent.displayName",
+    "position.parent.id",
+    "position.parent.leaf",
+    "position.parent.name",
+    "shortName",
+    "slug",
+    "status.abbreviation",
+    "status.id",
+    "status.name",
+    "status.type",
+    "team_id",
+    "uid",
+    "weight",
+]
 
+CORE_REQUIRED_FIELDS = [
+    "id",
+    "displayName",
+    "position.id",
+    "position.abbreviation",
+    "team_id",
+]
 
 
 class RosterPullError(RuntimeError):
@@ -67,7 +134,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> NoReturn:
     raise RosterPullError(message)
 
 
@@ -209,30 +276,42 @@ def flatten(
     parent_key: str = "",
     sep: str = ".",
 ) -> dict[str, Any]:
-    def walk(value: Any, key: str):
-        if isinstance(value, dict):
-            for child_key, child_value in value.items():
-                next_key = (
-                    f"{key}{sep}{child_key}"
-                    if key
-                    else str(child_key)
+    items: dict[str, Any] = {}
+
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            new_key = (
+                f"{parent_key}{sep}{key}"
+                if parent_key
+                else str(key)
+            )
+            items.update(
+                flatten(
+                    value,
+                    new_key,
+                    sep,
                 )
-                yield from walk(child_value, next_key)
-            return
+            )
 
-        if isinstance(value, list):
-            for index, child_value in enumerate(value):
-                next_key = (
-                    f"{key}{sep}{index}"
-                    if key
-                    else str(index)
+    elif isinstance(obj, list):
+        for index, value in enumerate(obj):
+            new_key = (
+                f"{parent_key}{sep}{index}"
+                if parent_key
+                else str(index)
+            )
+            items.update(
+                flatten(
+                    value,
+                    new_key,
+                    sep,
                 )
-                yield from walk(child_value, next_key)
-            return
+            )
 
-        yield key, value
+    else:
+        items[parent_key] = obj
 
-    return dict(walk(obj, parent_key))
+    return items
 
 
 def id_from_ref(
@@ -285,17 +364,19 @@ def load_canonical_team_ids(
 
         if missing:
             fail(
-                f"{TEAM_MAP_PATH} missing columns: {missing}"
+                f"{TEAM_MAP_PATH} missing columns: "
+                f"{missing}"
             )
 
         team_ids: set[str] = set()
 
         for row in reader:
-            if not is_nfl_mapping_row(
-                row,
-                clean=clean,
-                allow_blank_scope=True,
-            ):
+            sport = clean(row.get("sport")).casefold()
+            league = clean(row.get("league")).casefold()
+
+            if sport not in {"", "football"}:
+                continue
+            if league not in {"", "nfl"}:
                 continue
 
             team_id = clean(row.get("team_id"))
@@ -512,6 +593,182 @@ def fetch_athlete_entry(
         "athlete_ref": athlete_ref,
         "athlete": athlete,
     }
+
+
+# ============================================================
+# MULTI-TEAM ROSTER RESOLUTION
+# ============================================================
+
+def get_explicit_athlete_team_id(
+    athlete: dict[str, Any],
+) -> str:
+    """
+    Extract ESPN's explicit team assignment.
+
+    Do not infer team membership from roster-list order,
+    athlete status, or the first team that returned the player.
+    """
+    team = athlete.get("team")
+
+    if team is None:
+        return ""
+
+    if isinstance(team, dict):
+        direct_id = clean(team.get("id"))
+        team_ref = normalize_ref(team.get("$ref"))
+
+        ref_id = ""
+        if team_ref:
+            ref_id = id_from_ref(team_ref, "team")
+
+        if direct_id and not direct_id.isdigit():
+            fail(
+                "Invalid explicit ESPN athlete team ID "
+                f"value={direct_id!r}"
+            )
+
+        if direct_id and ref_id and direct_id != ref_id:
+            fail(
+                "Conflicting ESPN athlete team identifiers "
+                f"team.id={direct_id} team.ref={ref_id}"
+            )
+
+        return direct_id or ref_id
+
+    direct_id = clean(team)
+
+    if direct_id.isdigit():
+        return direct_id
+
+    fail(
+        "Unrecognized ESPN athlete team assignment "
+        f"value={team!r}"
+    )
+
+
+def resolve_multi_team_memberships(
+    records: list[dict[str, Any]],
+    *,
+    canonical_team_ids: set[str],
+) -> list[dict[str, Any]]:
+    """
+    Resolve players listed on multiple team rosters using
+    ESPN's explicit athlete-team reference.
+
+    Preserve the original record and team_id for the
+    selected membership. Never silently select a team
+    based on iteration order.
+
+    Ambiguous, missing, or contradictory ESPN assignments
+    remain fatal validation errors.
+    """
+    by_athlete: dict[str, list[dict[str, Any]]] = {}
+
+    for record in records:
+        athlete = record.get("athlete")
+
+        if not isinstance(athlete, dict):
+            fail(
+                "Cannot resolve team memberships: "
+                "athlete record is not an object"
+            )
+
+        athlete_id = clean(athlete.get("id"))
+
+        if not athlete_id:
+            fail(
+                "Cannot resolve team memberships: "
+                "athlete ID is missing"
+            )
+
+        by_athlete.setdefault(
+            athlete_id,
+            [],
+        ).append(record)
+
+    resolved_teams: dict[str, str] = {}
+
+    for athlete_id, athlete_records in by_athlete.items():
+        observed_teams = {
+            clean(record.get("team_id"))
+            for record in athlete_records
+        }
+
+        if len(observed_teams) <= 1:
+            continue
+
+        explicit_teams: set[str] = set()
+
+        for record in athlete_records:
+            team_id = get_explicit_athlete_team_id(
+                record["athlete"]
+            )
+
+            if team_id:
+                explicit_teams.add(team_id)
+
+        if len(explicit_teams) != 1:
+            fail(
+                "Cannot safely resolve multi-team athlete: "
+                f"athlete_id={athlete_id} "
+                f"roster_teams={sorted(observed_teams)} "
+                f"explicit_teams={sorted(explicit_teams)}"
+            )
+
+        selected_team = next(iter(explicit_teams))
+
+        if selected_team not in canonical_team_ids:
+            fail(
+                "ESPN athlete references an unknown NFL team: "
+                f"athlete_id={athlete_id} "
+                f"team_id={selected_team}"
+            )
+
+        if selected_team not in observed_teams:
+            fail(
+                "ESPN athlete team does not match any "
+                "reported roster membership: "
+                f"athlete_id={athlete_id} "
+                f"explicit_team={selected_team} "
+                f"roster_teams={sorted(observed_teams)}"
+            )
+
+        resolved_teams[athlete_id] = selected_team
+
+        print(
+            "resolved_multi_team "
+            f"athlete_id={athlete_id} "
+            f"selected_team={selected_team} "
+            f"removed_teams="
+            f"{sorted(observed_teams - {selected_team})}"
+        )
+
+    if not resolved_teams:
+        return records
+
+    resolved_records = []
+
+    for record in records:
+        athlete_id = clean(
+            record["athlete"].get("id")
+        )
+        team_id = clean(
+            record.get("team_id")
+        )
+
+        selected_team = resolved_teams.get(athlete_id)
+
+        if selected_team is None or team_id == selected_team:
+            resolved_records.append(record)
+
+    print(
+        "multi_team_resolution "
+        f"players_resolved={len(resolved_teams)} "
+        f"records_before={len(records)} "
+        f"records_after={len(resolved_records)}"
+    )
+
+    return resolved_records
 
 
 def fetch_optional_json(
@@ -866,7 +1123,26 @@ def validate_flat_rows(
         )
 
 
-
+def write_csv(
+    path: Path,
+    rows: list[dict[str, Any]],
+    fieldnames: list[str],
+) -> None:
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=fieldnames,
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def publish(
@@ -890,13 +1166,10 @@ def publish(
             / OUTPUT_PATH.name
         )
 
-        write_csv_contract(
+        write_csv(
             staged_path,
             rows,
-            fieldnames=fieldnames,
-            extrasaction="ignore",
-            lineterminator="\\n",
-            encoding="utf-8",
+            fieldnames,
         )
 
         if staged_path.stat().st_size == 0:
@@ -1043,6 +1316,13 @@ def run(
             )
         )
 
+    # Resolve overlapping ESPN roster memberships before
+    # enforcing the existing unique-athlete validation.
+    athlete_records = resolve_multi_team_memberships(
+        athlete_records,
+        canonical_team_ids=canonical_team_ids,
+    )
+
     validate_athlete_records(
         athlete_records,
         canonical_team_ids=(
@@ -1139,13 +1419,9 @@ def run(
     ) = build_rows(
         athlete_records,
         college_map=college_map,
-        position_parent_map=(
-            position_parent_map
-        ),
+        position_parent_map=position_parent_map,
         season_year=season_year,
-        season_start_date=(
-            season_start_date
-        ),
+        season_start_date=season_start_date,
         season_end_date=season_end_date,
     )
 

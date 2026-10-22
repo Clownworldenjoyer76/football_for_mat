@@ -20,6 +20,8 @@ import re
 import shutil
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -32,7 +34,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from csv_contract import write_csv_contract
 
 
 TEAM_MASTER_PATH = (
@@ -63,6 +64,32 @@ GROUPS_URL_TEMPLATE = (
     "football/leagues/nfl/seasons/{season}/"
     "types/{season_type}/groups"
 )
+
+ESPN_CORE_HTTP_PREFIX = "http://sports.core.api.espn.com/"
+ESPN_CORE_HTTPS_PREFIX = "https://sports.core.api.espn.com/"
+
+TRANSIENT_HTTP_STATUSES = frozenset(
+    {
+        429,
+        500,
+        502,
+        503,
+        504,
+    }
+)
+
+MAX_REQUEST_ATTEMPTS = 4
+
+RETRY_BACKOFF_SECONDS = (
+    1.0,
+    2.0,
+    4.0,
+)
+
+REQUEST_HEADERS = {
+    "User-Agent": "nfl-league-master/2.0",
+    "Accept": "application/json",
+}
 
 TEAM_ID_PATTERN = re.compile(
     r"/teams/(\d+)(?:[/?]|$)"
@@ -143,43 +170,170 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+def normalize_espn_url(
+    url: str,
+) -> str:
+    normalized = clean_text(url)
+
+    if normalized.startswith(
+        ESPN_CORE_HTTP_PREFIX
+    ):
+        normalized = (
+            ESPN_CORE_HTTPS_PREFIX
+            + normalized[
+                len(
+                    ESPN_CORE_HTTP_PREFIX
+                ):
+            ]
+        )
+
+    return normalized
+
+
 def fetch_json(
     url: str,
-    timeout: int = 10,
+    timeout: int = 20,
 ) -> dict[str, Any]:
-    try:
-        with urllib.request.urlopen(
-            url,
-            timeout=timeout,
-        ) as response:
-            raw = response.read()
+    normalized_url = (
+        normalize_espn_url(
+            url
+        )
+    )
 
-    except Exception as exc:
+    if not normalized_url:
         raise LeagueMasterError(
-            f"Failed ESPN request: {url}: "
-            f"{type(exc).__name__}: {exc}"
-        ) from exc
-
-    try:
-        payload = json.loads(
-            raw.decode("utf-8")
+            "Failed ESPN request: URL is blank"
         )
 
-    except Exception as exc:
-        raise LeagueMasterError(
-            f"Invalid JSON from ESPN request: "
-            f"{url}: "
-            f"{type(exc).__name__}: {exc}"
-        ) from exc
+    last_error: Exception | None = None
 
-    if not isinstance(payload, dict):
-        raise LeagueMasterError(
-            f"Unexpected ESPN response type "
-            f"for {url}: "
-            f"{type(payload).__name__}"
+    for attempt_number in range(
+        1,
+        MAX_REQUEST_ATTEMPTS + 1,
+    ):
+        request = urllib.request.Request(
+            normalized_url,
+            headers=REQUEST_HEADERS,
         )
 
-    return payload
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=timeout,
+            ) as response:
+                raw = response.read()
+
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+
+            is_transient = (
+                exc.code
+                in TRANSIENT_HTTP_STATUSES
+            )
+
+            if (
+                is_transient
+                and attempt_number
+                < MAX_REQUEST_ATTEMPTS
+            ):
+                delay_seconds = (
+                    RETRY_BACKOFF_SECONDS[
+                        attempt_number - 1
+                    ]
+                )
+
+                print(
+                    "WARNING: transient ESPN "
+                    f"HTTP {exc.code} for "
+                    f"{normalized_url}; "
+                    f"retrying in "
+                    f"{delay_seconds:g}s "
+                    f"(attempt "
+                    f"{attempt_number + 1}/"
+                    f"{MAX_REQUEST_ATTEMPTS})"
+                )
+
+                time.sleep(
+                    delay_seconds
+                )
+                continue
+
+            raise LeagueMasterError(
+                f"Failed ESPN request after "
+                f"{attempt_number} attempt(s): "
+                f"{normalized_url}: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+        ) as exc:
+            last_error = exc
+
+            if (
+                attempt_number
+                < MAX_REQUEST_ATTEMPTS
+            ):
+                delay_seconds = (
+                    RETRY_BACKOFF_SECONDS[
+                        attempt_number - 1
+                    ]
+                )
+
+                print(
+                    "WARNING: transient ESPN "
+                    "request failure for "
+                    f"{normalized_url}: "
+                    f"{type(exc).__name__}: "
+                    f"{exc}; retrying in "
+                    f"{delay_seconds:g}s "
+                    f"(attempt "
+                    f"{attempt_number + 1}/"
+                    f"{MAX_REQUEST_ATTEMPTS})"
+                )
+
+                time.sleep(
+                    delay_seconds
+                )
+                continue
+
+            raise LeagueMasterError(
+                f"Failed ESPN request after "
+                f"{attempt_number} attempt(s): "
+                f"{normalized_url}: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+
+        try:
+            payload = json.loads(
+                raw.decode("utf-8")
+            )
+
+        except Exception as exc:
+            raise LeagueMasterError(
+                f"Invalid JSON from ESPN request: "
+                f"{normalized_url}: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+
+        if not isinstance(payload, dict):
+            raise LeagueMasterError(
+                f"Unexpected ESPN response type "
+                f"for {normalized_url}: "
+                f"{type(payload).__name__}"
+            )
+
+        return payload
+
+    raise LeagueMasterError(
+        "Failed ESPN request after "
+        f"{MAX_REQUEST_ATTEMPTS} attempt(s): "
+        f"{normalized_url}: "
+        f"{type(last_error).__name__}: "
+        f"{last_error}"
+    )
 
 
 def extract_team_id(
@@ -1270,18 +1424,44 @@ def write_csv(
     path: Path,
     *,
     headers: list[str],
-    rows: list[dict[str, Any]],
+    rows: list[
+        dict[str, Any]
+    ],
 ) -> None:
-    write_csv_contract(
-        path,
-        rows,
-        fieldnames=headers,
-        clean=clean_text,
-        mkdir=True,
-        extrasaction="ignore",
-        lineterminator="\n",
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=headers,
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
+
+        writer.writeheader()
+
+        for row in rows:
+            writer.writerow(
+                {
+                    header: clean_text(
+                        row.get(header)
+                    )
+                    for header
+                    in headers
+                }
+            )
+
+        handle.flush()
+        os.fsync(
+            handle.fileno()
+        )
 
 
 def read_csv_rows(
@@ -1328,7 +1508,8 @@ def read_csv_rows(
                 f"{actual_headers}"
             )
 
-        return list(reader)
+        _qodana_return_value = list(reader)
+    return _qodana_return_value
 
 
 def restore_backups(

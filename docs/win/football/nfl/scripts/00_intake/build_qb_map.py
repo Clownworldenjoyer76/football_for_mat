@@ -9,11 +9,12 @@ absent from its team's QB depth rows keeps blank depth-derived fields.
 
 from __future__ import annotations
 
+import csv
 import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -23,9 +24,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from team_contract import build_team_abbr_map
-from csv_contract import write_csv_contract, normalize_csv_rows
-from csv_contract import read_csv_contract
 
 ROSTER_MASTER = NFL_ROOT / "data" / "master" / "roster_master.csv"
 TEAM_MASTER = NFL_ROOT / "data" / "master" / "team_master.csv"
@@ -98,7 +96,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise QBMapError(message)
 
 
@@ -109,13 +107,54 @@ def read_csv(
     required_columns: list[str] | None = None,
     exact_columns: list[str] | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
-    return read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        required_columns=required_columns,
-        exact_columns=exact_columns,
-    )
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
+
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
+
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if not fieldnames:
+        fail(f"{label} has no CSV header: {path}")
+
+    if len(fieldnames) != len(set(fieldnames)):
+        fail(f"{label} contains duplicate CSV columns: {path}")
+
+    if required_columns:
+        missing = [
+            column
+            for column in required_columns
+            if column not in fieldnames
+        ]
+        if missing:
+            fail(
+                f"{label} missing expected columns: {missing}"
+            )
+
+    if exact_columns is not None and fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected column order/schema. "
+            f"Expected={exact_columns} actual={fieldnames}"
+        )
+
+    if not rows:
+        fail(f"{label} contains no data rows: {path}")
+
+    return fieldnames, rows
 
 
 def load_team_master() -> dict[str, str]:
@@ -124,13 +163,52 @@ def load_team_master() -> dict[str, str]:
         label="NFL team master",
         required_columns=TEAM_REQUIRED_COLUMNS,
     )
-    return build_team_abbr_map(
-        rows,
-        path=TEAM_MASTER,
-        clean=clean,
-        fail=fail,
-    )
 
+    by_id: dict[str, str] = {}
+    by_abbr: dict[str, str] = {}
+
+    for line_number, row in enumerate(rows, start=2):
+        sport = clean(row.get("sport")).casefold()
+        league = clean(row.get("league")).casefold()
+
+        if sport != "football" or league != "nfl":
+            continue
+
+        team_id = clean(row.get("team_id"))
+        team_abbr = clean(row.get("team_abbr")).upper()
+
+        if not team_id or not team_abbr:
+            fail(
+                f"{TEAM_MASTER} line {line_number} has "
+                "blank team_id/team_abbr"
+            )
+
+        previous_abbr = by_id.get(team_id)
+        if previous_abbr and previous_abbr != team_abbr:
+            fail(
+                f"{TEAM_MASTER} has conflicting team_abbr "
+                f"for team_id={team_id}: "
+                f"{previous_abbr!r} vs {team_abbr!r}"
+            )
+
+        previous_id = by_abbr.get(team_abbr)
+        if previous_id and previous_id != team_id:
+            fail(
+                f"{TEAM_MASTER} has conflicting team_id "
+                f"for team_abbr={team_abbr}: "
+                f"{previous_id!r} vs {team_id!r}"
+            )
+
+        by_id[team_id] = team_abbr
+        by_abbr[team_abbr] = team_id
+
+    if len(by_id) != 32 or len(by_abbr) != 32:
+        fail(
+            "NFL team master must resolve exactly 32 teams; "
+            f"ids={len(by_id)} abbrs={len(by_abbr)}"
+        )
+
+    return by_id
 
 
 def load_roster_qbs(
@@ -646,23 +724,31 @@ def write_csv(
     path: Path,
     rows: list[dict[str, str]],
 ) -> None:
-    write_csv_contract(
-        path,
-        rows,
-        fieldnames=OUTPUT_HEADERS,
-    )
-
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OUTPUT_HEADERS,
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def normalize_rows(
     rows: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-    return normalize_csv_rows(
-        rows,
-        fieldnames=OUTPUT_HEADERS,
-        clean=clean,
-    )
-
+    return [
+        {
+            column: clean(row.get(column))
+            for column in OUTPUT_HEADERS
+        }
+        for row in rows
+    ]
 
 
 def publish(

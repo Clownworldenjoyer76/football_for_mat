@@ -23,11 +23,12 @@ import os
 import shutil
 import sys
 import tempfile
+import uuid
 from collections import defaultdict
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, InvalidOperation, ROUND_DOWN
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Never
+from typing import Any
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -37,9 +38,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from publication_contract import publish_staged_directory
-from csv_contract import read_csv_contract
-from value_contract import finite_decimal_text
 
 PRODUCER_PATH = SCRIPT_PATH.with_name("pull_e_predictions.py")
 IN_DIR = NFL_ROOT / "00_intake" / "predictions" / "e_predictions"
@@ -95,7 +93,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise CleanPredictionError(message)
 
 
@@ -143,25 +141,57 @@ def read_csv(
     label: str,
     exact_columns: list[str],
 ) -> list[dict[str, str]]:
-    _, rows = read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        exact_columns=exact_columns,
-    )
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
+
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
+
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected column order/schema. "
+            f"Expected={exact_columns} actual={fieldnames}"
+        )
+
+    if not rows:
+        fail(f"{label} contains no data rows: {path}")
+
     return rows
 
 
-
 def finite_decimal(raw: Any, *, label: str) -> Decimal:
-    _, value = finite_decimal_text(
-        raw,
-        label=label,
-        clean=clean,
-        fail=fail,
-    )
-    return value
+    text = clean(raw)
+    if not text:
+        fail(f"{label} is blank")
 
+    try:
+        value = Decimal(text)
+    except InvalidOperation:
+        fail(
+            f"{label} must be numeric; received={text!r}"
+        )
+
+    if not value.is_finite():
+        fail(
+            f"{label} must be finite; received={text!r}"
+        )
+
+    return value
 
 
 def to_decimal_prob(
@@ -850,12 +880,51 @@ def publish_staged_root(
     *,
     reporter: PipelineReporter,
 ) -> None:
-    publish_staged_directory(
-        stage_root,
-        output_dir=OUT_DIR,
-        reporter=reporter,
-        cleanup_warning='Clean predictions were published but the temporary backup directory could not be removed',
+    backup_root = (
+        OUT_DIR.parent
+        / (
+            f".{OUT_DIR.name}_backup_"
+            f"{uuid.uuid4().hex}"
+        )
     )
+
+    try:
+        if OUT_DIR.exists():
+            os.replace(
+                OUT_DIR,
+                backup_root,
+            )
+
+        os.replace(
+            stage_root,
+            OUT_DIR,
+        )
+
+    except Exception:
+        if OUT_DIR.exists():
+            shutil.rmtree(
+                OUT_DIR,
+                ignore_errors=True,
+            )
+
+        if backup_root.exists():
+            os.replace(
+                backup_root,
+                OUT_DIR,
+            )
+        raise
+
+    if backup_root.exists():
+        try:
+            shutil.rmtree(backup_root)
+        except Exception as exc:
+            reporter.warning(
+                "Clean predictions were published but the "
+                "temporary backup directory could not be removed",
+                backup_path=str(backup_root),
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
 
 
 def write_legacy_log(

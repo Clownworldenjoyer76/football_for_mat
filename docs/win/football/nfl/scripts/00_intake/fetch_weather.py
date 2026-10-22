@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import sys
 import tempfile
@@ -28,7 +29,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 from zoneinfo import ZoneInfo
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -39,8 +40,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pipeline_reporter import PipelineReporter
-from http_json_contract import fetch_json_object
-from csv_contract import read_csv_contract
 
 METNO_URL = (
     "https://api.met.no/weatherapi/"
@@ -144,7 +143,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise WeatherError(message)
 
 
@@ -184,14 +183,54 @@ def read_csv(
     exact_columns: list[str] | None = None,
     allow_empty: bool = False,
 ) -> tuple[list[str], list[dict[str, str]]]:
-    return read_csv_contract(
-        path,
-        label=label,
-        fail=fail,
-        required_columns=required_columns,
-        exact_columns=exact_columns,
-        allow_empty=allow_empty,
-    )
+    if not path.is_file():
+        fail(f"Missing {label}: {path}")
+
+    if path.stat().st_size == 0:
+        fail(f"Zero-byte {label}: {path}")
+
+    try:
+        with path.open(
+            "r",
+            newline="",
+            encoding="utf-8-sig",
+        ) as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+    except Exception as exc:
+        fail(
+            f"Could not read {label} {path}: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if not fieldnames:
+        fail(f"{label} has no CSV header: {path}")
+
+    if len(fieldnames) != len(set(fieldnames)):
+        fail(f"{label} contains duplicate CSV columns: {path}")
+
+    if required_columns:
+        missing = [
+            column
+            for column in required_columns
+            if column not in fieldnames
+        ]
+        if missing:
+            fail(
+                f"{label} missing expected columns: {missing}"
+            )
+
+    if exact_columns is not None and fieldnames != exact_columns:
+        fail(
+            f"{label} has unexpected column order/schema. "
+            f"Expected={exact_columns} actual={fieldnames}"
+        )
+
+    if not rows and not allow_empty:
+        fail(f"{label} contains no data rows: {path}")
+
+    return fieldnames, rows
 
 
 def parse_game_datetime(game: dict[str, str]) -> datetime:
@@ -457,18 +496,67 @@ def is_future_game(game_dt: datetime) -> bool:
 def fetch_weather_json(
     lat: str,
     lon: str,
+    *,
+    game_id: str,
 ) -> tuple[dict[str, Any] | None, int, str]:
+    url = f"{METNO_URL}?lat={lat}&lon={lon}"
     request = urllib.request.Request(
-        f"{METNO_URL}?lat={lat}&lon={lon}",
+        url,
         headers={"User-Agent": METNO_USER_AGENT},
     )
-    return fetch_json_object(
-        request,
-        timeout=REQUEST_TIMEOUT,
-        attempts=REQUEST_ATTEMPTS,
-        retryable_http_codes=RETRYABLE_HTTP_CODES,
-    )
 
+    last_error = ""
+
+    for attempt in range(1, REQUEST_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=REQUEST_TIMEOUT,
+            ) as response:
+                raw = response.read()
+
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except (
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+            ) as exc:
+                last_error = (
+                    "invalid UTF-8/JSON response: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            else:
+                if isinstance(payload, dict):
+                    return payload, attempt, ""
+
+                last_error = (
+                    "response root was not a JSON object"
+                )
+
+        except urllib.error.HTTPError as exc:
+            last_error = f"HTTP {exc.code}"
+
+            if exc.code not in RETRYABLE_HTTP_CODES:
+                return None, attempt, last_error
+
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+        ) as exc:
+            last_error = (
+                f"{type(exc).__name__}: {exc}"
+            )
+
+        except Exception as exc:
+            last_error = (
+                f"{type(exc).__name__}: {exc}"
+            )
+            return None, attempt, last_error
+
+        if attempt < REQUEST_ATTEMPTS:
+            time.sleep(2 ** (attempt - 1))
+
+    return None, REQUEST_ATTEMPTS, last_error
 
 
 def find_closest_timestep(
@@ -907,6 +995,7 @@ def process_games(
             fetch_weather_json(
                 lat,
                 lon,
+                game_id=game_id,
             )
         )
         metrics[

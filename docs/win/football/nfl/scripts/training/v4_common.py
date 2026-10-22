@@ -6,7 +6,7 @@ import json
 import math
 import re
 from pathlib import Path
-from typing import Any, Never
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -84,7 +84,7 @@ CLASSIFIER_PARAMS = {
 }
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
@@ -119,12 +119,8 @@ def sha256_file(path: Path) -> str:
 def discover_training_seasons(start_season: int = DEFAULT_START_SEASON, end_season: int | None = None) -> list[int]:
     available = sorted({
         int(match.group(1))
-        for match in (
-            HISTORICAL_FILE_PATTERN.fullmatch(path.name)
-            for path in TRAINING_DIR.iterdir()
-            if path.is_file()
-        )
-        if match is not None
+        for path in TRAINING_DIR.iterdir()
+        if path.is_file() and (match := HISTORICAL_FILE_PATTERN.fullmatch(path.name))
     })
     if not available or start_season not in available:
         fail(f"Missing historical season files; available={available}")
@@ -255,7 +251,7 @@ def prepare_matrix(raw: pd.DataFrame, features: list[str], categorical: list[str
     return matrix
 
 
-def numeric_series(raw: pd.DataFrame, column: str) -> pd.Series:
+def numeric(raw: pd.DataFrame, column: str) -> pd.Series:
     values = pd.to_numeric(raw[column], errors="coerce")
     if values.isna().any():
         fail(f"Invalid numeric values in {column}")
@@ -263,31 +259,31 @@ def numeric_series(raw: pd.DataFrame, column: str) -> pd.Series:
 
 
 def target_home_win(raw: pd.DataFrame) -> pd.Series:
-    margin = numeric_series(raw, "margin")
+    margin = numeric(raw, "margin")
     return pd.Series(np.where(margin > 0, 1.0, np.where(margin < 0, 0.0, np.nan)), index=raw.index)
 
 
-def train_regressor(x_matrix: pd.DataFrame, y: pd.Series, cat_indices: list[int]) -> CatBoostRegressor:
+def train_regressor(X: pd.DataFrame, y: pd.Series, cat_indices: list[int]) -> CatBoostRegressor:
     model = CatBoostRegressor(**REGRESSOR_PARAMS)
-    model.fit(Pool(x_matrix, label=y, cat_features=cat_indices, feature_names=list(x_matrix.columns)), verbose=False)
+    model.fit(Pool(X, label=y, cat_features=cat_indices, feature_names=list(X.columns)), verbose=False)
     return model
 
 
-def train_classifier(x_matrix: pd.DataFrame, y: pd.Series, cat_indices: list[int]) -> CatBoostClassifier:
+def train_classifier(X: pd.DataFrame, y: pd.Series, cat_indices: list[int]) -> CatBoostClassifier:
     labels = y.astype(int)
     if set(labels.unique()) != {0, 1}:
         fail("Classifier target lacks both classes")
     model = CatBoostClassifier(**CLASSIFIER_PARAMS)
-    model.fit(Pool(x_matrix, label=labels, cat_features=cat_indices, feature_names=list(x_matrix.columns)), verbose=False)
+    model.fit(Pool(X, label=labels, cat_features=cat_indices, feature_names=list(X.columns)), verbose=False)
     return model
 
 
-def predict_regressor(model: CatBoostRegressor, x_matrix: pd.DataFrame, cat_indices: list[int]) -> np.ndarray:
-    return np.asarray(model.predict(Pool(x_matrix, cat_features=cat_indices, feature_names=list(x_matrix.columns))), dtype=float)
+def predict_regressor(model: CatBoostRegressor, X: pd.DataFrame, cat_indices: list[int]) -> np.ndarray:
+    return np.asarray(model.predict(Pool(X, cat_features=cat_indices, feature_names=list(X.columns))), dtype=float)
 
 
-def predict_classifier(model: CatBoostClassifier, x_matrix: pd.DataFrame, cat_indices: list[int]) -> np.ndarray:
-    p = np.asarray(model.predict_proba(Pool(x_matrix, cat_features=cat_indices, feature_names=list(x_matrix.columns)))[:, 1], dtype=float)
+def predict_classifier(model: CatBoostClassifier, X: pd.DataFrame, cat_indices: list[int]) -> np.ndarray:
+    p = np.asarray(model.predict_proba(Pool(X, cat_features=cat_indices, feature_names=list(X.columns)))[:, 1], dtype=float)
     return np.clip(p, PROB_EPS, 1.0 - PROB_EPS)
 
 
@@ -330,15 +326,15 @@ def fit_platt(raw_p: np.ndarray, y: np.ndarray, max_iter: int = 100) -> tuple[fl
     p = np.clip(np.asarray(raw_p, float), PROB_EPS, 1 - PROB_EPS)
     y = np.asarray(y, float)
     x = np.log(p / (1 - p))
-    design_matrix = np.column_stack([np.ones(len(x)), x])
+    X = np.column_stack([np.ones(len(x)), x])
     beta = np.array([0.0, 1.0], dtype=float)
     ridge = np.diag([1e-8, 1e-6])
     for _ in range(max_iter):
-        z = design_matrix @ beta
+        z = X @ beta
         q = 1 / (1 + np.exp(-np.clip(z, -35, 35)))
-        grad = design_matrix.T @ (q - y) + ridge @ beta
+        grad = X.T @ (q - y) + ridge @ beta
         w = np.clip(q * (1 - q), 1e-8, None)
-        hess = design_matrix.T @ (design_matrix * w[:, None]) + ridge
+        hess = X.T @ (X * w[:, None]) + ridge
         beta_new = beta - np.linalg.solve(hess, grad)
         if np.max(np.abs(beta_new - beta)) < 1e-9:
             beta = beta_new
