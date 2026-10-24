@@ -9,7 +9,6 @@ import os
 import shutil
 import sys
 import tempfile
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, NoReturn

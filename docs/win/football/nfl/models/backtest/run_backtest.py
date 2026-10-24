@@ -4,7 +4,6 @@ from __future__ import annotations
 import hashlib, importlib.util, json, math, os, sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 import numpy as np, pandas as pd, yaml
 
 BACKTEST_DIR=Path(__file__).resolve().parent; NFL_ROOT=BACKTEST_DIR.parents[1]

@@ -13,10 +13,8 @@ from __future__ import annotations
 import argparse
 import csv
 import importlib.util
-import json
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 from typing import Any, NoReturn

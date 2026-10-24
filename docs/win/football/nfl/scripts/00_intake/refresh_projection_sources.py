@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import NoReturn
 
 import argparse
-import csv
 import hashlib
 import math
 import os
@@ -124,8 +123,8 @@ def import_pandas() -> None:
             "This script requires pandas and a parquet engine. "
             "Install docs/win/football/nfl/requirements.txt."
         )
-
-    pd = pandas_module
+    else:
+        pd = pandas_module
 
 
 def clean(value: Any) -> str:

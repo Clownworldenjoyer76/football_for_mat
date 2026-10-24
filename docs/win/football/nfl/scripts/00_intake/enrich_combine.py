@@ -410,7 +410,8 @@ def import_pandas() -> None:
         import pandas as pandas_module
     except ImportError as exc:
         fail("This script requires pandas. Install the repository requirements before running it.")
-    pd = pandas_module
+    else:
+        pd = pandas_module
 
 def read_raw_header(path: Path) -> list[str]:
     if not path.is_file():
