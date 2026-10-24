@@ -484,7 +484,7 @@ def expected_output_rows(
         )
 
     expected.sort(
-        key=lambda row: row["pt_diff"],
+        key=lambda ranked_row: ranked_row["pt_diff"],
         reverse=True,
     )
     return expected

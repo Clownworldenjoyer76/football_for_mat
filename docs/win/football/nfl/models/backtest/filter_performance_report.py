@@ -142,8 +142,8 @@ def ensure_output_path(path: Path) -> Path:
 def read_csv(path: Path, label: str) -> pd.DataFrame:
     try:
         df = pd.read_csv(path)
-    except Exception as exc:
-        fail(f"Could not read {label}: {exc}")
+    except Exception as read_error:
+        fail(f"Could not read {label}: {read_error}")
     if df.empty:
         fail(f"{label} is empty: {path}")
     return df

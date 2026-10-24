@@ -58,7 +58,7 @@ def fit_cal(step14,x,y):
  if n<2:return n,np.nan,np.nan,'INSUFFICIENT_PRIOR_ROWS'
  if set(np.unique(ya))!={0.,1.}:return n,np.nan,np.nan,'PRIOR_OUTCOMES_ONE_CLASS'
  try:a,b=step14.fit_logistic_1d(xa,ya)
- except Exception as e:return n,np.nan,np.nan,f'FIT_UNAVAILABLE:{type(e).__name__}'
+ except Exception as fit_error:return n,np.nan,np.nan,f'FIT_UNAVAILABLE:{type(fit_error).__name__}'
  if not(math.isfinite(a) and math.isfinite(b) and b>0):return n,np.nan,np.nan,'NONPOSITIVE_OR_INVALID_SLOPE'
  return n,float(a),float(b),'AVAILABLE'
 def cals(step14,p):

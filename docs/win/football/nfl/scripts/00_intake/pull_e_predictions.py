@@ -1296,8 +1296,8 @@ def run(
             "weekly_row_counts": {
                 (
                     f"{key[0]}_{key[1]}_{key[2]}"
-                ): len(group_rows)
-                for key, group_rows
+                ): len(weekly_rows)
+                for key, weekly_rows
                 in sorted(
                     rows_by_group.items(),
                     key=lambda item: (

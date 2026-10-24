@@ -336,16 +336,16 @@ class TeamNormalizer:
                 continue
             self.canonical_abbrs.add(abbr)
 
-        def add_alias(value: object, abbr: str) -> None:
+        def add_alias(value: object, alias_abbr: str) -> None:
             key = normalize_name(value)
             if not key:
                 return
             previous = self.alias_to_abbr.get(key)
-            if previous is not None and previous != abbr:
+            if previous is not None and previous != alias_abbr:
                 raise ValueError(
-                    f"{path}: ambiguous team alias {clean(value)!r}: {previous} vs {abbr}"
+                    f"{path}: ambiguous team alias {clean(value)!r}: {previous} vs {alias_abbr}"
                 )
-            self.alias_to_abbr[key] = abbr
+            self.alias_to_abbr[key] = alias_abbr
 
         for _, row in df.iterrows():
             abbr = clean(row["team_abbr"]).upper()
@@ -705,7 +705,7 @@ class SnapProvider:
             for identity in identities:
                 self.series.setdefault((team, identity), []).append(item)
         for key in self.series:
-            self.series[key].sort(key=lambda item: item[0])
+            self.series[key].sort(key=lambda snap_entry: snap_entry[0])
 
     def latest(self, team: str, pfr_id: str, name: str) -> tuple[float, float, str] | None:
         identities = []
