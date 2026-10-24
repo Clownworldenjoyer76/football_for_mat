@@ -408,7 +408,7 @@ def import_pandas() -> None:
         return
     try:
         import pandas as pandas_module
-    except ImportError as exc:
+    except ImportError:
         fail("This script requires pandas. Install the repository requirements before running it.")
     else:
         pd = pandas_module

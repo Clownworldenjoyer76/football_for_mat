@@ -118,7 +118,7 @@ def import_pandas() -> None:
 
     try:
         import pandas as pandas_module
-    except ImportError as exc:
+    except ImportError:
         fail(
             "This script requires pandas and a parquet engine. "
             "Install docs/win/football/nfl/requirements.txt."

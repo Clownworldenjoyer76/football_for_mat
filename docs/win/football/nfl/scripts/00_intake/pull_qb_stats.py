@@ -738,7 +738,6 @@ def main() -> int:
             identity_incomplete_pass_attempt_rows = 0
             output_rows = 0
             existing_rows: int | None = None
-            existing_readable = True
             completed_games = 0
             result_files_checked = 0
             completed_game_inspection_uncertain = False
