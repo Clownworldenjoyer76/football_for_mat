@@ -120,7 +120,9 @@ def discover_training_seasons(start_season: int = DEFAULT_START_SEASON, end_seas
     available = sorted({
         int(match.group(1))
         for path in TRAINING_DIR.iterdir()
-        if path.is_file() and (match := HISTORICAL_FILE_PATTERN.fullmatch(path.name))
+        if path.is_file()
+        for match in (HISTORICAL_FILE_PATTERN.fullmatch(path.name),)
+        if match is not None
     })
     if not available or start_season not in available:
         fail(f"Missing historical season files; available={available}")

@@ -32,7 +32,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, NoReturn
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -120,7 +120,7 @@ def clean(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise FinalizePredictionError(message)
 
 

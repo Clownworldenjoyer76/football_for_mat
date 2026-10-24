@@ -13,7 +13,7 @@ import sys
 import tempfile
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -97,7 +97,7 @@ TEAM_SCORE_LABELS = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise RuntimeError(message)
 
 

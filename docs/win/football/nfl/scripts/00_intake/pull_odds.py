@@ -13,7 +13,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 SCRIPT_PATH = Path(__file__).resolve()
@@ -70,7 +70,7 @@ def log(message: str) -> None:
     with LOG_FILE.open('a', encoding='utf-8') as handle:
         handle.write(f'[{utc_now_iso()}] {message}\n')
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     log(f'ERROR: {message}')
     raise OddsError(message)
 

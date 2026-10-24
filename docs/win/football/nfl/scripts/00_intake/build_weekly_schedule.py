@@ -13,7 +13,7 @@ import tempfile
 import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPTS_DIR = SCRIPT_PATH.parents[1]
@@ -175,7 +175,7 @@ def log(message: str) -> None:
         handle.write(f"[{utc_now_iso()}] {message}\n")
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     log(f"ERROR: {message}")
     raise WeeklyScheduleError(message)
 

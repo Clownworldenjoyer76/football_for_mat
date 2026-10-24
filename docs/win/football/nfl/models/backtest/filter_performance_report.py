@@ -44,7 +44,7 @@ import math
 import os
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, NoReturn
 
 import numpy as np
 import pandas as pd
@@ -97,7 +97,7 @@ MARKET_SPECS = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise RuntimeError(message)
 
 

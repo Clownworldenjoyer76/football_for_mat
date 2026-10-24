@@ -10,7 +10,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -66,7 +66,7 @@ EPSILON = 1e-9
 DISPLAY_RECONCILIATION_TOLERANCE = 0.150000001
 
 
-def fail(message):
+def fail(message) -> NoReturn:
     raise RuntimeError(message)
 
 

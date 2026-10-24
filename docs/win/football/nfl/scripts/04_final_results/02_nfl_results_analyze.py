@@ -12,7 +12,7 @@ import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -128,7 +128,7 @@ def load_runtime_dependencies(
     )
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise RuntimeError(message)
 
 
