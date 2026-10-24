@@ -42,6 +42,7 @@ No raw source files are edited.
 from __future__ import annotations
 
 from pathlib import Path
+from numbers import Number
 import math
 import sys
 
@@ -204,6 +205,8 @@ def require_columns(
 def clean_text(value: object) -> str:
     if value is None:
         return ""
+    if not isinstance(value, (str, Number, bool, pd.Timestamp)):
+        raise TypeError(f"Unsupported historical feature type: {type(value).__name__}")
 
     text = str(value).strip()
 

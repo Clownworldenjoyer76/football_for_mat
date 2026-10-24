@@ -75,7 +75,11 @@ def fail(message: str) -> None:
     raise OddsError(message)
 
 def secure_ref(value: object) -> str:
-    return str(value or '').strip().replace('http://', 'https://', 1)
+    if value is None:
+        return ''
+    if not isinstance(value, str):
+        raise OddsError(f'ESPN reference must be text, got {type(value).__name__}')
+    return value.strip().replace('http://', 'https://', 1)
 
 def http_get_json(url: str) -> object:
     last_error = None
@@ -100,7 +104,9 @@ def http_get_json(url: str) -> object:
     raise OddsError(f'ESPN request failed after {HTTP_RETRIES} attempts: {last_error}')
 
 def parse_espn_datetime(value: object) -> datetime | None:
-    text = str(value or '').strip()
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
     if not text:
         return None
     if text.endswith('Z'):
@@ -114,7 +120,7 @@ def parse_espn_datetime(value: object) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 def to_float(value: object) -> float | None:
-    if value is None:
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
         return None
     text = str(value).strip()
     if not text:
@@ -242,8 +248,8 @@ def fetch_all_event_records(event_refs: list[str], season: int, season_type: int
     records.sort(key=lambda record: (record.get('date', ''), record['event_id']))
     return records
 
-def bookmaker_key(value: object) -> str:
-    return re.sub('[^a-z0-9]+', '', str(value or '').strip().lower())
+def bookmaker_key(value: str) -> str:
+    return re.sub('[^a-z0-9]+', '', value.strip().lower())
 
 def select_bookmaker_item(items: object, preferred_bookmaker: str) -> tuple[dict[str, Any] | None, str, bool]:
     if not isinstance(items, list):

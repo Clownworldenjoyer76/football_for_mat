@@ -123,6 +123,8 @@ def nfl_root() -> Path:
 def clean(value: object) -> str:
     if value is None or pd.isna(value):
         return ""
+    if not isinstance(value, (str, int, float, bool, np.generic, datetime)):
+        raise TypeError(f"Unsupported team feature value type: {type(value).__name__}")
     text = str(value).strip()
     if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
         return ""
@@ -714,7 +716,7 @@ def load_team_name_lookup(
                 ):
                     raise ValueError(
                         f"{path}: ambiguous team alias "
-                        f"{value!r} maps to both "
+                        f"{clean(value)!r} maps to both "
                         f"{existing} and {abbr}"
                     )
 

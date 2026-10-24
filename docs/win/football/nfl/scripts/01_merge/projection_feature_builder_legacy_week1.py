@@ -138,6 +138,8 @@ def clean(value: object) -> str:
             return ""
     except Exception:
         pass
+    if not isinstance(value, (str, int, float, bool, np.generic)):
+        raise TypeError(f"Unsupported Week 1 feature type: {type(value).__name__}")
     text = str(value).strip()
     if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
         return ""

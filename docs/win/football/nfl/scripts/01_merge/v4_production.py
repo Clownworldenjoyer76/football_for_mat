@@ -41,6 +41,8 @@ def clean_text(value: object) -> str:
             return ""
     except Exception:
         pass
+    if not isinstance(value, (str, int, float, bool, np.generic, pd.Timestamp)):
+        raise TypeError(f"Unsupported production feature type: {type(value).__name__}")
     text = str(value).strip()
     if text.casefold() in {"", "nan", "none", "null", "<na>", "nat"}:
         return ""

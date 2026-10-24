@@ -104,6 +104,8 @@ def fail(message: str) -> None:
 def normalize_game_id(value: object) -> str:
     if pd.isna(value):
         return ""
+    if not isinstance(value, (str, int, float, bool, np.generic)):
+        raise TypeError(f"Unsupported game ID type: {type(value).__name__}")
     text = str(value).strip()
     if text.endswith(".0"):
         text = text[:-2]

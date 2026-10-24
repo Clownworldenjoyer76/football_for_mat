@@ -255,6 +255,8 @@ class RunLog:
 def clean_text(value: object) -> str:
     if value is None:
         return ""
+    if not isinstance(value, (str, int, float, bool)):
+        raise TypeError(f"Unsupported DRAT text value type: {type(value).__name__}")
     return str(value).strip()
 
 
