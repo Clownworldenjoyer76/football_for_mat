@@ -259,11 +259,11 @@ def select_bookmaker_item(items: object, preferred_bookmaker: str) -> tuple[dict
     preferred_key = bookmaker_key(preferred_bookmaker)
     for item, provider_name in valid:
         if bookmaker_key(provider_name) == preferred_key:
-            return (item, provider_name, False)
+            return item, provider_name, False
     if valid:
         item, provider_name = valid[0]
-        return (item, provider_name, True)
-    return (None, '', False)
+        return item, provider_name, True
+    return None, '', False
 
 def fetch_odds_for_record(record: dict[str, Any], preferred_bookmaker: str) -> dict[str, Any] | None:
     event_id = record['event_id']
@@ -287,7 +287,7 @@ def eligible_event_records(records: list[dict[str, Any]], now: datetime) -> tupl
             eligible.append(record)
         else:
             excluded_ids.append(record['event_id'])
-    return (eligible, excluded_ids)
+    return eligible, excluded_ids
 
 def fetch_odds_records(records: list[dict[str, Any]], preferred_bookmaker: str) -> tuple[list[dict[str, Any]], list[str], list[dict[str, str]]]:
     results: list[dict[str, Any]] = []
@@ -313,7 +313,7 @@ def fetch_odds_records(records: list[dict[str, Any]], preferred_bookmaker: str) 
     results.sort(key=lambda record: (record.get('date', ''), record['event_id']))
     missing_odds.sort()
     fallbacks.sort(key=lambda item: item['event_id'])
-    return (results, missing_odds, fallbacks)
+    return results, missing_odds, fallbacks
 
 def team_name_from_payload(team_payload: object) -> str:
     if not isinstance(team_payload, dict):
@@ -344,17 +344,17 @@ def fetch_team_names(odds_records: list[dict[str, Any]]) -> tuple[dict[str, str]
             except Exception as exc:
                 failures.append(f'team_id={team_id} ref={ref} error={type(exc).__name__}: {exc}')
     failures.sort()
-    return (names, failures)
+    return names, failures
 
 def fallback_team_names(event: dict[str, Any]) -> tuple[str, str]:
     name = str(event.get('name', '')).strip()
     if ' at ' in name:
         away, home = name.split(' at ', 1)
-        return (home.strip(), away.strip())
+        return home.strip(), away.strip()
     if ' vs ' in name:
         away, home = name.split(' vs ', 1)
-        return (home.strip(), away.strip())
-    return ('', '')
+        return home.strip(), away.strip()
+    return '', ''
 
 def enrich_names(record: dict[str, Any], team_names: dict[str, str]) -> tuple[str, str]:
     item = record['odds_item']
@@ -363,9 +363,9 @@ def enrich_names(record: dict[str, Any], team_names: dict[str, str]) -> tuple[st
     home = team_names.get(team_id_from_ref(home_ref), '')
     away = team_names.get(team_id_from_ref(away_ref), '')
     if home and away:
-        return (home, away)
+        return home, away
     fallback_home, fallback_away = fallback_team_names(record.get('event', {}))
-    return (home or fallback_home, away or fallback_away)
+    return home or fallback_home, away or fallback_away
 
 def market_values(item: dict[str, Any]) -> dict[str, str]:
     home_current_spread = value_from_display_object(nested(item, 'homeTeamOdds', 'current', 'pointSpread'))
