@@ -113,7 +113,7 @@ def parse_espn_datetime(value: object) -> datetime | None:
         text = text[:-1] + '+00:00'
     try:
         parsed = datetime.fromisoformat(text)
-    except Exception:
+    except ValueError:
         return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
@@ -127,7 +127,7 @@ def to_float(value: object) -> float | None:
         return None
     try:
         return float(text)
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
 
 def clean_number(value: object) -> str:
@@ -640,7 +640,7 @@ def main() -> int:
         with PipelineReporter(script=SCRIPT_PATH, stage='00_intake', report_root=REPORT_ROOT, pipeline='NFL', league='NFL', season=args.season, extra_context={'component': 'current odds', 'season_type': args.season_type, 'week': args.week}) as reporter:
             run(args, reporter)
         return 0
-    except Exception:
+    except (OddsError, OSError, ValueError, TypeError, KeyError, RuntimeError, csv.Error, UnicodeError):
         log(traceback.format_exc())
         print(f'ERROR: see {LOG_FILE}', file=sys.stderr)
         return 1

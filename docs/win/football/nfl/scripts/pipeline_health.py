@@ -792,7 +792,7 @@ def collect_structured_report_health(
                 continue
             try:
                 payload = read_json_object(path, required=True)
-            except Exception:
+            except (OSError, UnicodeError, ValueError, RuntimeError):
                 continue
             if not report_is_current(
                 payload,
@@ -1079,7 +1079,7 @@ def main() -> int:
         )
         try:
             LOG.write_text(fallback, encoding="utf-8")
-        except Exception:
+        except (OSError, UnicodeError):
             pass
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 1

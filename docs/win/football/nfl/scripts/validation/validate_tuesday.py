@@ -1980,7 +1980,7 @@ def main() -> int:
 
         return 0
 
-    except Exception:
+    except (OSError, UnicodeError, ValueError, RuntimeError, TypeError, KeyError, csv.Error):
         return 1
 
 

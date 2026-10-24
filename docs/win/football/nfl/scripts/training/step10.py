@@ -827,7 +827,7 @@ def parse_timestamp(value: Any) -> pd.Timestamp | None:
         return None
     try:
         timestamp = pd.to_datetime(text, utc=True, errors="raise")
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
     if isinstance(timestamp, pd.DatetimeIndex):
         return None

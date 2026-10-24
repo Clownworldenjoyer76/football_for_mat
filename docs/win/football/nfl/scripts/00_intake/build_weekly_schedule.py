@@ -459,7 +459,7 @@ def select_odds_capture(
 
         try:
             payload = json.loads(raw_path.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, UnicodeError, ValueError):
             continue
 
         if not isinstance(payload, dict):

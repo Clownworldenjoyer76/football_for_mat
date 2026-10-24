@@ -498,7 +498,7 @@ def get_ref_segment(
 
     try:
         path = urllib.parse.urlsplit(ref).path
-    except Exception:
+    except ValueError:
         return ""
 
     parts = [

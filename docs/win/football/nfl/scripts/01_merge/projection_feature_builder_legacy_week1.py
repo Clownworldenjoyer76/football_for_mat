@@ -136,7 +136,7 @@ def clean(value: object) -> str:
         missing = pd.isna(value)
         if isinstance(missing, (bool, np.bool_)) and missing:
             return ""
-    except Exception:
+    except (TypeError, ValueError):
         pass
     if not isinstance(value, (str, int, float, bool, np.generic)):
         raise TypeError(f"Unsupported Week 1 feature type: {type(value).__name__}")
@@ -217,7 +217,7 @@ def parse_timestamp(value: object) -> pd.Timestamp | None:
         return None
     try:
         ts = pd.to_datetime(text, utc=True, errors="coerce")
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
     return None if pd.isna(ts) else ts
 

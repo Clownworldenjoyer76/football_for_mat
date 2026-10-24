@@ -306,7 +306,7 @@ def split_source() -> tuple[
         for handle in handles.values():
             try:
                 handle.close()
-            except Exception:
+            except (OSError, ValueError):
                 pass
 
     if total_rows == 0:

@@ -345,7 +345,7 @@ def parse_timestamp(
             utc=True,
             errors="coerce",
         )
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
 
     return (
@@ -922,7 +922,7 @@ class CurrentRoster:
                 encoding="utf-8-sig",
                 low_memory=False,
             )
-        except Exception:
+        except (OSError, UnicodeError, ValueError, pd.errors.ParserError):
             return
 
         if df.empty:

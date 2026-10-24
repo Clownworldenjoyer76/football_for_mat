@@ -222,7 +222,7 @@ def to_float(value: Any) -> float | None:
     try:
         result = float(str(value).strip())
         return result if math.isfinite(result) else None
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
 
 

@@ -125,7 +125,7 @@ def to_float(value: Any) -> float | None:
     try:
         result = float(str(value).strip())
         return result if math.isfinite(result) else None
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
@@ -808,7 +808,7 @@ def reset_legacy_log(started: datetime) -> bool:
             encoding="utf-8",
         )
         return True
-    except Exception:
+    except (OSError, UnicodeError):
         return False
 
 
@@ -819,7 +819,7 @@ def legacy_log(level: str, message: str) -> None:
                 f"{datetime.now(timezone.utc).isoformat()} | "
                 f"{level} | {message}\n"
             )
-    except Exception:
+    except (OSError, UnicodeError):
         pass
 
 
@@ -838,7 +838,7 @@ def finalize_legacy_log(
             )
             handle.write(f"WARNING_COUNT: {warning_count}\n")
             handle.write(f"STATUS: {status}\n")
-    except Exception:
+    except (OSError, UnicodeError):
         pass
 
 
@@ -923,7 +923,7 @@ def run(reporter: PipelineReporter) -> None:
         try:
             with LOG_FILE.open("a", encoding="utf-8") as handle:
                 handle.write(traceback.format_exc())
-        except Exception:
+        except (OSError, UnicodeError):
             pass
         raise
     finally:

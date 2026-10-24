@@ -39,7 +39,7 @@ def clean_text(value: object) -> str:
     try:
         if pd.isna(value):
             return ""
-    except Exception:
+    except (TypeError, ValueError):
         pass
     if not isinstance(value, (str, int, float, bool, np.generic, pd.Timestamp)):
         raise TypeError(f"Unsupported production feature type: {type(value).__name__}")

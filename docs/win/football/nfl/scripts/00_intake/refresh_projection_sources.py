@@ -891,7 +891,7 @@ def publish_pair_with_rollback(
             try:
                 if target.exists():
                     target.unlink()
-            except Exception:
+            except OSError:
                 pass
 
         restore_errors = []
