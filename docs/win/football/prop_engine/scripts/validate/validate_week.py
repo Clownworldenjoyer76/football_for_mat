@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """Validate one current-week NFL Prop Engine production run (Issue 38)."""
 
@@ -291,7 +292,7 @@ def validate_model_schemas(
             continue
         # Some Issue 25 component formulas persist deterministic pregame
         # feature/proxy dependencies alongside actual model dependencies
-        # (for example team_goal_line_rush_attempts_ewm5).  Those are valid
+        # (for example team_goal_line_rush_attempts_ewm5). Those are valid
         # only when they exist in the current feature schema; they are not
         # expected to have a model directory.
         if dep in current_columns:
@@ -551,27 +552,53 @@ def main() -> int:
             component = frames["component"]
             common.require_columns(roles, [*GRAIN, "team", "position", "primary_kicker_flag"], "roles")
             common.require_columns(component, [*GRAIN, "team", "projected_fg_attempts", "projected_pat_attempts"], "component")
-            joined = component.merge(roles[[*GRAIN, "primary_kicker_flag"]], on=GRAIN, how="left", validate="one_to_one")
-            joined["_kick_opp"] = numeric(joined["projected_fg_attempts"]).fillna(0.0) + numeric(joined["projected_pat_attempts"]).fillna(0.0)
+            joined = component.merge(
+                roles[[*GRAIN, "primary_kicker_flag"]],
+                on=GRAIN,
+                how="left",
+                validate="one_to_one",
+            )
+            joined["_kick_opp"] = (
+                numeric(joined["projected_fg_attempts"]).fillna(0.0)
+                + numeric(joined["projected_pat_attempts"]).fillna(0.0)
+            )
             bad = []
             min_share = 1.0
+            no_kicker_teams = []
+
             for team, group in joined.groupby("team", sort=False):
                 primary = numeric(group["primary_kicker_flag"]).fillna(0).gt(0)
-                if int(primary.sum()) != 1:
+                primary_count = int(primary.sum())
+                total = float(group["_kick_opp"].sum())
+
+                if primary_count == 0:
+                    no_kicker_teams.append(team)
+                    if total > TOL:
+                        bad.append((team, "kicking_opportunity_without_eligible_kicker"))
+                    continue
+
+                if primary_count != 1:
                     bad.append((team, "primary_kicker_count"))
                     continue
-                total = float(group["_kick_opp"].sum())
+
                 primary_opp = float(group.loc[primary, "_kick_opp"].sum())
                 if total <= TOL:
                     bad.append((team, "zero_team_kicking_opportunity"))
                     continue
+
                 share = primary_opp / total
                 min_share = min(min_share, share)
                 if share <= 0.5 + TOL:
                     bad.append((team, f"primary_share={share:.6f}"))
+
             if bad:
                 raise AssertionError(f"Primary kicker majority failed: {bad[:10]}")
-            return {"teams_checked": int(joined["team"].nunique()), "minimum_primary_kicker_opportunity_share": float(min_share)}
+
+            return {
+                "teams_checked": int(joined["team"].nunique()),
+                "teams_without_eligible_kicker": sorted(no_kicker_teams),
+                "minimum_primary_kicker_opportunity_share": float(min_share),
+            }
 
         record("one primary kicker receives majority kicking opportunity", kicker_majority)
 
@@ -580,7 +607,7 @@ def main() -> int:
             with eligibility_path.open("r", encoding="utf-8-sig") as h:
                 eligibility = yaml.safe_load(h)
             universe = frames["universe"]
-            allocation = frames["allocation"][[*GRAIN, "allocated_def_participation"]].copy()
+            allocation = frames["allocation"][["*GRAIN", "allocated_def_participation"]].copy() if False else frames["allocation"][[*GRAIN, "allocated_def_participation"]].copy()
             context = universe[[*GRAIN, "position", "eligibility_status", "injury_game_status", "eligibility_reason"]].merge(
                 allocation, on=GRAIN, how="left", validate="one_to_one"
             )

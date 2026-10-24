@@ -11,7 +11,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Never
+from typing import Any, NoReturn
 from zoneinfo import ZoneInfo
 
 import yaml
@@ -22,6 +22,7 @@ from pipeline_reporter import PipelineReporter
 
 REPO_ROOT = common.repo_root().resolve()
 PROP_ENGINE_ROOT = common.prop_root().resolve()
+SELECT_ROOT = PROP_ENGINE_ROOT / "04_select"
 FINAL_ROOT = PROP_ENGINE_ROOT / "prop_picks_final"
 LOCKED_ROOT = FINAL_ROOT / "locked"
 MARKETS_PATH = PROP_ENGINE_ROOT / "config" / "markets.yaml"
@@ -86,7 +87,7 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def fail(message: str) -> Never:
+def fail(message: str) -> NoReturn:
     raise RuntimeError(message)
 
 
@@ -481,7 +482,7 @@ def filter_rows(
     ]
 
 
-def validate_stage3_output(
+def validate_selected_output(
     path: Path,
     expected_row_count: int,
     markets: dict[str, Any],
@@ -490,7 +491,7 @@ def validate_stage3_output(
 
     if len(written_rows) != expected_row_count:
         fail(
-            "Stage 3 output row-count mismatch: "
+            "Selected prop output row-count mismatch: "
             f"path={path} "
             f"expected={expected_row_count} "
             f"actual={len(written_rows)}"
@@ -501,7 +502,7 @@ def validate_stage3_output(
             continue
 
         fail(
-            "Stage 3 output contains a selection that violates "
+            "Selected prop output contains a selection that violates "
             "the active markets.yaml: "
             f"path={path} "
             f"game_id={clean(row.get('game_id'))} "
@@ -728,8 +729,26 @@ def process_week(
     )
     reporter.add_output(output_path)
 
-    validate_stage3_output(
+    validate_selected_output(
         output_path,
+        len(filtered_rows),
+        markets,
+    )
+
+    select_path = (
+        SELECT_ROOT
+        / f"{season}_week_{week_number}_props.csv"
+    )
+
+    common.write_filtered_csv_dict_rows_atomic(
+        select_path,
+        fieldnames,
+        filtered_rows,
+    )
+    reporter.add_output(select_path)
+
+    validate_selected_output(
+        select_path,
         len(filtered_rows),
         markets,
     )
@@ -761,6 +780,7 @@ def process_week(
             for path in unexpected_files
         ],
         "output_file": output_path.relative_to(REPO_ROOT).as_posix(),
+        "select_output_file": select_path.relative_to(REPO_ROOT).as_posix(),
         "input_rows": int(len(rows)),
         "selected_rows": int(len(filtered_rows)),
         "selected_by_category_side": selected_by_category_side,
@@ -789,20 +809,25 @@ def _run(reporter: PipelineReporter) -> None:
         and args.week is not None
     )
 
+    target_season = (
+        str(args.season)
+        if args.season is not None
+        else ""
+    )
+    target_week = (
+        f"week_{args.week}"
+        if args.week is not None
+        else ""
+    )
+
     if lock_snapshot:
-        target_season = str(args.season)
-        target_week = f"week_{args.week}"
-
-        stage_2_weeks = [
-            (season, week_path)
+        target_exists = any(
+            season == target_season
+            and week_path.name == target_week
             for season, week_path in stage_2_weeks
-            if (
-                season == target_season
-                and week_path.name == target_week
-            )
-        ]
+        )
 
-        if not stage_2_weeks:
+        if not target_exists:
             raise FileNotFoundError(
                 "No Stage 2 folder found for "
                 f"season={args.season} week={args.week}"
@@ -811,11 +836,17 @@ def _run(reporter: PipelineReporter) -> None:
     week_stats: dict[str, dict[str, Any]] = {}
 
     for season, week_path in stage_2_weeks:
+        is_target_week = (
+            lock_snapshot
+            and season == target_season
+            and week_path.name == target_week
+        )
+
         stats = process_week(
             season,
             week_path,
             markets,
-            lock_snapshot=lock_snapshot,
+            lock_snapshot=is_target_week,
             reporter=reporter,
         )
         week_stats[f"{season}/{week_path.name}"] = stats

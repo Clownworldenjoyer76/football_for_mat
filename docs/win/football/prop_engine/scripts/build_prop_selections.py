@@ -277,7 +277,8 @@ def read_csv(
         reader = csv.DictReader(handle)
         rows = [dict(row) for row in reader]
 
-        return rows, list(reader.fieldnames or [])
+        _qodana_return_value = rows, list(reader.fieldnames or [])
+    return _qodana_return_value
 
 
 def write_csv(

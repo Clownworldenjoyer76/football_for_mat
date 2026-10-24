@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build NFL Prop Engine dashboard reports using the active markets configuration."""
+"""Build NFL Prop Engine dashboard reports from the season graded betting population."""
 
 from __future__ import annotations
 
@@ -13,11 +13,7 @@ from typing import Any
 
 import common
 from pipeline_reporter import PipelineReporter
-from props_combined import (
-    PROP_LINE_COLUMNS,
-    filter_rows as apply_market_filters,
-    load_markets,
-)
+from props_combined import PROP_LINE_COLUMNS
 
 
 REPO_ROOT = common.repo_root().resolve()
@@ -25,8 +21,6 @@ PROP_ENGINE_ROOT = common.prop_root().resolve()
 FINAL_ROOT = PROP_ENGINE_ROOT / "05_final"
 GRADED_ROOT = FINAL_ROOT / "graded"
 DASHBOARD_ROOT = FINAL_ROOT / "reports" / "dashboard"
-MARKETS_PATH = PROP_ENGINE_ROOT / "config" / "markets.yaml"
-
 MARKETS = dict(PROP_LINE_COLUMNS)
 
 VARIABLES = {
@@ -85,8 +79,8 @@ VALID_GRADES = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Build NFL Prop Engine dashboard reports using "
-            "the active markets configuration."
+            "Build NFL Prop Engine dashboard reports from "
+            "the season graded betting population."
         )
     )
     parser.add_argument(
@@ -234,6 +228,16 @@ def read_graded_rows(path: Path) -> list[dict[str, str]]:
             rows.append(row)
 
     return rows
+
+
+def betting_rows(
+    rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    return [
+        row
+        for row in rows
+        if clean(row.get("pick")).casefold() in SIDES
+    ]
 
 
 def build_buckets(
@@ -507,15 +511,9 @@ def _run(reporter: PipelineReporter) -> None:
     )
 
     reporter.add_input(graded_input)
-    reporter.add_input(MARKETS_PATH)
 
-    markets = load_markets()
     input_rows = read_graded_rows(graded_input)
-
-    filtered_rows = apply_market_filters(
-        input_rows,
-        markets,
-    )
+    report_rows = betting_rows(input_rows)
 
     market_row_counts: dict[str, int] = {}
     output_stats: dict[str, dict[str, Any]] = {}
@@ -525,7 +523,7 @@ def _run(reporter: PipelineReporter) -> None:
     for market_name, market_line_column in MARKETS.items():
         market_rows = [
             row
-            for row in filtered_rows
+            for row in report_rows
             if clean(row.get("prop_type")) == market_name
         ]
         market_row_counts[market_name] = int(len(market_rows))
@@ -569,7 +567,7 @@ def _run(reporter: PipelineReporter) -> None:
 
     reporter.set_rows(
         rows_in=int(len(input_rows)),
-        rows_out=int(len(filtered_rows)),
+        rows_out=int(len(report_rows)),
     )
     reporter.update_details(
         {
@@ -580,7 +578,8 @@ def _run(reporter: PipelineReporter) -> None:
                 .as_posix()
             ),
             "input_rows": int(len(input_rows)),
-            "market_filtered_rows": int(len(filtered_rows)),
+            "betting_rows": int(len(report_rows)),
+            "market_filtered_rows": int(len(report_rows)),
             "market_row_counts": market_row_counts,
             "dashboard_files": int(len(output_stats)),
             "dashboard_output_rows": int(total_output_rows),
@@ -604,7 +603,7 @@ def _run(reporter: PipelineReporter) -> None:
         "PROP REPORTS: PASS "
         f"season={season} "
         f"rows_in={len(input_rows)} "
-        f"filtered={len(filtered_rows)} "
+        f"betting_rows={len(report_rows)} "
         f"outputs={len(output_stats)} "
         f"skipped_values={skipped_non_numeric_values}"
     )

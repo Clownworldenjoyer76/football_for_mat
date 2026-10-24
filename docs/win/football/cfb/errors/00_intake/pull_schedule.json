@@ -1,0 +1,94 @@
+{
+  "schema_version": "2.0",
+  "run_id": "github-40085163289-attempt-1",
+  "status": "WARNING",
+  "exit_code": 0,
+  "pipeline": "cfb",
+  "league": "CFB",
+  "stage": "00_intake",
+  "script": "pull_schedule.py",
+  "script_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/cfb/scripts/00_intake/pull_schedule.py",
+  "report_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/cfb/errors/00_intake/pull_schedule.json",
+  "started_at_utc": "2026-10-24T10:17:11.551340+00:00",
+  "finished_at_utc": "2026-10-24T10:18:36.813352+00:00",
+  "duration_seconds": 85.262,
+  "environment": {
+    "hostname": "runnervmtai0g",
+    "python_version": "3.12.15",
+    "python_executable": "/opt/hostedtoolcache/Python/3.12.15/x64/bin/python",
+    "platform": "linux",
+    "process_id": 2391,
+    "working_directory": "/home/runner/work/bet_tracker/bet_tracker",
+    "github_run_id": "40085163289",
+    "github_run_attempt": "1",
+    "github_workflow": "CFB 01 Pipeline",
+    "github_job": "run-cfb-pipeline",
+    "github_ref_name": "main",
+    "github_sha": "f53d8615474daa67e5c77f104b0243b87366bacf",
+    "github_actor": "Clownworldenjoyer76",
+    "github_repository": "Clownworldenjoyer76/bet_tracker"
+  },
+  "context": {
+    "season": 2026,
+    "week": 8
+  },
+  "inputs": [
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/cfb/config/current_week.yaml",
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/cfb/config/mapping/team_map.csv",
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/cfb/config/mapping/stadium_map.csv"
+  ],
+  "outputs": [
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/cfb/00_intake/schedule/updates/2026_schedule_20261024_101836.csv",
+    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/cfb/00_intake/schedule/2026_schedule.csv"
+  ],
+  "rows_in": 1629,
+  "rows_out": 892,
+  "warning_count": 2,
+  "error_count": 0,
+  "warnings": [
+    {
+      "timestamp_utc": "2026-10-24T10:17:51.614491+00:00",
+      "message": "ESPN schedule fetch failed",
+      "details": {
+        "team_id": "120",
+        "error_type": "TimeoutError",
+        "error": "The read operation timed out"
+      }
+    },
+    {
+      "timestamp_utc": "2026-10-24T10:18:30.442200+00:00",
+      "message": "ESPN schedule fetch failed",
+      "details": {
+        "team_id": "264",
+        "error_type": "TimeoutError",
+        "error": "The read operation timed out"
+      }
+    }
+  ],
+  "errors": [],
+  "details": {
+    "season_type": 2,
+    "team_map_rows": 552,
+    "stadium_map_rows": 186,
+    "team_ids": 138,
+    "successful_team_pulls": 136,
+    "failed_team_pulls": 2,
+    "invalid_team_payloads": 0,
+    "empty_team_pulls": 0,
+    "events_seen": 1629,
+    "skipped_events": 0,
+    "unique_games_pulled": 890,
+    "existing_schedule_rows": 892,
+    "schedule_rows_written": 892,
+    "schedule_games_added": 0,
+    "schedule_games_updated": 0,
+    "schedule_games_unchanged": 890,
+    "schedule_games_preserved": 2,
+    "missing_stadium": 0,
+    "missing_surface": 7,
+    "missing_roof": 0,
+    "missing_home_timezone": 0,
+    "missing_away_timezone": 66,
+    "missing_game_timezone": 0
+  }
+}

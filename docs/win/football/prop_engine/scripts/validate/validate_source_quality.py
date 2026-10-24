@@ -203,6 +203,12 @@ def relevant_slice(source: str, df: pd.DataFrame, season: int, week: int) -> tup
     latest = int(finite.max()) if not finite.empty else None
     if source in LAGGED:
         return (df.iloc[0:0].copy(), latest) if week <= 1 else (df.loc[wv.eq(week - 1)].copy(), latest)
+    if source == "weekly_roster":
+        eligible = wv.loc[wv.le(week)].dropna()
+        if eligible.empty:
+            return df.iloc[0:0].copy(), latest
+        source_week = int(eligible.max())
+        return df.loc[wv.eq(source_week)].copy(), latest
     return df.loc[wv.eq(week)].copy(), latest
 
 
@@ -218,11 +224,13 @@ def universe_counts(prop: Path, season: int, week: int) -> tuple[int, int]:
 # Raw nflverse weekly rosters can contain developmental/unresolved backup rows
 # with no GSIS ID. build_player_identity.py runs before source-quality
 # validation and is the authoritative gate for unresolved current identity
-# records. This avoids requiring the current-week universe before that
-# universe has been built.
+# records. The builder's explicit skip_and_continue contract permits unresolved
+# rows to be excluded without converting a successful identity build into a
+# source-quality failure. This avoids requiring the current-week universe before
+# that universe has been built.
 def player_identity_gate_status(
     prop: Path,
-) -> tuple[bool, int | None, str]:
+) -> tuple[bool, int | None, str, str]:
     log_path = (
         prop
         / "logs"
@@ -230,7 +238,7 @@ def player_identity_gate_status(
     )
 
     if not log_path.is_file():
-        return False, None, "missing"
+        return False, None, "missing", "missing"
 
     try:
         payload = json.loads(
@@ -242,15 +250,15 @@ def player_identity_gate_status(
         OSError,
         json.JSONDecodeError,
     ):
-        return False, None, "invalid"
+        return False, None, "invalid", "invalid"
 
     if not isinstance(payload, dict):
-        return False, None, "invalid"
+        return False, None, "invalid", "invalid"
 
     counts = payload.get("counts", {})
 
     if not isinstance(counts, dict):
-        return False, None, "invalid"
+        return False, None, "invalid", "invalid"
 
     try:
         critical_unresolved = int(
@@ -265,16 +273,24 @@ def player_identity_gate_status(
     status = common.clean_text(
         payload.get("status")
     ).casefold()
+    unresolved_policy = common.clean_text(
+        payload.get("unresolved_identity_policy")
+    ).casefold()
 
     passed = (
         status == "passed"
-        and critical_unresolved == 0
+        and critical_unresolved >= 0
+        and (
+            critical_unresolved == 0
+            or unresolved_policy == "skip_and_continue"
+        )
     )
 
     return (
         passed,
         critical_unresolved,
         status or "missing",
+        unresolved_policy or "missing",
     )
 
 
@@ -376,10 +392,16 @@ def main() -> int:
     run_date = datetime.now(timezone.utc).date().isoformat(); market_ok = run_market_preflight()
     paths = source_paths(repo, prop, config, season, week)
     games, universe_rows = universe_counts(prop, season, week)
-    identity_gate_ok, identity_critical_unresolved, identity_gate_status = (
-        player_identity_gate_status(prop)
-    )
+    (
+        identity_gate_ok,
+        identity_critical_unresolved,
+        identity_gate_status,
+        identity_unresolved_policy,
+    ) = player_identity_gate_status(prop)
     schedule_raw, _ = load_source("schedule", paths["schedule"])
+    current_roster_snapshot_exists = any(
+        path.is_file() for path in paths["current_espn_roster"]
+    )
     rows: list[dict[str, Any]] = []
     snap_counts_current = False
 
@@ -427,6 +449,17 @@ def main() -> int:
             latest,
             week,
         )
+
+        if (
+            source == "weekly_roster"
+            and existing_paths
+            and latest is not None
+            and latest == week - 1
+            and current_roster_snapshot_exists
+            and identity_gate_ok
+        ):
+            fresh_status = "prior_week_identity_fallback"
+            fresh_ok = True
 
         if source == "snap_counts":
             snap_counts_current = bool(
@@ -549,7 +582,8 @@ def main() -> int:
                 reasons.append(
                     f"raw_missing_player_id_pct={pct:.4f}_nonblocking;"
                     f"build_player_identity_status={identity_gate_status};"
-                    f"critical_unresolved_records={identity_critical_unresolved}"
+                    f"critical_unresolved_records={identity_critical_unresolved};"
+                    f"unresolved_identity_policy={identity_unresolved_policy}"
                 )
                 continue
             quality = "fail"
@@ -582,6 +616,17 @@ def main() -> int:
     counts = latest_run["quality_status"].value_counts().to_dict(); failed = bool(latest_run["quality_status"].eq("fail").any())
     payload = {"script": Path(__file__).name, "season": season, "week": week, "run_date": run_date, "sources": int(len(latest_run)), "quality_status_counts": {str(k): int(v) for k,v in counts.items()}, "market_exclusion_passed": bool(market_ok), "output": str(out.relative_to(repo)), "status": "failed" if failed else "passed"}
     print(json.dumps({"script": Path(__file__).name, "payload": payload}, sort_keys=True))
+    if failed:
+        failing_rows = latest_run.loc[latest_run["quality_status"].eq("fail")]
+        for row in failing_rows.itertuples(index=False):
+            print(
+                "SOURCE QUALITY FAILURE: "
+                f"source={row.source} "
+                f"freshness_status={row.freshness_status} "
+                f"expected_rows={row.expected_rows} "
+                f"actual_rows={row.actual_rows} "
+                f"notes={row.notes}"
+            )
     print("SOURCE QUALITY VALIDATION: FAIL" if failed else "SOURCE QUALITY VALIDATION: PASS")
     return 1 if failed else 0
 

@@ -121,7 +121,7 @@ class EndToEndHistoricalAsCurrentTests(unittest.TestCase):
             ):
                 return candidate, opportunity
 
-        self.fail(
+        raise self.failureException(
             "No 2025 QB fixture had equivalent canonical historical and "
             "strict-prior current-style pass-attempt state."
         )

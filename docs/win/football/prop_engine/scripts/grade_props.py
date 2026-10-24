@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grade Stage 3 NFL props from completed ESPN game box scores and build reports."""
+"""Grade canonical 04_select NFL props from completed ESPN game box scores and build reports."""
 
 from __future__ import annotations
 
@@ -20,11 +20,10 @@ from pipeline_reporter import PipelineReporter
 
 REPO_ROOT = common.repo_root().resolve()
 PROP_ENGINE_ROOT = common.prop_root().resolve()
-PROP_PICKS_ROOT = PROP_ENGINE_ROOT / "prop_picks_final"
+SELECT_ROOT = PROP_ENGINE_ROOT / "04_select"
 FINAL_ROOT = PROP_ENGINE_ROOT / "05_final"
 GRADED_ROOT = FINAL_ROOT / "graded"
 REPORTS_ROOT = FINAL_ROOT / "reports"
-LOCKED_ROOT = PROP_PICKS_ROOT / "locked"
 
 ESPN_SUMMARY_URL = (
     "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={game_id}"
@@ -106,10 +105,8 @@ PROBABILITY_BUCKETS = [
 ]
 
 
-STAGE3_RE = re.compile(r"^(?P<season>\d{4})_(?P<week>\d+)_all_props\.csv$")
-LOCKED_RE = re.compile(
-    r"^(?P<season>\d{4})_(?P<week>\d+)_all_props_"
-    r"(?P<timestamp>\d{8}_\d{6})\.csv$"
+SELECT_RE = re.compile(
+    r"^(?P<season>\d{4})_week_(?P<week>\d+)_props\.csv$"
 )
 
 
@@ -162,106 +159,39 @@ def first_number(value: Any) -> float | None:
         return None
 
 
-def discover_stage3() -> dict[str, list[tuple[int, Path]]]:
-    seasons: dict[str, list[tuple[int, Path]]] = defaultdict(list)
-
-    if not PROP_PICKS_ROOT.is_dir():
-        return {}
-
-    for season_dir in sorted(PROP_PICKS_ROOT.iterdir()):
-        if not season_dir.is_dir() or not season_dir.name.isdigit():
-            continue
-
-        stage3_dir = season_dir / "stage_3"
-        if not stage3_dir.is_dir():
-            continue
-
-        for path in sorted(stage3_dir.glob("*_all_props.csv")):
-            match = STAGE3_RE.match(path.name)
-            if not match:
-                continue
-            if match.group("season") != season_dir.name:
-                continue
-            seasons[season_dir.name].append((int(match.group("week")), path))
-
-    return dict(seasons)
-
-
-
-def discover_latest_locked() -> dict[tuple[str, int], Path]:
-    latest: dict[tuple[str, int], Path] = {}
-
-    if not LOCKED_ROOT.is_dir():
-        return latest
-
-    for path in sorted(LOCKED_ROOT.glob("*_all_props_*.csv")):
-        match = LOCKED_RE.match(path.name)
-        if not match:
-            continue
-
-        key = (
-            match.group("season"),
-            int(match.group("week")),
-        )
-        current = latest.get(key)
-
-        if current is None or path.name > current.name:
-            latest[key] = path
-
-    return latest
-
-
 def discover_grading_inputs(
     reporter: PipelineReporter,
 ) -> dict[str, list[tuple[int, Path]]]:
-    stage3 = discover_stage3()
-    stage3_map: dict[tuple[str, int], Path] = {
-        (season, week): path
-        for season, files in stage3.items()
-        for week, path in files
-    }
-    locked = discover_latest_locked()
-
-    keys = sorted(
-        set(stage3_map) | set(locked),
-        key=lambda item: (item[0], item[1]),
-    )
+    del reporter
 
     seasons: dict[str, list[tuple[int, Path]]] = defaultdict(list)
 
-    for season, week in keys:
-        locked_path = locked.get((season, week))
+    if not SELECT_ROOT.is_dir():
+        return {}
 
-        if locked_path is not None:
-            seasons[season].append(
-                (
-                    week,
-                    locked_path,
-                )
-            )
+    for path in sorted(SELECT_ROOT.glob("*_week_*_props.csv")):
+        match = SELECT_RE.match(path.name)
+
+        if not match:
             continue
 
-        stage3_path = stage3_map.get((season, week))
-        if stage3_path is None:
-            continue
+        season = match.group("season")
+        week = int(match.group("week"))
 
-        reporter.warning(
-            "No locked prop snapshot found; using Stage 3 fallback.",
-            season=season,
-            week=int(week),
-            input_path=stage3_path.relative_to(REPO_ROOT).as_posix(),
-        )
         seasons[season].append(
             (
                 week,
-                stage3_path,
+                path,
             )
         )
 
-    return dict(seasons)
+    return {
+        season: sorted(files)
+        for season, files in seasons.items()
+    }
 
 
-def read_stage3_files(files: list[tuple[int, Path]]) -> tuple[list[str], list[dict[str, str]]]:
+def read_selection_files(files: list[tuple[int, Path]]) -> tuple[list[str], list[dict[str, str]]]:
     fieldnames: list[str] = []
     rows: list[dict[str, str]] = []
 
@@ -919,7 +849,7 @@ def process_season(
     for _, path in files:
         reporter.add_input(path)
 
-    original_fields, rows = read_stage3_files(files)
+    original_fields, rows = read_selection_files(files)
     if not rows:
         return {
             "season": season,
@@ -1036,8 +966,7 @@ def _run(reporter: PipelineReporter) -> None:
 
     if not discovered:
         raise FileNotFoundError(
-            f"No locked or Stage 3 prop files found under "
-            f"{PROP_PICKS_ROOT}"
+            f"No final prop selection files found under {SELECT_ROOT}"
         )
 
     season_stats: dict[str, dict[str, Any]] = {}
@@ -1112,3 +1041,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

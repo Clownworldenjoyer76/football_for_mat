@@ -1156,12 +1156,12 @@ def overlay_current_player_stats(out: pd.DataFrame, stats: pd.DataFrame, week: i
         if lag_col in out:
             mapped = out["player_id"].map(latest)
             mask = mapped.notna()
-            out.loc[mask, lag_col] = mapped.loc[mask]
+            out.loc[mask, lag_col] = as_num(mapped.loc[mask]).astype(out[lag_col].dtype)
             updated += 1
         if std_col in out:
             mapped = out["player_id"].map(season_mean)
             mask = mapped.notna()
-            out.loc[mask, std_col] = mapped.loc[mask]
+            out.loc[mask, std_col] = as_num(mapped.loc[mask]).astype(out[std_col].dtype)
             updated += 1
     return {"metrics_updated": updated, "rows_used": int(len(x))}
 
@@ -1188,7 +1188,7 @@ def overlay_current_snaps(out: pd.DataFrame, snaps: pd.DataFrame, week: int) -> 
         latest = x.assign(_v=as_num(x[source_col])).groupby("_player_id", sort=False).tail(1).set_index("_player_id")["_v"]
         mapped = out["player_id"].map(latest)
         mask = mapped.notna()
-        out.loc[mask, output_col] = mapped.loc[mask]
+        out.loc[mask, output_col] = as_num(mapped.loc[mask]).astype(out[output_col].dtype)
         updated += 1
     return {"fields_updated": updated, "rows_used": int(len(x))}
 
@@ -1221,12 +1221,12 @@ def overlay_current_team_stats(out: pd.DataFrame, team_stats: pd.DataFrame, week
         if lag_col in out:
             mapped = out["team"].map(latest)
             mask = mapped.notna()
-            out.loc[mask, lag_col] = mapped.loc[mask]
+            out.loc[mask, lag_col] = as_num(mapped.loc[mask]).astype(out[lag_col].dtype)
             updated += 1
         if std_col in out:
             mapped = out["team"].map(season_mean)
             mask = mapped.notna()
-            out.loc[mask, std_col] = mapped.loc[mask]
+            out.loc[mask, std_col] = as_num(mapped.loc[mask]).astype(out[std_col].dtype)
             updated += 1
     return {"metrics_updated": updated, "rows_used": int(len(x))}
 

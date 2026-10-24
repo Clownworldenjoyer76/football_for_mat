@@ -13,7 +13,7 @@ concurrency:
 jobs:
   run-prop-engine:
     name: Run NFL Prop Engine
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     env:
@@ -483,6 +483,7 @@ jobs:
             "$PROP_ENGINE_ROOT/logs" \
             "$PROP_ENGINE_ROOT/output" \
             "$PROP_ENGINE_ROOT/prop_picks_final" \
+            "$PROP_ENGINE_ROOT/04_select" \
             "$PROP_ENGINE_ROOT/05_final"
 
           echo "Staged Prop Engine files:"

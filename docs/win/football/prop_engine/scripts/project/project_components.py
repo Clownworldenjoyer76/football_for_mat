@@ -1069,9 +1069,40 @@ def main() -> int:
         raise ValueError(
             "Issue 33 requires exactly one primary QB per team"
         )
-    if int(kicker_primary.sum()) != int(base["team"].nunique()):
+    # Current role selection permits zero primary kickers when a team has
+    # no eligible K/PK candidate. All other teams require exactly one.
+    kicker_candidate = (
+        base["position"].astype(str).str.strip().str.upper().isin({"K", "PK"})
+    )
+    if (kicker_primary & ~kicker_candidate).any():
+        bad = base.loc[
+            kicker_primary & ~kicker_candidate,
+            ["team", "player_id", "position"],
+        ].to_dict("records")
         raise ValueError(
-            "Issue 33 requires exactly one primary kicker per team"
+            f"Issue 33 primary kicker assigned to non-K/PK player: {bad[:10]}"
+        )
+
+    kicker_team_counts = pd.DataFrame(
+        {
+            "team": base["team"],
+            "eligible_candidates": kicker_candidate.astype("int64"),
+            "primary_kickers": kicker_primary.astype("int64"),
+        }
+    ).groupby("team", sort=True)[
+        ["eligible_candidates", "primary_kickers"]
+    ].sum()
+    invalid_kicker_teams = kicker_team_counts.loc[
+        (kicker_team_counts["eligible_candidates"].gt(0)
+         & kicker_team_counts["primary_kickers"].ne(1))
+        | (kicker_team_counts["eligible_candidates"].eq(0)
+           & kicker_team_counts["primary_kickers"].ne(0))
+    ]
+    if not invalid_kicker_teams.empty:
+        raise ValueError(
+            "Issue 33 requires exactly one primary kicker for teams with "
+            "eligible K/PK candidates and zero otherwise: "
+            f"{invalid_kicker_teams.to_dict('index')}"
         )
 
     base["projected_qb_pass_attempts"] = 0.0

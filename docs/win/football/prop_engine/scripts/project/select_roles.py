@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 Select current starters and projection roles for the NFL Prop Engine.
@@ -14,7 +15,8 @@ WRITES:
 
 POLICY:
     - Only eligible current-universe players receive roles.
-    - Exactly one primary QB and primary kicker are selected per scheduled team.
+    - Exactly one primary QB is selected per scheduled team.
+    - A team without an eligible kicker receives no primary kicker assignment.
     - An available depth-rank-1 QB is primary. If QB1 is ineligible, the next
       eligible ranked QB is promoted. Genuine QB depth ambiguity is a hard fail.
     - Kicker selection uses current depth rank plus strictly prior realized kick
@@ -139,7 +141,6 @@ def resolve_season(args: argparse.Namespace, config: dict) -> int:
     return season
 
 
-
 def write_json_atomic(payload: dict[str, Any], path: Path) -> None:
     prop_root = common.prop_root().resolve()
     destination = path.resolve()
@@ -168,6 +169,7 @@ def run_market_preflight() -> dict[str, Any]:
             "Market-exclusion validator returned zero without PASS marker."
         ),
     )
+
 
 def current_universe_path(season: int, week: int) -> Path:
     return common.prop_root() / "data" / "current" / f"{season}_week_{week}_universe.parquet"
@@ -375,7 +377,20 @@ def select_primary_kicker(team_all: pd.DataFrame, usage: dict[str, dict[str, flo
         team_all["position"].isin(KICKER_POSITIONS) & eligible_mask(team_all)
     ].copy()
     if kickers.empty:
-        raise RuntimeError(f"No eligible K/PK candidate for team={team}; kicking projection cannot be assigned.")
+        summary = {
+            "team": team,
+            "player_id": "",
+            "player_name": "",
+            "depth_rank": None,
+            "recent_kick_attempts": 0.0,
+            "ambiguous": False,
+            "committee_player_ids": [],
+            "role_confidence": 0.0,
+            "role_reason": "no_eligible_kicker",
+            "uncertainty_widening_multiplier": 1.0,
+        }
+        return "", 0.0, "no_eligible_kicker", set(), summary
+
     kickers["_rank"] = depth_rank_series(kickers)
     kickers["_starter"] = kickers["depth_starter_flag"].map(integer_flag)
     kickers["_recent"] = kickers["player_id"].map(
@@ -584,13 +599,27 @@ def build_roles(universe: pd.DataFrame, config: dict, season: int, week: int) ->
     kicker_counts = output.groupby("team")["primary_kicker_flag"].sum()
     if len(qb_counts) != team_count or not qb_counts.eq(1).all():
         raise RuntimeError(f"Each scheduled team must have exactly one primary QB: {qb_counts.to_dict()}")
-    if len(kicker_counts) != team_count or not kicker_counts.eq(1).all():
-        raise RuntimeError(f"Each scheduled team must have exactly one primary kicker: {kicker_counts.to_dict()}")
+
+    missing_kicker_teams = sorted(
+        row["team"] for row in kicker_summary
+        if row["role_reason"] == "no_eligible_kicker"
+    )
+    if len(kicker_counts) != team_count or not kicker_counts.isin([0, 1]).all():
+        raise RuntimeError(
+            f"Each scheduled team must have zero or one primary kicker: {kicker_counts.to_dict()}"
+        )
+    actual_missing = set(kicker_counts.index[kicker_counts.eq(0)])
+    if actual_missing != set(missing_kicker_teams):
+        raise RuntimeError(
+            "Teams without primary kickers do not match eligibility audit: "
+            f"actual={sorted(actual_missing)} expected={missing_kicker_teams}"
+        )
 
     audit = {
         "current_kick_stats_status": current_usage_status,
         "qb_assignments": qb_summary,
         "kicker_assignments": kicker_summary,
+        "missing_eligible_kicker_teams": missing_kicker_teams,
         "ambiguous_kicker_teams": [row["team"] for row in kicker_summary if row["ambiguous"]],
         "kicker_ambiguity_uncertainty_multiplier": KICKER_AMBIGUITY_UNCERTAINTY_MULTIPLIER,
     }
@@ -623,6 +652,7 @@ def main() -> int:
         "primary_kickers": int(roles["primary_kicker_flag"].sum()),
         "primary_roles": int(roles["primary_role_flag"].sum()),
         "committee_roles": int(roles["committee_role_flag"].sum()),
+        "missing_eligible_kicker_teams": audit["missing_eligible_kicker_teams"],
         "ambiguous_kicker_teams": audit["ambiguous_kicker_teams"],
         "market_exclusion_passed": bool(market["passed"]),
         "market_features_used": False,
@@ -637,6 +667,7 @@ def main() -> int:
             "unresolved_qb_starter_fails": True,
             "kicker_uses_depth_rank": True,
             "kicker_uses_strictly_prior_attempts": True,
+            "kicker_without_eligible_candidate_is_unassigned": True,
             "ambiguous_kicker_reduces_confidence": True,
             "ambiguous_kicker_widens_uncertainty": True,
             "kicker_ambiguity_uncertainty_multiplier": KICKER_AMBIGUITY_UNCERTAINTY_MULTIPLIER,
