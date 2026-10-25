@@ -282,12 +282,12 @@ def normalize_key(value: Any) -> str:
 def add_team_mapping(
     mapping: dict[str, str],
     source_name: Any,
-    canonical_team: Any,
+    canonical_name: Any,
     *,
     source: str,
 ) -> None:
     source_text = clean(source_name)
-    canonical_text = clean(canonical_team)
+    canonical_text = clean(canonical_name)
     if not source_text or not canonical_text:
         return
 
@@ -308,17 +308,17 @@ def add_team_mapping(
 def load_team_map() -> dict[str, str]:
     mapping: dict[str, str] = {}
 
-    for source_name, canonical_team in OBSERVED_ODDS_TEAM_MAP.items():
+    for source_name, mapped_team in OBSERVED_ODDS_TEAM_MAP.items():
         add_team_mapping(
             mapping,
             source_name,
-            canonical_team,
+            mapped_team,
             source="observed map",
         )
         add_team_mapping(
             mapping,
-            canonical_team,
-            canonical_team,
+            mapped_team,
+            mapped_team,
             source="observed map",
         )
 
@@ -340,19 +340,19 @@ def load_team_map() -> dict[str, str]:
         ):
             continue
 
-        canonical_team = clean(row.get("canonical_team"))
+        mapped_team = clean(row.get("canonical_team"))
         alias = clean(row.get("alias"))
 
         add_team_mapping(
             mapping,
-            canonical_team,
-            canonical_team,
+            mapped_team,
+            mapped_team,
             source=str(TEAM_MAP_PATH),
         )
         add_team_mapping(
             mapping,
             alias,
-            canonical_team,
+            mapped_team,
             source=str(TEAM_MAP_PATH),
         )
 
@@ -910,11 +910,11 @@ def build_output_rows(
         output_rows.append(row)
 
     output_rows.sort(
-        key=lambda row: (
-            clean(row.get("game_date")),
-            clean(row.get("game_time")),
-            clean(row.get("away_team")),
-            clean(row.get("home_team")),
+        key=lambda sorted_row: (
+            clean(sorted_row.get("game_date")),
+            clean(sorted_row.get("game_time")),
+            clean(sorted_row.get("away_team")),
+            clean(sorted_row.get("home_team")),
         )
     )
 

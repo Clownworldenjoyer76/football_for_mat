@@ -1248,9 +1248,9 @@ if __name__ == "__main__":
         raise SystemExit(
             main()
         )
-    except Exception as exc:
+    except Exception as cli_error:
         print(
-            f"ERROR: {exc}",
+            f"ERROR: {cli_error}",
             file=sys.stderr,
         )
         raise

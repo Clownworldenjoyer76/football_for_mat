@@ -440,7 +440,7 @@ def build_output(rows, week, input_path):
         )
 
     output.sort(
-        key=lambda row: row["pt_diff"],
+        key=lambda ranked_pick: ranked_pick["pt_diff"],
         reverse=True,
     )
 

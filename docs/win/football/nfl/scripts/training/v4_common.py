@@ -229,18 +229,18 @@ def looks_numeric(series: pd.Series) -> bool:
 
 
 def infer_feature_types(raw: pd.DataFrame, features: list[str]) -> tuple[list[str], list[str]]:
-    categorical, numeric = [], []
+    categorical, numeric_features = [], []
     for c in features:
         if c in FORCED_CATEGORICAL or not looks_numeric(raw[c]):
             categorical.append(c)
         else:
-            numeric.append(c)
-    return categorical, numeric
+            numeric_features.append(c)
+    return categorical, numeric_features
 
 
-def prepare_matrix(raw: pd.DataFrame, features: list[str], categorical: list[str], numeric: list[str]) -> pd.DataFrame:
+def prepare_matrix(raw: pd.DataFrame, features: list[str], categorical: list[str], numeric_features: list[str]) -> pd.DataFrame:
     matrix = raw[features].copy()
-    for c in numeric:
+    for c in numeric_features:
         text = matrix[c].astype(str).str.strip().str.replace("%", "", regex=False)
         blank = text.str.casefold().isin(BLANK_TOKENS)
         values = pd.to_numeric(text.mask(blank, np.nan), errors="coerce")
