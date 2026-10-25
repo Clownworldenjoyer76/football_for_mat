@@ -41,6 +41,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from numbers import Number
+import typing
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import math
@@ -243,6 +244,11 @@ def require_columns(
         )
 
 
+class _ValidatedScalarString(typing.Protocol):
+    def __str__(self) -> str:
+        ...
+
+
 def clean(
     value: object,
 ) -> str:
@@ -252,9 +258,7 @@ def clean(
     if not isinstance(value, (str, Number, bool, datetime)):
         raise TypeError(f"Unsupported training value type: {type(value).__name__}")
 
-    text = str(
-        value
-    ).strip()
+    text = str(typing.cast(_ValidatedScalarString, value)).strip()
 
     if text.lower() in BLANK_VALUES:
         return ""
