@@ -1,11 +1,10 @@
-[2026-10-24T09:51:55.366743+00:00] ESPN season=2026 season_type=2 week=7 preferred_sportsbook=draftkings
-[2026-10-24T09:51:55.366792+00:00] Configured-week events returned: 14
-[2026-10-24T09:51:55.366817+00:00] Eligible current/future events: 13
-[2026-10-24T09:51:55.366839+00:00] Odds events returned: 13
-[2026-10-24T09:51:55.366860+00:00] Preferred-bookmaker fallback events: 0
-[2026-10-24T09:51:55.366882+00:00] Events with no usable odds: 0
-[2026-10-24T09:51:55.366902+00:00] CSV rows written: 78
-[2026-10-24T09:51:55.366925+00:00] Current raw JSON written: docs/win/football/nfl/00_intake/odds/raw/2026_10_24_nfl_odds.json
-[2026-10-24T09:51:55.366947+00:00] Current normalized CSV written: docs/win/football/nfl/00_intake/odds/2026_10_24_NFL_odds.csv
-[2026-10-24T09:51:55.366967+00:00] Archived raw JSON written: docs/win/football/nfl/00_intake/odds/raw/snapshots/2026_10_24_095154_227422_nfl_odds.json
-[2026-10-24T09:51:55.367010+00:00] Archived normalized CSV written: docs/win/football/nfl/00_intake/odds/snapshots/2026_10_24_095154_227422_NFL_odds.csv
+[2026-11-03T10:53:16.952829+00:00] ERROR: No current/future ESPN NFL events are eligible for odds retrieval
+[2026-11-03T10:53:16.955824+00:00] Traceback (most recent call last):
+  File "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/scripts/00_intake/pull_odds.py", line 641, in main
+    run(args, reporter)
+  File "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/scripts/00_intake/pull_odds.py", line 599, in run
+    fail('No current/future ESPN NFL events are eligible for odds retrieval')
+  File "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/scripts/00_intake/pull_odds.py", line 75, in fail
+    raise OddsError(message)
+OddsError: No current/future ESPN NFL events are eligible for odds retrieval
+
