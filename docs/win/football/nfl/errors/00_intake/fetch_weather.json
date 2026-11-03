@@ -1,59 +1,73 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-41431959734-attempt-1",
-  "status": "SUCCESS",
+  "run_id": "github-41675039599-attempt-1",
+  "status": "WARNING",
   "exit_code": 0,
   "pipeline": "NFL",
   "league": "NFL",
   "stage": "00_intake",
   "script": "fetch_weather.py",
-  "script_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/scripts/00_intake/fetch_weather.py",
-  "report_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/errors/00_intake/fetch_weather.json",
-  "started_at_utc": "2026-11-02T10:58:43.625685+00:00",
-  "finished_at_utc": "2026-11-02T10:58:45.787256+00:00",
-  "duration_seconds": 2.162,
+  "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/fetch_weather.py",
+  "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/fetch_weather.json",
+  "started_at_utc": "2026-11-03T16:42:15.749315+00:00",
+  "finished_at_utc": "2026-11-03T16:42:45.352335+00:00",
+  "duration_seconds": 29.603,
   "environment": {
     "hostname": "runnervm48cm3",
     "python_version": "3.11.17",
     "python_executable": "/opt/hostedtoolcache/Python/3.11.17/x64/bin/python",
     "platform": "linux",
-    "process_id": 3052,
-    "working_directory": "/home/runner/work/bet_tracker/bet_tracker",
-    "github_run_id": "41431959734",
+    "process_id": 3183,
+    "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
+    "github_run_id": "41675039599",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "3ec1c955ff4055e0a3870c5c2bef1320e9584255",
+    "github_sha": "fb2d6ce4094759dfde834217b3324698f31e6d73",
     "github_actor": "Clownworldenjoyer76",
-    "github_repository": "Clownworldenjoyer76/bet_tracker"
+    "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
   "context": {
     "season": 2026,
-    "week": 8,
+    "week": 9,
     "component": "weather fetch"
   },
   "inputs": [
-    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/00_intake/schedule/weekly/week_8_NFL_weekly_schedule.csv",
-    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv",
-    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/data/weather/week_8_NFL_weekly_weather.csv"
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/schedule/weekly/week_9_NFL_weekly_schedule.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv"
   ],
   "outputs": [
-    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/data/weather/week_8_NFL_weekly_weather.csv",
-    "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/errors/00_intake/fetch_weather.txt"
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/weather/week_9_NFL_weekly_weather.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/fetch_weather.txt"
   ],
-  "rows_in": 14,
-  "rows_out": 14,
-  "warning_count": 0,
+  "rows_in": 15,
+  "rows_out": 15,
+  "warning_count": 1,
   "error_count": 0,
-  "warnings": [],
+  "warnings": [
+    {
+      "timestamp_utc": "2026-11-03T16:42:45.350061+00:00",
+      "message": "One or more games could not be fully joined to usable stadium coordinates",
+      "details": {
+        "count": 1,
+        "examples": [
+          {
+            "game_id": "401873038",
+            "stadium": "Bernabéu Stadium",
+            "home_team": "Atlanta Falcons"
+          }
+        ]
+      }
+    }
+  ],
   "errors": [],
   "details": {
     "season": 2026,
-    "week": 8,
-    "schedule_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/00_intake/schedule/weekly/week_8_NFL_weekly_schedule.csv",
-    "stadium_map_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv",
-    "output_path": "/home/runner/work/bet_tracker/bet_tracker/docs/win/football/nfl/data/weather/week_8_NFL_weekly_weather.csv",
+    "week": 9,
+    "schedule_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/schedule/weekly/week_9_NFL_weekly_schedule.csv",
+    "stadium_map_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv",
+    "output_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/weather/week_9_NFL_weekly_weather.csv",
     "provider_endpoint": "https://api.met.no/weatherapi/locationforecast/2.0/complete",
     "request_attempts": 4,
     "request_timeout_seconds": 20,
@@ -61,19 +75,19 @@
     "publication_mode": "staged_atomic_replace",
     "publication_completed": true,
     "staged_roundtrip_verified": true,
-    "schedule_rows": 14,
-    "schedule_game_ids": 14,
-    "existing_weather_rows": 14,
-    "past_rows_preserved": 13,
+    "schedule_rows": 15,
+    "schedule_game_ids": 15,
+    "existing_weather_rows": 0,
+    "past_rows_preserved": 0,
     "past_rows_created_without_fetch": 0,
-    "future_fetch_success": 1,
+    "future_fetch_success": 14,
     "forecast_unavailable": 0,
     "provider_failures": 0,
     "provider_failures_preserved_existing": 0,
-    "missing_stadium_matches": 0,
+    "missing_stadium_matches": 1,
     "missing_coordinates": 0,
-    "provider_request_attempts": 1,
-    "rows_published": 14,
+    "provider_request_attempts": 14,
+    "rows_published": 15,
     "legacy_log_written": true
   }
 }
