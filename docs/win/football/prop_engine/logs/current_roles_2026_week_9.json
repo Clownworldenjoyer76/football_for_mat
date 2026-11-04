@@ -32,12 +32,12 @@
       {
         "ambiguous": false,
         "committee_player_ids": [],
-        "depth_rank": 1.0,
-        "player_id": "00-0040074",
-        "player_name": "Tyler Loop",
-        "recent_kick_attempts": 18.0,
-        "role_confidence": 0.97,
-        "role_reason": "kicker_depth_rank_1_with_recent_attempts",
+        "depth_rank": null,
+        "player_id": "",
+        "player_name": "",
+        "recent_kick_attempts": 0.0,
+        "role_confidence": 0.0,
+        "role_reason": "no_eligible_kicker",
         "team": "BAL",
         "uncertainty_widening_multiplier": 1.0
       },
@@ -272,12 +272,12 @@
       {
         "ambiguous": false,
         "committee_player_ids": [],
-        "depth_rank": 1.0,
+        "depth_rank": null,
         "player_id": "00-0034161",
         "player_name": "Daniel Carlson",
         "recent_kick_attempts": 21.0,
-        "role_confidence": 0.97,
-        "role_reason": "kicker_depth_rank_1_with_recent_attempts",
+        "role_confidence": 0.82,
+        "role_reason": "kicker_best_depth_with_recent_attempts",
         "team": "NO",
         "uncertainty_widening_multiplier": 1.0
       },
@@ -366,7 +366,9 @@
         "uncertainty_widening_multiplier": 1.0
       }
     ],
-    "missing_eligible_kicker_teams": [],
+    "missing_eligible_kicker_teams": [
+      "BAL"
+    ],
     "qb_assignments": [
       {
         "chosen_depth_rank": 1.0,
@@ -610,7 +612,7 @@
       }
     ]
   },
-  "committee_roles": 357,
+  "committee_roles": 356,
   "log": "docs/win/football/prop_engine/logs/current_roles_2026_week_9.json",
   "market_exclusion_passed": true,
   "market_features_used": false,
@@ -619,7 +621,9 @@
     "passed": true,
     "validator": "docs/win/football/prop_engine/scripts/validate/audit_market_exclusion.py"
   },
-  "missing_eligible_kicker_teams": [],
+  "missing_eligible_kicker_teams": [
+    "BAL"
+  ],
   "output": "docs/win/football/prop_engine/data/current/2026_week_9_roles.parquet",
   "policy": {
     "ambiguous_kicker_reduces_confidence": true,
@@ -633,9 +637,9 @@
     "qb1_ineligible_promotes_next_eligible": true,
     "unresolved_qb_starter_fails": true
   },
-  "primary_kickers": 30,
+  "primary_kickers": 29,
   "primary_qbs": 30,
-  "primary_roles": 484,
+  "primary_roles": 483,
   "rows": 1320,
   "script": "select_roles.py",
   "season": 2026,

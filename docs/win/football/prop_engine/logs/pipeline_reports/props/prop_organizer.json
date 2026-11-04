@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-41726884669-attempt-1",
-  "status": "SUCCESS",
+  "run_id": "github-41811354252-attempt-1",
+  "status": "WARNING",
   "exit_code": 0,
   "pipeline": "NFL Prop Engine",
   "league": "NFL",
@@ -9,22 +9,22 @@
   "script": "prop_organizer.py",
   "script_path": "prop_organizer.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer.json",
-  "started_at_utc": "2026-11-03T22:05:11.720137+00:00",
-  "finished_at_utc": "2026-11-03T22:05:11.727268+00:00",
-  "duration_seconds": 0.007,
+  "started_at_utc": "2026-11-04T10:03:22.087314+00:00",
+  "finished_at_utc": "2026-11-04T10:03:22.093033+00:00",
+  "duration_seconds": 0.006,
   "environment": {
     "hostname": "runnervm48cm3",
     "python_version": "3.14.5",
     "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
     "platform": "linux",
-    "process_id": 2861,
+    "process_id": 2663,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "41726884669",
+    "github_run_id": "41811354252",
     "github_run_attempt": "1",
     "github_workflow": "Prop 01 Pipeline",
     "github_job": "run-prop-engine",
     "github_ref_name": "main",
-    "github_sha": "8bff90fb1430130716220af994a0f50105ef9f50",
+    "github_sha": "1b97741e7a68e9c239f268ed40315cab20a2d6a4",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -49,11 +49,20 @@
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_9/combo/pass_rush_yds/week_9_pass_rush_yds.csv",
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_9/combo/rec_rush_yds/week_9_rec_rush_yds.csv"
   ],
-  "rows_in": 87,
-  "rows_out": 86,
-  "warning_count": 0,
+  "rows_in": 145,
+  "rows_out": 145,
+  "warning_count": 1,
   "error_count": 0,
-  "warnings": [],
+  "warnings": [
+    {
+      "timestamp_utc": "2026-11-04T10:03:22.092988+00:00",
+      "message": "Some stage-1 prop rows are missing Prop Engine projection data.",
+      "details": {
+        "missing_engine_projection_rows": 1,
+        "missing_engine_player_id_rows": 0
+      }
+    }
+  ],
   "errors": [],
   "details": {
     "season": 2026,
@@ -70,55 +79,55 @@
       "kicking": {
         "input_file": "docs/win/football/prop_engine/output/2026/week_9_props/selections/kicking/week_9_props_select.csv",
         "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_9/kicking/week_9_kicking.csv",
-        "input_rows": 1,
-        "output_rows": 1,
+        "input_rows": 2,
+        "output_rows": 2,
         "missing_engine_projection": 0,
         "missing_engine_player_id": 0
       },
       "passing": {
         "input_file": "docs/win/football/prop_engine/output/2026/week_9_props/selections/passing/week_9_props_select.csv",
         "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_9/passing/week_9_passing.csv",
-        "input_rows": 11,
-        "output_rows": 10,
+        "input_rows": 19,
+        "output_rows": 19,
         "missing_engine_projection": 0,
         "missing_engine_player_id": 0
       },
       "receiving": {
         "input_file": "docs/win/football/prop_engine/output/2026/week_9_props/selections/receiving/week_9_props_select.csv",
         "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_9/receiving/week_9_receiving.csv",
-        "input_rows": 46,
-        "output_rows": 46,
+        "input_rows": 68,
+        "output_rows": 68,
         "missing_engine_projection": 0,
         "missing_engine_player_id": 0
       },
       "rushing": {
         "input_file": "docs/win/football/prop_engine/output/2026/week_9_props/selections/rushing/week_9_props_select.csv",
         "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_9/rushing/week_9_rushing.csv",
-        "input_rows": 18,
-        "output_rows": 18,
-        "missing_engine_projection": 0,
+        "input_rows": 32,
+        "output_rows": 32,
+        "missing_engine_projection": 1,
         "missing_engine_player_id": 0
       }
     },
     "combo": {
       "input_file": "docs/win/football/prop_engine/output/2026/week_9_props/selections/combo/week_9_props_select.csv",
-      "input_rows": 11,
+      "input_rows": 24,
       "outputs": {
         "pass_rush_yds": {
           "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_9/combo/pass_rush_yds/week_9_pass_rush_yds.csv",
-          "output_rows": 5,
+          "output_rows": 12,
           "missing_engine_projection": 0,
           "missing_engine_player_id": 0
         },
         "rec_rush_yds": {
           "output_file": "docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_9/combo/rec_rush_yds/week_9_rec_rush_yds.csv",
-          "output_rows": 6,
+          "output_rows": 12,
           "missing_engine_projection": 0,
           "missing_engine_player_id": 0
         }
       }
     },
-    "missing_engine_projection_rows": 0,
+    "missing_engine_projection_rows": 1,
     "missing_engine_player_id_rows": 0
   }
 }
