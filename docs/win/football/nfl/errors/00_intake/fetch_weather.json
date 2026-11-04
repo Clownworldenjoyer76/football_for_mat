@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-41675039599-attempt-1",
+  "run_id": "github-41801915566-attempt-1",
   "status": "WARNING",
   "exit_code": 0,
   "pipeline": "NFL",
@@ -9,22 +9,22 @@
   "script": "fetch_weather.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/fetch_weather.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/fetch_weather.json",
-  "started_at_utc": "2026-11-03T16:42:15.749315+00:00",
-  "finished_at_utc": "2026-11-03T16:42:45.352335+00:00",
-  "duration_seconds": 29.603,
+  "started_at_utc": "2026-11-04T08:51:12.815745+00:00",
+  "finished_at_utc": "2026-11-04T08:52:16.481631+00:00",
+  "duration_seconds": 63.666,
   "environment": {
     "hostname": "runnervm48cm3",
     "python_version": "3.11.17",
     "python_executable": "/opt/hostedtoolcache/Python/3.11.17/x64/bin/python",
     "platform": "linux",
-    "process_id": 3183,
+    "process_id": 2825,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "41675039599",
+    "github_run_id": "41801915566",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "fb2d6ce4094759dfde834217b3324698f31e6d73",
+    "github_sha": "941bbb41ed88aac7b32f53ddacc00093ac1dedbf",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -35,7 +35,8 @@
   },
   "inputs": [
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/00_intake/schedule/weekly/week_9_NFL_weekly_schedule.csv",
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv"
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/config/mapping/stadium_map_nfl.csv",
+    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/weather/week_9_NFL_weekly_weather.csv"
   ],
   "outputs": [
     "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/weather/week_9_NFL_weekly_weather.csv",
@@ -43,11 +44,36 @@
   ],
   "rows_in": 15,
   "rows_out": 15,
-  "warning_count": 1,
+  "warning_count": 2,
   "error_count": 0,
   "warnings": [
     {
-      "timestamp_utc": "2026-11-03T16:42:45.350061+00:00",
+      "timestamp_utc": "2026-11-04T08:52:16.478828+00:00",
+      "message": "One or more met.no requests/responses failed; existing forecasts were preserved where possible",
+      "details": {
+        "count": 4,
+        "examples": [
+          {
+            "game_id": "401873039",
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 33927 (char 33926)"
+          },
+          {
+            "game_id": "401873042",
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 36641 (char 36640)"
+          },
+          {
+            "game_id": "401873046",
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Expecting ',' delimiter: line 1 column 36642 (char 36641)"
+          },
+          {
+            "game_id": "401873049",
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 45014 (char 45013)"
+          }
+        ]
+      }
+    },
+    {
+      "timestamp_utc": "2026-11-04T08:52:16.478857+00:00",
       "message": "One or more games could not be fully joined to usable stadium coordinates",
       "details": {
         "count": 1,
@@ -77,16 +103,16 @@
     "staged_roundtrip_verified": true,
     "schedule_rows": 15,
     "schedule_game_ids": 15,
-    "existing_weather_rows": 0,
+    "existing_weather_rows": 15,
     "past_rows_preserved": 0,
     "past_rows_created_without_fetch": 0,
-    "future_fetch_success": 14,
+    "future_fetch_success": 10,
     "forecast_unavailable": 0,
-    "provider_failures": 0,
-    "provider_failures_preserved_existing": 0,
+    "provider_failures": 4,
+    "provider_failures_preserved_existing": 4,
     "missing_stadium_matches": 1,
     "missing_coordinates": 0,
-    "provider_request_attempts": 14,
+    "provider_request_attempts": 27,
     "rows_published": 15,
     "legacy_log_written": true
   }
