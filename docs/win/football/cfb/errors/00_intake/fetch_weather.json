@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-41723196557-attempt-1",
-  "status": "SUCCESS",
+  "run_id": "github-41796787351-attempt-1",
+  "status": "WARNING",
   "exit_code": 0,
   "pipeline": "cfb",
   "league": "CFB",
@@ -9,22 +9,22 @@
   "script": "fetch_weather.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/scripts/00_intake/fetch_weather.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/errors/00_intake/fetch_weather.json",
-  "started_at_utc": "2026-11-03T21:45:02.594363+00:00",
-  "finished_at_utc": "2026-11-03T21:47:01.205083+00:00",
-  "duration_seconds": 118.611,
+  "started_at_utc": "2026-11-04T08:09:41.935688+00:00",
+  "finished_at_utc": "2026-11-04T08:11:55.525215+00:00",
+  "duration_seconds": 133.59,
   "environment": {
-    "hostname": "runnervm48cm3",
-    "python_version": "3.12.15",
-    "python_executable": "/opt/hostedtoolcache/Python/3.12.15/x64/bin/python",
+    "hostname": "ip-10-0-142-138",
+    "python_version": "3.12.16",
+    "python_executable": "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
     "platform": "linux",
-    "process_id": 2556,
+    "process_id": 2463,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "41723196557",
+    "github_run_id": "41796787351",
     "github_run_attempt": "1",
     "github_workflow": "CFB 01 Pipeline",
     "github_job": "run-cfb-pipeline",
     "github_ref_name": "main",
-    "github_sha": "bcf0c9e56e9e6bb647a27568dab2ed78b48f86d7",
+    "github_sha": "1122d6c7a1aa756f4dc90697a58b268abb051ca8",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -45,9 +45,25 @@
   ],
   "rows_in": 63,
   "rows_out": 63,
-  "warning_count": 0,
+  "warning_count": 1,
   "error_count": 0,
-  "warnings": [],
+  "warnings": [
+    {
+      "timestamp_utc": "2026-11-04T08:11:55.525184+00:00",
+      "message": "Weather refresh completed with degraded provider coverage",
+      "details": {
+        "provider_request_failures": 13,
+        "reused_prior_forecasts": 13,
+        "blank_weather_games": 0,
+        "forecast_status_counts": {
+          "forecast_available": 48,
+          "http_error": 6,
+          "invalid_json": 7,
+          "reused_completed_forecast": 2
+        }
+      }
+    }
+  ],
   "errors": [],
   "details": {
     "season_type": 2,
@@ -68,27 +84,47 @@
     "output_rows": 63,
     "staged_forecast_offset_hours_max": 3.0,
     "staged_forecast_offset_hours_median": 1.0,
-    "future_game_count": 63,
-    "completed_game_count": 0,
-    "provider_request_count": 63,
-    "provider_request_success_count": 63,
-    "provider_request_failure_count": 0,
+    "future_game_count": 61,
+    "completed_game_count": 2,
+    "provider_request_count": 61,
+    "provider_request_success_count": 48,
+    "provider_request_failure_count": 13,
     "provider_request_status_counts": {
-      "request_success": 63
+      "http_error": 6,
+      "invalid_json": 7,
+      "request_success": 48
     },
     "provider_http_status_counts": {
-      "200": 63
+      "200": 55,
+      "502": 6
     },
     "forecast_result_status_counts": {
-      "forecast_available": 63
+      "forecast_available": 48,
+      "http_error": 6,
+      "invalid_json": 7,
+      "reused_completed_forecast": 2
     },
-    "newly_fetched_game_count": 63,
-    "reused_prior_forecast_count": 0,
-    "reused_completed_forecast_count": 0,
-    "reused_after_refresh_failure_count": 0,
+    "newly_fetched_game_count": 48,
+    "reused_prior_forecast_count": 15,
+    "reused_completed_forecast_count": 2,
+    "reused_after_refresh_failure_count": 13,
     "blank_weather_game_count": 0,
     "blank_weather_game_ids": [],
-    "refresh_failure_game_ids": [],
+    "refresh_failure_game_ids": [
+      "401856739",
+      "401856740",
+      "401856741",
+      "401856742",
+      "401856852",
+      "401856856",
+      "401858292",
+      "401858511",
+      "401858514",
+      "401864532",
+      "401864535",
+      "401866457",
+      "401871075"
+    ],
     "weather_available_game_count": 63,
     "wind_speed_coverage": 63,
     "temperature_coverage": 63,
