@@ -471,15 +471,47 @@ def row_passes_filters(
     return True
 
 
+def resolve_best_prob_pick(
+    row: dict[str, str],
+    markets: dict[str, Any],
+) -> dict[str, str]:
+    category, _ = detect_category(row)
+    market = markets[category]
+    result = dict(row)
+
+    if not market["enabled"]:
+        return result
+
+    if clean(row.get("pick")).casefold() not in PICK_DIRECTIONS:
+        return result
+
+    if market["pick_preference"] != "best_prob":
+        fail(f"Unsupported pick_preference for {category}")
+
+    over_prob = number(row.get("over_prob"), f"{category}.over_prob")
+    under_prob = number(row.get("under_prob"), f"{category}.under_prob")
+    if not (0.0 <= over_prob <= 1.0 and 0.0 <= under_prob <= 1.0):
+        fail(f"Invalid probability in {category}: {row.get('player_name')}")
+
+    if over_prob == under_prob:
+        result["pick"] = "no_bet"
+    else:
+        result["pick"] = "over" if over_prob > under_prob else "under"
+        result["pick_prob"] = clean(row.get(f"{result['pick']}_prob"))
+
+    return result
+
+
 def filter_rows(
     rows: list[dict[str, str]],
     markets: dict[str, Any],
 ) -> list[dict[str, str]]:
-    return [
-        row
-        for row in rows
-        if row_passes_filters(row, markets)
-    ]
+    selected: list[dict[str, str]] = []
+    for row in rows:
+        resolved = resolve_best_prob_pick(row, markets)
+        if row_passes_filters(resolved, markets):
+            selected.append(resolved)
+    return selected
 
 
 def validate_selected_output(
@@ -498,6 +530,8 @@ def validate_selected_output(
         )
 
     for row in written_rows:
+        if resolve_best_prob_pick(row, markets) != row:
+            fail(f"Selected prop violates best_prob preference: {path}")
         if row_passes_filters(row, markets):
             continue
 

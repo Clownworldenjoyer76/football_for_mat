@@ -22,13 +22,13 @@ from pathlib import Path
 
 LEAGUES = ("cfb", "nfl")
 PROP_TYPES = (
-    ("passing", "passing", "passing"),
-    ("rushing", "rushing", "rushing"),
-    ("receiving", "receiving", "receiving"),
-    ("kicking", "kicking", "kicking"),
-    ("defense", "defense", "defense"),
-    ("pass_rush", "combo/pass_rush_yds", "pass_rush_yds"),
-    ("rec_rush", "combo/rec_rush_yds", "rec_rush_yds"),
+    ("passing", "actual_prop_total_passing_yards"),
+    ("rushing", "actual_prop_total_rushing_yards"),
+    ("receiving", "actual_prop_total_receiving_yards"),
+    ("kicking", "actual_prop_total_kicking_points"),
+    ("defense", "actual_prop_total_tackles"),
+    ("pass_rush", "actual_prop_total_passing_plus_rushing_yards"),
+    ("rec_rush", "actual_prop_total_rushing_plus_receiving_yards"),
 )
 SLATE_FIRST_COLUMNS = (
     "league", "season", "season_type", "week", "game_id", "game_date",
@@ -210,6 +210,7 @@ def build_props() -> None:
     root = FB / "prop_engine/prop_picks_final"
     columns: list[str] = []
     rows_out: list[dict[str, str]] = []
+    files_read = 0
 
     def include(fields: list[str]) -> None:
         for field in fields:
@@ -222,25 +223,37 @@ def build_props() -> None:
         for season_dir in sorted(root.iterdir()):
             if not (season_dir.is_dir() and re.fullmatch(r"\d{4}", season_dir.name)):
                 continue
-            stage = season_dir / "stage_2"
-            if not stage.is_dir():
-                continue
-            weeks = sorted(
-                (int(m.group(1)), p)
-                for p in stage.iterdir()
-                if p.is_dir() and (m := re.fullmatch(r"week_(\d+)", p.name, re.IGNORECASE))
-            )
-            for week, week_dir in weeks:
-                for key, folder, suffix in PROP_TYPES:
-                    path = week_dir / folder / f"week_{week}_{suffix}.csv"
-                    headers, rows = read_csv(path)
-                    include(headers)
-                    for row in rows:
-                        row["season"] = season_dir.name
-                        row["week"] = str(week)
-                        row["prop_type"] = key
-                        rows_out.append(row)
-    print(f"Props: {len(rows_out)} rows")
+            stage = season_dir / "stage_3"
+            for week, path in numbered_files(
+                stage, rf"{season_dir.name}_(\d+)_all_props\.csv"
+            ):
+                headers, rows = read_csv(path)
+                if not headers:
+                    raise RuntimeError(f"Empty or invalid Stage 3 file: {path}")
+                files_read += 1
+                include(headers)
+                for row in rows:
+                    categories = [
+                        prop_type
+                        for prop_type, line_field in PROP_TYPES
+                        if clean(row.get(line_field))
+                    ]
+                    if len(categories) != 1:
+                        raise RuntimeError(
+                            f"Expected one prop type in filtered Stage 3: {path} "
+                            f"game_id={row.get('game_id')} "
+                            f"player_name={row.get('player_name')} "
+                            f"categories={categories}"
+                        )
+                    row["season"] = season_dir.name
+                    row["week"] = str(week)
+                    row["prop_type"] = categories[0]
+                    rows_out.append(row)
+
+    if files_read == 0 or not rows_out:
+        raise RuntimeError("No filtered Stage 3 props found; refusing stale frontend output")
+
+    print(f"Filtered props: {len(rows_out)} rows")
     finish(PROPS_DEST, PROPS_FIRST_COLUMNS, columns, rows_out, "props")
 
 
