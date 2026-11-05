@@ -121,7 +121,8 @@ jobs:
 
   qodana-cfb:
     name: Qodana - CFB
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
 
     env:
       PYTHONPATH: ${{ github.workspace }}/docs/win/football/cfb/scripts
@@ -132,11 +133,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.12.15
         id: python-cfb
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: '3.12.15'
           cache: pip
           cache-dependency-path: docs/win/football/cfb/requirements.txt
 
@@ -161,6 +162,7 @@ jobs:
             --only-directory docs/win/football/cfb
             --config qodana-cfb.yaml
           pr-mode: false
+          use-caches: false
           artifact-name: qodana-cfb
           primary-cache-key: qodana-2026.2-cfb-${{ github.ref }}-${{ github.sha }}
           additional-cache-key: qodana-2026.2-cfb-${{ github.ref }}
