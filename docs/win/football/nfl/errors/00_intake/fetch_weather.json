@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-41801915566-attempt-1",
+  "run_id": "github-41996887569-attempt-1",
   "status": "WARNING",
   "exit_code": 0,
   "pipeline": "NFL",
@@ -9,22 +9,22 @@
   "script": "fetch_weather.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/fetch_weather.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/fetch_weather.json",
-  "started_at_utc": "2026-11-04T08:51:12.815745+00:00",
-  "finished_at_utc": "2026-11-04T08:52:16.481631+00:00",
-  "duration_seconds": 63.666,
+  "started_at_utc": "2026-11-05T08:49:06.321104+00:00",
+  "finished_at_utc": "2026-11-05T08:50:18.673690+00:00",
+  "duration_seconds": 72.353,
   "environment": {
-    "hostname": "runnervm48cm3",
-    "python_version": "3.11.17",
-    "python_executable": "/opt/hostedtoolcache/Python/3.11.17/x64/bin/python",
+    "hostname": "runnervm7aw5e",
+    "python_version": "3.11.18",
+    "python_executable": "/opt/hostedtoolcache/Python/3.11.18/x64/bin/python",
     "platform": "linux",
-    "process_id": 2825,
+    "process_id": 2804,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "41801915566",
+    "github_run_id": "41996887569",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "941bbb41ed88aac7b32f53ddacc00093ac1dedbf",
+    "github_sha": "c57221f9af4458767c1425c6d94046938cc0dbb2",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -48,32 +48,36 @@
   "error_count": 0,
   "warnings": [
     {
-      "timestamp_utc": "2026-11-04T08:52:16.478828+00:00",
+      "timestamp_utc": "2026-11-05T08:50:18.671563+00:00",
       "message": "One or more met.no requests/responses failed; existing forecasts were preserved where possible",
       "details": {
-        "count": 4,
+        "count": 5,
         "examples": [
           {
             "game_id": "401873039",
-            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 33927 (char 33926)"
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 36618 (char 36617)"
+          },
+          {
+            "game_id": "401873040",
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 34624 (char 34623)"
           },
           {
             "game_id": "401873042",
-            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 36641 (char 36640)"
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 45017 (char 45016)"
           },
           {
             "game_id": "401873046",
-            "error": "invalid UTF-8/JSON response: JSONDecodeError: Expecting ',' delimiter: line 1 column 36642 (char 36641)"
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 38027 (char 38026)"
           },
           {
-            "game_id": "401873049",
-            "error": "invalid UTF-8/JSON response: JSONDecodeError: Unterminated string starting at: line 1 column 45014 (char 45013)"
+            "game_id": "401873051",
+            "error": "invalid UTF-8/JSON response: JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 36642 (char 36641)"
           }
         ]
       }
     },
     {
-      "timestamp_utc": "2026-11-04T08:52:16.478857+00:00",
+      "timestamp_utc": "2026-11-05T08:50:18.671589+00:00",
       "message": "One or more games could not be fully joined to usable stadium coordinates",
       "details": {
         "count": 1,
@@ -106,13 +110,13 @@
     "existing_weather_rows": 15,
     "past_rows_preserved": 0,
     "past_rows_created_without_fetch": 0,
-    "future_fetch_success": 10,
+    "future_fetch_success": 9,
     "forecast_unavailable": 0,
-    "provider_failures": 4,
-    "provider_failures_preserved_existing": 4,
+    "provider_failures": 5,
+    "provider_failures_preserved_existing": 5,
     "missing_stadium_matches": 1,
     "missing_coordinates": 0,
-    "provider_request_attempts": 27,
+    "provider_request_attempts": 30,
     "rows_published": 15,
     "legacy_log_written": true
   }
