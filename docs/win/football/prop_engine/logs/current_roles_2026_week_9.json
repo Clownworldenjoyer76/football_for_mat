@@ -236,12 +236,12 @@
       {
         "ambiguous": false,
         "committee_player_ids": [],
-        "depth_rank": 1.0,
-        "player_id": "00-0033862",
-        "player_name": "Zane Gonzalez",
-        "recent_kick_attempts": 24.0,
-        "role_confidence": 0.97,
-        "role_reason": "kicker_depth_rank_1_with_recent_attempts",
+        "depth_rank": null,
+        "player_id": "",
+        "player_name": "",
+        "recent_kick_attempts": 0.0,
+        "role_confidence": 0.0,
+        "role_reason": "no_eligible_kicker",
         "team": "MIA",
         "uncertainty_widening_multiplier": 1.0
       },
@@ -367,7 +367,8 @@
       }
     ],
     "missing_eligible_kicker_teams": [
-      "BAL"
+      "BAL",
+      "MIA"
     ],
     "qb_assignments": [
       {
@@ -388,8 +389,8 @@
       },
       {
         "chosen_depth_rank": 1.0,
-        "player_id": "00-0035993",
-        "player_name": "Tyler Huntley",
+        "player_id": "00-0040981",
+        "player_name": "Joe Fagnano",
         "role_confidence": 1.0,
         "role_reason": "healthy_depth_rank_1_qb",
         "team": "BAL"
@@ -430,8 +431,8 @@
         "chosen_depth_rank": 1.0,
         "player_id": "00-0033537",
         "player_name": "Deshaun Watson",
-        "role_confidence": 1.0,
-        "role_reason": "healthy_depth_rank_1_qb",
+        "role_confidence": 0.85,
+        "role_reason": "qb1_questionable_primary",
         "team": "CLE"
       },
       {
@@ -510,8 +511,8 @@
         "chosen_depth_rank": 1.0,
         "player_id": "00-0026498",
         "player_name": "Matthew Stafford",
-        "role_confidence": 0.85,
-        "role_reason": "qb1_questionable_primary",
+        "role_confidence": 1.0,
+        "role_reason": "healthy_depth_rank_1_qb",
         "team": "LAR"
       },
       {
@@ -572,18 +573,18 @@
       },
       {
         "chosen_depth_rank": 1.0,
-        "player_id": "00-0038400",
-        "player_name": "Tanner McKee",
+        "player_id": "00-0039398",
+        "player_name": "Joe Milton III",
         "role_confidence": 1.0,
         "role_reason": "healthy_depth_rank_1_qb",
         "team": "PHI"
       },
       {
-        "chosen_depth_rank": 1.0,
-        "player_id": "00-0034869",
-        "player_name": "Sam Darnold",
-        "role_confidence": 1.0,
-        "role_reason": "healthy_depth_rank_1_qb",
+        "chosen_depth_rank": 2.0,
+        "player_id": "00-0035704",
+        "player_name": "Drew Lock",
+        "role_confidence": 0.8,
+        "role_reason": "qb_promoted_after_higher_depth_qb_ineligible",
         "team": "SEA"
       },
       {
@@ -612,7 +613,7 @@
       }
     ]
   },
-  "committee_roles": 356,
+  "committee_roles": 359,
   "log": "docs/win/football/prop_engine/logs/current_roles_2026_week_9.json",
   "market_exclusion_passed": true,
   "market_features_used": false,
@@ -622,7 +623,8 @@
     "validator": "docs/win/football/prop_engine/scripts/validate/audit_market_exclusion.py"
   },
   "missing_eligible_kicker_teams": [
-    "BAL"
+    "BAL",
+    "MIA"
   ],
   "output": "docs/win/football/prop_engine/data/current/2026_week_9_roles.parquet",
   "policy": {
@@ -637,10 +639,10 @@
     "qb1_ineligible_promotes_next_eligible": true,
     "unresolved_qb_starter_fails": true
   },
-  "primary_kickers": 29,
+  "primary_kickers": 28,
   "primary_qbs": 30,
-  "primary_roles": 483,
-  "rows": 1320,
+  "primary_roles": 481,
+  "rows": 1302,
   "script": "select_roles.py",
   "season": 2026,
   "status": "passed",
