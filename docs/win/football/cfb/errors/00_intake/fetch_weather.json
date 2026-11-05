@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-41796787351-attempt-1",
+  "run_id": "github-41991785353-attempt-1",
   "status": "WARNING",
   "exit_code": 0,
   "pipeline": "cfb",
@@ -9,22 +9,22 @@
   "script": "fetch_weather.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/scripts/00_intake/fetch_weather.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/errors/00_intake/fetch_weather.json",
-  "started_at_utc": "2026-11-04T08:09:41.935688+00:00",
-  "finished_at_utc": "2026-11-04T08:11:55.525215+00:00",
-  "duration_seconds": 133.59,
+  "started_at_utc": "2026-11-05T08:08:44.889415+00:00",
+  "finished_at_utc": "2026-11-05T08:10:45.908325+00:00",
+  "duration_seconds": 121.019,
   "environment": {
-    "hostname": "ip-10-0-142-138",
+    "hostname": "runnervm7aw5e",
     "python_version": "3.12.16",
     "python_executable": "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
     "platform": "linux",
-    "process_id": 2463,
+    "process_id": 2611,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "41796787351",
+    "github_run_id": "41991785353",
     "github_run_attempt": "1",
     "github_workflow": "CFB 01 Pipeline",
     "github_job": "run-cfb-pipeline",
     "github_ref_name": "main",
-    "github_sha": "1122d6c7a1aa756f4dc90697a58b268abb051ca8",
+    "github_sha": "58d1e9e8bb9a5835c8e0fba1def51a628e75f825",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -49,17 +49,17 @@
   "error_count": 0,
   "warnings": [
     {
-      "timestamp_utc": "2026-11-04T08:11:55.525184+00:00",
+      "timestamp_utc": "2026-11-05T08:10:45.908296+00:00",
       "message": "Weather refresh completed with degraded provider coverage",
       "details": {
-        "provider_request_failures": 13,
-        "reused_prior_forecasts": 13,
+        "provider_request_failures": 20,
+        "reused_prior_forecasts": 20,
         "blank_weather_games": 0,
         "forecast_status_counts": {
-          "forecast_available": 48,
-          "http_error": 6,
-          "invalid_json": 7,
-          "reused_completed_forecast": 2
+          "forecast_available": 38,
+          "http_error": 10,
+          "invalid_json": 10,
+          "reused_completed_forecast": 5
         }
       }
     }
@@ -83,47 +83,55 @@
     "existing_weather_rows": 63,
     "output_rows": 63,
     "staged_forecast_offset_hours_max": 3.0,
-    "staged_forecast_offset_hours_median": 1.0,
-    "future_game_count": 61,
-    "completed_game_count": 2,
-    "provider_request_count": 61,
-    "provider_request_success_count": 48,
-    "provider_request_failure_count": 13,
+    "staged_forecast_offset_hours_median": 0.5,
+    "future_game_count": 58,
+    "completed_game_count": 5,
+    "provider_request_count": 58,
+    "provider_request_success_count": 38,
+    "provider_request_failure_count": 20,
     "provider_request_status_counts": {
-      "http_error": 6,
-      "invalid_json": 7,
-      "request_success": 48
+      "http_error": 10,
+      "invalid_json": 10,
+      "request_success": 38
     },
     "provider_http_status_counts": {
-      "200": 55,
-      "502": 6
+      "200": 48,
+      "502": 5,
+      "503": 5
     },
     "forecast_result_status_counts": {
-      "forecast_available": 48,
-      "http_error": 6,
-      "invalid_json": 7,
-      "reused_completed_forecast": 2
+      "forecast_available": 38,
+      "http_error": 10,
+      "invalid_json": 10,
+      "reused_completed_forecast": 5
     },
-    "newly_fetched_game_count": 48,
-    "reused_prior_forecast_count": 15,
-    "reused_completed_forecast_count": 2,
-    "reused_after_refresh_failure_count": 13,
+    "newly_fetched_game_count": 38,
+    "reused_prior_forecast_count": 25,
+    "reused_completed_forecast_count": 5,
+    "reused_after_refresh_failure_count": 20,
     "blank_weather_game_count": 0,
     "blank_weather_game_ids": [],
     "refresh_failure_game_ids": [
-      "401856739",
-      "401856740",
-      "401856741",
-      "401856742",
-      "401856852",
-      "401856856",
-      "401858292",
+      "401856738",
+      "401856744",
+      "401856745",
+      "401856855",
+      "401858286",
+      "401858290",
       "401858511",
       "401858514",
-      "401864532",
-      "401864535",
-      "401866457",
-      "401871075"
+      "401858515",
+      "401862817",
+      "401862820",
+      "401862822",
+      "401862823",
+      "401864533",
+      "401864534",
+      "401869927",
+      "401869945",
+      "401869951",
+      "401871075",
+      "401871098"
     ],
     "weather_available_game_count": 63,
     "wind_speed_coverage": 63,
@@ -133,9 +141,9 @@
     "humidity_coverage": 63,
     "roof_metadata_missing_count": 0,
     "weather_exposed_game_count": 61,
-    "new_forecast_offset_hours_max": 3.0,
-    "new_forecast_offset_hours_median": 1.0,
+    "new_forecast_offset_hours_max": 2.5,
+    "new_forecast_offset_hours_median": 0.25,
     "output_forecast_offset_hours_max": 3.0,
-    "output_forecast_offset_hours_median": 1.0
+    "output_forecast_offset_hours_median": 0.5
   }
 }
