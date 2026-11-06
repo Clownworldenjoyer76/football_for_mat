@@ -1,14 +1,14 @@
 {
   "critical_unresolved_count": 0,
   "critical_unresolved_starters": [],
-  "current_roster_rows_used": 2317,
+  "current_roster_rows_used": 2320,
   "current_roster_source": {
     "mode": "existing_current_source",
     "output": "docs/win/football/prop_engine/data/current/source/roster_weekly_2026.parquet"
   },
-  "eligible_rows": 1302,
+  "eligible_rows": 1295,
   "games": 15,
-  "ineligible_rows": 1030,
+  "ineligible_rows": 1037,
   "market_exclusion_passed": true,
   "market_features_used": false,
   "multi_team_reconciliation_count": 7,
@@ -23,42 +23,34 @@
     },
     {
       "authority": "player_crosswalk_current_team",
-      "kept_team": "ARI",
-      "player_id": "00-0036133",
+      "kept_team": "LAR",
+      "player_id": "00-0035665",
+      "removed_teams": [
+        "NO"
+      ]
+    },
+    {
+      "authority": "player_crosswalk_current_team",
+      "kept_team": "BUF",
+      "player_id": "00-0037353",
+      "removed_teams": [
+        "KC"
+      ]
+    },
+    {
+      "authority": "player_crosswalk_current_team",
+      "kept_team": "SEA",
+      "player_id": "00-0038658",
+      "removed_teams": [
+        "SF"
+      ]
+    },
+    {
+      "authority": "player_crosswalk_current_team",
+      "kept_team": "KC",
+      "player_id": "00-0039386",
       "removed_teams": [
         "CLE"
-      ]
-    },
-    {
-      "authority": "player_crosswalk_current_team",
-      "kept_team": "DET",
-      "player_id": "00-0036643",
-      "removed_teams": [
-        "NE"
-      ]
-    },
-    {
-      "authority": "player_crosswalk_current_team",
-      "kept_team": "ARI",
-      "player_id": "00-0036670",
-      "removed_teams": [
-        "MIN"
-      ]
-    },
-    {
-      "authority": "player_crosswalk_current_team",
-      "kept_team": "CLE",
-      "player_id": "00-0037617",
-      "removed_teams": [
-        "NE"
-      ]
-    },
-    {
-      "authority": "player_crosswalk_current_team",
-      "kept_team": "PHI",
-      "player_id": "00-0038616",
-      "removed_teams": [
-        "JAX"
       ]
     },
     {
@@ -67,6 +59,14 @@
       "player_id": "00-0039720",
       "removed_teams": [
         "DET"
+      ]
+    },
+    {
+      "authority": "player_crosswalk_current_team",
+      "kept_team": "SEA",
+      "player_id": "00-0039944",
+      "removed_teams": [
+        "LAR"
       ]
     }
   ],
@@ -239,6 +239,7 @@
     "00-0034173",
     "00-0034234",
     "00-0034248",
+    "00-0034251",
     "00-0034270",
     "00-0034275",
     "00-0034278",
@@ -401,7 +402,6 @@
     "00-0035659",
     "00-0035662",
     "00-0035663",
-    "00-0035665",
     "00-0035667",
     "00-0035669",
     "00-0035674",
@@ -446,6 +446,7 @@
     "00-0036114",
     "00-0036124",
     "00-0036130",
+    "00-0036133",
     "00-0036157",
     "00-0036158",
     "00-0036159",
@@ -571,10 +572,12 @@
     "00-0036637",
     "00-0036638",
     "00-0036642",
+    "00-0036643",
     "00-0036644",
     "00-0036646",
     "00-0036648",
     "00-0036658",
+    "00-0036670",
     "00-0036672",
     "00-0036677",
     "00-0036679",
@@ -602,6 +605,7 @@
     "00-0036849",
     "00-0036850",
     "00-0036854",
+    "00-0036855",
     "00-0036867",
     "00-0036870",
     "00-0036871",
@@ -782,7 +786,6 @@
     "00-0037332",
     "00-0037340",
     "00-0037348",
-    "00-0037353",
     "00-0037356",
     "00-0037364",
     "00-0037380",
@@ -820,6 +823,7 @@
     "00-0037614",
     "00-0037615",
     "00-0037616",
+    "00-0037617",
     "00-0037633",
     "00-0037638",
     "00-0037661",
@@ -994,6 +998,7 @@
     "00-0038596",
     "00-0038597",
     "00-0038599",
+    "00-0038600",
     "00-0038603",
     "00-0038604",
     "00-0038605",
@@ -1002,6 +1007,7 @@
     "00-0038611",
     "00-0038613",
     "00-0038614",
+    "00-0038616",
     "00-0038617",
     "00-0038618",
     "00-0038619",
@@ -1022,7 +1028,6 @@
     "00-0038648",
     "00-0038653",
     "00-0038655",
-    "00-0038658",
     "00-0038660",
     "00-0038661",
     "00-0038663",
@@ -1244,7 +1249,6 @@
     "00-0039380",
     "00-0039383",
     "00-0039384",
-    "00-0039386",
     "00-0039387",
     "00-0039388",
     "00-0039390",
@@ -1457,7 +1461,6 @@
     "00-0039930",
     "00-0039936",
     "00-0039938",
-    "00-0039944",
     "00-0039946",
     "00-0039956",
     "00-0039959",
@@ -2474,7 +2477,7 @@
   ],
   "script": "build_current_universe.py",
   "season": 2026,
-  "skipped_unresolved_count": 12,
+  "skipped_unresolved_count": 11,
   "skipped_unresolved_nonstarters": [
     {
       "depth_backup_flag": 0,
@@ -2662,23 +2665,6 @@
         "master_roster"
       ],
       "team": "NYJ"
-    },
-    {
-      "depth_backup_flag": 0,
-      "depth_rank": null,
-      "depth_starter_flag": 0,
-      "espn_ids": [
-        "4570636"
-      ],
-      "player_names": [
-        "Malick Meiga"
-      ],
-      "position": "WR",
-      "reason": "no_resolved_or_native_gsis_identity",
-      "sources": [
-        "master_roster"
-      ],
-      "team": "SEA"
     }
   ],
   "status": "passed",
@@ -2686,7 +2672,7 @@
     "recent_snap_counts": "docs/win/football/prop_engine/data/current/source/snap_counts_2026.parquet",
     "team_master": "docs/win/football/nfl/data/master/team_master.csv"
   },
-  "total_unresolved_skipped_count": 12,
+  "total_unresolved_skipped_count": 11,
   "unresolved_identity_policy": "skip_and_continue",
   "week": 9
 }
