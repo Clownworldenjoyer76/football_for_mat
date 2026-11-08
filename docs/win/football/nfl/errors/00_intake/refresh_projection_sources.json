@@ -1,30 +1,30 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-42356798949-attempt-1",
-  "status": "SUCCESS",
-  "exit_code": 0,
+  "run_id": "github-42464249752-attempt-1",
+  "status": "FAILED",
+  "exit_code": 1,
   "pipeline": "NFL",
   "league": "NFL",
   "stage": "00_intake",
   "script": "refresh_projection_sources.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/refresh_projection_sources.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/errors/00_intake/refresh_projection_sources.json",
-  "started_at_utc": "2026-11-07T08:56:38.560395+00:00",
-  "finished_at_utc": "2026-11-07T08:57:04.579281+00:00",
-  "duration_seconds": 26.019,
+  "started_at_utc": "2026-11-08T08:50:05.799776+00:00",
+  "finished_at_utc": "2026-11-08T08:50:06.122168+00:00",
+  "duration_seconds": 0.322,
   "environment": {
     "hostname": "runnervm7aw5e",
     "python_version": "3.11.18",
     "python_executable": "/opt/hostedtoolcache/Python/3.11.18/x64/bin/python",
     "platform": "linux",
-    "process_id": 3095,
+    "process_id": 2919,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "42356798949",
+    "github_run_id": "42464249752",
     "github_run_attempt": "1",
     "github_workflow": "NFL 01 Pipeline",
     "github_job": "nfl-all",
     "github_ref_name": "main",
-    "github_sha": "f9ed970aa758af44a896e4aabfc4e69f794cd541",
+    "github_sha": "86ab293eac91602690591e2a920c7ba3acb56bd1",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -38,66 +38,20 @@
     "https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_2026.parquet",
     "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_2026.parquet"
   ],
-  "outputs": [
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/historic_data/snap_counts/snap_counts_2026.parquet",
-    "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/historic_data/depth_charts/depth_charts_2026.parquet"
-  ],
-  "rows_in": 768141,
-  "rows_out": 768141,
+  "outputs": [],
+  "rows_in": null,
+  "rows_out": null,
   "warning_count": 0,
-  "error_count": 0,
+  "error_count": 1,
   "warnings": [],
-  "errors": [],
-  "details": {
-    "season": 2026,
-    "sources": {
-      "snap_counts": {
-        "url": "https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_2026.parquet",
-        "final_url": "https://release-assets.githubusercontent.com/github-production-release-asset/452908115/9b8fff58-e2d9-48fa-9e3f-130a0caa3075?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-07T09%3A54%3A51Z&rscd=attachment%3B+filename%3Dsnap_counts_2026.parquet&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-07T08%3A53%3A58Z&ske=2026-11-07T09%3A54%3A51Z&sks=b&skv=2018-11-09&sig=%2BPoht%2B2F1DcSKRZsEM14wG2HaJjghme2G9NJABmooIQ%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NDA0MjA5OSwibmJmIjoxNzk0MDQxNzk5LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.dCXRHyEpFY0Y4o3N9H4ZjDYVgasNlCkkkDUONSxLKCs&response-content-disposition=attachment%3B%20filename%3Dsnap_counts_2026.parquet&response-content-type=application%2Foctet-stream",
-        "download_bytes": 124456,
-        "content_length_header": "124456",
-        "sha256": "3315d75b4672d8941930d9557b9869d710ad4e6d746195f8172bfb63f5152fa3",
-        "rows": 11385,
-        "columns": 16,
-        "min_week": 1,
-        "max_week": 9,
-        "team_count": 32,
-        "identity_columns": [
-          "pfr_player_id",
-          "player"
-        ]
-      },
-      "depth_charts": {
-        "url": "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_2026.parquet",
-        "final_url": "https://release-assets.githubusercontent.com/github-production-release-asset/452908115/1d9c5300-c4d4-4873-94dc-dbff7971ae01?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-07T09%3A54%3A32Z&rscd=attachment%3B+filename%3Ddepth_charts_2026.parquet&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-07T08%3A54%3A18Z&ske=2026-11-07T09%3A54%3A32Z&sks=b&skv=2018-11-09&sig=vIye4LnLNk0BJWBY31b9rjdt%2Fztdf8uqBA%2B22XVaUb8%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NDA0MjA5OSwibmJmIjoxNzk0MDQxNzk5LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.dCXRHyEpFY0Y4o3N9H4ZjDYVgasNlCkkkDUONSxLKCs&response-content-disposition=attachment%3B%20filename%3Ddepth_charts_2026.parquet&response-content-type=application%2Foctet-stream",
-        "download_bytes": 3328580,
-        "content_length_header": "3328580",
-        "sha256": "3d3a8d8e10481cce007f4d5cb02d0ec52248fbef20bcaed7da94695c811c068a",
-        "rows": 756756,
-        "columns": 12,
-        "schema_mode": "timestamped",
-        "team_column": "team",
-        "rank_column": "pos_rank",
-        "slot_column": "pos_slot",
-        "identity_columns": [
-          "gsis_id",
-          "espn_id",
-          "player_name"
-        ],
-        "team_count": 32,
-        "min_week": null,
-        "max_week": null,
-        "min_timestamp_utc": "2026-03-22T06:38:42+00:00",
-        "max_timestamp_utc": "2026-11-07T07:02:05+00:00"
-      }
-    },
-    "participation_required": false,
-    "publication_mode": "validated_two_file_transaction_with_rollback",
-    "staged_roundtrip_verified": true,
-    "publication_completed": true,
-    "published_outputs": {
-      "snap_counts": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/historic_data/snap_counts/snap_counts_2026.parquet",
-      "depth_charts": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/data/historic_data/depth_charts/depth_charts_2026.parquet"
+  "errors": [
+    {
+      "timestamp_utc": "2026-11-08T08:50:06.122147+00:00",
+      "type": "HTTPError",
+      "message": "HTTP Error 504: Gateway Time-out",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/refresh_projection_sources.py\", line 1226, in main\n    run(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/refresh_projection_sources.py\", line 978, in run\n    download_parquet(\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/nfl/scripts/00_intake/refresh_projection_sources.py\", line 678, in download_parquet\n    with urllib.request.urlopen(\n         ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/urllib/request.py\", line 216, in urlopen\n    return opener.open(url, data, timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/urllib/request.py\", line 525, in open\n    response = meth(req, response)\n               ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/urllib/request.py\", line 634, in http_response\n    response = self.parent.error(\n               ^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/urllib/request.py\", line 563, in error\n    return self._call_chain(*args)\n           ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/urllib/request.py\", line 496, in _call_chain\n    result = func(*args)\n             ^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/urllib/request.py\", line 643, in http_error_default\n    raise HTTPError(req.full_url, code, msg, hdrs, fp)\nurllib.error.HTTPError: HTTP Error 504: Gateway Time-out\n",
+      "details": null
     }
-  }
+  ],
+  "details": {}
 }
