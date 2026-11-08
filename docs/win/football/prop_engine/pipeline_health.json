@@ -96,9 +96,11 @@
     "week": 9
   },
   "current_workflow": "prop_01",
-  "fatal_errors": [],
-  "game_date_new_york": "2026_11_07",
-  "generated_at_utc": "2026-11-07T10:04:19.832241+00:00",
+  "fatal_errors": [
+    "Prop 01 Pipeline job status is FAILURE"
+  ],
+  "game_date_new_york": "2026_11_08",
+  "generated_at_utc": "2026-11-08T10:02:47.933189+00:00",
   "model_health": {
     "approved_targets": [
       "passing_yards",
@@ -141,98 +143,16 @@
     "settings": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/config/settings.yaml"
   },
   "report_health": {
-    "current_reports_total": 9,
+    "current_reports_total": 0,
     "failed_reports": 0,
     "github_run_attempt": "1",
-    "github_run_id": "42362128760",
+    "github_run_id": "42469600802",
     "report_root": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports",
-    "warning_reports": 2
+    "warning_reports": 0
   },
   "schema_version": 2,
-  "stage_status": [
-    {
-      "duration_seconds": 0.71,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/build_prop_selections.json",
-      "script": "build_prop_selections.py",
-      "stage": "props",
-      "status": "WARNING",
-      "warning_count": 1
-    },
-    {
-      "duration_seconds": 1.242,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/grade_props.json",
-      "script": "grade_props.py",
-      "stage": "props",
-      "status": "SUCCESS",
-      "warning_count": 0
-    },
-    {
-      "duration_seconds": 2.397,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_odds.json",
-      "script": "prop_odds.py",
-      "stage": "props",
-      "status": "SUCCESS",
-      "warning_count": 0
-    },
-    {
-      "duration_seconds": 0.014,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer.json",
-      "script": "prop_organizer.py",
-      "stage": "props",
-      "status": "WARNING",
-      "warning_count": 1
-    },
-    {
-      "duration_seconds": 0.105,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer_stage2.json",
-      "script": "prop_organizer_stage2.py",
-      "stage": "props",
-      "status": "SUCCESS",
-      "warning_count": 0
-    },
-    {
-      "duration_seconds": 0.054,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_reports.json",
-      "script": "prop_reports.py",
-      "stage": "props",
-      "status": "SUCCESS",
-      "warning_count": 0
-    },
-    {
-      "duration_seconds": 0.135,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/props_combined.json",
-      "script": "props_combined.py",
-      "stage": "props",
-      "status": "SUCCESS",
-      "warning_count": 0
-    },
-    {
-      "duration_seconds": 0.264,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/validation/audit_market_exclusion.json",
-      "script": "audit_market_exclusion.py",
-      "stage": "validation",
-      "status": "SUCCESS",
-      "warning_count": 0
-    },
-    {
-      "duration_seconds": 91.254,
-      "error_count": 0,
-      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/weekly/run_weekly.json",
-      "script": "run_weekly.py",
-      "stage": "weekly",
-      "status": "SUCCESS",
-      "warning_count": 0
-    }
-  ],
-  "status": "warning",
+  "stage_status": [],
+  "status": "failed",
   "validation": {
     "checks_failed": 0,
     "checks_total": 12,
@@ -240,17 +160,17 @@
     "status": "passed"
   },
   "warnings": [
-    "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/build_prop_selections.json status is WARNING",
-    "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer.json status is WARNING"
+    "NFL_SEASON is not set; settings.yaml is authoritative",
+    "NFL_WEEK is not set; settings.yaml is authoritative"
   ],
   "workflow": {
-    "generated_at_utc": "2026-11-07T10:04:19.832241+00:00",
+    "generated_at_utc": "2026-11-08T10:02:47.933189+00:00",
     "label": "Prop 01 Pipeline",
     "ref_name": "main",
     "run_attempt": "1",
-    "run_id": "42362128760",
-    "sha": "26f96e506f2a7f4acbb88c5c63f0c28d59e527bb",
-    "status": "success",
+    "run_id": "42469600802",
+    "sha": "7a5d7dd1843271b4b14eb3578b03d4d0fa5ab9d5",
+    "status": "failure",
     "workflow": "prop_01"
   }
 }

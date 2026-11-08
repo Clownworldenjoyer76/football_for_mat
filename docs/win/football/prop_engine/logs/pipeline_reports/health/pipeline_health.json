@@ -1,30 +1,30 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-42362128760-attempt-1",
-  "status": "WARNING",
-  "exit_code": 0,
+  "run_id": "github-42469600802-attempt-1",
+  "status": "FAILED",
+  "exit_code": 1,
   "pipeline": "NFL Prop Engine",
   "league": "NFL",
   "stage": "health",
   "script": "pipeline_health.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/pipeline_health.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/health/pipeline_health.json",
-  "started_at_utc": "2026-11-07T10:04:19.651101+00:00",
-  "finished_at_utc": "2026-11-07T10:04:19.837303+00:00",
-  "duration_seconds": 0.186,
+  "started_at_utc": "2026-11-08T10:02:47.863107+00:00",
+  "finished_at_utc": "2026-11-08T10:02:47.936723+00:00",
+  "duration_seconds": 0.074,
   "environment": {
     "hostname": "runnervm7aw5e",
-    "python_version": "3.14.5",
-    "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
+    "python_version": "3.12.3",
+    "python_executable": "/usr/bin/python",
     "platform": "linux",
-    "process_id": 2972,
+    "process_id": 2156,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "42362128760",
+    "github_run_id": "42469600802",
     "github_run_attempt": "1",
     "github_workflow": "Prop 01 Pipeline",
     "github_job": "run-prop-engine",
     "github_ref_name": "main",
-    "github_sha": "26f96e506f2a7f4acbb88c5c63f0c28d59e527bb",
+    "github_sha": "7a5d7dd1843271b4b14eb3578b03d4d0fa5ab9d5",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -45,25 +45,33 @@
   "rows_in": null,
   "rows_out": null,
   "warning_count": 2,
-  "error_count": 0,
+  "error_count": 1,
   "warnings": [
     {
-      "timestamp_utc": "2026-11-07T10:04:19.837285+00:00",
-      "message": "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/build_prop_selections.json status is WARNING",
+      "timestamp_utc": "2026-11-08T10:02:47.936711+00:00",
+      "message": "NFL_SEASON is not set; settings.yaml is authoritative",
       "details": null
     },
     {
-      "timestamp_utc": "2026-11-07T10:04:19.837295+00:00",
-      "message": "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer.json status is WARNING",
+      "timestamp_utc": "2026-11-08T10:02:47.936717+00:00",
+      "message": "NFL_WEEK is not set; settings.yaml is authoritative",
       "details": null
     }
   ],
-  "errors": [],
+  "errors": [
+    {
+      "timestamp_utc": "2026-11-08T10:02:47.936720+00:00",
+      "type": null,
+      "message": "Prop 01 Pipeline job status is FAILURE",
+      "traceback": null,
+      "details": null
+    }
+  ],
   "details": {
-    "health_status": "warning",
-    "workflow_status": "success",
-    "fatal_count": 0,
+    "health_status": "failed",
+    "workflow_status": "failure",
+    "fatal_count": 1,
     "warning_count": 2,
-    "current_report_count": 9
+    "current_report_count": 0
   }
 }
