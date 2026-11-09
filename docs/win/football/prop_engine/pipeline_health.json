@@ -1,11 +1,11 @@
 {
   "artifacts": {
     "active_player_projections": {
-      "bytes": 452126,
+      "bytes": 434472,
       "columns": 25,
       "exists": true,
       "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/output/2026/week_9_active_player_projections.csv",
-      "rows": 1735
+      "rows": 1678
     },
     "dashboard_reports": {
       "csv_files": 28,
@@ -13,11 +13,11 @@
       "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/dashboard"
     },
     "graded_all_props": {
-      "bytes": 136397,
+      "bytes": 151024,
       "columns": 42,
       "exists": true,
       "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/graded/2026/2026_all_props_graded.csv",
-      "rows": 951
+      "rows": 1059
     },
     "graded_reports": {
       "expected_files": 6,
@@ -25,14 +25,14 @@
       "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/05_final/reports/2026"
     },
     "player_projections": {
-      "bytes": 3954396,
+      "bytes": 3920563,
       "columns": 25,
       "exists": true,
       "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/output/2026/week_9_player_projections.csv",
       "rows": 13992
     },
     "player_projections_wide": {
-      "bytes": 375630,
+      "bytes": 373513,
       "columns": 28,
       "exists": true,
       "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/output/2026/week_9_player_projections_wide.csv",
@@ -77,11 +77,11 @@
       "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_9"
     },
     "stage_3": {
-      "bytes": 5155,
+      "bytes": 18229,
       "columns": 37,
       "exists": true,
       "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_3/2026_9_all_props.csv",
-      "rows": 34
+      "rows": 142
     },
     "validation": {
       "checks_failed": 0,
@@ -96,11 +96,9 @@
     "week": 9
   },
   "current_workflow": "prop_01",
-  "fatal_errors": [
-    "Prop 01 Pipeline job status is FAILURE"
-  ],
-  "game_date_new_york": "2026_11_08",
-  "generated_at_utc": "2026-11-08T10:02:47.933189+00:00",
+  "fatal_errors": [],
+  "game_date_new_york": "2026_11_09",
+  "generated_at_utc": "2026-11-09T10:04:11.516821+00:00",
   "model_health": {
     "approved_targets": [
       "passing_yards",
@@ -143,16 +141,98 @@
     "settings": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/config/settings.yaml"
   },
   "report_health": {
-    "current_reports_total": 0,
+    "current_reports_total": 9,
     "failed_reports": 0,
     "github_run_attempt": "1",
-    "github_run_id": "42469600802",
+    "github_run_id": "42597750706",
     "report_root": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports",
-    "warning_reports": 0
+    "warning_reports": 2
   },
   "schema_version": 2,
-  "stage_status": [],
-  "status": "failed",
+  "stage_status": [
+    {
+      "duration_seconds": 0.536,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/build_prop_selections.json",
+      "script": "build_prop_selections.py",
+      "stage": "props",
+      "status": "WARNING",
+      "warning_count": 1
+    },
+    {
+      "duration_seconds": 2.986,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/grade_props.json",
+      "script": "grade_props.py",
+      "stage": "props",
+      "status": "SUCCESS",
+      "warning_count": 0
+    },
+    {
+      "duration_seconds": 16.293,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_odds.json",
+      "script": "prop_odds.py",
+      "stage": "props",
+      "status": "SUCCESS",
+      "warning_count": 0
+    },
+    {
+      "duration_seconds": 0.01,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer.json",
+      "script": "prop_organizer.py",
+      "stage": "props",
+      "status": "WARNING",
+      "warning_count": 1
+    },
+    {
+      "duration_seconds": 0.081,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer_stage2.json",
+      "script": "prop_organizer_stage2.py",
+      "stage": "props",
+      "status": "SUCCESS",
+      "warning_count": 0
+    },
+    {
+      "duration_seconds": 0.043,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_reports.json",
+      "script": "prop_reports.py",
+      "stage": "props",
+      "status": "SUCCESS",
+      "warning_count": 0
+    },
+    {
+      "duration_seconds": 0.106,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/props_combined.json",
+      "script": "props_combined.py",
+      "stage": "props",
+      "status": "SUCCESS",
+      "warning_count": 0
+    },
+    {
+      "duration_seconds": 0.278,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/validation/audit_market_exclusion.json",
+      "script": "audit_market_exclusion.py",
+      "stage": "validation",
+      "status": "SUCCESS",
+      "warning_count": 0
+    },
+    {
+      "duration_seconds": 68.968,
+      "error_count": 0,
+      "path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/weekly/run_weekly.json",
+      "script": "run_weekly.py",
+      "stage": "weekly",
+      "status": "SUCCESS",
+      "warning_count": 0
+    }
+  ],
+  "status": "warning",
   "validation": {
     "checks_failed": 0,
     "checks_total": 12,
@@ -160,17 +240,17 @@
     "status": "passed"
   },
   "warnings": [
-    "NFL_SEASON is not set; settings.yaml is authoritative",
-    "NFL_WEEK is not set; settings.yaml is authoritative"
+    "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/build_prop_selections.json status is WARNING",
+    "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer.json status is WARNING"
   ],
   "workflow": {
-    "generated_at_utc": "2026-11-08T10:02:47.933189+00:00",
+    "generated_at_utc": "2026-11-09T10:04:11.516821+00:00",
     "label": "Prop 01 Pipeline",
     "ref_name": "main",
     "run_attempt": "1",
-    "run_id": "42469600802",
-    "sha": "7a5d7dd1843271b4b14eb3578b03d4d0fa5ab9d5",
-    "status": "failure",
+    "run_id": "42597750706",
+    "sha": "6b8ed91075d57c7f3afbc199e3a4435aee35753f",
+    "status": "success",
     "workflow": "prop_01"
   }
 }
