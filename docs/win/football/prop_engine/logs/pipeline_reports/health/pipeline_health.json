@@ -1,30 +1,30 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-42795532829-attempt-1",
-  "status": "WARNING",
-  "exit_code": 0,
+  "run_id": "github-42805349034-attempt-1",
+  "status": "FAILED",
+  "exit_code": 1,
   "pipeline": "NFL Prop Engine",
   "league": "NFL",
   "stage": "health",
   "script": "pipeline_health.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/pipeline_health.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/health/pipeline_health.json",
-  "started_at_utc": "2026-11-10T10:04:22.595885+00:00",
-  "finished_at_utc": "2026-11-10T10:04:22.730674+00:00",
-  "duration_seconds": 0.135,
+  "started_at_utc": "2026-11-10T11:14:06.179812+00:00",
+  "finished_at_utc": "2026-11-10T11:14:06.335842+00:00",
+  "duration_seconds": 0.156,
   "environment": {
     "hostname": "runnervm7aw5e",
     "python_version": "3.14.5",
     "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
     "platform": "linux",
-    "process_id": 2763,
+    "process_id": 2856,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "42795532829",
+    "github_run_id": "42805349034",
     "github_run_attempt": "1",
     "github_workflow": "Prop 01 Pipeline",
     "github_job": "run-prop-engine",
     "github_ref_name": "main",
-    "github_sha": "bfafaac673e0ba76d632d272218699c9dbfbb0f4",
+    "github_sha": "4e49ba1a2365d54ec8185964ea27bb6f89aa022e",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -44,26 +44,65 @@
   ],
   "rows_in": null,
   "rows_out": null,
-  "warning_count": 2,
-  "error_count": 0,
-  "warnings": [
+  "warning_count": 0,
+  "error_count": 7,
+  "warnings": [],
+  "errors": [
     {
-      "timestamp_utc": "2026-11-10T10:04:22.730650+00:00",
-      "message": "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/build_prop_selections.json status is WARNING",
+      "timestamp_utc": "2026-11-10T11:14:06.335806+00:00",
+      "type": null,
+      "message": "stage_3: CSV file not found: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_3/2026_10_all_props.csv",
+      "traceback": null,
       "details": null
     },
     {
-      "timestamp_utc": "2026-11-10T10:04:22.730666+00:00",
-      "message": "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_organizer.json status is WARNING",
+      "timestamp_utc": "2026-11-10T11:14:06.335822+00:00",
+      "type": null,
+      "message": "prop_odds: directory not found: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/output/2026/week_10_props",
+      "traceback": null,
+      "details": null
+    },
+    {
+      "timestamp_utc": "2026-11-10T11:14:06.335826+00:00",
+      "type": null,
+      "message": "prop_selections: directory not found: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/output/2026/week_10_props/selections",
+      "traceback": null,
+      "details": null
+    },
+    {
+      "timestamp_utc": "2026-11-10T11:14:06.335829+00:00",
+      "type": null,
+      "message": "stage_1: directory not found: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_1/week_10",
+      "traceback": null,
+      "details": null
+    },
+    {
+      "timestamp_utc": "2026-11-10T11:14:06.335831+00:00",
+      "type": null,
+      "message": "stage_2: directory not found: /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/prop_picks_final/2026/stage_2/week_10",
+      "traceback": null,
+      "details": null
+    },
+    {
+      "timestamp_utc": "2026-11-10T11:14:06.335833+00:00",
+      "type": null,
+      "message": "pipeline report /home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_odds.json status is FAILED",
+      "traceback": null,
+      "details": null
+    },
+    {
+      "timestamp_utc": "2026-11-10T11:14:06.335835+00:00",
+      "type": null,
+      "message": "Prop 01 Pipeline job status is FAILURE",
+      "traceback": null,
       "details": null
     }
   ],
-  "errors": [],
   "details": {
-    "health_status": "warning",
-    "workflow_status": "success",
-    "fatal_count": 0,
-    "warning_count": 2,
-    "current_report_count": 9
+    "health_status": "failed",
+    "workflow_status": "failure",
+    "fatal_count": 7,
+    "warning_count": 0,
+    "current_report_count": 3
   }
 }
