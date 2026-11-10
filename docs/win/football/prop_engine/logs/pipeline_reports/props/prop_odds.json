@@ -1,30 +1,30 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-42805349034-attempt-1",
-  "status": "FAILED",
-  "exit_code": 1,
+  "run_id": "github-42806085895-attempt-1",
+  "status": "SUCCESS",
+  "exit_code": 0,
   "pipeline": "NFL Prop Engine",
   "league": "NFL",
   "stage": "props",
   "script": "prop_odds.py",
   "script_path": "prop_odds.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/prop_odds.json",
-  "started_at_utc": "2026-11-10T11:14:04.164621+00:00",
-  "finished_at_utc": "2026-11-10T11:14:05.607911+00:00",
-  "duration_seconds": 1.443,
+  "started_at_utc": "2026-11-10T11:18:30.777124+00:00",
+  "finished_at_utc": "2026-11-10T11:18:33.692710+00:00",
+  "duration_seconds": 2.916,
   "environment": {
     "hostname": "runnervm7aw5e",
     "python_version": "3.14.5",
     "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
     "platform": "linux",
-    "process_id": 2833,
+    "process_id": 2577,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "42805349034",
+    "github_run_id": "42806085895",
     "github_run_attempt": "1",
     "github_workflow": "Prop 01 Pipeline",
     "github_job": "run-prop-engine",
     "github_ref_name": "main",
-    "github_sha": "4e49ba1a2365d54ec8185964ea27bb6f89aa022e",
+    "github_sha": "f2f5056f855099b980e11ac25a4f90fb5bfdef78",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -33,25 +33,42 @@
     "week": null
   },
   "inputs": [],
-  "outputs": [],
-  "rows_in": null,
-  "rows_out": null,
-  "warning_count": 0,
-  "error_count": 1,
-  "warnings": [],
-  "errors": [
-    {
-      "timestamp_utc": "2026-11-10T11:14:05.607889+00:00",
-      "type": "RuntimeError",
-      "message": "ESPN prop fetch failed after retries: count=1 sample=['game_id=401873054: HTTPError: HTTP Error 404: Not Found']",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/prop_odds.py\", line 1422, in main\n    _run(reporter)\n    ~~~~^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/prop_odds.py\", line 1335, in _run\n    games = fetch_all_game_props(\n        events\n    )\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/prop_odds.py\", line 652, in fetch_all_game_props\n    raise RuntimeError(\n    ...<2 lines>...\n    )\nRuntimeError: ESPN prop fetch failed after retries: count=1 sample=['game_id=401873054: HTTPError: HTTP Error 404: Not Found']\n",
-      "details": null
-    }
+  "outputs": [
+    "docs/win/football/prop_engine/output/2026/week_10_props/passing/passing_props.csv",
+    "docs/win/football/prop_engine/output/2026/week_10_props/rushing/rushing_props.csv",
+    "docs/win/football/prop_engine/output/2026/week_10_props/receiving/receiving_props.csv",
+    "docs/win/football/prop_engine/output/2026/week_10_props/combo/combo_props.csv",
+    "docs/win/football/prop_engine/output/2026/week_10_props/tds/td_props.csv",
+    "docs/win/football/prop_engine/output/2026/week_10_props/1sthalf/1sthalf_props.csv",
+    "docs/win/football/prop_engine/output/2026/week_10_props/1stquarter/1stquarter_props.csv",
+    "docs/win/football/prop_engine/output/2026/week_10_props/defense/defense_props.csv",
+    "docs/win/football/prop_engine/output/2026/week_10_props/kicking/kicking_props.csv"
   ],
+  "rows_in": 1608,
+  "rows_out": 162,
+  "warning_count": 0,
+  "error_count": 0,
+  "warnings": [],
+  "errors": [],
   "details": {
     "season": 2026,
     "week": 10,
     "source": "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl",
-    "workers": 8
+    "workers": 8,
+    "games": 14,
+    "raw_prop_rows": 1608,
+    "athletes": 84,
+    "category_rows": {
+      "passing": 4,
+      "rushing": 8,
+      "receiving": 18,
+      "combo": 8,
+      "tds": 84,
+      "1sthalf": 28,
+      "1stquarter": 12,
+      "defense": 0,
+      "kicking": 0
+    },
+    "output_root": "docs/win/football/prop_engine/output/2026/week_10_props"
   }
 }
