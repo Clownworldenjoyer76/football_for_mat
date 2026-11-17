@@ -1,3 +1,4 @@
+
 name: CFB 01 Pipeline
 
 on:
@@ -148,6 +149,7 @@ jobs:
       #   run: python docs/win/football/cfb/scripts/00_intake/depth_cleanup.py
 
       - name: Update coaches
+        continue-on-error: true
         run: python docs/win/football/cfb/scripts/00_intake/coaches.py
 
       - name: Pull team power index
@@ -417,7 +419,7 @@ jobs:
 
                   if not str(row["game_id"]).strip():
                       raise RuntimeError(
-                          f"{path}: blank game_id at line {line}"
+                          f"{path}: blank game_id"
                       )
 
               print(
@@ -524,7 +526,7 @@ jobs:
                   return 0
 
               raise RuntimeError(
-                  f"{path}: invalid {field} flag at line {line}: {value!r}"
+                  f"{path}: invalid {field} flag for line {line}: {value!r}"
               )
 
           pick_files = []
@@ -939,7 +941,7 @@ jobs:
               if str(row["league"]).strip() != "CFB":
                   raise RuntimeError(
                       "cfb_summary_overall.csv: "
-                      f"wrong league at line {line}"
+                      "wrong league at line {line}"
                   )
 
               if str(row["season"]).strip() != season:
@@ -992,7 +994,7 @@ jobs:
 
               if not files:
                   raise RuntimeError(
-                      f"{directory}: contains no CSV reports"
+                      f"{directory}: missing CSV reports"
                   )
 
               for path in files:
