@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-45436800586-attempt-1",
+  "run_id": "github-45439214577-attempt-1",
   "status": "FAILED",
   "exit_code": 1,
   "pipeline": "NFL Prop Engine",
@@ -9,22 +9,22 @@
   "script": "props_combined.py",
   "script_path": "props_combined.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/logs/pipeline_reports/props/props_combined.json",
-  "started_at_utc": "2026-11-24T16:27:56.040434+00:00",
-  "finished_at_utc": "2026-11-24T16:27:56.049635+00:00",
+  "started_at_utc": "2026-11-24T16:40:24.517695+00:00",
+  "finished_at_utc": "2026-11-24T16:40:24.526855+00:00",
   "duration_seconds": 0.009,
   "environment": {
     "hostname": "runnervmeozm8",
     "python_version": "3.14.5",
     "python_executable": "/opt/hostedtoolcache/Python/3.14.5/x64/bin/python",
     "platform": "linux",
-    "process_id": 2810,
+    "process_id": 2971,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "45436800586",
+    "github_run_id": "45439214577",
     "github_run_attempt": "1",
     "github_workflow": "Prop 01 Pipeline",
     "github_job": "run-prop-engine",
     "github_ref_name": "main",
-    "github_sha": "7b803db92bc57f17395e6024d99b3614e6880c34",
+    "github_sha": "c8f03bf6a81fbb8a03f0d5dc824cebdeccac3a72",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -43,10 +43,10 @@
   "warnings": [],
   "errors": [
     {
-      "timestamp_utc": "2026-11-24T16:27:56.049620+00:00",
+      "timestamp_utc": "2026-11-24T16:40:24.526838+00:00",
       "type": "RuntimeError",
-      "message": "markets.yaml.rushing_receiving_yards.over.pick_prob[0] must be [min, max]",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 981, in main\n    _run(reporter)\n    ~~~~^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 833, in _run\n    markets = load_markets()\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 281, in load_markets\n    filters[filter_key] = parse_bands(\n                          ~~~~~~~~~~~^\n        side_raw[filter_key],\n        ^^^^^^^^^^^^^^^^^^^^^\n        f\"{side_label}.{filter_key}\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 173, in parse_bands\n    fail(f\"{label}[{index}] must be [min, max]\")\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 91, in fail\n    raise RuntimeError(message)\nRuntimeError: markets.yaml.rushing_receiving_yards.over.pick_prob[0] must be [min, max]\n",
+      "message": "markets.yaml.rushing_receiving_yards.over.actual_prop_total_*[0] must be [min, max]",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 981, in main\n    _run(reporter)\n    ~~~~^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 833, in _run\n    markets = load_markets()\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 281, in load_markets\n    filters[filter_key] = parse_bands(\n                          ~~~~~~~~~~~^\n        side_raw[filter_key],\n        ^^^^^^^^^^^^^^^^^^^^^\n        f\"{side_label}.{filter_key}\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 173, in parse_bands\n    fail(f\"{label}[{index}] must be [min, max]\")\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/prop_engine/scripts/props_combined.py\", line 91, in fail\n    raise RuntimeError(message)\nRuntimeError: markets.yaml.rushing_receiving_yards.over.actual_prop_total_*[0] must be [min, max]\n",
       "details": null
     }
   ],
