@@ -1,18 +1,26 @@
 {
   "critical_unresolved_count": 0,
   "critical_unresolved_starters": [],
-  "current_roster_rows_used": 2483,
+  "current_roster_rows_used": 2484,
   "current_roster_source": {
     "mode": "existing_current_source",
     "output": "docs/win/football/prop_engine/data/current/source/roster_weekly_2026.parquet"
   },
-  "eligible_rows": 1409,
+  "eligible_rows": 1396,
   "games": 16,
-  "ineligible_rows": 1081,
+  "ineligible_rows": 1095,
   "market_exclusion_passed": true,
   "market_features_used": false,
-  "multi_team_reconciliation_count": 3,
+  "multi_team_reconciliation_count": 4,
   "multi_team_reconciliations": [
+    {
+      "authority": "player_crosswalk_current_team",
+      "kept_team": "WSH",
+      "player_id": "00-0036261",
+      "removed_teams": [
+        "SF"
+      ]
+    },
     {
       "authority": "player_crosswalk_current_team",
       "kept_team": "SEA",
@@ -393,6 +401,7 @@
     "00-0035644",
     "00-0035645",
     "00-0035647",
+    "00-0035656",
     "00-0035659",
     "00-0035662",
     "00-0035663",
@@ -476,7 +485,6 @@
     "00-0036253",
     "00-0036259",
     "00-0036260",
-    "00-0036261",
     "00-0036262",
     "00-0036264",
     "00-0036265",
@@ -2562,7 +2570,7 @@
     "roster_master": "docs/win/football/nfl/data/master/roster_master.csv",
     "schedule": "docs/win/football/nfl/00_intake/schedule/2026_schedule.csv"
   },
-  "rows": 2490,
+  "rows": 2491,
   "rules": {
     "canonical_player_id": "gsis_id",
     "defensive_requires_depth_or_recent_participation": true,
@@ -2615,7 +2623,7 @@
   ],
   "script": "build_current_universe.py",
   "season": 2026,
-  "skipped_unresolved_count": 12,
+  "skipped_unresolved_count": 11,
   "skipped_unresolved_nonstarters": [
     {
       "depth_backup_flag": 0,
@@ -2650,23 +2658,6 @@
         "master_roster"
       ],
       "team": "BAL"
-    },
-    {
-      "depth_backup_flag": 0,
-      "depth_rank": null,
-      "depth_starter_flag": 0,
-      "espn_ids": [
-        "4360335"
-      ],
-      "player_names": [
-        "Elijah Jones"
-      ],
-      "position": "DB",
-      "reason": "no_resolved_or_native_gsis_identity",
-      "sources": [
-        "master_roster"
-      ],
-      "team": "CHI"
     },
     {
       "depth_backup_flag": 0,
@@ -2828,7 +2819,7 @@
     "recent_snap_counts": "docs/win/football/prop_engine/data/current/source/snap_counts_2026.parquet",
     "team_master": "docs/win/football/nfl/data/master/team_master.csv"
   },
-  "total_unresolved_skipped_count": 12,
+  "total_unresolved_skipped_count": 11,
   "unresolved_identity_policy": "skip_and_continue",
   "week": 12
 }
