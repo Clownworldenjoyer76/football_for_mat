@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "run_id": "github-45962954924-attempt-1",
+  "run_id": "github-46124142496-attempt-1",
   "status": "FAILED",
   "exit_code": 1,
   "pipeline": "cfb",
@@ -9,22 +9,22 @@
   "script": "coaches.py",
   "script_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/scripts/00_intake/coaches.py",
   "report_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/errors/00_intake/coaches.json",
-  "started_at_utc": "2026-11-27T08:08:47.771865+00:00",
-  "finished_at_utc": "2026-11-27T08:09:10.342186+00:00",
-  "duration_seconds": 22.57,
+  "started_at_utc": "2026-11-28T08:09:12.611697+00:00",
+  "finished_at_utc": "2026-11-28T08:09:33.371544+00:00",
+  "duration_seconds": 20.76,
   "environment": {
-    "hostname": "ip-10-0-137-126",
+    "hostname": "ip-10-0-140-17",
     "python_version": "3.12.16",
     "python_executable": "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
     "platform": "linux",
-    "process_id": 2412,
+    "process_id": 2466,
     "working_directory": "/home/runner/work/football_for_mat/football_for_mat",
-    "github_run_id": "45962954924",
+    "github_run_id": "46124142496",
     "github_run_attempt": "1",
     "github_workflow": "CFB 01 Pipeline",
     "github_job": "run-cfb-pipeline",
     "github_ref_name": "main",
-    "github_sha": "b06114a4cb23255bf29bf18b235745aa9026202f",
+    "github_sha": "3134d2182e2c7aec0ecf84fadf2845624ca63368",
     "github_actor": "Clownworldenjoyer76",
     "github_repository": "Clownworldenjoyer76/football_for_mat"
   },
@@ -48,10 +48,10 @@
   "warnings": [],
   "errors": [
     {
-      "timestamp_utc": "2026-11-27T08:09:10.342166+00:00",
+      "timestamp_utc": "2026-11-28T08:09:33.371526+00:00",
       "type": "RuntimeError",
-      "message": "Failed to resolve complete authoritative head-coach coverage: failure_count=1; examples=EMU(2199): CoachValidationError: Coach-list payload contains no coach candidates for team=EMU, team_id=2199",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/scripts/00_intake/coaches.py\", line 1331, in main\n    return run(report)\n           ^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/scripts/00_intake/coaches.py\", line 1280, in run\n    raise RuntimeError(\nRuntimeError: Failed to resolve complete authoritative head-coach coverage: failure_count=1; examples=EMU(2199): CoachValidationError: Coach-list payload contains no coach candidates for team=EMU, team_id=2199\n",
+      "message": "Failed to resolve complete authoritative head-coach coverage: failure_count=2; examples=AKR(2006): CoachValidationError: Coach-list payload contains no coach candidates for team=AKR, team_id=2006 | EMU(2199): CoachValidationError: Coach-list payload contains no coach candidates for team=EMU, team_id=2199",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/scripts/00_intake/coaches.py\", line 1331, in main\n    return run(report)\n           ^^^^^^^^^^^\n  File \"/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/scripts/00_intake/coaches.py\", line 1280, in run\n    raise RuntimeError(\nRuntimeError: Failed to resolve complete authoritative head-coach coverage: failure_count=2; examples=AKR(2006): CoachValidationError: Coach-list payload contains no coach candidates for team=AKR, team_id=2006 | EMU(2199): CoachValidationError: Coach-list payload contains no coach candidates for team=EMU, team_id=2199\n",
       "details": null
     }
   ],
@@ -60,13 +60,20 @@
     "season_type": 2,
     "authoritative_team_count": 138,
     "teams_requested": 138,
-    "teams_successfully_resolved": 137,
-    "missing_team_count": 1,
+    "teams_successfully_resolved": 136,
+    "missing_team_count": 2,
     "missing_team_ids": [
+      "2006",
       "2199"
     ],
-    "processing_failure_count": 1,
+    "processing_failure_count": 2,
     "processing_failure_details": [
+      {
+        "team_id": "2006",
+        "team_abbr": "AKR",
+        "error_type": "CoachValidationError",
+        "message": "Coach-list payload contains no coach candidates for team=AKR, team_id=2006"
+      },
       {
         "team_id": "2199",
         "team_abbr": "EMU",
@@ -74,30 +81,30 @@
         "message": "Coach-list payload contains no coach candidates for team=EMU, team_id=2199"
       }
     ],
-    "final_row_count": 137,
-    "unique_team_count": 137,
-    "unique_coach_id_count": 137,
+    "final_row_count": 136,
+    "unique_team_count": 136,
+    "unique_coach_id_count": 136,
     "coach_list_request_count": 138,
-    "coach_ref_request_count": 137,
-    "person_ref_request_count": 137,
-    "career_record_request_count": 274,
+    "coach_ref_request_count": 136,
+    "person_ref_request_count": 136,
+    "career_record_request_count": 272,
     "coach_list_request_failure_count": 0,
     "coach_ref_request_failure_count": 0,
     "person_ref_request_failure_count": 0,
     "career_record_request_failure_count": 0,
     "espn_request_failure_count": 0,
     "espn_request_failure_details": [],
-    "espn_request_attempt_count": 686,
+    "espn_request_attempt_count": 682,
     "espn_request_retry_count": 0,
     "espn_recovered_transient_request_count": 0,
     "espn_exhausted_transient_failure_count": 0,
     "espn_request_retry_details": [],
     "explicit_role_selections": 0,
-    "sole_provider_candidate_selections": 137,
+    "sole_provider_candidate_selections": 136,
     "missing_person_ref_count": 0,
     "missing_career_records_collection_count": 0,
     "missing_total_career_record_count": 0,
-    "missing_postseason_career_record_count": 137,
+    "missing_postseason_career_record_count": 136,
     "output_path": "/home/runner/work/football_for_mat/football_for_mat/docs/win/football/cfb/data/master/coaches_master.csv"
   }
 }
